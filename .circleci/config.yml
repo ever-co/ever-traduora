@@ -1,0 +1,70 @@
+version: 2
+
+jobs:
+  test:
+    working_directory: ~/workspace
+    docker:
+      - image: circleci/node:10.9
+      - image: mysql:5.7
+        environment:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_ROOT_PASSWORD: ""
+          MYSQL_DATABASE: "tr_e2e"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - api-deps-{{ checksum "api/yarn.lock" }}
+            - webapp-deps-{{ checksum "webapp/yarn.lock" }}
+      - run:
+          name: Install deps
+          command: bin/install-deps.sh
+      - save_cache:
+          paths:
+            - ~/workspace/api/node_modules
+          key: api-deps-{{ checksum "api/yarn.lock" }}
+      - save_cache:
+          paths:
+            - ~/workspace/webapp/node_modules
+          key: webapp-deps-{{ checksum "webapp/yarn.lock" }}
+      - run:
+          name: Wait for DB
+          command: dockerize -wait tcp://127.0.0.1:3306 -timeout 120s
+      - run:
+          name: Run tests
+          command: bin/test.sh
+
+  build:
+    docker:
+      - image: circleci/node:10.9
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build
+          command: RELEASE=$CIRCLE_TAG bin/build-docker.sh
+
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
+  release:
+    jobs:
+      - test:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^([0-9.]+)$/
+      - build:
+          context: traduora
+          requires:
+            - test
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^([0-9.]+)$/
+

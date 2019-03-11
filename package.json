@@ -1,0 +1,9 @@
+{
+  "name": "traduora",
+  "version": "0.0.0",
+  "description": "Traduora - translation management platform for teams",
+  "repository": "https://github.com/traduora/traduora",
+  "devDependencies": {
+    "concurrently": "^4.1.0"
+  }
+}

@@ -1,0 +1,43 @@
+<div class="d-flex column justify-content-between align-items-center mb-4">
+  <!-- Search -->
+  <div class="flex-1 mr-3 input-group input-group-sm">
+    <div class="input-group-prepend">
+      <span class="input-group-text"><i class="material-icons">search</i></span>
+    </div>
+    <input
+      type="text"
+      class="form-control"
+      [placeholder]="placeholder"
+      (input)="searchText.next($event.target.value)"
+    />
+  </div>
+  <!-- Pagination -->
+  <ngb-pagination
+    class="pagination-sm"
+    [(page)]="page"
+    [pageSize]="pageSize"
+    [maxSize]="3"
+    [rotate]="true"
+    [collectionSize]="(searchResultsSize$ | async) || 0"
+  ></ngb-pagination>
+</div>
+
+<!-- Header -->
+<ng-container *ngTemplateOutlet="searchResultsHeader"></ng-container>
+
+<!-- Results -->
+<ng-container
+  *ngFor="
+    let result of (searchResults$ | async | slice: (page - 1) * pageSize:(page - 1) * pageSize + pageSize);
+    trackBy: trackBy
+  "
+>
+  <ng-container *ngTemplateOutlet="searchResultsItem; context: { result: result }"> </ng-container>
+</ng-container>
+
+<div *ngIf="(((searchResultsSize$ | async) || 0) === 0 && searchText | async)">
+  <div class="alert alert-secondary p-5 d-flex flex-row">
+    <i class="material-icons mr-3">info</i>
+    <p class="font-serif m-0" i18n>Your search yielded no results...</p>
+  </div>
+</div>

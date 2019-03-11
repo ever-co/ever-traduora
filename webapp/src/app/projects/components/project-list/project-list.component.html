@@ -1,0 +1,23 @@
+<div class="h-100 w-100 p-4 container overflow-scroll">
+  <div class="d-flex flex-row mx-1 mb-4">
+    <h4 class="font-serif" i18n>Projects</h4>
+    <span class="flex-1"></span>
+    <app-new-project></app-new-project>
+  </div>
+  <div
+    *ngIf="!(isLoading$ | async) && (projects$ | async).length === 0"
+    class="alert alert-secondary p-5 d-flex flex-row"
+  >
+    <i class="material-icons mr-3">info</i>
+    <div>
+      <h4 class="font-serif" i18n>Welcome!</h4>
+      <p i18n>You haven't created any projects yet. Add a new project to get started!</p>
+      <app-new-project btnClass="btn-primary"></app-new-project>
+    </div>
+  </div>
+  <div class="d-flex flex-column overflow-scroll pb-5">
+    <div class="w-100 pb-4" *ngFor="let project of (projects$ | async)">
+      <app-project-card [project]="project"></app-project-card>
+    </div>
+  </div>
+</div>

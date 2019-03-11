@@ -1,0 +1,9 @@
+.list-group-item.active * {
+    color: white !important;
+}
+
+.list-group-item:hover:not(.active) {
+  background-color: #e9ecef;
+  transition: background-color 150ms ease;
+  cursor: pointer;
+}

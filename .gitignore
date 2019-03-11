@@ -1,0 +1,9 @@
+dist/
+node_modules
+
+lib/core/metadata.js
+lib/core/MetadataBlog.js
+
+translated_docs
+build/
+i18n/*

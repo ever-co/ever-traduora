@@ -1,0 +1,26 @@
+<nav class="navbar navbar-dark bg-primary shadow-sm px-4">
+  <a class="navbar-brand" routerLink="/">
+    <app-logo></app-logo>
+  </a>
+  <span class="flex-1"></span>
+  <div class="d-flex" *ngIf="(user$ | async) as user">
+    <button
+      class="btn btn-primary btn-sm d-flex justify-content-center align-items-center mr-1"
+      routerLink="/projects"
+    >
+      <i class="material-icons mr-1">assignment</i><ng-container i18n>Projects</ng-container>
+    </button>
+    <div ngbDropdown class="d-inline-block" placement="bottom-right">
+      <button
+        class="btn btn-primary btn-sm d-flex justify-content-center align-items-center"
+        ngbDropdownToggle
+      >
+        <i class="material-icons mr-1">account_circle</i>{{ user.name || user.email }}
+      </button>
+      <div ngbDropdownMenu>
+        <button class="dropdown-item" routerLink="/user-settings" i18n>Account Settings</button>
+        <button class="dropdown-item" (click)="logout()" i18n>Logout</button>
+      </div>
+    </div>
+  </div>
+</nav>

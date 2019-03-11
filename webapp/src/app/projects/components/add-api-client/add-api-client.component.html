@@ -1,0 +1,93 @@
+<ng-template #content let-modal>
+  <form [formGroup]="form" (submit)="addApiClient(contentSecret)" novalidate>
+    <div class="modal-header">
+      <h4 class="modal-title font-serif" i18n>Add API Client</h4>
+      <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
+      <div class="form-group">
+        <label for="nameInput" i18n>Name</label>
+        <input
+          id="nameInput"
+          class="form-control"
+          type="text"
+          formControlName="name"
+          placeholder="The desired name to identify this API client..."
+          [ngClass]="{ 'is-invalid': name.touched && name.invalid }"
+          autocomplete="off"
+        />
+
+        <div class="invalid-feedback">
+          <div *ngIf="name.getError('required')" i18n>Name is required.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="projectRole" i18n>Project role</label>
+        <div class="input-group">
+          <select id="projectRole" class="custom-select" formControlName="role">
+            <option *ngFor="let role of projectRoles" [ngValue]="role">{{ role | titlecase }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
+      <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-primary" i18n>
+        Save
+      </button>
+    </div>
+  </form>
+</ng-template>
+
+<ng-template #contentSecret let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title font-serif" i18n>Add API Client</h4>
+  </div>
+
+  <div class="modal-body">
+    <ng-container *ngIf="client; else elseTemplate">
+      <p i18n>
+        Below is your API client's ID and secret. The secret will <strong>only be shown once</strong>, store it safely
+        as there is no way to recover it afterwards!
+      </p>
+
+      <div class="d-flex flex-row h-100 w-100 justify-content-between align-items-center py-3 " i18n>
+        <p class="text-dark m-0 mr-3">Client ID:</p>
+        <span class="bg-light text-dark rounded p-1 mr-3">{{ client.id }}</span>
+        <button class="btn btn-dark btn-sm" (click)="copyToClipboard(client.id)">Copy</button>
+      </div>
+
+      <div class="d-flex flex-row h-100 w-100 justify-content-between align-items-center py-3 " i18n>
+        <p class="text-dark m-0 mr-3">Secret:</p>
+        <span class="bg-light text-dark rounded p-1 mr-3">{{ client.secret }}</span>
+        <button class="btn btn-dark btn-sm" (click)="copyToClipboard(client.secret)">Copy</button>
+      </div>
+
+    </ng-container>
+    <ng-template #elseTemplate>
+      <p>
+        Something went wrong while retrying the newly created API client, please try again or contact us if the problem
+        persists
+      </p>
+    </ng-template>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn btn-primary" (click)="modal.close()" i18n>
+      Ok, I have stored the secret somewhere safe
+    </button>
+  </div>
+</ng-template>
+
+<button
+  class="btn btn-sm d-flex justify-content-center align-items-center"
+  (click)="open(content)"
+  [ngClass]="btnClass"
+>
+  <i class="material-icons mr-1" style="font-size: 18px">add</i>
+  <ng-container i18n>Add API client</ng-container>
+</button>

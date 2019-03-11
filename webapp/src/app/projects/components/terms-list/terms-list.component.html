@@ -1,0 +1,52 @@
+<app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
+<div class="w-100 h-100">
+  <div *ngIf="(project$ | async) as project" class="h-100">
+    <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
+      <h5 class="font-serif m-0" i18n>Terms</h5>
+      <app-new-term *ngIf="(true | can: 'AddTerm' | async)" [project]="project"></app-new-term>
+    </div>
+
+    <app-search [items]="projectTerms$" [key]="searchKey" [trackBy]="trackElement">
+      <ng-template #searchResultsItem let-term="result">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="d-flex flex-row w-100">
+              <app-editable-text
+                class="flex-1"
+                [readOnly]="!(true | can: 'EditTerm' | async)"
+                [value]="term.value"
+                placeholder="No term value yet"
+                [allowEmpty]="false"
+                showLength="true"
+                (save)="updateTerm(project.id, term.id, $event)"
+              ></app-editable-text>
+              <button
+                *ngIf="(true | can: 'DeleteTerm' | async)"
+                class="ml-3 btn bg-transparent text-dark btn-sm"
+                style="max-height: 2rem"
+                (click)="deleteTerm(project.id, term.id)"
+              >
+                <i class="material-icons" style="font-size: 1.25rem">close</i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </ng-template>
+    </app-search>
+
+    <div *ngIf="!(isLoading$ | async) && (projectTerms$ | async).length === 0">
+      <div class="alert alert-secondary p-5 d-flex flex-row">
+        <i class="material-icons mr-3">info</i>
+        <div>
+          <h4 class="font-serif" i18n>Project terms are empty</h4>
+          <p i18n>You haven't yet created any terms for this project. Add a new term to get started!</p>
+          <app-new-term
+            *ngIf="(true | can: 'AddTerm' | async)"
+            [project]="project"
+            btnClass="btn-primary"
+          ></app-new-term>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,212 @@
+import { Navigate } from '@ngxs/router-plugin';
+import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
+import { throwError } from 'rxjs';
+import { catchError, finalize, tap } from 'rxjs/operators';
+import { Logout } from '../../auth/stores/auth.state';
+import { errorToMessage } from '../../shared/util/api-error';
+import { Locale } from '../models/locale';
+import { ProjectLocale } from '../models/project-locale';
+import { Translation } from '../models/translation';
+import { ProjectTranslationsService } from '../services/translations.service';
+import { ClearCurrentProject } from './projects.state';
+
+export class ClearMessages {
+  static readonly type = '[Translations] Clear messages';
+}
+
+export class GetKnownLocales {
+  static readonly type = '[Translations] Get known locales';
+}
+
+export class GetProjectLocales {
+  static readonly type = '[Translations] Get project locales';
+  constructor(public projectId: string) {}
+}
+
+export class AddProjectLocale {
+  static readonly type = '[Translations] Add project locale';
+  constructor(public projectId: string, public localeCode: string) {}
+}
+
+export class DeleteProjectLocale {
+  static readonly type = '[Translations] Delete project locale';
+  constructor(public projectId: string, public localeCode: string) {}
+}
+
+export class GetTranslations {
+  static readonly type = '[Translations] Get translation';
+  constructor(public projectId: string, public localeCode: string) {}
+}
+
+export class UpdateTranslation {
+  static readonly type = '[Translations] Update translation';
+  constructor(public projectId: string, public localeCode: string, public termId: string, public value: string) {}
+}
+
+export interface TranslationsStateModel {
+  projectLocales: ProjectLocale[];
+  knownLocales: Locale[];
+  translations: { [localeCode: string]: Translation[] };
+  isLoading: boolean;
+  errorMessage: string | undefined;
+}
+
+const stateDefaults = {
+  projectLocales: [],
+  knownLocales: [],
+  translations: {},
+  isLoading: false,
+  errorMessage: undefined,
+};
+
+@State<TranslationsStateModel>({
+  name: 'translations',
+  defaults: stateDefaults,
+})
+export class TranslationsState implements NgxsOnInit {
+  constructor(private translationService: ProjectTranslationsService) {}
+
+  @Selector()
+  static isLoading(state: TranslationsStateModel) {
+    return state.isLoading;
+  }
+
+  @Selector()
+  static projectLocales(state: TranslationsStateModel) {
+    return state.projectLocales.sort((a, b) => (a.locale.code > b.locale.code ? 1 : -1));
+  }
+
+  @Selector()
+  static projectTranslations(state: TranslationsStateModel) {
+    return state.translations;
+  }
+
+  @Selector()
+  static knownLocales(state: TranslationsStateModel) {
+    return state.knownLocales;
+  }
+
+  ngxsOnInit(ctx: StateContext<TranslationsStateModel>) {}
+
+  @Action(Logout)
+  logout(ctx: StateContext<TranslationsStateModel>, action: Logout) {
+    ctx.setState(stateDefaults);
+  }
+
+  @Action(GetKnownLocales)
+  getKnownLocales(ctx: StateContext<TranslationsStateModel>, action: GetKnownLocales) {
+    ctx.patchState({ isLoading: true });
+    return this.translationService.loadKnownLocales().pipe(
+      tap(knownLocales => ctx.patchState({ knownLocales })),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(GetProjectLocales)
+  getProjectLocales(ctx: StateContext<TranslationsStateModel>, action: GetProjectLocales) {
+    ctx.patchState({ isLoading: true });
+    return this.translationService.findProjectLocales(action.projectId).pipe(
+      tap(projectLocales => ctx.patchState({ projectLocales })),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(AddProjectLocale)
+  addProjectLocale(ctx: StateContext<TranslationsStateModel>, action: AddProjectLocale) {
+    ctx.patchState({ isLoading: true });
+    return this.translationService.addProjectLocale(action.projectId, action.localeCode).pipe(
+      tap(projectLocale => ctx.patchState({ projectLocales: [...ctx.getState().projectLocales, projectLocale] })),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(DeleteProjectLocale)
+  deleteProjectLocale(ctx: StateContext<TranslationsStateModel>, action: AddProjectLocale) {
+    ctx.patchState({ isLoading: true });
+    return this.translationService.deleteProjectLocale(action.projectId, action.localeCode).pipe(
+      tap(() =>
+        ctx.patchState({
+          projectLocales: ctx.getState().projectLocales.filter(x => x.locale.code !== action.localeCode),
+        }),
+      ),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(GetTranslations)
+  getTranslations(ctx: StateContext<TranslationsStateModel>, action: GetTranslations) {
+    ctx.patchState({ isLoading: true });
+    return this.translationService.findProjectTranslation(action.projectId, action.localeCode).pipe(
+      tap(translation =>
+        ctx.patchState({
+          translations: { ...ctx.getState().translations, [action.localeCode]: translation },
+        }),
+      ),
+      catchError(error => {
+        if (error.status === 404) {
+          ctx.dispatch(new Navigate(['404']));
+        }
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(UpdateTranslation)
+  updateTranslation(ctx: StateContext<TranslationsStateModel>, action: UpdateTranslation) {
+    ctx.patchState({ isLoading: true });
+    return this.translationService.updateTranslation(action.projectId, action.localeCode, action.termId, action.value).pipe(
+      tap(translation => {
+        const storeTranslations = ctx.getState().translations;
+        // Try to find translation in project locale and update it,
+        // if not found then add it to translations. This can happen with
+        // newly added terms.
+        let found = false;
+        const forLocale = storeTranslations[action.localeCode].map(tr => {
+          if (tr.termId === translation.termId) {
+            found = true;
+            return translation;
+          }
+          return tr;
+        });
+        if (!found) {
+          forLocale.push(translation);
+        }
+        const translations = { ...storeTranslations, [action.localeCode]: forLocale };
+        ctx.patchState({ translations });
+      }),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(ClearMessages)
+  clearMessages(ctx: StateContext<TranslationsStateModel>) {
+    ctx.patchState({ errorMessage: undefined });
+  }
+
+  @Action(ClearCurrentProject)
+  clearCurrentProject(ctx: StateContext<TranslationsStateModel>) {
+    ctx.patchState({ projectLocales: [], translations: {}, errorMessage: undefined });
+  }
+}

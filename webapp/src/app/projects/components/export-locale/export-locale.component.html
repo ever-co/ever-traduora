@@ -1,0 +1,34 @@
+<div *ngIf="errorMessage" class="mb-3">
+  <div class="alert alert-warning d-flex justify-content-start mb-0">
+    <i class="material-icons mr-3">warning</i>
+    <p class="m-0">{{ errorMessage }}</p>
+  </div>
+</div>
+
+<div class="form-group">
+  <label i18n>Select the locale to export</label>
+  <app-select-locale
+    class="mb-5"
+    [locales]="locales"
+    [limit]="5"
+    [loading]="loading"
+    (selectLocale)="selectLocale($event)"
+  ></app-select-locale>
+</div>
+
+<div class="form-group">
+  <label for="exportFormat" i18n>Select an export format</label>
+  <div class="input-group">
+    <select id="exportFormat" class="custom-select" [(ngModel)]="selectedFormat">
+      <option selected [value]="undefined" i18n>Export format...</option>
+      <option *ngFor="let format of availableFormats" [ngValue]="format">{{ format.displayName }}</option>
+    </select>
+  </div>
+</div>
+
+<hr />
+
+<div class="d-flex align-content-center justify-content-end">
+  <button type="button" class="btn btn-primary" (click)="export()" [disabled]="!validInputs() || loading" i18n>Download</button>
+</div>
+

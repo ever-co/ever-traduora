@@ -1,0 +1,57 @@
+<ng-template #content let-modal>
+  <div class="modal-header flex-column">
+    <div class="d-flex flex-row w-100">
+      <h4 class="modal-title font-serif flex-1" i18n>Add a new Term</h4>
+      <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    <app-error-message
+      class="mt-1"
+      *ngIf="(errorMessage$ | async) as errorMessage"
+      [message]="errorMessage"
+    ></app-error-message>
+  </div>
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="termInput" i18n>New term value</label>
+        <input
+          id="termInput"
+          class="form-control"
+          type="text"
+          formControlName="term"
+          placeholder="The term's value, i.e. menu.button.pause"
+          [ngClass]="{ 'is-invalid': term.touched && term.invalid }"
+          autocomplete="off"
+        />
+        <div class="invalid-feedback">
+          <div *ngIf="term.getError('required')" i18n>Value is required.</div>
+          <div *ngIf="term.getError('pattern')" i18n>Cannot be only whitespace.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
+      <button
+        type="submit"
+        [disabled]="!form.valid || (isLoading$ | async)"
+        class="btn btn-sm btn-primary w-100"
+        style="max-width: 120px;"
+        i18n
+      >
+        Add
+      </button>
+    </div>
+  </form>
+</ng-template>
+
+<button
+  class="btn btn-sm d-flex justify-content-center align-items-center"
+  (click)="open(content)"
+  [ngClass]="btnClass"
+>
+  <i class="material-icons mr-1" style="font-size: 18px">add</i>
+  <ng-container i18n>New Term</ng-container>
+</button>

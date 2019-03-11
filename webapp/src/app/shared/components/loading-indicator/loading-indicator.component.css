@@ -1,0 +1,46 @@
+.loadingIndicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  height: 3px;
+}
+
+.loadingIndicator .progress {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  position: absolute;
+  visibility: visible;
+  display: block;
+  -webkit-animation: animate-loading-indcator 1.5s cubic-bezier(0.25, 0.45, 0.75, 0.55) infinite;
+  animation: animate-loading-indcator 1.5s cubic-bezier(0.25, 0.45, 0.75, 0.55) infinite;
+  background-color: #c6e0ff;
+  background-image: linear-gradient(to right, #3b84f8 0%, #c6e0ff 40%, #c6e0ff 60%, #3b84f8 100%);
+  background-repeat: repeat-x;
+  background-size: 600px;
+  width: 300%;
+}
+
+@-webkit-keyframes animate-loading-indcator {
+  from {
+    -webkit-transform: translateX(-600px);
+    transform: translateX(-600px);
+  }
+  to {
+    -webkit-transform: translateX(0);
+    transform: translateX(0);
+  }
+}
+@keyframes animate-loading-indcator {
+  from {
+    -webkit-transform: translateX(-600px);
+    transform: translateX(-600px);
+  }
+  to {
+    -webkit-transform: translateX(0);
+    transform: translateX(0);
+  }
+}

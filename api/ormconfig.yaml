@@ -1,0 +1,15 @@
+default:
+  type: mysql
+  host: localhost
+  port: 3306
+  username: root
+  password: ''
+  database: tr_dev
+  synchronize: false
+  logging: true
+  entities: ['src/entity/*.entity.ts']
+  migrations: ['src/migrations/*.ts']
+  cli:
+    entitiesDir: src/entity
+    migrationsDir: src/migrations
+    subscribersDir: src/subscriber

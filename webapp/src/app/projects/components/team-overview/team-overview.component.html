@@ -1,0 +1,18 @@
+<app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
+<div class="w-100 h-100">
+  <div *ngIf="(project$ | async) as project" class="h-100">
+    <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
+      <h5 class="font-serif m-0" i18n>Project Team</h5>
+      <app-add-team-member *ngIf="true | can: 'AddProjectUser' | async" [projectId]="project.id"></app-add-team-member>
+    </div>
+    <div *ngFor="let user of (projectUsers$ | async)">
+      <app-team-member
+        [user]="user"
+        [canEdit]="!user.isSelf | can: 'EditProjectUsers' | async"
+        [canDelete]="!user.isSelf | can: 'DeleteProjectUsers' | async"
+        (edit)="updateProjectUser(project.id, $event.userId, $event.role)"
+        (remove)="removeProjectUser(project.id, $event.userId)"
+      ></app-team-member>
+    </div>
+  </div>
+</div>

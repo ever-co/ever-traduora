@@ -1,0 +1,18 @@
+version: '3'
+services:
+  traduora:
+    image: traduora/traduora:latest
+    ports:
+     - "8080:8080"
+    environment:
+      TR_DB_HOST: mysql
+    depends_on:
+      - db
+  db:
+    image: mysql:5.7
+    ports:
+     - "3306"
+    environment:
+      MYSQL_DATABASE: tr_dev
+      MYSQL_USER: root
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'true'

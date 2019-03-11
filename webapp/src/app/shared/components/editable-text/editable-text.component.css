@@ -1,0 +1,82 @@
+.form-control {
+  background-color: transparent !important;
+}
+
+textarea {
+  border: 1px solid transparent;
+  box-shadow: none;
+  resize: none;
+}
+
+textarea.is-editing {
+  border: 1px solid #e6ecf1 !important;
+} 
+
+.form-control:hover:not(.is-editing):not(.readonly) {
+  cursor: pointer;
+  background-color: #e9ecef !important;
+  transition: background-color 150ms ease;
+}
+
+.form-control.readonly {
+  border: none;
+  box-shadow: none;
+}
+
+.form-control:focus:not(.readonly) {
+  border: none;
+  box-shadow: none;
+}
+
+textarea:hover:not(.is-editing):not(.readonly) {
+  cursor: pointer;
+  background-color: #e9ecef !important;
+  transition: background-color 150ms ease;
+}
+
+.is-editing {
+  background-color: #f8f9fa !important;
+  transition: background-color 150ms ease;
+}
+
+textarea:placeholder-shown {
+  font-style: italic;
+}
+
+.edit-controls {
+  position: absolute;
+  bottom: 0;
+  transform: translateY(100%);
+}
+
+.edit-controls .length-hint, .btn {
+  box-shadow: rgba(116, 129, 141, 0.1) 0px 3px 8px 0px;
+}
+
+.rounded-b-0 {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.rounded-t-0 {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+.rounded-l-0 {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+.rounded-br-0 {
+  border-bottom-right-radius: 0 !important;
+}
+
+.rounded-bl-0 {
+  border-bottom-left-radius: 0 !important;
+}
+
+.rounded-r-0 {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}

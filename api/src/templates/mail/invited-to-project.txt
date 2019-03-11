@@ -1,0 +1,7 @@
+Hi {{user.user.name}},
+
+You've been granted access to the project '{{user.project.name}}' on Traduora with the role '{{user.role}}'.
+
+To get started, go to {{virtualHost}}/projects/{{user.project.id}} and login with your email and password.
+
+Traduora's Team

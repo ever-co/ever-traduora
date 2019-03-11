@@ -1,0 +1,10 @@
+$theme-colors: (
+    primary: #3b84f8,
+    danger: #d14354,
+    warning: #fcb400,
+    light: #f5f7f9,
+  );
+
+@import '../node_modules/bootstrap/scss/bootstrap.scss';
+
+$light-gray: #e9ecef;

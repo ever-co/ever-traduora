@@ -1,0 +1,16 @@
+.nav-link:hover:not(.disabled):not(.active) {
+  /* color: #00000080; */
+  background-color: #454a50;
+  transition: background-color 150ms ease;
+}
+
+.nav-link.disabled:hover {
+  background-color: #454a50;
+  transition: background-color 150ms ease;
+}
+
+.nav-link.active {
+  background-color: #3b84f8;
+  transition: background-color 150ms ease;
+  color: white !important;
+}

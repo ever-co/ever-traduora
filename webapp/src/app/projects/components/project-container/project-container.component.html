@@ -1,0 +1,90 @@
+<div class="d-flex flex-column w-100 h-100">
+  <div *ngIf="(project$ | async) as project" class="d-flex flex-sm-row flex-column w-100 h-100">
+    <div class="navbar navbar-dark bg-dark d-flex align-items-start p-0" style="min-width: 220px">
+      <div class="navbar-nav w-100 flex-column">
+        <div class="d-flex flex-column justify-content-between align-items-start px-3 py-4">
+          <div class="d-flex flex-row justify-content-between w-100">
+            <div>
+              <p class="font-serif text-white truncate mb-1">{{ project.name }}</p>
+              <span class="badge badge-secondary mb-2">{{ project.role | titlecase }}</span>
+              <div>
+                <p class="text-muted text-sm mb-0">
+                  <strong class="mr-1">{{ project.termsCount }}</strong> <ng-container i18n>{project.termsCount, plural, =0 {terms} =1 {term} other {terms} }</ng-container>
+                </p>
+                <p class="text-muted text-sm mb-0">
+                  <strong class="mr-1">{{ project.localesCount }}</strong> <ng-container i18n>{project.localesCount, plural, =0 {locales} =1 {locale} other {locales} }</ng-container>
+                </p>
+              </div>
+            </div>
+            <div class="collapsible-show">
+              <button class="btn btn-primary btn-sm d-flex justify-content-center align-items-center" (click)="toggleMenu()">
+                <i class="material-icons">menu</i><ng-container i18n>Menu</ng-container>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex flex-column" [ngClass]='{collapsible: shouldCollapse}'>
+          <hr class="m-0 mb-3" />
+          
+          <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
+            routerLink="terms"
+            routerLinkActive="active"
+          >
+            <i class="material-icons mr-1">list</i>
+            <ng-container i18n>Terms</ng-container>
+          </a>
+          
+          <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
+            routerLink="translations"
+            routerLinkActive="active">
+            <i class="material-icons mr-1">language</i>
+            <ng-container i18n>Translations</ng-container>
+          </a>
+          
+          <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
+            routerLink="team"
+            routerLinkActive="active"
+          >
+            <i class="material-icons mr-1">people</i>
+            <ng-container i18n>Team</ng-container>
+          </a>
+          
+          <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
+            [ngClass]="{'disabled': !(true | can: 'ImportTranslation' | async)}"  
+            routerLink="import"
+            routerLinkActive="active"
+            >
+            <i class="material-icons mr-1">note_add</i>
+            <ng-container i18n>Import</ng-container>
+          </a>
+          
+          <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
+          routerLink="export"
+          routerLinkActive="active"
+          >
+          <i class="material-icons mr-1">get_app</i>
+          <ng-container i18n>Export</ng-container></a>
+          
+          <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
+            [ngClass]="{'disabled': !(true | can: 'ViewProjectClients' | async)}"
+            routerLink="api"
+            routerLinkActive="active"
+          >
+            <i class="material-icons mr-1">https</i>
+            <ng-container i18n>API Keys</ng-container>
+          </a>
+          
+          <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
+            routerLink="settings"
+            routerLinkActive="active"
+          >
+            <i class="material-icons mr-1">settings_applications</i>
+            <ng-container i18n>Project Settings</ng-container>
+          </a>
+
+        </div>
+      </div>
+    </div>
+    <div class="flex-1 d-flex flex-column p-4 overflow-scroll"><router-outlet></router-outlet></div>
+  </div>
+</div>

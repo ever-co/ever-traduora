@@ -1,0 +1,156 @@
+@import './custom_bootstrap.scss';
+
+@import '../node_modules/flag-icon-css/css/flag-icon.css';
+
+html,
+body {
+  background-color: map-get($theme-colors, 'light');
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  font-family: Ubuntu, -apple-system, BlinkMacSystemFont, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  min-height: 0;
+  min-width: 0;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+@include media-breakpoint-up(sm) {
+  .full-screen-sm {
+    height: 100vh !important;
+    width: 100vw !important;
+  }
+}
+
+.avatar-xs {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.text-sm {
+  font-size: 0.75rem;
+}
+
+.card {
+  padding: 0;
+  white-space: normal;
+  text-align: left;
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgb(230, 236, 241);
+  box-shadow: rgba(116, 129, 141, 0.1) 0px 3px 8px 0px;
+}
+
+.card.btn:hover {
+  border-color: gray('500');
+  background-color: gray('200');
+}
+
+.font-serif {
+  font-family: 'Varela Round', -apple-system, BlinkMacSystemFont, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.font-mono {
+  font-family: Menlo, Monaco, 'Roboto Mono', monospace;
+}
+
+.border-transparent {
+  border: solid transparent;
+}
+
+.truncate {
+  text-overflow: ellipsis;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+@include media-breakpoint-up(sm) {
+  .overflow-sm-hidden {
+    overflow: hidden;
+  }
+}
+
+.overflow-scroll {
+  overflow: scroll;
+}
+
+.no-underline {
+  text-decoration: none !important;
+}
+
+.no-underline:hover {
+  text-decoration: none !important;
+}
+
+.section-title-row {
+  min-height: 2rem;
+}
+
+.text-sm {
+  font-size: 0.875rem !important;
+}
+
+.text-xs {
+  font-size: 0.725rem !important;
+}
+
+.tooltip.show {
+  opacity: 1 !important;
+}
+
+.tooltip-custom .tooltip-inner {
+  color: gray('100');
+  background-color: gray('800');
+  box-shadow: #74818d1a 0px 3px 8px 0px;
+}
+
+.tooltip-custom .arrow::before {
+  border-right-color: gray('800');
+}
+
+.dropdown-menu {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgb(230, 236, 241);
+  box-shadow: rgba(116, 129, 141, 0.1) 0px 3px 8px 0px;
+}
+
+.dropdown-item:hover {
+  cursor: pointer;
+  background-color: map-get($theme-colors, 'light');
+  transition: background-color 150ms ease;
+}
+
+.pagination {
+  margin-bottom: 0 !important;
+}
+
+.alert.alert-secondary {
+  background-color: $light-gray;
+}
+
+@include media-breakpoint-down(xs) {
+  .collapsible {
+    display: none !important;
+  }
+}
+
+@include media-breakpoint-down(xs) {
+  .collapsible-show {
+    display: initial !important;
+  }
+}
+@include media-breakpoint-up(sm) {
+  .collapsible-show {
+    display: none !important;
+  }
+}

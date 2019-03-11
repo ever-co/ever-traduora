@@ -1,0 +1,8 @@
+Hi {{user.name}},
+
+We're happy to see you join us and hope you enjoy traduora!
+You're one step closer to bringing your project to a wider audience.
+
+To get started, go to {{virtualHost}}/login and login with your email and password.
+
+Traduora's Team
