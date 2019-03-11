@@ -49,6 +49,22 @@ term.one,Hello there, this is a translation string
 term.two,Check out {{ project.name }}
 ```
 
+## Gettext (po)
+```text
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"MIME-Version: 1.0\n"
+"Language: en_US\n"
+
+msgid "term.one"
+msgstr "Hello there, this is a translation string"
+
+msgid "term.two"
+msgstr "Check out {{ project.name }}"
+```
+
 ## XLIFF (1.2)
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
