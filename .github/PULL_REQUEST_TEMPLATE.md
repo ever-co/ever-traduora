@@ -6,3 +6,5 @@ The CLA is a license agreement, which enables "Traduora" to distribute your code
 Anyone wishing to contribute to the github.com/traduora/traduora project must read & sign our Contributor License Agreement.
 
 - [ ] Sign the [Contributor License Agreement](https://goo.gl/forms/zjAKBr8gfUOvR83D2)
+
+Or you can also open the PR and our CLA bot will prompt you briefly.
