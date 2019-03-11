@@ -4,7 +4,6 @@ export interface ImportFormat {
   extension: string;
 }
 
-// TODO: unify import and export formats
 export const IMPORT_FORMATS: ImportFormat[] = [
   { displayName: 'CSV', extension: 'csv', code: 'csv' },
   { displayName: 'XLIFF 1.2', extension: 'xliff', code: 'xliff12' },
@@ -13,6 +12,7 @@ export const IMPORT_FORMATS: ImportFormat[] = [
   { displayName: 'YAML Flat', extension: 'yaml', code: 'yamlflat' },
   { displayName: 'YAML', extension: 'yaml', code: 'yamlnested' },
   { displayName: 'Java Properties', extension: 'properties', code: 'properties' },
+  { displayName: 'Gettext (po)', extension: 'po', code: 'po' },
 ];
 
 export interface ImportResult {
