@@ -31,6 +31,7 @@ import { xliffParser } from '../formatters/xliff';
 import { yamlFlatParser } from '../formatters/yaml-flat';
 import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
+import { gettextParser } from '../formatters/gettext';
 
 @Controller('api/v1/projects/:projectId/imports')
 export class ImportController {
@@ -175,6 +176,8 @@ export class ImportController {
           return await yamlNestedParser(contents);
         case 'properties':
           return await propertiesParser(contents);
+        case 'po':
+          return await gettextParser(contents);
         default:
           throw new Error('Export format not implemented');
       }

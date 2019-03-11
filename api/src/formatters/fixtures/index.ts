@@ -1,10 +1,11 @@
 import * as fs from 'fs';
+import { IntermediateTranslationFormat } from '../../domain/formatters';
 
 export const loadFixture = (name: string) => {
   return fs.readFileSync(`src/formatters/fixtures/${name}`, { encoding: 'utf-8' });
 };
 
-export const simpleFormatFixture = {
+export const simpleFormatFixture: IntermediateTranslationFormat = {
   translations: [
     {
       term: 'term.one',
