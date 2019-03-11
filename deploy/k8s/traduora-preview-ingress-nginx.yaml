@@ -11,13 +11,13 @@ metadata:
   name: traduora
   namespace: traduora-preview
   labels:
-    app: tradora
+    app: traduora
   annotations:
     kubernetes.io/ingress.class: "nginx"
     # IMPORTANT:
     # It is strongly recommended that you only serve traduora over TLS
     # Configure according to your cloud environment
-    # 
+    #
     # kubernetes.io/tls-acme: "true"
     # certmanager.k8s.io/cluster-issuer: your-letsencrypt-issuer
     # certmanager.k8s.io/acme-challenge-type: dns01
