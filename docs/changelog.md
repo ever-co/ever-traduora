@@ -8,6 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 - Added support to import and export Gettext (po) files
+- Change default encoding for Java properties format to ISO-8859-1
 
 ## 0.8.7
 - Initial open source release

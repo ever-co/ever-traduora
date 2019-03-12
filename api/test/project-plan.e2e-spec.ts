@@ -143,11 +143,9 @@ describe('PlansController (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .attach(
         'file',
-        Buffer.from(
-          await jsonFlatExporter({
-            translations: new Array(99).fill(0).map((_, index) => ({ term: `term.${index}`, translation: `some ${index}` })),
-          }),
-        ),
+        Buffer.from((await jsonFlatExporter({
+          translations: new Array(99).fill(0).map((_, index) => ({ term: `term.${index}`, translation: `some ${index}` })),
+        })) as string),
         'file',
       )
       .expect(200);

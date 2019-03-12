@@ -1,5 +1,6 @@
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { propertiesExporter, propertiesParser } from './properties';
+import * as iconv from 'iconv-lite';
 
 test('should parse properties files', async () => {
   const input = loadFixture('simple.properties');
@@ -7,8 +8,32 @@ test('should parse properties files', async () => {
   expect(result).toEqual(simpleFormatFixture);
 });
 
+test('should encode and decode properties files with ISO-8859-1 by default', async () => {
+  const encodedLiteral = String.raw`term.one = Tous les soci\u00E9t\u00E9s`;
+
+  const decoded = {
+    translations: [
+      {
+        term: 'term.one',
+        translation: 'Tous les sociétés',
+      },
+    ],
+  };
+
+  {
+    const result = await propertiesParser(encodedLiteral);
+    expect(result).toEqual(decoded);
+  }
+
+  {
+    const encodedBuffer = iconv.encode(`term.one = Tous les sociétés`, 'ISO-8859-1');
+    const result = await propertiesExporter(decoded);
+    expect(result).toEqual(encodedBuffer);
+  }
+});
+
 test('should export properties files', async () => {
   const result = await propertiesExporter(simpleFormatFixture);
   const expected = loadFixture('simple.properties');
-  expect(result).toEqual(expected);
+  expect(result.toString()).toEqual(expected);
 });

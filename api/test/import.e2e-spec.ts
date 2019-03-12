@@ -22,11 +22,11 @@ describe('ImportController (e2e)', async () => {
     anotherUser = await signupTestUser(app, 'another-user@test.com');
     testProject = await createTestProject(app, testingUser);
 
-    jsonFlat100 = await jsonFlatExporter({
+    jsonFlat100 = (await jsonFlatExporter({
       translations: new Array(100).fill(0).map((_, index) => ({ term: `term.${index}`, translation: `some ${index}` })),
-    });
+    })) as string;
 
-    jsonFlatWithNewTerms = await jsonFlatExporter({
+    jsonFlatWithNewTerms = (await jsonFlatExporter({
       translations: [
         {
           term: 'term.one',
@@ -37,9 +37,9 @@ describe('ImportController (e2e)', async () => {
           translation: 'drei',
         },
       ],
-    });
+    })) as string;
 
-    norwayTranslations = await jsonFlatExporter({
+    norwayTranslations = (await jsonFlatExporter({
       translations: [
         {
           term: 'term.one',
@@ -50,7 +50,7 @@ describe('ImportController (e2e)', async () => {
           translation: 'some two',
         },
       ],
-    });
+    })) as string;
 
     // Pre-existing Terms
     {
