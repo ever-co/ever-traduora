@@ -7,6 +7,16 @@ sidebar_label: Contributing
 
 First of all, thank you for your interest in contributing! Any kind of contribution to traduora is more than welcome. Below you'll find some guidance on how to help with the project.
 
+## Running traduora locally with hot code reload
+
+Assuming you have MySQL 5.7 running locally with a database called `tr_dev`, username `root` and empty password, from the project's root directory run the following:
+
+```sh
+yarn && bin/start-dev.sh
+```
+
+Once ready, the API will be listening on `:8080` and the webapp on `:4200`.
+
 ## Ways to help:
 
 The starting point would be to get familiar with our product and the existing codebase, and know your way around. Read the docs, run it locally and generally get a feel for the product.
