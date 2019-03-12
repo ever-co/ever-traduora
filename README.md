@@ -45,7 +45,7 @@ We think it's great that you'd like to contribute to traduora. To get started ta
 
 
 ## Internationalization
-Of course we'd like traduora to be avaliable in as many languages as possible. We're setting up a traduora server for translating traduora itself, check back soon for more details on how to contribute.
+Of course we'd like traduora to be available in as many languages as possible. We're setting up a traduora server for translating traduora itself, check back soon for more details on how to contribute.
 
 
 ## Changelog
