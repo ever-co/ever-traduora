@@ -10,7 +10,7 @@ Traduora currently supports the following import and export formats:
 ```json
 {
   "term.one": "Hello there, this is a translation string",
-  "term.two.": "Check out {{ project.name }}"
+  "term.two": "Check out {{ project.name }}"
 }
 ```
 
