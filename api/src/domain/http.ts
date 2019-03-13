@@ -179,6 +179,7 @@ export enum ImportExportFormat {
   YamlNested = 'yamlnested',
   Properties = 'properties',
   Gettext = 'po',
+  Strings = 'strings',
 }
 
 export class ExportQuery {

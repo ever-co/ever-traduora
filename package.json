@@ -5,5 +5,6 @@
   "repository": "https://github.com/traduora/traduora",
   "devDependencies": {
     "concurrently": "^4.1.0"
-  }
+  },
+  "dependencies": {}
 }

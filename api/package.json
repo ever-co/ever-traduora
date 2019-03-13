@@ -40,6 +40,7 @@
     "properties": "^1.2.1",
     "reflect-metadata": "^0.1.12",
     "rxjs": "^6.2.2",
+    "strings-file": "^0.0.5",
     "typeorm": "^0.2.7",
     "typescript": "^3.0.1",
     "xliff": "^4.1.2"
