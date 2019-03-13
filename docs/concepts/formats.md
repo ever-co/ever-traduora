@@ -84,6 +84,12 @@ msgstr "Check out {{ project.name }}"
 </xliff>
 ```
 
+## Strings
+```text
+"term.one" = "Hello there, this is a translation string";
+"term.two" = "Check out {{ project.name }}";
+```
+
 ## New formats on the way
 The roadmap includes: Apple Strings, PHP arrays, Microsoft Resources, Gettext (po), Android Resources (xml).
 
