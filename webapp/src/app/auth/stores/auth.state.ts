@@ -22,11 +22,7 @@ export class DeleteAccount {
 
 export class Signup {
   static readonly type = '[Auth] Signup';
-  constructor(
-    public name: string,
-    public email: string,
-    public password: string,
-  ) {}
+  constructor(public name: string, public email: string, public password: string) {}
 }
 
 export class UpdateUserSelf {
