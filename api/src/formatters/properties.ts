@@ -1,6 +1,6 @@
 import * as properties from 'properties';
 import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
-import * as iconv from 'iconv-lite';
+import * as native2ascii from 'node-native2ascii';
 
 export const propertiesParser: Parser = async (data: string) => {
   const parsed = await new Promise((resolve, reject) => {
@@ -38,5 +38,5 @@ export const propertiesParser: Parser = async (data: string) => {
 export const propertiesExporter: Exporter = async (data: IntermediateTranslationFormat) => {
   const out = data.translations.reduce((acc, obj) => ({ ...acc, [obj.term]: obj.translation }), {});
   const result = properties.stringify(out);
-  return iconv.encode(result, 'ISO-8859-1');
+  return native2ascii(result);
 };

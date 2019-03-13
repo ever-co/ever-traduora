@@ -1372,7 +1372,7 @@ combined-stream@^1.0.6, combined-stream@~1.0.6:
   dependencies:
     delayed-stream "~1.0.0"
 
-commander@^2.12.1:
+commander@^2.12.1, commander@^2.19.0:
   version "2.19.0"
   resolved "https://registry.yarnpkg.com/commander/-/commander-2.19.0.tgz#f6198aa84e5b83c46054b94ddedbfed5ee9ff12a"
   integrity sha512-6tvAOO+D6OENvRAh524Dh9jcfKTYDQAqvqezbCW82xj5X0pSrcpxtvRKHLG0yBY6SD7PSDrJaj+0AiOcKVd1Xg==
@@ -2033,6 +2033,11 @@ escape-string-regexp@^1.0.2, escape-string-regexp@^1.0.5:
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/escape-string-regexp/-/escape-string-regexp-1.0.5.tgz#1b61c0562190a8dff6ae3bb2cf0200ca130b86d4"
   integrity sha1-G2HAViGQqN/2rjuyzwIAyhMLhtQ=
+
+escape-unicode@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/escape-unicode/-/escape-unicode-0.2.0.tgz#8c33e161a541ba944b75d93f79f15c8a7f419ed9"
+  integrity sha512-7jMQuKb8nm0h/9HYLfu4NCLFwoUsd5XO6OZ1z86PbKcMf8zDK1m7nFR0iA2CCShq4TSValaLIveE8T1UBxgALQ==
 
 escodegen@^1.9.1:
   version "1.11.0"
@@ -4410,6 +4415,15 @@ node-libs-browser@^2.0.0:
     util "^0.10.3"
     vm-browserify "0.0.4"
 
+node-native2ascii@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/node-native2ascii/-/node-native2ascii-0.2.0.tgz#3602339db320bd87c50e9e06f16511759b165c67"
+  integrity sha512-xEPZJkdi/4+flqpYwwrRrdUTAtUhrJtAzgnUaikjhzbs4MdREU6B00Joig9POy/RWo7bwmFgR6tpv7oK7mlULw==
+  dependencies:
+    commander "^2.19.0"
+    escape-unicode "^0.2.0"
+    unescape-unicode "^0.2.0"
+
 node-notifier@^5.2.1:
   version "5.3.0"
   resolved "https://registry.yarnpkg.com/node-notifier/-/node-notifier-5.3.0.tgz#c77a4a7b84038733d5fb351aafd8a268bfe19a01"
@@ -6334,6 +6348,11 @@ undefsafe@^2.0.2:
   integrity sha1-Il9rngM3Zj4Njnz9aG/Cg2zKznY=
   dependencies:
     debug "^2.2.0"
+
+unescape-unicode@^0.2.0:
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/unescape-unicode/-/unescape-unicode-0.2.0.tgz#e70c8c99171d3ed6e4f08c220d3ac09b4639b07d"
+  integrity sha512-bcocfvlPFiZiFJBbImE16g1GTwMDKGSnz40Dlm6FzsZe7Fob7QA8iqIFwKesaub3L/MQ/U8KNIjyRbFWx4J8ug==
 
 union-value@^1.0.0:
   version "1.0.0"

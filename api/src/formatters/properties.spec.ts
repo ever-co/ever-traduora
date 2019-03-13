@@ -9,7 +9,7 @@ test('should parse properties files', async () => {
 });
 
 test('should encode and decode properties files with ISO-8859-1 by default', async () => {
-  const encodedLiteral = String.raw`term.one = Tous les soci\u00E9t\u00E9s`;
+  const encodedLiteral = String.raw`term.one = Tous les soci\u00e9t\u00e9s`;
 
   const decoded = {
     translations: [
@@ -26,9 +26,8 @@ test('should encode and decode properties files with ISO-8859-1 by default', asy
   }
 
   {
-    const encodedBuffer = iconv.encode(`term.one = Tous les sociétés`, 'ISO-8859-1');
     const result = await propertiesExporter(decoded);
-    expect(result).toEqual(encodedBuffer);
+    expect(result).toEqual(encodedLiteral);
   }
 });
 
