@@ -7,9 +7,6 @@ export const environment = {
   title: 'traduora',
   homepage: 'https://traduora.com',
   apiEndpoint: `http://localhost:8080/api/v1`,
-  tosAndPrivacyVersion: '09.12.18',
-  tosLink: 'https://traduora.com/tos',
-  privacyLink: 'https://traduora.com/privacy',
   inviteOnly: false,
 };
 

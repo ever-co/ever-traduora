@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
+
 import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { ProjectRole } from '../src/entity/project-user.entity';
 
@@ -33,8 +34,6 @@ export async function signupTestUser(app: INestApplication, email: string = 'e2e
       name: `End to End Tester (${email})`,
       email: email,
       password: 'mysupersecretpassword',
-      acceptedTosAndPrivacy: true,
-      acceptedTosAndPrivacyVersion: '09.12.18',
     });
   const result = res.body.data as TestingUser;
   if (!result.id || !result.name || !result.email || !result.accessToken) {

@@ -62,32 +62,6 @@
           </div>
         </div>
 
-        <div class="form-check my-4">
-          <input
-            [disabled]="inviteOnly"
-            id="tosAndPrivacyAgreementInput"
-            class="form-check-input"
-            type="checkbox"
-            formControlName="acceptTosAndPrivacy"
-            value=""
-            autocomplete="off"
-            [ngClass]="{ 'is-invalid': acceptTosAndPrivacy.touched && acceptTosAndPrivacy.invalid }"
-            (change)="
-              $event.target.checked
-                ? signupForm.controls['acceptTosAndPrivacy'].setValue('yes')
-                : signupForm.controls['acceptTosAndPrivacy'].setValue('')
-            "
-          />
-          <label class="form-check-label text-sm" for="tosAndPrivacyAgreementInput">
-            I agree to the Traduora
-            <a class="no-underline" href="https://traduora.com/tos" target="_blank" rel="noopener noreferrer">Terms of Service</a> and
-            <a class="no-underline" href="https://traduora.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
-          </label>
-          <div class="invalid-feedback">
-            <div *ngIf="acceptTosAndPrivacy.hasError('required')" i18n>Agreement is required.</div>
-          </div>
-        </div>
-
         <button type="submit" [disabled]="!signupForm.valid || (isLoading$ | async)" class="btn btn-primary w-100" i18n>Get started</button>
       </form>
     </div>

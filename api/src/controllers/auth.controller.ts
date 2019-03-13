@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
+
 import { config } from '../config';
 import {
   AuthenticateRequest,
@@ -47,22 +48,14 @@ export class AuthController {
       throw new ForbiddenException('Signups are disabled');
     }
 
-    if (!payload.acceptedTosAndPrivacy) {
-      throw new BadRequestException('Must accept Terms of Service and Privacy Policy in order to sign up.');
-    }
-
-    const acceptedTosAndPrivacyDate = new Date();
     const user = await this.userService.create(
       payload.name,
       payload.email,
       payload.password,
-      acceptedTosAndPrivacyDate,
-      payload.acceptedTosAndPrivacyVersion,
     );
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
-
     this.mailService.welcomeNewUser(user);
 
     return {

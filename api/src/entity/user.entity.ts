@@ -1,4 +1,5 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+
 import { AccessTimestamps } from './base';
 
 @Entity()
@@ -34,20 +35,6 @@ export class User {
     precision: 6,
   })
   lastLogin: Date;
-
-  @Column({
-    type: 'timestamp',
-    nullable: true,
-    precision: 6,
-  })
-  tosAndPrivacyAcceptedDate: Date;
-
-  @Column({
-    type: 'varchar',
-    nullable: true,
-    length: 255,
-  })
-  tosAndPrivacyAcceptedVersion: string;
 
   @Column({
     type: 'int',
