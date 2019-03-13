@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
 import { Repository } from 'typeorm';
+
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 
@@ -11,7 +12,7 @@ import { TooManyRequestsException } from '../errors';
 export class UserService {
   constructor(@InjectRepository(User) private userRepo: Repository<User>) {}
 
-  async create(name: string, email: string, password: string, acceptedTosAndPrivacyDate: Date, acceptedTosAndPrivacyVersion: string): Promise<User> {
+  async create(name: string, email: string, password: string): Promise<User> {
     const normalizedEmail = this.normalizeEmail(email);
     const exists = await this.userRepo.findOne({ email: normalizedEmail });
 
@@ -23,8 +24,6 @@ export class UserService {
     user.name = name;
     user.email = normalizedEmail;
     user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
-    user.tosAndPrivacyAcceptedDate = acceptedTosAndPrivacyDate;
-    user.tosAndPrivacyAcceptedVersion = acceptedTosAndPrivacyVersion;
 
     return await this.userRepo.save(user);
   }
