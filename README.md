@@ -15,7 +15,7 @@ We want traduora to become the home for managing your translation workflow, that
 - Find what you are looking for with instant search
 - Invite your team, everyone can work together on the same project
 - Automate your translation workflow via our REST API
-- Import and export to your favourite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po) and more coming soon!
+- Import and export to your favourite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings and more coming soon!
 - *Coming soon:* Web and Mobile SDKs
 - *Coming soon:* Automatic translations
 
