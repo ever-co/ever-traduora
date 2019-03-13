@@ -42,6 +42,13 @@ export class CustomExceptionFilter implements ExceptionFilter {
           message: 'You are sending too many requests, please try again later',
         },
       });
+    } else if (exception.status === 422) {
+      response.status(422).json({
+        error: {
+          code: 'UnprocessableEntity',
+          message: 'We understood the request, but are unable to process it',
+        },
+      });
     } else if (exception.status === 402) {
       response.status(402).json({
         error: {

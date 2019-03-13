@@ -37,6 +37,16 @@ export function errorToMessage(error: any, action: string = ''): string {
       default:
         return 'Error, resource not found';
     }
+  } else if (error.status === 422) {
+    switch (action) {
+      case 'DeleteAccount':
+        return (
+          `We are unable to delete your account as you are the last admin for one or more projects. ` +
+          `Please assign another admin for those projects or delete the projects first and try again.`
+        );
+      default:
+        return 'The server was unable to process the request, please check your request.';
+    }
   } else if (error.status === 402) {
     // tslint:disable-next-line:max-line-length
     return `It seems like you would go over the limit of your current project plan. Please review your current usage or upgrade your plan.`;
