@@ -74,7 +74,7 @@ export class ExportsController {
     res.send(serialized);
   }
 
-  private async dump(format: ImportExportFormat, data: IntermediateTranslationFormat): Promise<string | Buffer> {
+  private async dump(format: ImportExportFormat, data: IntermediateTranslationFormat): Promise<string> {
     switch (format) {
       case 'csv':
         return await csvExporter(data);

@@ -5,7 +5,7 @@ export interface IntermediateTranslationFormat {
 
 export type Parser = (payload: string) => Promise<IntermediateTranslationFormat>;
 
-export type Exporter = (data: IntermediateTranslationFormat) => Promise<string | Buffer>;
+export type Exporter = (data: IntermediateTranslationFormat) => Promise<string>;
 
 export interface IntermediateTranslation {
   term: string;
