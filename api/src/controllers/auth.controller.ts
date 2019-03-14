@@ -48,11 +48,7 @@ export class AuthController {
       throw new ForbiddenException('Signups are disabled');
     }
 
-    const user = await this.userService.create(
-      payload.name,
-      payload.email,
-      payload.password,
-    );
+    const user = await this.userService.create(payload.name, payload.email, payload.password);
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);

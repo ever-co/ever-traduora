@@ -40,13 +40,7 @@ export class SignupComponent implements OnInit, OnDestroy {
     if (!this.signupForm.valid) {
       return;
     }
-    this.store.dispatch(
-      new Signup(
-        this.name.value as string,
-        this.email.value as string,
-        this.password.value as string,
-      ),
-    );
+    this.store.dispatch(new Signup(this.name.value as string, this.email.value as string, this.password.value as string));
   }
 
   get name() {
