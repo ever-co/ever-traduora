@@ -6,6 +6,7 @@
     "start": "ng serve",
     "clean": "rimraf ../dist/public",
     "build": "ng build",
+    "fmt": "prettier --write \"src/**/*.ts\"",
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e"
