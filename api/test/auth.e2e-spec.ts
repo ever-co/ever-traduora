@@ -20,70 +20,11 @@ describe('AuthController (e2e)', () => {
         name: 'Another End to End Tester',
         email: 'e2eanother@test.com',
         password: 'myTrulysupersecretpassword',
-        acceptedTosAndPrivacy: true,
-        acceptedTosAndPrivacyVersion: '09.12.18',
       })
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveExactProperties(['id', 'name', 'email', 'accessToken']);
       });
-  });
-
-  it('/api/v1/auth/signup (POST) should reject signup request if did not accept tos and privacy', async () => {
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
-      .send({
-        name: 'End to End Tester',
-        email: 'anothere2e@test.com',
-        password: 'mysupersecretpassword',
-        acceptedTosAndPrivacy: false,
-        acceptedTosAndPrivacyVersion: '09.12.18',
-      })
-      .expect(400);
-  });
-
-  it('/api/v1/auth/signup (POST) should reject signup request if it is not known tos and privacy version', async () => {
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
-      .send({
-        name: 'End to End Tester',
-        email: 'anothere2e@test.com',
-        password: 'mysupersecretpassword',
-        acceptedTosAndPrivacy: true,
-        acceptedTosAndPrivacyVersion: '08.12.18',
-      })
-      .expect(400);
-  });
-
-  it('/api/v1/auth/signup (POST) should reject signup request if missing info on tos and privacy agreement', async () => {
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
-      .send({
-        name: 'End to End Tester',
-        email: 'anothere2e@test.com',
-        password: 'mysupersecretpassword',
-        acceptedTosAndPrivacy: true,
-      })
-      .expect(400);
-
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
-      .send({
-        name: 'End to End Tester',
-        email: 'anothere2e@test.com',
-        password: 'mysupersecretpassword',
-        acceptedTosAndPrivacyVersion: '09.12.18',
-      })
-      .expect(400);
-
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
-      .send({
-        name: 'End to End Tester',
-        email: 'anothere2e@test.com',
-        password: 'mysupersecretpassword',
-      })
-      .expect(400);
   });
 
   it('/api/v1/auth/signup (POST) should reject signup with invalid email', async () => {
@@ -93,8 +34,6 @@ describe('AuthController (e2e)', () => {
         name: 'End to End Tester',
         email: 'e2etest.com',
         password: 'mysupersecretpassword',
-        acceptedTosAndPrivacy: true,
-        acceptedTosAndPrivacyVersion: '09.12.18',
       })
       .expect(400);
   });
@@ -106,8 +45,6 @@ describe('AuthController (e2e)', () => {
         name: 'End to End Tester',
         email: 'anothere2e@test.com',
         password: 'short',
-        acceptedTosAndPrivacy: true,
-        acceptedTosAndPrivacyVersion: '09.12.18',
       })
       .expect(400);
   });
@@ -124,8 +61,6 @@ describe('AuthController (e2e)', () => {
         name: 100,
         email: 100,
         password: 12301920,
-        acceptedTosAndPrivacy: true,
-        acceptedTosAndPrivacyVersion: '09.12.18',
       })
       .expect(400);
 
@@ -135,8 +70,6 @@ describe('AuthController (e2e)', () => {
         name: 'Totally',
         email: 'totally@valid.com',
         password: 12301920,
-        acceptedTosAndPrivacy: true,
-        acceptedTosAndPrivacyVersion: '09.12.18',
       })
       .expect(400);
   });
@@ -148,8 +81,6 @@ describe('AuthController (e2e)', () => {
         name: 'Another End to End Tester',
         email: testingUser.email,
         password: 'myothersupersecretpassword',
-        acceptedTosAndPrivacy: true,
-        acceptedTosAndPrivacyVersion: '09.12.18',
       })
       .expect(409)
       .expect(res => expect(res.body.error.code).toBe('AlreadyExists'));

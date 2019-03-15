@@ -2,6 +2,7 @@ import { Navigate } from '@ngxs/router-plugin';
 import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
 import { throwError } from 'rxjs';
 import { catchError, finalize, map, tap } from 'rxjs/operators';
+
 import { errorToMessage } from '../../shared/util/api-error';
 import { User } from '../models/user';
 import { AuthService } from '../services/auth.service';
@@ -21,13 +22,7 @@ export class DeleteAccount {
 
 export class Signup {
   static readonly type = '[Auth] Signup';
-  constructor(
-    public name: string,
-    public email: string,
-    public password: string,
-    public acceptedTosAndPrivacy: boolean,
-    public acceptedTosAndPrivacyVersion: string,
-  ) {}
+  constructor(public name: string, public email: string, public password: string) {}
 }
 
 export class UpdateUserSelf {

@@ -1,4 +1,4 @@
-import { IMPORT_FORMATS } from "./import";
+import { IMPORT_FORMATS } from './import';
 
 export interface ExportFormat {
   displayName: string;

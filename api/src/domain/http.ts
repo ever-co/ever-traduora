@@ -1,4 +1,5 @@
-import { IsBoolean, IsEmail, IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
 
@@ -12,8 +13,6 @@ export enum GrantType {
   ClientCredentials = 'client_credentials',
 }
 
-export const KNOWN_TOS_AND_PRIVACY_VERSION = ['09.12.18'];
-
 export class SignupRequest {
   @Length(2, 255)
   @Validate(IsNotOnlyWhitespace)
@@ -24,14 +23,6 @@ export class SignupRequest {
 
   @Length(8, 255)
   password: string;
-
-  @IsBoolean()
-  acceptedTosAndPrivacy: boolean;
-
-  @IsString()
-  @Length(1, 255)
-  @IsIn(KNOWN_TOS_AND_PRIVACY_VERSION)
-  acceptedTosAndPrivacyVersion: string;
 }
 
 export class AuthenticateRequest {

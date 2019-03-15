@@ -1,17 +1,22 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException, UnprocessableEntityException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
 import { Repository } from 'typeorm';
+
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
+import { ProjectUser, ProjectRole } from '../entity/project-user.entity';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectRepository(User) private userRepo: Repository<User>) {}
+  constructor(
+    @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
+  ) {}
 
-  async create(name: string, email: string, password: string, acceptedTosAndPrivacyDate: Date, acceptedTosAndPrivacyVersion: string): Promise<User> {
+  async create(name: string, email: string, password: string): Promise<User> {
     const normalizedEmail = this.normalizeEmail(email);
     const exists = await this.userRepo.findOne({ email: normalizedEmail });
 
@@ -23,8 +28,6 @@ export class UserService {
     user.name = name;
     user.email = normalizedEmail;
     user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
-    user.tosAndPrivacyAcceptedDate = acceptedTosAndPrivacyDate;
-    user.tosAndPrivacyAcceptedVersion = acceptedTosAndPrivacyVersion;
 
     return await this.userRepo.save(user);
   }
@@ -65,6 +68,31 @@ export class UserService {
   }
 
   async deleteAccount(user: User) {
+    const ownedProjects = await this.projectUsersRepo.find({
+      where: { user: { id: user.id }, role: ProjectRole.Admin },
+      relations: ['project'],
+    });
+
+    // Ensure user is not last project admin for any of their projects with other users
+    if (ownedProjects && ownedProjects.length > 0) {
+      for (const ownedProject of ownedProjects) {
+        const projectUsers = await this.projectUsersRepo.find({
+          where: { project: { id: ownedProject.project.id } },
+          relations: ['user'],
+        });
+
+        const otherUsers = projectUsers.filter(u => u.user.id !== user.id);
+
+        if (otherUsers && otherUsers.length > 0) {
+          const otherAdmins = otherUsers.find(u => u.role === ProjectRole.Admin);
+
+          if (!otherAdmins) {
+            throw new UnprocessableEntityException('cant delete account if last project admin and other users use project');
+          }
+        }
+      }
+    }
+
     await this.userRepo.remove(user);
   }
 

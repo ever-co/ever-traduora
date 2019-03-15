@@ -57,9 +57,10 @@ Also please note that if the PR is a major change, the merge is likely to be pos
 
 General requirements for merging:
 
-- Any relevant changes should have an entry in the [changelog](changelog.md) (you can add an entry under the `next` section).
-- If there are any API changes, the documentation must be also updated.
-- The PR must be approved by a core committer before merging.
-- Anyone wishing to contribute to the github.com/traduora/traduora project must read & sign our [Contributor License Agreement](https://goo.gl/forms/zjAKBr8gfUOvR83D2).
+1. Run checks with `bin/check.sh` (it will also auto format files).
+1. The PR must be approved by a core committer before merging.
+2. If there are any API changes, the documentation must be also updated.
+3. Anyone wishing to contribute to the github.com/traduora/traduora project must read & sign our [Contributor License Agreement](https://cla-assistant.io/traduora/traduora).
+4. Any relevant changes should have an entry in the [changelog](changelog.md) (you can add an entry under the `next` section).
 
 Once your PR is merged into `master`, it will eventually land on the next release of traduora. Once again, thank you for contributing, we really appreciate it!
