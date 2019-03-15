@@ -7,7 +7,7 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
-- 
+- Suppport Apple .strings format
 
 ## 0.9.0
 - Added support to import and export Gettext (po) files

@@ -2839,7 +2839,7 @@ iconv-lite@0.4.23:
   dependencies:
     safer-buffer ">= 2.1.2 < 3"
 
-iconv-lite@0.4.24, iconv-lite@^0.4.24, iconv-lite@^0.4.4, iconv-lite@~0.4.13:
+iconv-lite@0.4.24, iconv-lite@^0.4.13, iconv-lite@^0.4.24, iconv-lite@^0.4.4, iconv-lite@~0.4.13:
   version "0.4.24"
   resolved "https://registry.yarnpkg.com/iconv-lite/-/iconv-lite-0.4.24.tgz#2022b4b25fbddc21d2f524974a474aafe733908b"
   integrity sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==
@@ -5926,6 +5926,13 @@ string_decoder@~0.10.x:
   version "0.10.31"
   resolved "https://registry.yarnpkg.com/string_decoder/-/string_decoder-0.10.31.tgz#62e203bc41766c6c28c9fc84301dab1c5310fa94"
   integrity sha1-YuIDvEF2bGwoyfyEMB2rHFMQ+pQ=
+
+strings-file@^0.0.5:
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/strings-file/-/strings-file-0.0.5.tgz#40386d44cd0359db71761d582e743f858334ce27"
+  integrity sha1-QDhtRM0DWdtxdh1YLnQ/hYM0zic=
+  dependencies:
+    iconv-lite "^0.4.13"
 
 strip-ansi@^3.0.0, strip-ansi@^3.0.1:
   version "3.0.1"
