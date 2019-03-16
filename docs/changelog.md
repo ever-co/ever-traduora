@@ -8,6 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 - Suppport Apple .strings format
+- Set default MySQL charset to utf8mb. You can now use emojis in terms and translations 👍.
 
 ## 0.9.0
 - Added support to import and export Gettext (po) files
