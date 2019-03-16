@@ -28,6 +28,11 @@ bin/test.sh
 pprint "Applying code format"
 yarn fmt
 
+if ! [[ -z $(git status -s) ]]; then
+    echo "You have uncommited changes on git or you might need to apply formatting to your source code"
+    exit 1
+fi
+
 pprint "Linting API code"
 cd api && yarn lint
 
