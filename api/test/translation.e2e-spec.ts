@@ -160,6 +160,42 @@ describe('TranslationController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/translations/:localeCode (PATCH) should accept translations with utf-8 characters', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        termId,
+        value: 'őúüöá',
+      })
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'date']);
+        expect(res.body.data.value).toEqual('őúüöá');
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        termId,
+        value: 'őúüöá 😀👍🍉你好',
+      })
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'date']);
+        expect(res.body.data.value).toEqual('őúüöá 😀👍🍉你好');
+      });
+  });
+
   it('/api/v1/projects/:projectId/translations/:localeCode (PATCH) should fail to update translation if term or locale not exists', async () => {
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/translations`)

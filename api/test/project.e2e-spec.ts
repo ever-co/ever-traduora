@@ -25,10 +25,36 @@ describe('ProjectController (e2e)', async () => {
       .expect(201)
       .expect(res => {
         expect(res.body.data).toHaveExactProperties(['id', 'name', 'role', 'description', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data.name).toEqual('My first project');
+        expect(res.body.data.description).toBeNull();
         expect(res.body.data.role).toEqual('admin');
         expect(res.body.data.termsCount).toEqual(0);
         expect(res.body.data.localesCount).toEqual(0);
         projectId = res.body.data.id;
+      });
+  });
+
+  it('/api/v1/projects (POST) should accept projects with utf-8 characters in the name or description', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/projects')
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        name: 'My second project őúüöá 😀👍🍉你好',
+        description: '⛄ 😀👍 descriptiön 🍉你好',
+      })
+      .expect(201)
+      .expect(async res => {
+        expect(res.body.data).toHaveExactProperties(['id', 'name', 'role', 'description', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data.role).toEqual('admin');
+        expect(res.body.data.termsCount).toEqual(0);
+        expect(res.body.data.localesCount).toEqual(0);
+        expect(res.body.data.name).toEqual('My second project őúüöá 😀👍🍉你好');
+        expect(res.body.data.description).toEqual('⛄ 😀👍 descriptiön 🍉你好');
+
+        await request(app.getHttpServer())
+          .delete(`/api/v1/projects/${res.body.data.id}`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .expect(204);
       });
   });
 
