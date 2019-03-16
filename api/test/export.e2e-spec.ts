@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
+import { propertiesParser } from '../src/formatters/properties';
 
 describe('ExportController (e2e)', () => {
   let app: INestApplication;
@@ -90,7 +91,7 @@ describe('ExportController (e2e)', () => {
         .set('Authorization', `Bearer ${testingUser.accessToken}`)
         .send({
           termId: termTwoId,
-          value: 'deux',
+          value: 'deux ⛄ 😀👍 🍉你好',
         })
         .expect(200);
     }
@@ -106,6 +107,32 @@ describe('ExportController (e2e)', () => {
         expect(Object.keys(parsed)).toHaveLength(2);
         expect(parsed['term.two']).toEqual('zwei');
         expect(parsed['term.one']).toEqual('eins');
+      });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should export translation with utf-8 characters in various formats', async () => {
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        expect(Object.keys(parsed)).toHaveLength(2);
+        expect(parsed['term.two']).toEqual('deux ⛄ 😀👍 🍉你好');
+        expect(parsed['term.one']).toEqual('un');
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=properties`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(async res => {
+        const payload = Buffer.from(res.body).toString();
+        expect(payload).toContain('deux \\u26c4 \\ud83d\\ude00\\ud83d\\udc4d \\ud83c\\udf49\\u4f60\\u597d');
+        const parsed = await propertiesParser(payload);
+        expect(Object.keys(parsed.translations)).toHaveLength(2);
+        expect(parsed.translations.find(t => t.term === 'term.two').translation).toEqual('deux ⛄ 😀👍 🍉你好');
+        expect(parsed.translations.find(t => t.term === 'term.one').translation).toEqual('un');
       });
   });
 
