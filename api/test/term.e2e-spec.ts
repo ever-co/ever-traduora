@@ -9,9 +9,8 @@ describe('TermController (e2e)', () => {
   let testingUser: TestingUser;
   let anotherUser: TestingUser;
   let testProject: TestingProject;
-  let termId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     app = await createAndMigrateApp();
     testingUser = await signupTestUser(app);
     anotherUser = await signupTestUser(app, 'another-user@test.com');
@@ -29,11 +28,18 @@ describe('TermController (e2e)', () => {
       .expect(201)
       .expect(res => {
         expect(res.body.data).toHaveExactProperties(['id', 'value', 'date']);
-        termId = res.body.data.id;
       });
   });
 
   it('/api/v1/projects/:projectId/terms (GET) should find terms for project', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201);
+
     await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject.id}/terms`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
@@ -45,6 +51,19 @@ describe('TermController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/terms/:termId (PATCH) should update term by id', async () => {
+    let termId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201)
+      .expect(res => {
+        termId = res.body.data.id;
+      });
+
     await request(app.getHttpServer())
       .patch(`/api/v1/projects/${testProject.id}/terms/${termId}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
@@ -60,6 +79,19 @@ describe('TermController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/terms/:termId (DELETE) should delete term by id', async () => {
+    let termId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201)
+      .expect(res => {
+        termId = res.body.data.id;
+      });
+
     await request(app.getHttpServer())
       .delete(`/api/v1/projects/${testProject.id}/terms/${termId}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
@@ -75,6 +107,19 @@ describe('TermController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/terms should not access terms resource if not authenticated', async () => {
+    let termId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201)
+      .expect(res => {
+        termId = res.body.data.id;
+      });
+
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/terms`)
       .expect(401);
@@ -93,6 +138,19 @@ describe('TermController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/terms should not access terms resource if not authorized', async () => {
+    let termId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201)
+      .expect(res => {
+        termId = res.body.data.id;
+      });
+
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/terms`)
       .set('Authorization', `Bearer ${anotherUser.accessToken}`)
@@ -120,7 +178,7 @@ describe('TermController (e2e)', () => {
       .expect(404);
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await app.close();
   });
 });
