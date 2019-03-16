@@ -23,6 +23,7 @@ export default class TermController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTerm);
     const terms = await this.termRepo.find({
       where: { project: { id: membership.project.id } },
+      order: { value: 'ASC' },
     });
     return {
       data: terms.map(t => ({

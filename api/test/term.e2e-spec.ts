@@ -50,6 +50,30 @@ describe('TermController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/terms (GET) should return terms in lexical order', async () => {
+    const input = ['app.login', 'should be last', 'app.logout', '2 goes second', 'app.exit', 'menu.start', 'a term', '1 goes first'];
+    const expected = ['1 goes first', '2 goes second', 'a term', 'app.exit', 'app.login', 'app.logout', 'menu.start', 'should be last'];
+
+    for (const term of input) {
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/terms`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({
+          value: term,
+        })
+        .expect(201);
+    }
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(expected.length);
+        expect(res.body.data.map(t => t.value)).toEqual(expected);
+      });
+  });
+
   it('/api/v1/projects/:projectId/terms/:termId (PATCH) should update term by id', async () => {
     let termId: string;
 
@@ -79,6 +103,19 @@ describe('TermController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/terms/:termId (PATCH) should accept terms with utf-8 encoding', async () => {
+    let termId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201)
+      .expect(res => {
+        termId = res.body.data.id;
+      });
+
     await request(app.getHttpServer())
       .patch(`/api/v1/projects/${testProject.id}/terms/${termId}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)

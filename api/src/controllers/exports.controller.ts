@@ -58,6 +58,7 @@ export class ExportsController {
         projectLocaleId: projectLocale.id,
       })
       .where('term.projectId = :projectId', { projectId })
+      .orderBy('term.value', 'ASC')
       .getMany();
 
     const data: IntermediateTranslationFormat = {

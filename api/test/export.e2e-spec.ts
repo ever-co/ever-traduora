@@ -13,7 +13,7 @@ describe('ExportController (e2e)', () => {
   let termOneId: string;
   let termTwoId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     app = await createAndMigrateApp();
     testingUser = await signupTestUser(app);
     anotherUser = await signupTestUser(app, 'another-user@test.com');
@@ -107,6 +107,56 @@ describe('ExportController (e2e)', () => {
         expect(Object.keys(parsed)).toHaveLength(2);
         expect(parsed['term.two']).toEqual('zwei');
         expect(parsed['term.one']).toEqual('eins');
+      });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should export terms in lexical order', async () => {
+    const input = ['app.login', 'should be before base terms', '1 goes first', 'app.logout', 'app.exit', 'menu.start', 'a term', '2 goes second'];
+
+    // Account for term.one and term.two from base test
+    const expected = [
+      '1 goes first',
+      '2 goes second',
+      'a term',
+      'app.exit',
+      'app.login',
+      'app.logout',
+      'menu.start',
+      'should be before base terms',
+      'term.one',
+      'term.two',
+    ];
+
+    for (const term of input) {
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/terms`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({
+          value: term,
+        })
+        .expect(201);
+    }
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        const terms = Object.keys(parsed);
+        expect(terms).toHaveLength(expected.length);
+        expect(terms).toEqual(expected);
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=properties`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(async res => {
+        const parsed = await propertiesParser(Buffer.from(res.body).toString());
+        const terms = parsed.translations.map(t => t.term);
+        expect(terms).toHaveLength(expected.length);
+        expect(terms).toEqual(expected);
       });
   });
 
@@ -206,7 +256,7 @@ describe('ExportController (e2e)', () => {
       .expect(404);
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await app.close();
   });
 });
