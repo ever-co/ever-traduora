@@ -102,6 +102,34 @@ describe('TermController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/terms/:termId (PATCH) should accept terms with utf-8 encoding', async () => {
+    let termId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201)
+      .expect(res => {
+        termId = res.body.data.id;
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/terms/${termId}`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.two őúüöá 😀👍🍉你好',
+      })
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'date']);
+        expect(res.body.data.id).toEqual(termId);
+        expect(res.body.data.value).toEqual('term.two őúüöá 😀👍🍉你好');
+      });
+  });
+
   it('/api/v1/projects/:projectId/terms/:termId (DELETE) should delete term by id', async () => {
     let termId: string;
 

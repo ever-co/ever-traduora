@@ -20,7 +20,10 @@ if ! [[ -z $(git status -s) ]]; then
     exit 1
 fi
 
-echo 'Tagging and pushing release to upstream'
+echo "Running checks"
+bin/check.sh
+
+echo "Tagging and pushing release to upstream"
 git tag $RELEASE -m "Release $RELEASE, please check the changelog for more details"
 git push origin master --follow-tags
 
