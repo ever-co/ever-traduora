@@ -1,3 +1,6 @@
+# NOTE: this config is only used for the typeorm cli on development.
+# For the config used by the API, checkout api/src/config.ts and the environment variables documentation.
+
 default:
   type: mysql
   host: localhost
@@ -9,6 +12,7 @@ default:
   logging: true
   entities: ['src/entity/*.entity.ts']
   migrations: ['src/migrations/*.ts']
+  charset: utf8mb4
   cli:
     entitiesDir: src/entity
     migrationsDir: src/migrations

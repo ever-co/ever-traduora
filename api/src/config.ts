@@ -39,6 +39,7 @@ export const config = {
       username: env.TR_DB_USER || 'root',
       password: env.TR_DB_PASSWORD || '',
       database: env.TR_DB_DATABASE || 'tr_dev',
+      charset: 'utf8mb4',
       synchronize: false,
       logging: false,
       entities: ['src/entity/*.entity*'],
