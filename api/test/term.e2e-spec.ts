@@ -51,8 +51,8 @@ describe('TermController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/terms (GET) should return terms in lexical order', async () => {
-    const input = ['app.login', 'should be last', 'app.logout', 'app.exit', 'menu.start', 'a term like this should be first'];
-    const expected = ['a term like this should be first', 'app.exit', 'app.login', 'app.logout', 'menu.start', 'should be last'];
+    const input = ['app.login', 'should be last', 'app.logout', '2 goes second', 'app.exit', 'menu.start', 'a term', '1 goes first'];
+    const expected = ['1 goes first', '2 goes second', 'a term', 'app.exit', 'app.login', 'app.logout', 'menu.start', 'should be last'];
 
     for (const term of input) {
       await request(app.getHttpServer())

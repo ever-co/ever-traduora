@@ -111,11 +111,13 @@ describe('ExportController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/exports (GET) should export terms in lexical order', async () => {
-    const input = ['app.login', 'should be before base terms', 'app.logout', 'app.exit', 'menu.start', 'a term like this should be first'];
+    const input = ['app.login', 'should be before base terms', '1 goes first', 'app.logout', 'app.exit', 'menu.start', 'a term', '2 goes second'];
 
     // Account for term.one and term.two from base test
     const expected = [
-      'a term like this should be first',
+      '1 goes first',
+      '2 goes second',
+      'a term',
       'app.exit',
       'app.login',
       'app.logout',
