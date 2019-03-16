@@ -2,6 +2,8 @@
 
 set -e
 
+export TERM=xterm
+
 function pprint() {
   local s=("$@") b w
   for l in "${s[@]}"; do
