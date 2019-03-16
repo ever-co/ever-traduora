@@ -29,7 +29,7 @@ pprint "Applying code format"
 yarn fmt
 
 if ! [[ -z $(git status -s) ]]; then
-    echo "You have uncommited changes on git or you might need to apply formatting to your source code"
+    echo "You have uncommited changes on git or you might need to apply formatting to your source code (yarn fmt)"
     exit 1
 fi
 
