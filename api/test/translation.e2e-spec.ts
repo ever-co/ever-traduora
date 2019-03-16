@@ -10,7 +10,7 @@ describe('TranslationController (e2e)', () => {
   let testProject: TestingProject;
   let termId: string;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     app = await createAndMigrateApp();
     testingUser = await signupTestUser(app);
     anotherUser = await signupTestUser(app, 'another-user@test.com');
@@ -60,6 +60,14 @@ describe('TranslationController (e2e)', () => {
       .send({
         code: 'de_DE',
       })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
       .expect(409);
   });
 
@@ -80,6 +88,22 @@ describe('TranslationController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/translations (GET) should find project locales', async () => {
     await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject.id}/translations`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
@@ -95,6 +119,22 @@ describe('TranslationController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/translations/:localeCode (PATCH) should update translation for existing terms', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
     await request(app.getHttpServer())
       .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
@@ -122,6 +162,22 @@ describe('TranslationController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/translations/:localeCode (PATCH) should fail to update translation if term or locale not exists', async () => {
     await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
       .patch(`/api/v1/projects/${testProject.id.slice(0, 16)}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
@@ -141,6 +197,40 @@ describe('TranslationController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/translations/:localeCode (GET) should find project translation for locale', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        termId,
+        value: 'eins',
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/fr`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        termId,
+        value: 'un',
+      })
+      .expect(200);
+
     await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
@@ -166,6 +256,22 @@ describe('TranslationController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/translations/:localeCode (DELETE) should delete project locale', async () => {
     await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
       .delete(`/api/v1/projects/${testProject.id}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(204);
@@ -182,6 +288,22 @@ describe('TranslationController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/translations should not access translations resource if not authenticated', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/translations`)
       .expect(401);
@@ -204,6 +326,22 @@ describe('TranslationController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/translations should not access translations resource if not authorized', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/translations`)
       .set('Authorization', `Bearer ${anotherUser.accessToken}`)
@@ -237,7 +375,7 @@ describe('TranslationController (e2e)', () => {
       .expect(404);
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await app.close();
   });
 });
