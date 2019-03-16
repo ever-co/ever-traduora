@@ -1,9 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 set -e
 
-function pprint()
-{
+function pprint() {
   local s=("$@") b w
   for l in "${s[@]}"; do
     ((w<${#l})) && { b="$l"; w="${#l}"; }
