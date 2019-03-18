@@ -10,7 +10,7 @@ To download the source code for each release, check out [GitHub](https://github.
 - 
 
 ## 0.10.0
-- Suppport Apple .strings format
+- Support Apple .strings format
 - Set default MySQL charset to utf8mb4. You can now use emojis in terms and translations
 - Use lexical order for terms on export and find all endpoint
 
