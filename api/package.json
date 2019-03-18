@@ -1,6 +1,7 @@
 {
   "name": "traduora-api",
   "version": "0.0.0",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "fmt": "prettier --write \"src/**/*.ts\"",
     "start": "cross-env TR_MAIL_DEBUG=true TR_CORS_ENABLED=true nodemon",

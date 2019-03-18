@@ -1,6 +1,7 @@
 {
   "name": "traduora-docs",
   "version": "0.0.0",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "start": "docusaurus-start",
     "build": "docusaurus-build",
