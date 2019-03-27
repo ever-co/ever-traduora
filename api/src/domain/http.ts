@@ -56,6 +56,14 @@ export class AddProjectUserRequest {
   role: ProjectRole;
 }
 
+export class InviteUserRequest {
+  @IsEmail()
+  email: string;
+
+  @IsEnum(ProjectRole)
+  role: ProjectRole;
+}
+
 export class UpdateProjectUserRequest {
   @IsEnum(ProjectRole)
   role: ProjectRole;

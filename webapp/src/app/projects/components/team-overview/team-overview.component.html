@@ -14,5 +14,12 @@
         (remove)="removeProjectUser(project.id, $event.userId)"
       ></app-team-member>
     </div>
+    <div *ngFor="let invite of (projectInvites$ | async)">
+      <app-team-invite
+        [invite]="invite"
+        (edit)="updateProjectUser(project.id, $event.userId, $event.role)"
+        (remove)="removeProjectUser(project.id, $event.userId)"
+      ></app-team-invite>
+    </div>
   </div>
 </div>

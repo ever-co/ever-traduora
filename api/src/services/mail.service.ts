@@ -6,6 +6,7 @@ import { User } from '../entity/user.entity';
 import * as Handlebars from 'handlebars';
 import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
+import { Invite } from 'entity/invite.entity';
 
 @Injectable()
 export default class MailService {
@@ -17,6 +18,7 @@ export default class MailService {
     passwordChanged: this.mustCompileTemplate('password-changed.txt'),
     passwordResetToken: this.mustCompileTemplate('password-reset-token.txt'),
     invitedToProject: this.mustCompileTemplate('invited-to-project.txt'),
+    invitedToPlatform: this.mustCompileTemplate('invited-to-platform.txt'),
   };
 
   constructor() {
@@ -77,6 +79,18 @@ export default class MailService {
       subject: 'You have been granted access to a project on Traduora',
       text: this.knownTemplates.invitedToProject({
         user: user,
+        virtualHost: config.virtualHost,
+      }),
+    });
+  }
+
+  async invitedToPlatform(invite: Invite) {
+    await this.send({
+      from: this.from,
+      to: invite.email,
+      subject: 'You have been to a project on Traduora',
+      text: this.knownTemplates.invitedToProject({
+        invite: invite,
         virtualHost: config.virtualHost,
       }),
     });

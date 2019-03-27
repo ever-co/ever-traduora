@@ -8,6 +8,8 @@ import { ProjectRole } from '../../models/project-role';
 import { ProjectUser } from '../../models/project-user';
 import { GetProjectUsers, ProjectUserState as ProjectUsersState, RemoveProjectUser, UpdateProjectUser } from '../../stores/project-user.state';
 import { ClearMessages, ProjectsState } from '../../stores/projects.state';
+import { ProjectInvite } from '../../models/project-invite';
+import { ProjectInviteState, GetProjectInvites } from '../../stores/project-invite.state';
 
 @Component({
   selector: 'app-team-overview',
@@ -27,7 +29,12 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
   @Select(ProjectUsersState.users)
   _projectUsers$: Observable<ProjectUser[]>;
 
+  @Select(ProjectInviteState.invites)
+  _projectInvites$: Observable<ProjectInvite[]>;
+
   projectUsers$: Observable<ProjectUser[]> = this._projectUsers$.pipe(map(users => sortBy(users, ['isSelf', 'email'])));
+
+  projectInvites: Observable<ProjectInvite[]> = this._projectInvites$.pipe(map(invites => sortBy(invites, ['email'])));
 
   private sub: Subscription;
 
@@ -35,6 +42,7 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.sub = this.project$.pipe(tap(project => this.store.dispatch(new GetProjectUsers(project.id)))).subscribe();
+    this.sub = this.project$.pipe(tap(project => this.store.dispatch(new GetProjectInvites(project.id)))).subscribe();
   }
 
   ngOnDestroy() {

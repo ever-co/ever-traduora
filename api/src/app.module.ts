@@ -12,6 +12,7 @@ import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
 import ProjectUserController from './controllers/project-user.controller';
+import ProjectInviteController from 'controllers/project-invite.controller';
 import ProjectController from './controllers/project.controller';
 import TermController from './controllers/term.controller';
 import TranslationController from './controllers/translation.controller';
@@ -32,6 +33,7 @@ import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
 import { renderFile } from 'ejs';
 import IndexController from './controllers/index.controller';
+import { Invite } from 'entity/invite.entity';
 
 @Module({
   imports: [
@@ -43,7 +45,7 @@ import IndexController from './controllers/index.controller';
       },
     }),
     TypeOrmModule.forRoot(config.db.default),
-    TypeOrmModule.forFeature([User, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan]),
+    TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan]),
   ],
   controllers: [
     HealthController,
@@ -52,6 +54,7 @@ import IndexController from './controllers/index.controller';
     ProjectController,
     ProjectPlanController,
     ProjectUserController,
+    ProjectInviteController,
     TermController,
     TranslationController,
     ImportController,
