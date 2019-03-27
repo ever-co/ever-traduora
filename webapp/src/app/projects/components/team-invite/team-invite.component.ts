@@ -11,6 +11,12 @@ export class TeamInviteComponent implements OnInit {
   @Input()
   invite: ProjectInvite;
 
+  @Input()
+  canEdit = false;
+
+  @Input()
+  canDelete = false;
+
   @Output()
   edit = new EventEmitter<ProjectInvite>();
 

@@ -17,6 +17,10 @@ export enum ProjectAction {
   EditProjectUsers,
   DeleteProjectUsers,
 
+  // Project Invites
+  EditProjectInvites,
+  DeleteProjectInvites,
+
   // Terms
   AddTerm,
   ViewTerm,

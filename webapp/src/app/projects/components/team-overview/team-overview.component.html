@@ -17,8 +17,10 @@
     <div *ngFor="let invite of (projectInvites$ | async)">
       <app-team-invite
         [invite]="invite"
-        (edit)="updateProjectUser(project.id, $event.userId, $event.role)"
-        (remove)="removeProjectUser(project.id, $event.userId)"
+        [canEdit]="true | can: 'EditProjectInvites' | async"
+        [canDelete]="true | can: 'DeleteProjectInvites' | async"
+        (edit)="updateProjectInvite(project.id, $event.id, $event.role)"
+        (remove)="removeProjectInvite(project.id, $event.id)"
       ></app-team-invite>
     </div>
   </div>

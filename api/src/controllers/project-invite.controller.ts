@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Get, Req, Param, Inject, Post, Body, Delete } from "@nestjs/common";
+import { Controller, UseGuards, Get, Req, Param, Inject, Post, Body, Delete, Patch } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { InjectRepository } from "@nestjs/typeorm";
 import { User } from "entity/user.entity";
@@ -7,7 +7,7 @@ import MailService from "services/mail.service";
 import { Repository } from "typeorm";
 import { ProjectAction } from "domain/actions";
 import { Invite } from "entity/invite.entity";
-import { InviteUserRequest } from "domain/http";
+import { InviteUserRequest, UpdateProjectInviteRequest } from "domain/http";
 import { ProjectUser } from "entity/project-user.entity";
 
 @Controller('api/v1/projects')
@@ -81,16 +81,46 @@ export default class ProjectInviteController {
 
         return {
           data: {
-            inviteId: newInvite.id,
-            project: newInvite.role,
+            id: newInvite.id,
+            role: newInvite.role,
             email: newInvite.email,
           }
         }
       }
     }
 
+    @Patch(':projectId/invites/:inviteId')
+    async update(@Req() req, @Param('projectId') projectId: string, @Param('inviteId') inviteId: string, @Body() updateProjectInviteRequest: UpdateProjectInviteRequest) {
+      const requestingUser = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
+      await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.EditProjectInvites);
+  
+      const targetInvite = await this.inviteRepo.findOneOrFail({
+        where: { id: inviteId },
+        relations: ['project'],
+      });
+  
+      targetInvite.role = updateProjectInviteRequest.role;
+  
+      const updated = await this.inviteRepo.save(targetInvite, { reload: true });
+  
+      return {
+        data: {
+          id: updated.id,
+          role: updated.role,
+          email: updated.email,
+        },
+      };
+    }
+
     @Delete(':projectId/invites/:inviteId')
     async delete(@Req() req, @Param('projectId') projectId: string, @Param('inviteId') inviteId: string) {
-      
+      const requestingUser = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
+      await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.DeleteProjectInvites);
+
+      const targetInvite = await this.inviteRepo.findOneOrFail({
+        where: { id: inviteId },
+      });
+
+      await this.inviteRepo.remove(targetInvite);
     }
   }

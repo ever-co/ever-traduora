@@ -69,6 +69,11 @@ export class UpdateProjectUserRequest {
   role: ProjectRole;
 }
 
+export class UpdateProjectInviteRequest {
+  @IsEnum(ProjectRole)
+  role: ProjectRole;
+}
+
 export class AddProjectClientRequest {
   @IsString()
   @Length(1, 255)

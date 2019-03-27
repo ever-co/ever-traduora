@@ -1,11 +1,9 @@
 import { Action, NgxsOnInit, Selector, State, StateContext, Store } from '@ngxs/store';
 import { throwError } from 'rxjs';
-import { catchError, finalize, flatMap, map, take, tap } from 'rxjs/operators';
-import { AuthState, Logout } from '../../auth/stores/auth.state';
+import { catchError, finalize, tap } from 'rxjs/operators';
+import { Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
 import { ProjectRole } from '../models/project-role';
-import { ProjectUser } from '../models/project-user';
-import { ProjectUserService } from '../services/project-user.service';
 import { ClearCurrentProject, SetCurrentProject } from './projects.state';
 import { ProjectInvite } from '../models/project-invite';
 import { ProjectInviteService } from '../services/project-invite.service';
@@ -80,7 +78,7 @@ export class ProjectInviteState implements NgxsOnInit {
   getProjectInvites(ctx: StateContext<ProjectInviteStateModel>, action: GetProjectInvites) {
     ctx.patchState({ isLoading: true });
     return this.projectInviteService.find(action.projectId).pipe(
-        tap(invites => ctx.patchState({ invites })),
+        tap(invites => ctx.patchState({ invites }) ),
         catchError(error => {
             ctx.patchState({ errorMessage: errorToMessage(error) });
             return throwError(error);
@@ -108,7 +106,7 @@ export class ProjectInviteState implements NgxsOnInit {
     return this.projectInviteService.update(action.projectId, action.inviteId, action.role).pipe(
       tap(updatedInvite => {
         const invites = ctx.getState().invites.map(invite => {
-          if (invite.inviteId === action.inviteId) {
+          if (invite.id === updatedInvite.id) {
             return updatedInvite;
           } else {
             return invite;
@@ -125,11 +123,11 @@ export class ProjectInviteState implements NgxsOnInit {
   }
 
   @Action(RemoveProjectInvite)
-  removeProjectUser(ctx: StateContext<ProjectInviteStateModel>, action: RemoveProjectInvite) {
+  removeProjectInvite(ctx: StateContext<ProjectInviteStateModel>, action: RemoveProjectInvite) {
     ctx.patchState({ isLoading: true });
     return this.projectInviteService.remove(action.projectId, action.inviteId).pipe(
       tap(() => {
-        const invites = ctx.getState().invites.filter(invite => invite.inviteId !== action.inviteId);
+        const invites = ctx.getState().invites.filter(invite => invite.id !== action.inviteId);
         ctx.patchState({ invites });
       }),
       catchError(error => {
