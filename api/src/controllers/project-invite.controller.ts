@@ -41,7 +41,7 @@ export default class ProjectInviteController {
       await this.auth.authorizeProjectAction(user, projectId, ProjectAction.AddProjectUser);
 
       const targetUser = await this.userRepo.findOne({
-        where: { email: inviteUserRequest.email },
+        where: { email: this.normalizeEmail(inviteUserRequest.email) },
       });
 
       if (targetUser) {
@@ -70,7 +70,7 @@ export default class ProjectInviteController {
         };
       } else {
         const record = this.inviteRepo.create({
-          email: inviteUserRequest.email,
+          email: this.normalizeEmail(inviteUserRequest.email),
           project: { id: projectId },
           role: inviteUserRequest.role,
         });
@@ -122,5 +122,10 @@ export default class ProjectInviteController {
       });
 
       await this.inviteRepo.remove(targetInvite);
+    }
+
+    private normalizeEmail(email: string): string {
+      const [user, rest] = email.split('@');
+      return `${user}@${rest.toLowerCase()}`;
     }
   }
