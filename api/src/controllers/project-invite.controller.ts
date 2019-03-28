@@ -6,7 +6,7 @@ import AuthorizationService from "services/authorization.service";
 import MailService from "services/mail.service";
 import { Repository } from "typeorm";
 import { ProjectAction } from "domain/actions";
-import { Invite } from "entity/invite.entity";
+import { Invite, InviteStatus } from "entity/invite.entity";
 import { InviteUserRequest, UpdateProjectInviteRequest } from "domain/http";
 import { ProjectUser } from "entity/project-user.entity";
 
@@ -27,7 +27,7 @@ export default class ProjectInviteController {
       await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewProjectUsers);
       
       const invites = await this.inviteRepo.find({
-        where: { project: { id: projectId }},
+        where: { project: { id: projectId }, status: InviteStatus.Sent },
       })
       
       return {

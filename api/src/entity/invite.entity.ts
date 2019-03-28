@@ -6,7 +6,6 @@ import { ProjectRole } from "./project-user.entity";
 export enum InviteStatus {
   Sent = 'sent',
   Accepted = 'accepted',
-  Declined = 'declined',
 }
 
 @Entity()

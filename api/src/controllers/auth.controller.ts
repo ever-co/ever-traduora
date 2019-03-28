@@ -30,6 +30,8 @@ import { ProjectClient } from '../entity/project-client.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { Invite, InviteStatus } from 'entity/invite.entity';
+import { ProjectUser } from 'entity/project-user.entity';
 
 @Controller('api/v1/auth')
 export class AuthController {
@@ -38,6 +40,8 @@ export class AuthController {
     private userService: UserService,
     private jwtService: JwtService,
     private authService: AuthorizationService,
+    @InjectRepository(Invite) private inviteRepo: Repository<Invite>,
+    @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
     @InjectRepository(ProjectClient) private projectClientRepo: Repository<ProjectClient>,
   ) {}
 
@@ -45,10 +49,35 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async signup(@Body() payload: SignupRequest) {
     if (!config.signupsEnabled) {
-      throw new ForbiddenException('Signups are disabled');
+      let invitesCount = await this.inviteRepo.count({
+        where: { email: payload.email, status: InviteStatus.Sent }
+      })
+
+      // Early exit if the user has no invitation.
+      if (invitesCount == 0) {
+        throw new ForbiddenException('Signups are invitation based only.');
+      }
     }
 
     const user = await this.userService.create(payload.name, payload.email, payload.password);
+
+    // accept project invites
+
+    const invites = await this.inviteRepo.find({
+      where: { email: payload.email, status: InviteStatus.Sent },
+      relations: ['project'],
+    })
+    invites.forEach(invite => invite.status = InviteStatus.Accepted);
+    await this.inviteRepo.save(invites);
+
+    const projectUsers = invites.map(invite => {
+      return this.projectUserRepo.create({
+        project: { id: invite.project.id },
+        user: user,
+        role: invite.role,
+      });
+    })
+    await this.projectUserRepo.save(projectUsers);
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);

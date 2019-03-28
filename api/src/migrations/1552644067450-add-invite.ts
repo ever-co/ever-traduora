@@ -6,7 +6,7 @@ export class addInvite1552644067450 implements MigrationInterface {
         "CREATE TABLE `invite` ( \
           `id` varchar(255) NOT NULL, \
           `email` varchar(255) NOT NULL, \
-          `status` enum ('sent', 'accepted', 'declined') NOT NULL DEFAULT 'sent', \
+          `status` enum ('sent', 'accepted') NOT NULL DEFAULT 'sent', \
           `role` enum ('admin', 'editor', 'viewer') NOT NULL DEFAULT 'viewer', \
           `projectId` varchar(255) NULL, \
           `dateCreated` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \

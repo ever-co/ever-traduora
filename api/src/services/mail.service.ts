@@ -89,7 +89,7 @@ export default class MailService {
       from: this.from,
       to: invite.email,
       subject: 'You have been to a project on Traduora',
-      text: this.knownTemplates.invitedToProject({
+      text: this.knownTemplates.invitedToPlatform({
         invite: invite,
         virtualHost: config.virtualHost,
       }),
