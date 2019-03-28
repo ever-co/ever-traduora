@@ -14,13 +14,13 @@ export class addInvite1552644067450 implements MigrationInterface {
           PRIMARY KEY (`id`) \
         ) ENGINE=InnoDB"
       );
-      // await queryRunner.query(
-      //   ''
-      // );
+      await queryRunner.query('ALTER TABLE `invite` ADD CONSTRAINT `FK_invite_project` FOREIGN KEY (`projectId`) REFERENCES `project`(`id`) ON DELETE CASCADE');
+      await queryRunner.query('CREATE UNIQUE INDEX `IDX_email_project` ON `invite`(`projectId`, `email`)');
     }
 
     public async down(queryRunner: QueryRunner): Promise<any> {
-        await queryRunner.query('DROP TABLE `invite`');
-        // await queryRunner.query('');
+      await queryRunner.query('ALTER TABLE `invite` DROP FOREIGN KEY `FK_invite_project`');
+      await queryRunner.query('DROP INDEX `IDX_email_project` ON `invite`');
+      await queryRunner.query('DROP TABLE `invite`');
     }
 }
