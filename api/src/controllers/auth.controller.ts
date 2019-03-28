@@ -50,8 +50,8 @@ export class AuthController {
   async signup(@Body() payload: SignupRequest) {
     if (!config.signupsEnabled) {
       let invitesCount = await this.inviteRepo.count({
-        where: { email: payload.email, status: InviteStatus.Sent }
-      })
+        where: { email: payload.email, status: InviteStatus.Sent },
+      });
 
       // Early exit if the user has no invitation.
       if (invitesCount == 0) {
@@ -66,8 +66,8 @@ export class AuthController {
     const invites = await this.inviteRepo.find({
       where: { email: payload.email, status: InviteStatus.Sent },
       relations: ['project'],
-    })
-    invites.forEach(invite => invite.status = InviteStatus.Accepted);
+    });
+    invites.forEach(invite => (invite.status = InviteStatus.Accepted));
     await this.inviteRepo.save(invites);
 
     const projectUsers = invites.map(invite => {
@@ -76,7 +76,7 @@ export class AuthController {
         user: user,
         role: invite.role,
       });
-    })
+    });
     await this.projectUserRepo.save(projectUsers);
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };

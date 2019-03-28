@@ -39,41 +39,6 @@ export default class ProjectUserController {
     };
   }
 
-  @Post(':projectId/users')
-  @HttpCode(HttpStatus.CREATED)
-  async create(@Req() req, @Param('projectId') projectId: string, @Body() addProjectUserRequest: AddProjectUserRequest) {
-    const requestingUser = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.AddProjectUser);
-
-    const targetUser = await this.userRepo.findOneOrFail({
-      where: { email: addProjectUserRequest.email },
-    });
-
-    const record = this.projectUserRepo.create({
-      project: { id: projectId },
-      user: targetUser,
-      role: addProjectUserRequest.role,
-    });
-
-    let newProjectUser = await this.projectUserRepo.save(record);
-
-    newProjectUser = await this.projectUserRepo.findOneOrFail({
-      where: { id: newProjectUser.id },
-      relations: ['user', 'project'],
-    });
-
-    this.mail.invitedToProject(newProjectUser);
-
-    return {
-      data: {
-        userId: newProjectUser.user.id,
-        role: newProjectUser.role,
-        name: newProjectUser.user.name,
-        email: newProjectUser.user.email,
-      },
-    };
-  }
-
   @Patch(':projectId/users/:userId')
   async update(
     @Req() req,

@@ -41,10 +41,12 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
   constructor(private store: Store) {}
 
   ngOnInit() {
-    this.sub = this.project$.pipe(
-      tap(project => this.store.dispatch(new GetProjectUsers(project.id))),
-      tap(project => this.store.dispatch(new GetProjectInvites(project.id))),
-    ).subscribe();
+    this.sub = this.project$
+      .pipe(
+        tap(project => this.store.dispatch(new GetProjectUsers(project.id))),
+        tap(project => this.store.dispatch(new GetProjectInvites(project.id))),
+      )
+      .subscribe();
   }
 
   ngOnDestroy() {
