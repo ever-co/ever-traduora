@@ -1,8 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Select, Store } from '@ngxs/store';
 import { sortBy } from 'lodash';
-import { Observable, Subscription } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { Observable, Subscription, combineLatest } from 'rxjs';
+import { map, tap, zip } from 'rxjs/operators';
 import { Project } from '../../models/project';
 import { ProjectRole } from '../../models/project-role';
 import { ProjectUser } from '../../models/project-user';
@@ -20,8 +20,13 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
   @Select(ProjectsState.currentProject)
   project$: Observable<Project | undefined>;
 
-  @Select(ProjectUsersState.isLoading && ProjectInviteState.isLoading)
-  isLoading$: Observable<boolean>;
+  @Select(ProjectUsersState.isLoading)
+  _areProjectsLoading$: Observable<boolean>;
+
+  @Select(ProjectInviteState.isLoading)
+  _areInvitesLoading$: Observable<boolean>;
+
+  isLoading: Observable<boolean> = combineLatest([ this._areProjectsLoading$], function (a, b) { return a || b });
 
   @Select(state => state.projectUsers.errorMessage)
   errorMessage$: Observable<string | undefined>;

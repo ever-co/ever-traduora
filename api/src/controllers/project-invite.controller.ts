@@ -24,7 +24,7 @@ export default class ProjectInviteController {
   @Get(':projectId/invites')
   async find(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewProjectUsers);
+    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewProjectInvites);
 
     const invites = await this.inviteRepo.find({
       where: { project: { id: projectId }, status: InviteStatus.Sent },

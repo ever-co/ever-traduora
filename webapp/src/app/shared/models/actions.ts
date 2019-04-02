@@ -18,6 +18,7 @@ export enum ProjectAction {
   DeleteProjectUsers,
 
   // Project Invites
+  ViewProjectInvites,
   EditProjectInvites,
   DeleteProjectInvites,
 

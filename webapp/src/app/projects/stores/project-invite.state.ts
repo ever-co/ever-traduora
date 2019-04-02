@@ -9,7 +9,7 @@ import { ProjectInvite } from '../models/project-invite';
 import { ProjectInviteService } from '../services/project-invite.service';
 
 export class ClearMessages {
-  static readonly type = '[ProjectUser] Clear messages';
+  static readonly type = '[ProjectInvite] Clear messages';
 }
 
 export class GetProjectInvites {

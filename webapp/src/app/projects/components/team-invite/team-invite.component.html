@@ -5,8 +5,9 @@
           <p class="font-serif m-0">
             <span class="text-muted">{{ invite.email }}</span>
           </p>
+          <span class="badge badge-success" style="margin-left: 1em" i18n>Invited</span>
         </div>
-  
+
         <ng-container *ngIf="canEdit; else elseTemplate">
           <div ngbDropdown class="d-flex" placement="bottom-right">
             <button class="badge badge-secondary border-0" id="roleSelect" ngbDropdownToggle>

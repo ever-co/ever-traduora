@@ -32,6 +32,7 @@ import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
 import { Invite, InviteStatus } from 'entity/invite.entity';
 import { ProjectUser } from 'entity/project-user.entity';
+import { normalizeEmail } from 'domain/validators';
 
 @Controller('api/v1/auth')
 export class AuthController {
@@ -48,9 +49,10 @@ export class AuthController {
   @Post('signup')
   @HttpCode(HttpStatus.OK)
   async signup(@Body() payload: SignupRequest) {
+    const normalizedEmail = normalizeEmail(payload.email);
     if (!config.signupsEnabled) {
       let invitesCount = await this.inviteRepo.count({
-        where: { email: payload.email, status: InviteStatus.Sent },
+        where: { email: normalizedEmail, status: InviteStatus.Sent },
       });
 
       // Early exit if the user has no invitation.
@@ -59,12 +61,12 @@ export class AuthController {
       }
     }
 
-    const user = await this.userService.create(payload.name, payload.email, payload.password);
+    const user = await this.userService.create(payload.name, normalizedEmail, payload.password);
 
     // accept project invites
 
     const invites = await this.inviteRepo.find({
-      where: { email: payload.email, status: InviteStatus.Sent },
+      where: { email: normalizedEmail, status: InviteStatus.Sent },
       relations: ['project'],
     });
     invites.forEach(invite => (invite.status = InviteStatus.Accepted));
