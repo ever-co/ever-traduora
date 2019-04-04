@@ -9,7 +9,7 @@ export enum ProjectAction {
   EditProjectPlan,
 
   // Project Users
-  AddProjectUser,
+  InviteProjectUser,
   ViewProjectUsers,
   EditProjectUsers,
   DeleteProjectUsers,

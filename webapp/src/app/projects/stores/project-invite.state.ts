@@ -63,12 +63,6 @@ export class ProjectInviteState implements NgxsOnInit {
 
   ngxsOnInit(ctx: StateContext<ProjectInviteStateModel>) {}
 
-  @Action(SetCurrentProject)
-  setCurrentProject(ctx: StateContext<ProjectInviteStateModel>, action: SetCurrentProject) {
-    // Whenever the current project changes, retrieve the project users to know which role the current user has
-    ctx.dispatch(new GetProjectInvites(action.id));
-  }
-
   @Action(Logout)
   logout(ctx: StateContext<ProjectInviteStateModel>, action: Logout) {
     ctx.setState(stateDefaults);

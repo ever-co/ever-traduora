@@ -38,7 +38,7 @@ export default class ProjectInviteController {
   @Post(':projectId/invites')
   async create(@Req() req, @Param('projectId') projectId: string, @Body() inviteUserRequest: InviteUserRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.AddProjectUser);
+    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.InviteProjectUser);
 
     const targetUser = await this.userRepo.findOne({
       where: { email: this.normalizeEmail(inviteUserRequest.email) },

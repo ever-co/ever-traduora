@@ -64,22 +64,23 @@ export class AuthController {
     const user = await this.userService.create(payload.name, normalizedEmail, payload.password);
 
     // accept project invites
-
-    const invites = await this.inviteRepo.find({
-      where: { email: normalizedEmail, status: InviteStatus.Sent },
-      relations: ['project'],
-    });
-    invites.forEach(invite => (invite.status = InviteStatus.Accepted));
-    await this.inviteRepo.save(invites);
-
-    const projectUsers = invites.map(invite => {
-      return this.projectUserRepo.create({
-        project: { id: invite.project.id },
-        user: user,
-        role: invite.role,
+    await this.inviteRepo.manager.transaction(async entityManager => { 
+      const invites = await entityManager.find(Invite, {
+        where: { email: normalizedEmail, status: InviteStatus.Sent },
+        relations: ['project'],
       });
+      invites.forEach(invite => (invite.status = InviteStatus.Accepted));
+      await entityManager.save(invites);
+
+      const projectUsers = invites.map(invite => {
+        return entityManager.create(ProjectUser, {
+          project: { id: invite.project.id },
+          user: user,
+          role: invite.role,
+        });
+      });
+      await this.projectUserRepo.save(projectUsers);
     });
-    await this.projectUserRepo.save(projectUsers);
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
