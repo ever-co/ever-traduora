@@ -9,9 +9,12 @@ import { AddProjectClientRequest, UpdateProjectClientRequest } from '../domain/h
 import { ProjectClient } from '../entity/project-client.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
+import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
+@ApiBearerAuth()
+@ApiUseTags('Project Clients')
 export default class ProjectClientController {
   constructor(
     private auth: AuthorizationService,

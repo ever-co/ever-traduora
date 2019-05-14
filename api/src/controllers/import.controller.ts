@@ -33,8 +33,10 @@ import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
+import { ApiBearerAuth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/imports')
+@ApiUseTags('Imports')
 export class ImportController {
   constructor(
     private auth: AuthorizationService,
@@ -47,6 +49,9 @@ export class ImportController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard())
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiImplicitFile({ name: 'file', required: true, description: 'The file to import' })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 512 * 1024 } })) // 500 kb max size
   async import(@Req() req, @Param('projectId') projectId: string, @Query() query: ImportQuery, @UploadedFile('file') file) {
     if (!file) {

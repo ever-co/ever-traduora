@@ -8,9 +8,12 @@ import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
+import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
+@ApiBearerAuth()
+@ApiUseTags('Project Users')
 export default class ProjectUserController {
   constructor(
     private auth: AuthorizationService,

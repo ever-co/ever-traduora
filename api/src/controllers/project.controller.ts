@@ -12,9 +12,12 @@ import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import AuthorizationService from '../services/authorization.service';
+import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
+@ApiBearerAuth()
+@ApiUseTags('Projects')
 export default class ProjectController {
   constructor(
     private auth: AuthorizationService,

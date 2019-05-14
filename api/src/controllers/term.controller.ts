@@ -7,9 +7,12 @@ import { AddTermRequest, UpdateTermRequest } from '../domain/http';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
+import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/terms')
 @UseGuards(AuthGuard())
+@ApiBearerAuth()
+@ApiUseTags('Terms')
 export default class TermController {
   constructor(
     private auth: AuthorizationService,

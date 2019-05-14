@@ -2,9 +2,12 @@ import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ProjectAction } from '../domain/actions';
 import AuthorizationService from '../services/authorization.service';
+import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
+@ApiBearerAuth()
+@ApiUseTags('Project Plans')
 export default class ProjectPlanController {
   constructor(private auth: AuthorizationService) {}
 

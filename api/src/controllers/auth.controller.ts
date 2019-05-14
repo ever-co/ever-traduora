@@ -30,8 +30,10 @@ import { ProjectClient } from '../entity/project-client.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { ApiBearerAuth, ApiUseTags, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/auth')
+@ApiUseTags('Authentication')
 export class AuthController {
   constructor(
     private mailService: MailService,
@@ -66,6 +68,7 @@ export class AuthController {
 
   @Post('token')
   @HttpCode(HttpStatus.OK)
+  @ApiResponse({ status: 200, description: 'Successfully authenticated with credentials.' })
   async token(@Body() payload: AuthenticateRequest) {
     switch (payload.grantType) {
       case GrantType.Password: {
@@ -132,6 +135,7 @@ export class AuthController {
 
   @Post('change-password')
   @UseGuards(AuthGuard())
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   async changePassword(@Req() req, @Body() payload: ChangePasswordRequest) {
     const requestingUser = this.authService.getRequestUserOrClient(req, { mustBeUser: true });

@@ -18,6 +18,7 @@ import { yamlNestedExporter } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextExporter } from '../formatters/gettext';
 import { stringsExporter } from '../formatters/strings';
+import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -29,7 +30,9 @@ export class ExportsController {
   ) {}
 
   @Get()
+  @ApiBearerAuth()
   @UseGuards(AuthGuard())
+  @ApiUseTags('Exports')
   async export(@Req() req: Request, @Res() res: Response, @Param('projectId') projectId: string, @Query() query: ExportQuery) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ExportTranslation);
