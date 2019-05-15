@@ -7,7 +7,12 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
-- Suppport Apple .strings format
+- 
+
+## 0.10.0
+- Support Apple .strings format
+- Set default MySQL charset to utf8mb4. You can now use emojis in terms and translations
+- Use lexical order for terms on export and find all endpoint
 
 ## 0.9.0
 - Added support to import and export Gettext (po) files

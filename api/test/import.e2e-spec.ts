@@ -34,7 +34,7 @@ describe('ImportController (e2e)', async () => {
         },
         {
           term: 'term.three',
-          translation: 'drei',
+          translation: 'drei ⛄ 😀👍 🍉你好',
         },
       ],
     })) as string;
@@ -255,7 +255,7 @@ describe('ImportController (e2e)', async () => {
           value: 'zwei',
         });
         const termValues = res.body.data.map(t => t.value);
-        expect(termValues).toContainEqual('drei');
+        expect(termValues).toContainEqual('drei ⛄ 😀👍 🍉你好');
       });
 
     await request(app.getHttpServer())

@@ -64,14 +64,14 @@ describe('UserController (e2e)', () => {
       .patch('/api/v1/users/me')
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
-        name: 'Updated Name',
+        name: 'Updated Name ⛄ 😀👍 🍉你好',
       })
       .expect(200)
       .expect(res => {
         const payload = res.body.data;
         expect(payload.id).toBeDefined();
         expect(payload.email).toBeDefined();
-        expect(payload.name).toEqual('Updated Name');
+        expect(payload.name).toEqual('Updated Name ⛄ 😀👍 🍉你好');
       });
 
     await request(app.getHttpServer())
@@ -95,7 +95,7 @@ describe('UserController (e2e)', () => {
       .expect(res => {
         const payload = res.body.data;
         expect(payload.id).toBeDefined();
-        expect(payload.name).toEqual('Updated Name');
+        expect(payload.name).toEqual('Updated Name ⛄ 😀👍 🍉你好');
         expect(payload.email).toEqual('updated.email@example.de');
       });
 

@@ -1,6 +1,7 @@
 {
   "name": "traduora",
   "version": "0.0.0",
+  "license": "AGPL-3.0-only",
   "description": "Traduora - translation management platform for teams",
   "repository": "https://github.com/traduora/traduora",
   "scripts": {
