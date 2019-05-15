@@ -12,7 +12,7 @@ import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
 import ProjectUserController from './controllers/project-user.controller';
-import ProjectInviteController from 'controllers/project-invite.controller';
+import ProjectInviteController from './controllers/project-invite.controller';
 import ProjectController from './controllers/project.controller';
 import TermController from './controllers/term.controller';
 import TranslationController from './controllers/translation.controller';
@@ -26,6 +26,7 @@ import { Project } from './entity/project.entity';
 import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
 import { User } from './entity/user.entity';
+import { Invite } from './entity/invite.entity';
 import { CustomExceptionFilter } from './filters/exception.filter';
 import AuthorizationService from './services/authorization.service';
 import { JwtStrategy } from './services/jwt.strategy';
@@ -33,7 +34,6 @@ import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
 import { renderFile } from 'ejs';
 import IndexController from './controllers/index.controller';
-import { Invite } from 'entity/invite.entity';
 
 @Module({
   imports: [

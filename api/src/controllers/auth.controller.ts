@@ -30,9 +30,9 @@ import { ProjectClient } from '../entity/project-client.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
-import { Invite, InviteStatus } from 'entity/invite.entity';
-import { ProjectUser } from 'entity/project-user.entity';
-import { normalizeEmail } from 'domain/validators';
+import { Invite, InviteStatus } from '../entity/invite.entity';
+import { ProjectUser } from '../entity/project-user.entity';
+import { normalizeEmail } from '../domain/validators';
 
 @Controller('api/v1/auth')
 export class AuthController {
@@ -42,7 +42,6 @@ export class AuthController {
     private jwtService: JwtService,
     private authService: AuthorizationService,
     @InjectRepository(Invite) private inviteRepo: Repository<Invite>,
-    @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
     @InjectRepository(ProjectClient) private projectClientRepo: Repository<ProjectClient>,
   ) {}
 
@@ -50,37 +49,36 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async signup(@Body() payload: SignupRequest) {
     const normalizedEmail = normalizeEmail(payload.email);
-    if (!config.signupsEnabled) {
-      let invitesCount = await this.inviteRepo.count({
-        where: { email: normalizedEmail, status: InviteStatus.Sent },
-      });
-
-      // Early exit if the user has no invitation.
-      if (invitesCount == 0) {
-        throw new ForbiddenException('Signups are invitation based only.');
-      }
+    
+    // check for invite
+    const invites = await this.inviteRepo.find({ 
+      where: { email: normalizedEmail, status: InviteStatus.Sent },
+      relations: ['project'],
+    });
+    
+    // Early exit if the user has no invitation and sign up is disabled.
+    if (invites.length == 0 && !config.signupsEnabled) {
+      throw new ForbiddenException('Signups are invitation based only.');
     }
 
     const user = await this.userService.create(payload.name, normalizedEmail, payload.password);
 
-    // accept project invites
-    await this.inviteRepo.manager.transaction(async entityManager => { 
-      const invites = await entityManager.find(Invite, {
-        where: { email: normalizedEmail, status: InviteStatus.Sent },
-        relations: ['project'],
-      });
-      invites.forEach(invite => (invite.status = InviteStatus.Accepted));
-      await entityManager.save(invites);
+    if (invites.length > 0) {
+      // accept project invites
+      await this.inviteRepo.manager.transaction(async entityManager => {
+        invites.forEach(invite => (invite.status = InviteStatus.Accepted));
+        await entityManager.save(invites);
 
-      const projectUsers = invites.map(invite => {
-        return entityManager.create(ProjectUser, {
-          project: { id: invite.project.id },
-          user: user,
-          role: invite.role,
+        const projectUsers = invites.map(invite => {
+          return entityManager.create(ProjectUser, {
+            project: { id: invite.project.id },
+            user: user,
+            role: invite.role,
+          });
         });
+        await entityManager.save(projectUsers)
       });
-      await this.projectUserRepo.save(projectUsers);
-    });
+    }
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);

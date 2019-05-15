@@ -3,10 +3,10 @@ import { createTransport, getTestMessageUrl, SendMailOptions, Transporter } from
 import { config } from '../config';
 import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
+import { Invite } from '../entity/invite.entity';
 import * as Handlebars from 'handlebars';
 import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
-import { Invite } from 'entity/invite.entity';
 
 @Injectable()
 export default class MailService {

@@ -13,6 +13,11 @@ export interface TestingUser {
   accessToken: string;
 }
 
+export interface TestingInvite {
+  id: string;
+  emai: string;
+}
+
 export interface TestingProject {
   id: string;
   name: string;
@@ -52,6 +57,20 @@ export async function createTestProject(app: INestApplication, user: TestingUser
   const result = res.body.data as TestingProject;
   if (!result.id || !result.name || !result.role) {
     throw new Error('Malformed create project response! Maybe fields need updating?');
+  }
+  return result;
+}
+
+export async function addProjectInvite(app: INestApplication, project: TestingProject, email: String): Promise<TestingInvite> {
+  const res = await request(app.getHttpServer())
+    .post(`/api/v1/projects/${project.id}/invites`)
+    .send({
+      email: email,
+      role: ProjectRole.Admin
+    });
+  const result = res.body.data as TestingInvite;
+  if (!result.id || !result.emai) {
+    throw new Error('Malformed invite response! Maybe fields need updating?');
   }
   return result;
 }

@@ -1,14 +1,15 @@
 import { Controller, UseGuards, Get, Req, Param, Inject, Post, Body, Delete, Patch } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from 'entity/user.entity';
-import AuthorizationService from 'services/authorization.service';
-import MailService from 'services/mail.service';
 import { Repository } from 'typeorm';
-import { ProjectAction } from 'domain/actions';
-import { Invite, InviteStatus } from 'entity/invite.entity';
-import { InviteUserRequest, UpdateProjectInviteRequest } from 'domain/http';
-import { ProjectUser } from 'entity/project-user.entity';
+
+import { User } from '../entity/user.entity';
+import AuthorizationService from '../services/authorization.service';
+import MailService from '../services/mail.service';
+import { ProjectAction } from '../domain/actions';
+import { Invite, InviteStatus } from '../entity/invite.entity';
+import { InviteUserRequest, UpdateProjectInviteRequest } from '../domain/http';
+import { ProjectUser } from '../entity/project-user.entity';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())

@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import { ProjectUser, ProjectRole } from '../entity/project-user.entity';
-import { normalizeEmail } from 'domain/validators';
+import { normalizeEmail } from '../domain/validators';
 
 @Injectable()
 export class UserService {

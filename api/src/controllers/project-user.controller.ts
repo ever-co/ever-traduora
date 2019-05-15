@@ -1,22 +1,18 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { AddProjectUserRequest, UpdateProjectUserRequest } from '../domain/http';
+import { UpdateProjectUserRequest } from '../domain/http';
 import { ProjectUser } from '../entity/project-user.entity';
-import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import MailService from '../services/mail.service';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
 export default class ProjectUserController {
   constructor(
     private auth: AuthorizationService,
-    private mail: MailService,
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
-    @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
   @Get(':projectId/users')
