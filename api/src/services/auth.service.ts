@@ -1,6 +1,6 @@
 import { BadRequestException, HttpService, Injectable } from '@nestjs/common';
-import { config } from 'config';
 import { stringify, unescape } from 'querystring';
+import { config } from '../config';
 
 @Injectable()
 export class AuthService {

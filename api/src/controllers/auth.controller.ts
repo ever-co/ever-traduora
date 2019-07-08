@@ -15,7 +15,6 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { AuthService } from 'services/auth.service';
 import { Repository } from 'typeorm';
 import { config } from '../config';
 import {
@@ -28,6 +27,7 @@ import {
   SignupRequest,
 } from '../domain/http';
 import { ProjectClient } from '../entity/project-client.entity';
+import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
