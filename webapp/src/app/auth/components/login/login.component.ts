@@ -30,7 +30,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.store.dispatch(new GetProviders())
+    this.store.dispatch(new GetProviders());
     window.addEventListener('message', this.afterSignInWithGoogle);
   }
 
