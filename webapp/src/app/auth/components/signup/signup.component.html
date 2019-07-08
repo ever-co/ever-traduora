@@ -5,8 +5,11 @@
       <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
       <div *ngIf="inviteOnly" class="alert alert-warning">Traduora is currently invite-only.</div>
-      
-      <h4 class="card-title font-serif" i18n>Create an account</h4>  
+
+      <h4 class="card-title font-serif" i18n>Create an account</h4>
+      <div style="margin-bottom: 10px" *ngFor="let provider of providers$ | async">
+        <button class="btn btn-primary w-100" type="button" (click)="signUpWithGoogle(provider)" i18n>Google</button>
+      </div>
 
       <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" novalidate>
         <div class="form-group">

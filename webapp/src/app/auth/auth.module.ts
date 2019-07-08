@@ -5,6 +5,7 @@ import { NgxsModule } from '@ngxs/store';
 import { SharedModule } from '../shared/shared.module';
 import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
 import { LoginComponent } from './components/login/login.component';
+import { RedirectComponent } from './components/redirect/redirect.component';
 import { ResetPasswordComponent } from './components/reset-password/reset-password.component';
 import { SignupComponent } from './components/signup/signup.component';
 import { UserSettingsComponent } from './components/user-settings/user-settings.component';
@@ -13,7 +14,7 @@ import { NoAuthGuard } from './guards/no-auth.guard';
 import { AuthState } from './stores/auth.state';
 
 @NgModule({
-  declarations: [LoginComponent, SignupComponent, ForgotPasswordComponent, UserSettingsComponent, ResetPasswordComponent],
+  declarations: [LoginComponent, SignupComponent, ForgotPasswordComponent, UserSettingsComponent, ResetPasswordComponent, RedirectComponent],
   imports: [
     CommonModule,
     SharedModule,
@@ -22,6 +23,11 @@ import { AuthState } from './stores/auth.state';
       {
         path: 'signup',
         component: SignupComponent,
+        canActivate: [NoAuthGuard],
+      },
+      {
+        path: 'redirect',
+        component: RedirectComponent,
         canActivate: [NoAuthGuard],
       },
       {

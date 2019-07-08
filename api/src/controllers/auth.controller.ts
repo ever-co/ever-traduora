@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -14,8 +15,8 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { AuthService } from 'services/auth.service';
 import { Repository } from 'typeorm';
-
 import { config } from '../config';
 import {
   AuthenticateRequest,
@@ -37,18 +38,56 @@ export class AuthController {
     private mailService: MailService,
     private userService: UserService,
     private jwtService: JwtService,
-    private authService: AuthorizationService,
+    private authorizationService: AuthorizationService,
     @InjectRepository(ProjectClient) private projectClientRepo: Repository<ProjectClient>,
+    private authService: AuthService,
   ) {}
+
+  @Get('providers')
+  @HttpCode(HttpStatus.OK)
+  async getProviders(): Promise<{ data: { url: string; redirectUrl: string; clientId: string }[] }> {
+    return {
+      data: Object.keys(config.providers).reduce((acc, provider) => {
+        const { url, active, redirectUrl, clientId } = config.providers[provider];
+        return active ? [...acc, { url, redirectUrl, clientId }] : acc;
+      }, []),
+    };
+  }
 
   @Post('signup')
   @HttpCode(HttpStatus.OK)
-  async signup(@Body() payload: SignupRequest) {
+  async signup(@Body() payload: SignupRequest): Promise<{ data: { id: string; email: string; name: string; accessToken: string } }> {
     if (!config.signupsEnabled) {
       throw new ForbiddenException('Signups are disabled');
     }
 
-    const user = await this.userService.create(payload.name, payload.email, payload.password);
+    const user = await this.userService.create({ grantType: GrantType.Password, ...payload });
+
+    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
+    const token = this.jwtService.sign(tokenPayload);
+    this.mailService.welcomeNewUser(user);
+
+    return {
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        accessToken: token,
+      },
+    };
+  }
+
+  @Post('signup-provider')
+  async signupWithProvider(@Body() { code }: { code: string }): Promise<{ data: { id: string; email: string; name: string; accessToken: string } }> {
+    if (!config.signupsEnabled) {
+      throw new ForbiddenException('Signups are disabled');
+    }
+
+    const { id_token } = await this.authService.getTokenFromGoogle(code);
+
+    const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
+
+    const user = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
@@ -82,13 +121,20 @@ export class AuthController {
         const token = await this.authenticateClient(payload.clientId, payload.clientSecret);
         return { data: { accessToken: token } };
       }
+      case GrantType.Provider: {
+        if (!payload.code) {
+          throw new BadRequestException('missing credentials');
+        }
+        const token = await this.authenticateProvider(payload.code);
+        return { data: { accessToken: token } };
+      }
       default:
         throw new BadRequestException('invalid grant type');
     }
   }
 
   private async authenticateUser(email, password) {
-    const user = await this.userService.authenticate(email, password);
+    const user = await this.userService.authenticate({ grantType: GrantType.Password, email, password });
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
     return token;
@@ -115,6 +161,18 @@ export class AuthController {
     return token;
   }
 
+  private async authenticateProvider(code: string) {
+    const { id_token } = await this.authService.getTokenFromGoogle(code);
+
+    const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
+
+    const user = await this.userService.authenticate({ grantType: GrantType.Provider, email: decodedToken.email });
+
+    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
+    const token = this.jwtService.sign(tokenPayload);
+    return token;
+  }
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() payload: ForgotPasswordRequest) {
@@ -134,7 +192,7 @@ export class AuthController {
   @UseGuards(AuthGuard())
   @HttpCode(HttpStatus.NO_CONTENT)
   async changePassword(@Req() req, @Body() payload: ChangePasswordRequest) {
-    const requestingUser = this.authService.getRequestUserOrClient(req, { mustBeUser: true });
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     const user = await this.userService.changePassword(requestingUser.id, payload.oldPassword, payload.newPassword);
     this.mailService.passwordChanged(user);
   }

@@ -2,9 +2,9 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
-
 import { environment } from '../../../../environments/environment';
-import { ClearMessages, Signup } from '../../stores/auth.state';
+import { Provider } from '../../models/provider';
+import { AuthError, ClearMessages, GetProviders, LoggedIn, RedirectWithGoogle, Signup } from '../../stores/auth.state';
 
 @Component({
   selector: 'app-signup',
@@ -28,12 +28,21 @@ export class SignupComponent implements OnInit, OnDestroy {
   @Select(state => state.auth.isLoading)
   isLoading$: Observable<boolean>;
 
-  constructor(private fb: FormBuilder, private store: Store) {}
+  @Select(state => state.auth.providers)
+  providers$: Observable<Provider[]>;
 
-  ngOnInit() {}
+  constructor(private fb: FormBuilder, private store: Store) {
+    this.afterSignUnWithGoogle = this.afterSignUnWithGoogle.bind(this);
+  }
+
+  ngOnInit() {
+    this.store.dispatch(new GetProviders());
+    window.addEventListener('message', this.afterSignUnWithGoogle);
+  }
 
   ngOnDestroy() {
     this.store.dispatch(new ClearMessages());
+    window.removeEventListener('message', this.afterSignUnWithGoogle);
   }
 
   onSubmit() {
@@ -53,5 +62,21 @@ export class SignupComponent implements OnInit, OnDestroy {
 
   get password() {
     return this.signupForm.get('password');
+  }
+
+  signUpWithGoogle(provider: Provider) {
+    this.store.dispatch(new RedirectWithGoogle('signup', provider));
+  }
+
+  afterSignUnWithGoogle(event) {
+    if (event.data.type === 'signup') {
+      const { payload, error } = event.data;
+      if (payload) {
+        this.store.dispatch(new LoggedIn(JSON.parse(event.data.payload)));
+      }
+      if (error) {
+        this.store.dispatch(new AuthError('login', JSON.parse(error)));
+      }
+    }
   }
 }

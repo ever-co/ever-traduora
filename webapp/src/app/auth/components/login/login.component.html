@@ -5,12 +5,22 @@
       <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
       <h4 class="card-title font-serif" i18n>Sign in</h4>
+      <div style="margin-bottom: 10px" *ngFor="let provider of providers$ | async">
+        <button class="btn btn-primary w-100" type="button" (click)="signInWithGoogle(provider)" i18n>Google</button>
+      </div>
 
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
-
         <div class="form-group">
           <label for="emailInput" i18n>Email address</label>
-          <input id="emailInput" class="form-control" type="email" formControlName="email" placeholder="Email" [ngClass]="{'is-invalid': email.touched && email.invalid}" autocomplete="email">
+          <input
+            id="emailInput"
+            class="form-control"
+            type="email"
+            formControlName="email"
+            placeholder="Email"
+            [ngClass]="{ 'is-invalid': email.touched && email.invalid }"
+            autocomplete="email"
+          />
 
           <div class="invalid-feedback">
             <div *ngIf="email.getError('required')" i18n>Email is required.</div>
@@ -20,7 +30,15 @@
 
         <div class="form-group">
           <label for="passwordInput" i18n>Password</label>
-          <input id="passwordInput" class="form-control" type="password" formControlName="password" placeholder="Password" [ngClass]="{'is-invalid': password.touched && password.invalid}" autocomplete="current-password">
+          <input
+            id="passwordInput"
+            class="form-control"
+            type="password"
+            formControlName="password"
+            placeholder="Password"
+            [ngClass]="{ 'is-invalid': password.touched && password.invalid }"
+            autocomplete="current-password"
+          />
 
           <div class="invalid-feedback">
             <div *ngIf="password.getError('required')" i18n>Password is required.</div>

@@ -1,5 +1,4 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
-
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
 
@@ -11,6 +10,7 @@ export interface JwtPayload {
 export enum GrantType {
   Password = 'password',
   ClientCredentials = 'client_credentials',
+  Provider = 'provider',
 }
 
 export class SignupRequest {
@@ -46,6 +46,11 @@ export class AuthenticateRequest {
   @Length(8, 255)
   @IsOptional()
   clientSecret: string;
+
+  // client credentials
+  @IsString()
+  @IsOptional()
+  code: string;
 }
 
 export class AddProjectUserRequest {
