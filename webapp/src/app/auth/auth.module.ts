@@ -15,7 +15,15 @@ import { AuthState } from './stores/auth.state';
 import { SignInWithComponent } from './components/sign-in-with/sign-in-with.component';
 
 @NgModule({
-  declarations: [LoginComponent, SignupComponent, ForgotPasswordComponent, UserSettingsComponent, ResetPasswordComponent, AuthCallbackComponent, SignInWithComponent],
+  declarations: [
+    LoginComponent,
+    SignupComponent,
+    ForgotPasswordComponent,
+    UserSettingsComponent,
+    ResetPasswordComponent,
+    AuthCallbackComponent,
+    SignInWithComponent,
+  ],
   imports: [
     CommonModule,
     SharedModule,
