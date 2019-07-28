@@ -33,7 +33,7 @@ export class UserService {
     if (exists) {
       // Attempting to create an account via provider is idempotent
       // We offload prooving the user's identity to the provider
-      if (grantType == GrantType.Provider) {
+      if (grantType === GrantType.Provider) {
         return { user: exists, isNewUser: false };
       } else {
         throw new ConflictException('a user with this email already exists');

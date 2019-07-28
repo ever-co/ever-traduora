@@ -20,12 +20,12 @@ export class SignInWithComponent implements OnInit {
     this.store.dispatch(new RedirectToAuthProvider(provider));
   }
 
-  providerToButton(provider: Provider) {
+  providerToButton(provider: Provider): string {
     switch (provider.slug) {
       case 'google':
         return 'assets/img/signin-google/btn_google_signin_light_normal_web@2x.png';
       default:
-        'Unknown auth provider';
+        return 'Unknown auth provider';
     }
   }
 }
