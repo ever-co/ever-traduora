@@ -16,12 +16,28 @@ export class UserService {
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
   ) {}
 
-  async create({ grantType, email, name, password }: { grantType: GrantType; email: string; name: string; password?: string }): Promise<User> {
+  async create({
+    grantType,
+    email,
+    name,
+    password,
+  }: {
+    grantType: GrantType;
+    email: string;
+    name: string;
+    password?: string;
+  }): Promise<{ user: User; isNewUser: boolean }> {
     const normalizedEmail = this.normalizeEmail(email);
     const exists = await this.userRepo.findOne({ email: normalizedEmail });
 
     if (exists) {
-      throw new ConflictException('a user with this email already exists');
+      // Attempting to create an account via provider is idempotent
+      // We offload prooving the user's identity to the provider
+      if (grantType == GrantType.Provider) {
+        return { user: exists, isNewUser: false };
+      } else {
+        throw new ConflictException('a user with this email already exists');
+      }
     }
 
     const user = new User();
@@ -36,7 +52,8 @@ export class UserService {
       user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
     }
 
-    return await this.userRepo.save(user);
+    const newUser = await this.userRepo.save(user);
+    return { user: newUser, isNewUser: true };
   }
 
   async forgotPassword(email: string): Promise<{ user: User; token: string }> {

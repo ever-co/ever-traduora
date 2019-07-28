@@ -29,11 +29,6 @@ export class Signup {
   constructor(public name: string, public email: string, public password: string) {}
 }
 
-export class SignupWithGoogle {
-  static readonly type = '[Auth] Signup with google';
-  constructor(public code: string) {}
-}
-
 export class UpdateUserSelf {
   static readonly type = '[Auth] Update user self';
   constructor(public updates: { name?: string; email?: string }) {}
@@ -44,22 +39,19 @@ export class Login {
   constructor(public email: string, public password: string) {}
 }
 
-export class LoginWithGoogle {
-  static readonly type = '[Auth] Login with google';
-
+export class ReceiveAuthProviderCode {
+  static readonly type = '[Auth] Receive provider auth code';
   constructor(public code: string) {}
 }
 
-export class LoggedIn {
-  static readonly type = '[Auth] LoggedIn';
-
+export class ReceiveAPIAccessToken {
+  static readonly type = '[Auth] Receive API access token';
   constructor(public payload: { accessToken: string }) {}
 }
 
-export class RedirectWithGoogle {
-  static readonly type = '[Auth] Redirect with google';
-
-  constructor(public type: 'login' | 'signup', public provider: Provider) {}
+export class RedirectToAuthProvider {
+  static readonly type = '[Auth] Redirect to auth provider sign in';
+  constructor(public provider: Provider) {}
 }
 
 export class ForgotPassword {
@@ -170,7 +162,7 @@ export class AuthState implements NgxsOnInit {
   }
 
   @Action(GetProviders)
-  GetProviders(ctx: StateContext<AuthStateModel>) {
+  getProviders(ctx: StateContext<AuthStateModel>) {
     return this.authService.getProviders().pipe(
       tap(providers => {
         ctx.patchState({ providers });
@@ -184,25 +176,10 @@ export class AuthState implements NgxsOnInit {
     return this.authService.signup(action).pipe(
       map(user => {
         ctx.patchState({ user });
-        ctx.dispatch(new LoggedIn(user));
+        ctx.dispatch(new ReceiveAPIAccessToken(user));
       }),
       catchError(error => {
         ctx.dispatch(new AuthError('Signup', error));
-        return throwError(error);
-      }),
-      finalize(() => ctx.patchState({ isLoading: false })),
-    );
-  }
-
-  @Action(SignupWithGoogle)
-  signupWithGoogle(ctx: StateContext<AuthStateModel>, action: SignupWithGoogle) {
-    return this.authService.signupWithProvider(action).pipe(
-      map(user => {
-        ctx.patchState({ user });
-        window.opener.postMessage({ type: 'signup', payload: JSON.stringify(user) });
-      }),
-      catchError(error => {
-        window.opener.postMessage({ type: 'signup', error: JSON.stringify(error) });
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -247,7 +224,7 @@ export class AuthState implements NgxsOnInit {
   login(ctx: StateContext<AuthStateModel>, action: Login) {
     ctx.patchState({ isLoading: true });
     return this.authService.login(action).pipe(
-      tap(token => ctx.dispatch(new LoggedIn(token))),
+      tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
         ctx.dispatch(new AuthError('login', error));
         return throwError(error);
@@ -256,24 +233,23 @@ export class AuthState implements NgxsOnInit {
     );
   }
 
-  @Action(LoginWithGoogle)
-  loginWithGoogle(ctx: StateContext<AuthStateModel>, action: LoginWithGoogle) {
+  @Action(ReceiveAuthProviderCode)
+  receiveProviderAuthCode(ctx: StateContext<AuthStateModel>, action: ReceiveAuthProviderCode) {
     ctx.patchState({ isLoading: true });
-    return this.authService.loginWithProvider(action).pipe(
-      tap(token => window.opener.postMessage({ type: 'loggedIn', payload: JSON.stringify(token) })),
+    return this.authService.signInWithProvider(action).pipe(
+      tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
-        window.opener.postMessage({ type: 'loggedIn', error: JSON.stringify(error) });
+        ctx.dispatch(new AuthError('login', error));
         return throwError(error);
       }),
       finalize(() => {
         ctx.patchState({ isLoading: false });
-        window.close();
       }),
     );
   }
 
-  @Action(LoggedIn)
-  loggedIn(ctx: StateContext<AuthStateModel>, { payload }: LoggedIn) {
+  @Action(ReceiveAPIAccessToken)
+  receiveAPIAccessToken(ctx: StateContext<AuthStateModel>, { payload }: ReceiveAPIAccessToken) {
     this.tokenService.setToken(payload.accessToken);
     ctx.patchState({ isAuthenticated: true });
     ctx.dispatch(new GetUserInfo());
@@ -284,9 +260,9 @@ export class AuthState implements NgxsOnInit {
     ctx.dispatch(new Navigate([redirect || '/']));
   }
 
-  @Action(RedirectWithGoogle)
-  redirectWithGoogle(ctx: StateContext<AuthStateModel>, action: RedirectWithGoogle) {
-    return this.authService.redirectWithProvider(action);
+  @Action(RedirectToAuthProvider)
+  redirectToAuthProvider(ctx: StateContext<AuthStateModel>, action: RedirectToAuthProvider) {
+    return this.authService.redirectWithProvider(action.provider);
   }
 
   @Action(ForgotPassword)

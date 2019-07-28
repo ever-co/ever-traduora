@@ -49,7 +49,7 @@ export class AuthController {
     return {
       data: Object.keys(config.providers).reduce((acc, provider) => {
         const { url, active, redirectUrl, clientId } = config.providers[provider];
-        return active ? [...acc, { url, redirectUrl, clientId }] : acc;
+        return active ? [...acc, { slug: provider, url, redirectUrl, clientId }] : acc;
       }, []),
     };
   }
@@ -61,11 +61,14 @@ export class AuthController {
       throw new ForbiddenException('Signups are disabled');
     }
 
-    const user = await this.userService.create({ grantType: GrantType.Password, ...payload });
+    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...payload });
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
-    this.mailService.welcomeNewUser(user);
+
+    if (isNewUser) {
+      this.mailService.welcomeNewUser(user);
+    }
 
     return {
       data: {
@@ -84,14 +87,16 @@ export class AuthController {
     }
 
     const { id_token } = await this.authService.getTokenFromGoogle(code);
-
     const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
 
-    const user = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
+    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
-    this.mailService.welcomeNewUser(user);
+
+    if (isNewUser) {
+      this.mailService.welcomeNewUser(user);
+    }
 
     return {
       data: {
