@@ -33,11 +33,9 @@ export class AuthService {
     return this.http.post<Payload<{ accessToken: string } & User>>(`${this.endpoint}/auth/signup`, data).pipe(map(res => res.data));
   }
 
-  signupWithProvider(data: UserSignupWithProvider): Observable<{ accessToken: string } & User> {
-    return this.http.post<Payload<{ accessToken: string } & User>>(`${this.endpoint}/auth/signup-provider`, data).pipe(
-      map(res => res.data),
-      tap(() => window.close()),
-    );
+  // Signing in with a provider is an idempotent operation
+  signInWithProvider(data: UserSignupWithProvider): Observable<{ accessToken: string } & User> {
+    return this.http.post<Payload<{ accessToken: string } & User>>(`${this.endpoint}/auth/signup-provider`, data).pipe(map(res => res.data));
   }
 
   login(data: UserLogin): Observable<{ accessToken: string }> {
@@ -49,22 +47,12 @@ export class AuthService {
       .pipe(map(res => res.data));
   }
 
-  loginWithProvider(data: UserLoginWithProvider) {
-    return this.http
-      .post<Payload<{ accessToken: string }>>(`${this.endpoint}/auth/token`, {
-        ...data,
-        grantType: 'provider',
-      })
-      .pipe(map(res => res.data));
-  }
-
-  redirectWithProvider({ type, provider }: { type: 'login' | 'signup'; provider: Provider }) {
+  redirectWithProvider(provider: Provider) {
     window.open(
-      `${provider.url}?redirect_uri=${provider.redirectUrl}&state=${type}&client_id=${
+      `${provider.url}?redirect_uri=${provider.redirectUrl}&client_id=${
         provider.clientId
       }&scope=email profile openid&access_type=offline&prompt=select_account&response_type=code`,
-      '_blank',
-      'width=500,height=750',
+      '_self',
     );
   }
 
