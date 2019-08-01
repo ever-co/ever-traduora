@@ -12,7 +12,7 @@ First of all, thank you for your interest in contributing! Any kind of contribut
 Assuming you have MySQL 5.7 running locally with a database called `tr_dev`, username `root` and empty password, from the project's root directory run the following:
 
 ```sh
-yarn && bin/start-dev.sh
+bin/start-dev.sh
 ```
 
 Once ready, the API will be listening on `:8080` and the webapp on `:4200`.
