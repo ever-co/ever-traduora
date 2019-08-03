@@ -43,7 +43,9 @@ async function bootstrap() {
       )
       .setVersion('1.0')
       .setBasePath('/')
-      .addBearerAuth('Authorization', 'header')
+      .addBearerAuth('Authorization', 'header', 'apiKey')
+      // TODO: handle oauth2 style form data and rename grant type field to snake case
+      // .addOAuth2('password', '/api/v1/auth/token', '/api/v1/auth/token')
       .setSchemes('http', 'https')
       .build();
 

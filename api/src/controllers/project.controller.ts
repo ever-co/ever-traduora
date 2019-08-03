@@ -5,14 +5,14 @@ import { omit } from 'lodash';
 import { Repository } from 'typeorm';
 import { config } from '../config';
 import { ProjectAction } from '../domain/actions';
-import { CreateProjectRequest, UpdateProjectRequest } from '../domain/http';
+import { CreateProjectRequest, UpdateProjectRequest, ProjectResponse, ListProjectsResponse } from '../domain/http';
 import { Plan } from '../entity/plan.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import AuthorizationService from '../services/authorization.service';
-import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiUseTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
@@ -26,6 +26,9 @@ export default class ProjectController {
   ) {}
 
   @Get()
+  @ApiOperation({ title: 'List projects' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectsResponse })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async find(@Req() req) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     const memberships = await this.projectUserRepo.find({
@@ -41,6 +44,10 @@ export default class ProjectController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ title: 'Create a new project', description: 'Creates a new project and assigns the requesting user as the admin' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectResponse })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async create(@Req() req, @Body() payload: CreateProjectRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
 
@@ -71,6 +78,10 @@ export default class ProjectController {
   }
 
   @Get(':projectId')
+  @ApiOperation({ title: 'Get a project by id'})
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async findOne(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewProject);
@@ -83,6 +94,11 @@ export default class ProjectController {
   }
 
   @Patch(':projectId')
+  @ApiOperation({ title: 'Update a project'})
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(@Req() req, @Param('projectId') projectId: string, @Body() payload: UpdateProjectRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
 
@@ -96,6 +112,10 @@ export default class ProjectController {
 
   @Delete(':projectId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ title: 'Delete a project'})
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteProject);

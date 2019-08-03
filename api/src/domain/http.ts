@@ -14,7 +14,7 @@ export enum GrantType {
   ClientCredentials = 'client_credentials',
 }
 
-export class NewlyCreatedUser {
+export class NewUserDTO {
   @ApiModelProperty()
   id: string;
 
@@ -28,7 +28,7 @@ export class NewlyCreatedUser {
   accessToken: string;
 }
 
-export class RequestingUserInfo {
+export class UserInfoDTO {
   @ApiModelProperty()
   id: string;
 
@@ -39,56 +39,32 @@ export class RequestingUserInfo {
   email: string;
 }
 
-export class AccessToken {
+export class AccessTokenDTO {
   @ApiModelProperty()
   accessToken: string;
 }
 
-export class ImportTermsResult {
+export class ImportTermsDTO {
   @ApiModelProperty()
   added: Number;
   @ApiModelProperty()
   skipped: Number;
 }
 
-export class ImportTranslationsResult {
+export class ImportTranslationsDTO {
   @ApiModelProperty()
   upserted: Number;
 }
 
-export class ImportFileResult {
+export class ImportFileDTO {
   @ApiModelProperty()
-  terms: ImportTermsResult;
+  terms: ImportTermsDTO;
 
   @ApiModelProperty()
-  translations: ImportTranslationsResult;
+  translations: ImportTranslationsDTO;
 }
 
-export abstract class ServiceApiResponse<A> {
-  abstract get data(): A;
-}
-
-export class SignupResponse extends ServiceApiResponse<NewlyCreatedUser> {
-  @ApiModelProperty()
-  data: NewlyCreatedUser;
-}
-
-export class AccessTokenResponse extends ServiceApiResponse<AccessToken> {
-  @ApiModelProperty()
-  data: AccessToken;
-}
-
-export class ImportResponse extends ServiceApiResponse<ImportFileResult> {
-  @ApiModelProperty()
-  data: ImportFileResult;
-}
-
-export class UserInfoResponse extends ServiceApiResponse<RequestingUserInfo> {
-  @ApiModelProperty()
-  data: RequestingUserInfo;
-}
-
-export class Locale {
+export class LocaleDTO {
   @ApiModelProperty()
   code: string;
   @ApiModelProperty()
@@ -97,9 +73,83 @@ export class Locale {
   region: string;
 }
 
-export class ListLocalesResponse extends ServiceApiResponse<Locale[]> {
-  @ApiModelProperty({ type: Locale, isArray: true })
-  data: Locale[];
+export class AccessDatesDTO {
+  @ApiModelProperty()
+  created: string;
+  @ApiModelProperty()
+  modified: string;
+}
+
+export class ProjectDTO {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty()
+  name: string;
+  @ApiModelProperty()
+  description: string;
+  @ApiModelProperty()
+  localesCount: number;
+  @ApiModelProperty({enum: ProjectRole})
+  role: ProjectRole;
+  @ApiModelProperty()
+  date: AccessDatesDTO;
+}
+
+export class ProjectPlanDTO {
+  @ApiModelProperty()
+  code: string;
+  @ApiModelProperty()
+  name: string;
+  @ApiModelProperty()
+  maxStrings: number;
+  @ApiModelProperty()
+  date: AccessDatesDTO;
+}
+
+
+export abstract class ServiceApiResponse<A> {
+  abstract get data(): A;
+}
+
+export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
+  @ApiModelProperty()
+  data: NewUserDTO;
+}
+
+export class AccessTokenResponse extends ServiceApiResponse<AccessTokenDTO> {
+  @ApiModelProperty()
+  data: AccessTokenDTO;
+}
+
+export class ImportResponse extends ServiceApiResponse<ImportFileDTO> {
+  @ApiModelProperty()
+  data: ImportFileDTO;
+}
+
+export class UserInfoResponse extends ServiceApiResponse<UserInfoDTO> {
+  @ApiModelProperty()
+  data: UserInfoDTO;
+}
+
+export class ProjectResponse extends ServiceApiResponse<ProjectDTO> {
+  @ApiModelProperty()
+  data: ProjectDTO;
+}
+
+export class ProjectPlanResponse extends ServiceApiResponse<ProjectPlanDTO> {
+  @ApiModelProperty()
+  data: ProjectPlanDTO;
+}
+
+export class ListProjectsResponse extends ServiceApiResponse<ProjectDTO[]> {
+  @ApiModelProperty({type: ProjectDTO, isArray: true})
+  data: ProjectDTO[];
+}
+
+
+export class ListLocalesResponse extends ServiceApiResponse<LocaleDTO[]> {
+  @ApiModelProperty({ type: LocaleDTO, isArray: true })
+  data: LocaleDTO[];
 }
 
 export class SignupRequest {
