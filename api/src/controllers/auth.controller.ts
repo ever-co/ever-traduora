@@ -74,7 +74,11 @@ export class AuthController {
 
   @Post('token')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ title: 'Request Authentication Token' })
+  @ApiOperation({
+    title: 'Request Authentication Token',
+    description:
+      'The grant type must be one of **password** or **clientCredentials**. When using a grant type of *password*, you must provide the fields *email* and *password*. When using the grant type *clientCredentials* you must provide the fields *clientId* and *clientSecret*',
+  })
   @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessTokenResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No resource with such credentials found' })
@@ -145,7 +149,7 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.OK, description: 'Password changed' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad token' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async resetPassword(@Body() payload: ResetPasswordRequest) {
     const user = await this.userService.resetPassword(payload.email, payload.token, payload.newPassword);
     this.mailService.passwordChanged(user);
@@ -159,7 +163,7 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Password changed' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad credentials' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async changePassword(@Req() req, @Body() payload: ChangePasswordRequest) {
     const requestingUser = this.authService.getRequestUserOrClient(req, { mustBeUser: true });
     const user = await this.userService.changePassword(requestingUser.id, payload.oldPassword, payload.newPassword);

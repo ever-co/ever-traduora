@@ -28,6 +28,17 @@ export class NewlyCreatedUser {
   accessToken: string;
 }
 
+export class RequestingUserInfo {
+  @ApiModelProperty()
+  id: string;
+
+  @ApiModelProperty()
+  name: string;
+
+  @ApiModelProperty()
+  email: string;
+}
+
 export class AccessToken {
   @ApiModelProperty()
   accessToken: string;
@@ -58,18 +69,37 @@ export abstract class ServiceApiResponse<A> {
 }
 
 export class SignupResponse extends ServiceApiResponse<NewlyCreatedUser> {
-  @ApiResponseModelProperty({ type: NewlyCreatedUser })
+  @ApiModelProperty()
   data: NewlyCreatedUser;
 }
 
 export class AccessTokenResponse extends ServiceApiResponse<AccessToken> {
-  @ApiResponseModelProperty({ type: AccessToken })
+  @ApiModelProperty()
   data: AccessToken;
 }
 
 export class ImportResponse extends ServiceApiResponse<ImportFileResult> {
-  @ApiResponseModelProperty()
+  @ApiModelProperty()
   data: ImportFileResult;
+}
+
+export class UserInfoResponse extends ServiceApiResponse<RequestingUserInfo> {
+  @ApiModelProperty()
+  data: RequestingUserInfo;
+}
+
+export class Locale {
+  @ApiModelProperty()
+  code: string;
+  @ApiModelProperty()
+  language: string;
+  @ApiModelProperty()
+  region: string;
+}
+
+export class ListLocalesResponse extends ServiceApiResponse<Locale[]> {
+  @ApiModelProperty({ type: Locale, isArray: true })
+  data: Locale[];
 }
 
 export class SignupRequest {
