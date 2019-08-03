@@ -77,7 +77,9 @@ export class AuthController {
   @ApiOperation({
     title: 'Request Authentication Token',
     description:
-      'The grant type must be one of **password** or **clientCredentials**. When using a grant type of *password*, you must provide the fields *email* and *password*. When using the grant type *clientCredentials* you must provide the fields *clientId* and *clientSecret*',
+      'The grant type must be one of **password** or **clientCredentials**.' +
+      'When using a grant type of *password*, you must provide the fields *email* and *password*.' +
+      'When using the grant type *clientCredentials* you must provide the fields *clientId* and *clientSecret*',
   })
   @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessTokenResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })

@@ -13,7 +13,7 @@ export default class ProjectPlanController {
   constructor(private auth: AuthorizationService) {}
 
   @Get(':projectId/plan')
-  @ApiOperation({ title: "Get a project's plan"})
+  @ApiOperation({ title: "Get a project's plan" })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectPlanResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

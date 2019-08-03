@@ -78,7 +78,7 @@ export default class ProjectController {
   }
 
   @Get(':projectId')
-  @ApiOperation({ title: 'Get a project by id'})
+  @ApiOperation({ title: 'Get a project by id' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -94,7 +94,7 @@ export default class ProjectController {
   }
 
   @Patch(':projectId')
-  @ApiOperation({ title: 'Update a project'})
+  @ApiOperation({ title: 'Update a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
@@ -112,7 +112,7 @@ export default class ProjectController {
 
   @Delete(':projectId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: 'Delete a project'})
+  @ApiOperation({ title: 'Delete a project' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

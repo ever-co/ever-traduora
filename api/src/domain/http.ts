@@ -46,14 +46,14 @@ export class AccessTokenDTO {
 
 export class ImportTermsDTO {
   @ApiModelProperty()
-  added: Number;
+  added: number;
   @ApiModelProperty()
-  skipped: Number;
+  skipped: number;
 }
 
 export class ImportTranslationsDTO {
   @ApiModelProperty()
-  upserted: Number;
+  upserted: number;
 }
 
 export class ImportFileDTO {
@@ -89,7 +89,7 @@ export class ProjectDTO {
   description: string;
   @ApiModelProperty()
   localesCount: number;
-  @ApiModelProperty({enum: ProjectRole})
+  @ApiModelProperty({ enum: ProjectRole })
   role: ProjectRole;
   @ApiModelProperty()
   date: AccessDatesDTO;
@@ -105,7 +105,6 @@ export class ProjectPlanDTO {
   @ApiModelProperty()
   date: AccessDatesDTO;
 }
-
 
 export abstract class ServiceApiResponse<A> {
   abstract get data(): A;
@@ -142,10 +141,9 @@ export class ProjectPlanResponse extends ServiceApiResponse<ProjectPlanDTO> {
 }
 
 export class ListProjectsResponse extends ServiceApiResponse<ProjectDTO[]> {
-  @ApiModelProperty({type: ProjectDTO, isArray: true})
+  @ApiModelProperty({ type: ProjectDTO, isArray: true })
   data: ProjectDTO[];
 }
-
 
 export class ListLocalesResponse extends ServiceApiResponse<LocaleDTO[]> {
   @ApiModelProperty({ type: LocaleDTO, isArray: true })
