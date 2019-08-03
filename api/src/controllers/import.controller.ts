@@ -17,7 +17,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import { IntermediateTranslation, IntermediateTranslationFormat } from '../domain/formatters';
-import { ImportExportFormat, ImportQuery } from '../domain/http';
+import { ImportExportFormat, ImportQuery, ImportResponse } from '../domain/http';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
@@ -33,7 +33,7 @@ import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
-import { ApiBearerAuth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse, ApiOperation } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiUseTags('Imports')
@@ -49,10 +49,15 @@ export class ImportController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard())
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 512 * 1024 } })) // 500 kb max size
   @ApiBearerAuth()
+  @ApiOperation({ title: 'Import a translation file' })
   @ApiConsumes('multipart/form-data')
   @ApiImplicitFile({ name: 'file', required: true, description: 'The file to import' })
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 512 * 1024 } })) // 500 kb max size
+  @ApiResponse({ status: HttpStatus.OK, description: 'File imported', type: ImportResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad credentials' })
   async import(@Req() req, @Param('projectId') projectId: string, @Query() query: ImportQuery, @UploadedFile('file') file) {
     if (!file) {
       throw new BadRequestException('missing file to import');

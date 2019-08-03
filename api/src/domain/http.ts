@@ -2,7 +2,7 @@ import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } f
 
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
-import { ApiModelProperty, ApiModelPropertyOptional } from '@nestjs/swagger';
+import { ApiModelProperty, ApiModelPropertyOptional, ApiResponseModelProperty } from '@nestjs/swagger';
 
 export interface JwtPayload {
   sub: string;
@@ -12,6 +12,64 @@ export interface JwtPayload {
 export enum GrantType {
   Password = 'password',
   ClientCredentials = 'client_credentials',
+}
+
+export class NewlyCreatedUser {
+  @ApiModelProperty()
+  id: string;
+
+  @ApiModelProperty()
+  name: string;
+
+  @ApiModelProperty()
+  email: string;
+
+  @ApiModelProperty()
+  accessToken: string;
+}
+
+export class AccessToken {
+  @ApiModelProperty()
+  accessToken: string;
+}
+
+export class ImportTermsResult {
+  @ApiModelProperty()
+  added: Number;
+  @ApiModelProperty()
+  skipped: Number;
+}
+
+export class ImportTranslationsResult {
+  @ApiModelProperty()
+  upserted: Number;
+}
+
+export class ImportFileResult {
+  @ApiModelProperty()
+  terms: ImportTermsResult;
+
+  @ApiModelProperty()
+  translations: ImportTranslationsResult;
+}
+
+export abstract class ServiceApiResponse<A> {
+  abstract get data(): A;
+}
+
+export class SignupResponse extends ServiceApiResponse<NewlyCreatedUser> {
+  @ApiResponseModelProperty({ type: NewlyCreatedUser })
+  data: NewlyCreatedUser;
+}
+
+export class AccessTokenResponse extends ServiceApiResponse<AccessToken> {
+  @ApiResponseModelProperty({ type: AccessToken })
+  data: AccessToken;
+}
+
+export class ImportResponse extends ServiceApiResponse<ImportFileResult> {
+  @ApiResponseModelProperty()
+  data: ImportFileResult;
 }
 
 export class SignupRequest {

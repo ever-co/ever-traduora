@@ -1,11 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiUseTags } from '@nestjs/swagger';
+import { ApiUseTags, ApiExcludeEndpoint } from '@nestjs/swagger';
 
 @Controller()
-@ApiUseTags('Misc')
 export default class HealthController {
   constructor() {}
 
+  @ApiExcludeEndpoint()
   @Get('/health')
   async health() {
     return { status: 'ok' };

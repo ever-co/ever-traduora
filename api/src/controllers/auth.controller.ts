@@ -25,12 +25,14 @@ import {
   JwtPayload,
   ResetPasswordRequest,
   SignupRequest,
+  SignupResponse,
+  AccessTokenResponse,
 } from '../domain/http';
 import { ProjectClient } from '../entity/project-client.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
-import { ApiBearerAuth, ApiUseTags, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiUseTags, ApiResponse, ApiResponseModelProperty, ApiModelProperty, ApiOperation } from '@nestjs/swagger';
 
 @Controller('api/v1/auth')
 @ApiUseTags('Authentication')
@@ -45,6 +47,10 @@ export class AuthController {
 
   @Post('signup')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ title: 'Sign up' })
+  @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'A user with this email already exists' })
   async signup(@Body() payload: SignupRequest) {
     if (!config.signupsEnabled) {
       throw new ForbiddenException('Signups are disabled');
@@ -68,7 +74,12 @@ export class AuthController {
 
   @Post('token')
   @HttpCode(HttpStatus.OK)
-  @ApiResponse({ status: 200, description: 'Successfully authenticated with credentials.' })
+  @ApiOperation({ title: 'Request Authentication Token' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessTokenResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No resource with such credentials found' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Too many attempts, please wait at least 15 minutes before retrying' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad credentials' })
   async token(@Body() payload: AuthenticateRequest) {
     switch (payload.grantType) {
       case GrantType.Password: {
@@ -120,6 +131,9 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ title: 'Request reset password email' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Email sent' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No user with such email found' })
   async forgotPassword(@Body() payload: ForgotPasswordRequest) {
     const { user, token } = await this.userService.forgotPassword(payload.email);
     this.mailService.passwordResetToken(user, token);
@@ -127,9 +141,13 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ title: 'Reset password from token' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Password changed' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad token' })
   async resetPassword(@Body() payload: ResetPasswordRequest) {
     const user = await this.userService.resetPassword(payload.email, payload.token, payload.newPassword);
-
     this.mailService.passwordChanged(user);
   }
 
@@ -137,6 +155,11 @@ export class AuthController {
   @UseGuards(AuthGuard())
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ title: 'Change password using current one' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Password changed' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad credentials' })
   async changePassword(@Req() req, @Body() payload: ChangePasswordRequest) {
     const requestingUser = this.authService.getRequestUserOrClient(req, { mustBeUser: true });
     const user = await this.userService.changePassword(requestingUser.id, payload.oldPassword, payload.newPassword);
