@@ -33,7 +33,7 @@ import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
-import { ApiBearerAuth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiOAuth2Auth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse, ApiOperation } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiUseTags('Imports')
@@ -50,7 +50,7 @@ export class ImportController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard())
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 512 * 1024 } })) // 500 kb max size
-  @ApiBearerAuth()
+  @ApiOAuth2Auth()
   @ApiOperation({ title: 'Import a translation file' })
   @ApiConsumes('multipart/form-data')
   @ApiImplicitFile({ name: 'file', required: true, description: 'The file to import' })

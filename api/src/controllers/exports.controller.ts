@@ -18,7 +18,7 @@ import { yamlNestedExporter } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextExporter } from '../formatters/gettext';
 import { stringsExporter } from '../formatters/strings';
-import { ApiBearerAuth, ApiUseTags, ApiOperation, ApiConsumes, ApiProduces, ApiResponse } from '@nestjs/swagger';
+import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiConsumes, ApiProduces, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -32,7 +32,7 @@ export class ExportsController {
   @Get()
   @UseGuards(AuthGuard())
   @ApiUseTags('Exports')
-  @ApiBearerAuth()
+  @ApiOAuth2Auth()
   @ApiOperation({ title: `Export all translated terms for a project's locale` })
   @ApiProduces('application/octet-stream')
   @ApiResponse({ status: HttpStatus.OK, description: 'File exported' })

@@ -32,7 +32,7 @@ import { ProjectClient } from '../entity/project-client.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
-import { ApiBearerAuth, ApiUseTags, ApiResponse, ApiResponseModelProperty, ApiModelProperty, ApiOperation } from '@nestjs/swagger';
+import { ApiOAuth2Auth, ApiUseTags, ApiResponse, ApiResponseModelProperty, ApiModelProperty, ApiOperation } from '@nestjs/swagger';
 
 @Controller('api/v1/auth')
 @ApiUseTags('Authentication')
@@ -87,20 +87,28 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Too many attempts, please wait at least 15 minutes before retrying' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad credentials' })
   async token(@Body() payload: AuthenticateRequest) {
-    switch (payload.grantType) {
+    switch (payload.grant_type) {
       case GrantType.Password: {
-        if (!payload.email || !payload.password) {
+        if (!payload.username || !payload.password) {
           throw new BadRequestException('missing credentials');
         }
-        const token = await this.authenticateUser(payload.email, payload.password);
-        return { data: { accessToken: token } };
+        const token = await this.authenticateUser(payload.username, payload.password);
+        return {
+          access_token: token,
+          token_type: 'bearer',
+          expires_in: `${config.authTokenExpires}s`,
+        };
       }
       case GrantType.ClientCredentials: {
         if (!payload.clientId || !payload.clientSecret) {
           throw new BadRequestException('missing credentials');
         }
         const token = await this.authenticateClient(payload.clientId, payload.clientSecret);
-        return { data: { accessToken: token } };
+        return {
+          access_token: token,
+          token_type: 'bearer',
+          expires_in: `${config.authTokenExpires}s`,
+        };
       }
       default:
         throw new BadRequestException('invalid grant type');
@@ -159,7 +167,7 @@ export class AuthController {
 
   @Post('change-password')
   @UseGuards(AuthGuard())
-  @ApiBearerAuth()
+  @ApiOAuth2Auth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ title: 'Change password using current one' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Password changed' })

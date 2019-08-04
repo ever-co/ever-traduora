@@ -30,11 +30,12 @@ export class AuthService {
 
   login(data: UserLogin): Observable<{ accessToken: string }> {
     return this.http
-      .post<Payload<{ accessToken: string }>>(`${this.endpoint}/auth/token`, {
-        ...data,
-        grantType: 'password',
+      .post<{ access_token: string; expires_in: string; token_type: string }>(`${this.endpoint}/auth/token`, {
+        username: data.email,
+        password: data.password,
+        grant_type: 'password',
       })
-      .pipe(map(res => res.data));
+      .pipe(map(res => ({ accessToken: res.access_Token })));
   }
 
   deleteAccount(): Observable<any> {

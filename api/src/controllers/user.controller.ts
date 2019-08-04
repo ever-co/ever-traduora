@@ -1,13 +1,13 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { UpdateUserDataRequest, UserInfoResponse } from '../domain/http';
 import AuthorizationService from '../services/authorization.service';
 import { UserService } from '../services/user.service';
-import { ApiBearerAuth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/users')
 @UseGuards(AuthGuard())
-@ApiBearerAuth()
+@ApiOAuth2Auth()
 @ApiUseTags('Users')
 export default class UserController {
   constructor(private auth: AuthorizationService, private userService: UserService) {}

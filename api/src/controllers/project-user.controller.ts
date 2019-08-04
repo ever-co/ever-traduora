@@ -8,11 +8,11 @@ import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
-import { ApiBearerAuth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
-@ApiBearerAuth()
+@ApiOAuth2Auth()
 @ApiUseTags('Project Users')
 export default class ProjectUserController {
   constructor(

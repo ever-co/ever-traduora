@@ -7,11 +7,11 @@ import { AddTermRequest, UpdateTermRequest, ListProjectTermsResponse, ProjectTer
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ApiBearerAuth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/terms')
 @UseGuards(AuthGuard())
-@ApiBearerAuth()
+@ApiOAuth2Auth()
 @ApiUseTags('Terms')
 export default class TermController {
   constructor(

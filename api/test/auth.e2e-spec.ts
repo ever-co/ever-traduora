@@ -90,27 +90,27 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
         password: 'mysupersecretpassword',
       })
       .expect(200)
-      .expect(res => expect(res.body.data).toHaveExactProperties(['accessToken']));
+      .expect(res => expect(res.body).toHaveExactProperties(['access_token', 'expires_in', 'token_type']));
   });
 
   it('/api/v1/auth/token (POST) should not grant a token to user with missing credentials', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
       })
       .expect(400);
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
+        grant_type: 'password',
         password: 'mysupersecretpassword',
       })
       .expect(400);
@@ -118,8 +118,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: '',
+        grant_type: 'password',
+        username: '',
         password: 'mysupersecretpassword',
       })
       .expect(400);
@@ -127,8 +127,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
         password: '',
       })
       .expect(400);
@@ -157,17 +157,17 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
+        grant_type: 'client_credentials',
         clientId,
         clientSecret,
       })
       .expect(200)
-      .expect(res => expect(res.body.data).toHaveExactProperties(['accessToken']));
+      .expect(res => expect(res.body).toHaveExactProperties(['access_token', 'expires_in', 'token_type']));
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
+        grant_type: 'client_credentials',
         clientId,
         clientSecret: clientSecret + 'bla',
       })
@@ -179,15 +179,15 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
-        email: testingUser.email,
+        grant_type: 'client_credentials',
+        username: testingUser.email,
       })
       .expect(400);
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
+        grant_type: 'client_credentials',
         password: 'mysupersecretpassword',
       })
       .expect(400);
@@ -195,8 +195,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
-        email: '',
+        grant_type: 'client_credentials',
+        username: '',
         password: 'mysupersecretpassword',
       })
       .expect(400);
@@ -204,8 +204,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
-        email: testingUser.email,
+        grant_type: 'client_credentials',
+        username: testingUser.email,
         password: '',
       })
       .expect(400);
@@ -213,8 +213,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
-        email: testingUser.email,
+        grant_type: 'client_credentials',
+        username: testingUser.email,
         password: 'mysupersecretpassword',
       })
       .expect(400);
@@ -222,7 +222,7 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        email: testingUser.email,
+        username: testingUser.email,
         password: 'mysupersecretpassword',
       })
       .expect(400)
@@ -233,8 +233,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
         password: 'mynotsupersecretpassword',
       })
       .expect(401)
@@ -243,8 +243,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
-        email: testingUser.email,
+        grant_type: 'client_credentials',
+        username: testingUser.email,
         password: 'mysupersecretpassword',
       })
       .expect(400)
@@ -317,8 +317,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
         password: 'mysupersecretpassword',
       })
       .expect(200);
@@ -367,8 +367,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
         password: 'mysupersecretpassword',
       })
       .expect(200);
@@ -434,8 +434,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
         password: 'mynewpassword',
       })
       .expect(200);
@@ -444,8 +444,8 @@ describe('AuthController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'password',
-        email: testingUser.email,
+        grant_type: 'password',
+        username: testingUser.email,
         password: 'mynewerpassword',
       })
       .expect(401);

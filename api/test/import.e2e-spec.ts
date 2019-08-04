@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { jsonFlatExporter } from '../src/formatters/jsonflat';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
+import { FindOperator } from 'typeorm';
 
 describe('ImportController (e2e)', async () => {
   let app: INestApplication;
@@ -154,6 +155,8 @@ describe('ImportController (e2e)', async () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
+        // Remove date fields for comparison
+        res.body.data.forEach(x => delete x['date']);
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'some one',
@@ -172,6 +175,8 @@ describe('ImportController (e2e)', async () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
+        // Remove date fields for comparison
+        res.body.data.forEach(x => delete x['date']);
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'eins',
@@ -188,6 +193,8 @@ describe('ImportController (e2e)', async () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
+        // Remove date fields for comparison
+        res.body.data.forEach(x => delete x['date']);
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'un',
@@ -246,6 +253,8 @@ describe('ImportController (e2e)', async () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(3);
+        // Remove date fields for comparison
+        res.body.data.forEach(x => delete x['date']);
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'eins?',
@@ -264,6 +273,8 @@ describe('ImportController (e2e)', async () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
+        // Remove date fields for comparison
+        res.body.data.forEach(x => delete x['date']);
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'un',
@@ -310,6 +321,8 @@ describe('ImportController (e2e)', async () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
+        // Remove date fields for comparison
+        res.body.data.forEach(x => delete x['date']);
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'eins',
@@ -326,6 +339,8 @@ describe('ImportController (e2e)', async () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
+        // Remove date fields for comparison
+        res.body.data.forEach(x => delete x['date']);
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'un',

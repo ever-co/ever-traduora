@@ -90,14 +90,14 @@ export async function createTestProjectClient(
   await request(app.getHttpServer())
     .post('/api/v1/auth/token')
     .send({
-      grantType: 'client_credentials',
+      grant_type: 'client_credentials',
       clientId: result.id,
       clientSecret: secret,
     })
     .expect(200)
     .expect(res => {
-      expect(res.body.data).toHaveExactProperties(['accessToken']);
-      result.accessToken = res.body.data.accessToken;
+      expect(res.body).toHaveExactProperties(['access_token', 'expires_in', 'token_type']);
+      result.accessToken = res.body.access_token;
     });
 
   return result;

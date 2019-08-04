@@ -89,6 +89,8 @@ export class ProjectDTO {
   description: string;
   @ApiModelProperty()
   localesCount: number;
+  @ApiModelProperty()
+  termsCount: number;
   @ApiModelProperty({ enum: ProjectRole })
   role: ProjectRole;
   @ApiModelProperty()
@@ -281,13 +283,13 @@ export class SignupRequest {
 export class AuthenticateRequest {
   @ApiModelProperty({ enum: GrantType })
   @IsEnum(GrantType)
-  grantType: GrantType;
+  grant_type: GrantType;
 
   // username & password
   @ApiModelPropertyOptional()
   @IsEmail()
   @IsOptional()
-  email: string;
+  username: string;
 
   @ApiModelPropertyOptional({ minLength: 8, maxLength: 255 })
   @Length(8, 255)

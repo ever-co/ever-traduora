@@ -15,11 +15,11 @@ import {
 import { ProjectClient } from '../entity/project-client.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ApiBearerAuth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiUseTags, ApiOperation, ApiResponse, ApiOAuth2Auth } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
-@ApiBearerAuth()
+@ApiOAuth2Auth()
 @ApiUseTags('Project Clients')
 export default class ProjectClientController {
   constructor(
@@ -84,7 +84,7 @@ export default class ProjectClientController {
 
   @Patch(':projectId/clients/:clientId')
   @ApiOperation({ title: `Update a project's client` })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Updated', type: ProjectClientResponse })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectClientResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or client not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

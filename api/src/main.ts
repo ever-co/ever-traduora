@@ -43,14 +43,12 @@ async function bootstrap() {
       )
       .setVersion('1.0')
       .setBasePath('/')
-      .addBearerAuth('Authorization', 'header', 'apiKey')
-      // TODO: handle oauth2 style form data and rename grant type field to snake case
-      // .addOAuth2('password', '/api/v1/auth/token', '/api/v1/auth/token')
+      .addOAuth2('password', '/api/v1/auth/token', '/api/v1/auth/token')
       .setSchemes('http', 'https')
       .build();
 
     const document = SwaggerModule.createDocument(app, options);
-    SwaggerModule.setup('api/v1/swagger', app, document);
+    SwaggerModule.setup('api/v1/swagger', app, document, { customSiteTitle: 'Traduora API v1 docs' });
   }
 
   await app.listen(config.port, '0.0.0.0');
