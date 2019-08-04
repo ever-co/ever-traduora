@@ -126,8 +126,61 @@ export class ProjectTermDTO {
   date: AccessDatesDTO;
 }
 
+export class ProjectLocaleDTO {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty()
+  locale: LocaleDTO;
+  @ApiModelProperty()
+  date: AccessDatesDTO;
+}
+
+export class TermTranslationDTO {
+  @ApiModelProperty()
+  termId: string;
+  @ApiModelProperty()
+  value: string;
+  @ApiModelProperty()
+  date: AccessDatesDTO;
+}
+
+export class ProjectClientDTO {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty()
+  name: string;
+  @ApiModelProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
+export class ProjectClientWithSecretDTO {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty()
+  name: string;
+  @ApiModelProperty({ enum: ProjectRole })
+  role: ProjectRole;
+  @ApiModelProperty()
+  secret: string;
+}
+
 export abstract class ServiceApiResponse<A> {
   abstract get data(): A;
+}
+
+export class ListProjectClientsResponse extends ServiceApiResponse<ProjectClientDTO[]> {
+  @ApiModelProperty({ type: ProjectClientDTO, isArray: true })
+  data: ProjectClientDTO[];
+}
+
+export class ProjectClientResponse extends ServiceApiResponse<ProjectClientDTO> {
+  @ApiModelProperty()
+  data: ProjectClientDTO;
+}
+
+export class ProjectClientWithSecretResponse extends ServiceApiResponse<ProjectClientWithSecretDTO> {
+  @ApiModelProperty()
+  data: ProjectClientWithSecretDTO;
 }
 
 export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
@@ -160,10 +213,31 @@ export class ProjectPlanResponse extends ServiceApiResponse<ProjectPlanDTO> {
   data: ProjectPlanDTO;
 }
 
+export class ListTermTranslatonsResponse extends ServiceApiResponse<TermTranslationDTO[]> {
+  @ApiModelProperty({ type: TermTranslationDTO, isArray: true })
+  data: TermTranslationDTO[];
+}
+
+export class TermTranslatonResponse extends ServiceApiResponse<TermTranslationDTO> {
+  @ApiModelProperty()
+  data: TermTranslationDTO;
+}
+
 export class ListProjectsResponse extends ServiceApiResponse<ProjectDTO[]> {
   @ApiModelProperty({ type: ProjectDTO, isArray: true })
   data: ProjectDTO[];
 }
+
+export class ListProjectLocalesResponse extends ServiceApiResponse<ProjectLocaleDTO[]> {
+  @ApiModelProperty({ type: ProjectLocaleDTO, isArray: true })
+  data: ProjectLocaleDTO[];
+}
+
+export class ProjectLocaleResponse extends ServiceApiResponse<ProjectLocaleDTO> {
+  @ApiModelProperty()
+  data: ProjectLocaleDTO;
+}
+
 export class ProjectTermResponse extends ServiceApiResponse<ProjectTermDTO> {
   @ApiModelProperty()
   data: ProjectTermDTO;

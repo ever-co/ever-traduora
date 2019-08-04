@@ -87,7 +87,7 @@ export default class ProjectUserController {
   }
 
   @Patch(':projectId/users/:userId')
-  @ApiOperation({ title: "Update a project user's role" })
+  @ApiOperation({ title: `Update a project user's role` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectUserResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request params or attempting to edit own role' })
@@ -127,10 +127,10 @@ export default class ProjectUserController {
 
   @Delete(':projectId/users/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: "Revoke a user's access to a project" })
+  @ApiOperation({ title: `Revoke a user's access to a project` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: "Bad request, can't edit your own role" })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: `Bad request, can't edit your own role` })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Param('projectId') projectId: string, @Param('userId') userId: string) {
     const requestingUser = this.auth.getRequestUserOrClient(req, { mustBeUser: true });

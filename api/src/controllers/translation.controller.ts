@@ -4,14 +4,21 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { AddLocaleRequest, UpdateTranslationRequest } from '../domain/http';
+import {
+  AddLocaleRequest,
+  UpdateTranslationRequest,
+  ProjectLocaleResponse,
+  ListProjectLocalesResponse,
+  ListTermTranslatonsResponse,
+  TermTranslatonResponse,
+} from '../domain/http';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/translations')
 @UseGuards(AuthGuard())
@@ -28,6 +35,10 @@ export default class TranslationController {
   ) {}
 
   @Get()
+  @ApiOperation({ title: 'List all translation locales for a project' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectLocalesResponse })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async find(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
@@ -48,6 +59,13 @@ export default class TranslationController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ title: 'Add a new translation locale for a project' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectLocaleResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
+  @ApiResponse({ status: HttpStatus.PAYMENT_REQUIRED, description: 'Plan limit reached' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async create(@Req() req, @Param('projectId') projectId: string, @Body() payload: AddLocaleRequest) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.AddTranslation, 0, 1);
@@ -87,6 +105,11 @@ export default class TranslationController {
   }
 
   @Get(':localeCode')
+  @ApiOperation({ title: `List translated terms for a locale` })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListTermTranslatonsResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async findOne(@Req() req, @Param('projectId') projectId: string, @Param('localeCode') localeCode: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
@@ -108,12 +131,17 @@ export default class TranslationController {
       relations: ['term'],
     });
 
-    const result = translations.map(t => ({ termId: t.term.id, value: t.value }));
+    const result = translations.map(t => ({ termId: t.term.id, value: t.value, date: t.date }));
 
     return { data: result };
   }
 
   @Patch(':localeCode')
+  @ApiOperation({ title: `Update a term's translation` })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: TermTranslatonResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(
     @Req() req,
     @Param('projectId') projectId: string,
@@ -155,8 +183,8 @@ export default class TranslationController {
 
     return {
       data: {
-        value: translation.value,
         termId: term.id,
+        value: translation.value,
         date: translation.date,
       },
     };
@@ -164,6 +192,10 @@ export default class TranslationController {
 
   @Delete(':localeCode')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ title: `Delete a project's locale`, description: `Deletes a project's locale and all related translations` })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Param('projectId') projectId: string, @Param('localeCode') localeCode: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTranslation);

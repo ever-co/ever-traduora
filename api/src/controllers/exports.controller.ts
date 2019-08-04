@@ -18,7 +18,7 @@ import { yamlNestedExporter } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextExporter } from '../formatters/gettext';
 import { stringsExporter } from '../formatters/strings';
-import { ApiBearerAuth, ApiUseTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiUseTags, ApiOperation, ApiConsumes, ApiProduces, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -30,9 +30,15 @@ export class ExportsController {
   ) {}
 
   @Get()
-  @ApiBearerAuth()
   @UseGuards(AuthGuard())
   @ApiUseTags('Exports')
+  @ApiBearerAuth()
+  @ApiOperation({ title: `Export all translated terms for a project's locale` })
+  @ApiProduces('application/octet-stream')
+  @ApiResponse({ status: HttpStatus.OK, description: 'File exported' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async export(@Req() req: Request, @Res() res: Response, @Param('projectId') projectId: string, @Query() query: ExportQuery) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ExportTranslation);
