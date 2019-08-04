@@ -13,7 +13,7 @@ export default class UserController {
   constructor(private auth: AuthorizationService, private userService: UserService) {}
 
   @Get('me')
-  @ApiOperation({ title: 'Get the current user\'s profile' })
+  @ApiOperation({ title: "Get the current user's profile" })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: UserInfoResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async me(@Req() req) {
@@ -22,7 +22,7 @@ export default class UserController {
   }
 
   @Patch('me')
-  @ApiOperation({ title: 'Update the current user\'s profile' })
+  @ApiOperation({ title: "Update the current user's profile" })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: UserInfoResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(@Req() req, @Body() payload: UpdateUserDataRequest) {
@@ -39,7 +39,7 @@ export default class UserController {
 
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: 'Delete the current user\'s account' })
+  @ApiOperation({ title: "Delete the current user's account" })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Cannot delete account' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

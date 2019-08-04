@@ -5,7 +5,6 @@ import AuthorizationService from '../services/authorization.service';
 import { ApiBearerAuth, ApiUseTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { ProjectPlanResponse } from '../domain/http';
 
-
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
 @ApiBearerAuth()
