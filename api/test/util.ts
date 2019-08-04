@@ -91,8 +91,8 @@ export async function createTestProjectClient(
     .post('/api/v1/auth/token')
     .send({
       grant_type: 'client_credentials',
-      clientId: result.id,
-      clientSecret: secret,
+      client_id: result.id,
+      client_secret: secret,
     })
     .expect(200)
     .expect(res => {

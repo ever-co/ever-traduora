@@ -35,7 +35,7 @@ export class AuthService {
         password: data.password,
         grant_type: 'password',
       })
-      .pipe(map(res => ({ accessToken: res.access_Token })));
+      .pipe(map(res => ({ accessToken: res.access_token })));
   }
 
   deleteAccount(): Observable<any> {

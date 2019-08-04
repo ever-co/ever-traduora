@@ -12,12 +12,13 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-
 import { config } from '../config';
 import {
+  AccessDatesDTO,
   AuthenticateRequest,
   ChangePasswordRequest,
   ForgotPasswordRequest,
@@ -26,13 +27,11 @@ import {
   ResetPasswordRequest,
   SignupRequest,
   SignupResponse,
-  AccessTokenResponse,
 } from '../domain/http';
 import { ProjectClient } from '../entity/project-client.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
-import { ApiOAuth2Auth, ApiUseTags, ApiResponse, ApiResponseModelProperty, ApiModelProperty, ApiOperation } from '@nestjs/swagger';
 
 @Controller('api/v1/auth')
 @ApiUseTags('Authentication')
@@ -77,11 +76,11 @@ export class AuthController {
   @ApiOperation({
     title: 'Request an authentication token for an existing user or project client',
     description:
-      'The grant type must be one of **password** or **clientCredentials**.' +
-      'When using a grant type of *password*, you must provide the fields *email* and *password*.' +
-      'When using the grant type *clientCredentials* you must provide the fields *clientId* and *clientSecret*',
+      'The grant type must be one of **password** or **client_credentials**.' +
+      'When using a grant type of *password*, you must provide the fields *username* (email) and *password*.' +
+      'When using the grant type *client_credentials* you must provide the fields *client_id* and *client_secret*',
   })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessTokenResponse })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessDatesDTO })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No resource with such credentials found' })
   @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Too many attempts, please wait at least 15 minutes before retrying' })
@@ -100,10 +99,10 @@ export class AuthController {
         };
       }
       case GrantType.ClientCredentials: {
-        if (!payload.clientId || !payload.clientSecret) {
+        if (!payload.client_id || !payload.client_secret) {
           throw new BadRequestException('missing credentials');
         }
-        const token = await this.authenticateClient(payload.clientId, payload.clientSecret);
+        const token = await this.authenticateClient(payload.client_id, payload.client_secret);
         return {
           access_token: token,
           token_type: 'bearer',

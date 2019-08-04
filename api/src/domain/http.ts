@@ -41,7 +41,11 @@ export class UserInfoDTO {
 
 export class AccessTokenDTO {
   @ApiModelProperty()
-  accessToken: string;
+  access_token: string;
+  @ApiModelProperty()
+  expires_in: string;
+  @ApiModelProperty()
+  token_type: string;
 }
 
 export class ImportTermsDTO {
@@ -190,11 +194,6 @@ export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
   data: NewUserDTO;
 }
 
-export class AccessTokenResponse extends ServiceApiResponse<AccessTokenDTO> {
-  @ApiModelProperty()
-  data: AccessTokenDTO;
-}
-
 export class ImportResponse extends ServiceApiResponse<ImportFileDTO> {
   @ApiModelProperty()
   data: ImportFileDTO;
@@ -300,12 +299,12 @@ export class AuthenticateRequest {
   @ApiModelPropertyOptional()
   @IsString()
   @IsOptional()
-  clientId: string;
+  client_id: string;
 
   @Length(8, 255)
   @ApiModelPropertyOptional({ minLength: 8, maxLength: 255 })
   @IsOptional()
-  clientSecret: string;
+  client_secret: string;
 }
 
 export class AddProjectUserRequest {

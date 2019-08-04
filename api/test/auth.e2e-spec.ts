@@ -158,8 +158,8 @@ describe('AuthController (e2e)', () => {
       .post('/api/v1/auth/token')
       .send({
         grant_type: 'client_credentials',
-        clientId,
-        clientSecret,
+        client_id: clientId,
+        client_secret: clientSecret,
       })
       .expect(200)
       .expect(res => expect(res.body).toHaveExactProperties(['access_token', 'expires_in', 'token_type']));
@@ -168,8 +168,8 @@ describe('AuthController (e2e)', () => {
       .post('/api/v1/auth/token')
       .send({
         grant_type: 'client_credentials',
-        clientId,
-        clientSecret: clientSecret + 'bla',
+        client_id: clientId,
+        client_secret: clientSecret + 'bla',
       })
       .expect(401)
       .expect(res => expect(res.body.data).toBeUndefined());

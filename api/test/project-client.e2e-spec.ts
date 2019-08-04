@@ -132,8 +132,8 @@ describe('ProjectClientController (e2e)', () => {
       .post('/api/v1/auth/token')
       .send({
         grant_type: 'client_credentials',
-        clientId: newClientId,
-        clientSecret: newClientSecret,
+        client_id: newClientId,
+        client_secret: newClientSecret,
       })
       .expect(200)
       .expect(res => {
