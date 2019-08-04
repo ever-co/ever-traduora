@@ -5,4 +5,4 @@ sidebar_label: Endpoints
 ---
 
 
-TODO
+The API endpoint reference is available **[here](/docs/api/v1/swagger)**.
