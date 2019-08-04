@@ -47,7 +47,7 @@ export class AuthController {
 
   @Post('signup')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ title: 'Sign up' })
+  @ApiOperation({ title: 'Create a new user account' })
   @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'A user with this email already exists' })
@@ -75,7 +75,7 @@ export class AuthController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    title: 'Request Authentication Token',
+    title: 'Request an authentication token for an existing user or project client',
     description:
       'The grant type must be one of **password** or **clientCredentials**.' +
       'When using a grant type of *password*, you must provide the fields *email* and *password*.' +
