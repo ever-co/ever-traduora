@@ -18,7 +18,7 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { config } from '../config';
 import {
-  AccessDatesDTO,
+  AccessTokenDTO,
   AuthenticateRequest,
   ChangePasswordRequest,
   ForgotPasswordRequest,
@@ -80,7 +80,7 @@ export class AuthController {
       'When using a grant type of *password*, you must provide the fields *username* (email) and *password*.' +
       'When using the grant type *client_credentials* you must provide the fields *client_id* and *client_secret*',
   })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessDatesDTO })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessTokenDTO })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No resource with such credentials found' })
   @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Too many attempts, please wait at least 15 minutes before retrying' })

@@ -32,7 +32,7 @@
         "description": "The grant type must be one of **password** or **client_credentials**.When using a grant type of *password*, you must provide the fields *username* (email) and *password*.When using the grant type *client_credentials* you must provide the fields *client_id* and *client_secret*",
         "parameters": [{ "name": "AuthenticateRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AuthenticateRequest" } }],
         "responses": {
-          "200": { "description": "Successfully authenticated", "schema": { "$ref": "#/definitions/AccessDatesDTO" } },
+          "200": { "description": "Successfully authenticated", "schema": { "$ref": "#/definitions/AccessTokenDTO" } },
           "400": { "description": "Bad request" },
           "401": { "description": "Bad credentials" },
           "404": { "description": "No resource with such credentials found" },
@@ -642,10 +642,10 @@
       },
       "required": ["grant_type"]
     },
-    "AccessDatesDTO": {
+    "AccessTokenDTO": {
       "type": "object",
-      "properties": { "created": { "type": "string" }, "modified": { "type": "string" } },
-      "required": ["created", "modified"]
+      "properties": { "access_token": { "type": "string" }, "expires_in": { "type": "string" }, "token_type": { "type": "string" } },
+      "required": ["access_token", "expires_in", "token_type"]
     },
     "ForgotPasswordRequest": { "type": "object", "properties": { "email": { "type": "string" } }, "required": ["email"] },
     "ResetPasswordRequest": {
@@ -674,6 +674,11 @@
     "UpdateUserDataRequest": {
       "type": "object",
       "properties": { "name": { "type": "string", "minLength": 2, "maxLength": 255 }, "email": { "type": "string" } }
+    },
+    "AccessDatesDTO": {
+      "type": "object",
+      "properties": { "created": { "type": "string" }, "modified": { "type": "string" } },
+      "required": ["created", "modified"]
     },
     "ProjectDTO": {
       "type": "object",
