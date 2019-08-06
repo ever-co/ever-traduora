@@ -7,10 +7,17 @@
       <h4 class="card-title font-serif" i18n>Sign in</h4>
 
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
-
         <div class="form-group">
           <label for="emailInput" i18n>Email address</label>
-          <input id="emailInput" class="form-control" type="email" formControlName="email" placeholder="Email" [ngClass]="{'is-invalid': email.touched && email.invalid}" autocomplete="email">
+          <input
+            id="emailInput"
+            class="form-control"
+            type="email"
+            formControlName="email"
+            placeholder="Email"
+            [ngClass]="{ 'is-invalid': email.touched && email.invalid }"
+            autocomplete="email"
+          />
 
           <div class="invalid-feedback">
             <div *ngIf="email.getError('required')" i18n>Email is required.</div>
@@ -20,7 +27,15 @@
 
         <div class="form-group">
           <label for="passwordInput" i18n>Password</label>
-          <input id="passwordInput" class="form-control" type="password" formControlName="password" placeholder="Password" [ngClass]="{'is-invalid': password.touched && password.invalid}" autocomplete="current-password">
+          <input
+            id="passwordInput"
+            class="form-control"
+            type="password"
+            formControlName="password"
+            placeholder="Password"
+            [ngClass]="{ 'is-invalid': password.touched && password.invalid }"
+            autocomplete="current-password"
+          />
 
           <div class="invalid-feedback">
             <div *ngIf="password.getError('required')" i18n>Password is required.</div>
@@ -30,6 +45,12 @@
 
         <button class="btn btn-primary w-100" type="submit" [disabled]="!loginForm.valid || (isLoading$ | async)" i18n>Sign in</button>
       </form>
+
+      <div class="text-center border-top mt-5">
+        <div class="mt-3" *ngFor="let provider of (providers$ | async)">
+          <app-sign-in-with [provider]="provider"></app-sign-in-with>
+        </div>
+      </div>
     </div>
   </div>
   <div class="text-center mt-3">

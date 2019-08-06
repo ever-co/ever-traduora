@@ -40,6 +40,7 @@
     "passport": "^0.4.0",
     "passport-jwt": "^4.0.0",
     "properties": "^1.2.1",
+    "querystring": "^0.2.0",
     "reflect-metadata": "^0.1.12",
     "rxjs": "^6.2.2",
     "strings-file": "^0.0.5",

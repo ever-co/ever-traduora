@@ -33,3 +33,7 @@ The API server can be configured via the following environment variables:
 | TR_MAIL_SECURE | if enabled, attempt to send mail securely | false |
 | TR_MAIL_USER | the auth user for the mail server | l4kzu3nw7o4x45wz@ethereal.email |
 | TR_MAIL_PASSWORD | the auth password for the mail server | 3mJgh1g9dpMf3uZaBM |
+| TR_AUTH_GOOGLE_ENABLED | set to 'true' if you'd like to enable sign-in with Google | not set |
+| TR_AUTH_GOOGLE_CLIENT_ID | your Google OAuth client ID | not set |
+| TR_AUTH_GOOGLE_CLIENT_SECRET | your Google OAuth client secret | not set |
+| TR_AUTH_GOOGLE_REDIRECT_URL | the redirect url, should be 'https://$YOUR_TRADUORA_HOST/auth/callback' and also be set in the allowed redirect URI's in the Google API console when you created the OAuth integration | not set |

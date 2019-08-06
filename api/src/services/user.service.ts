@@ -1,13 +1,13 @@
-import { ConflictException, Injectable, UnauthorizedException, UnprocessableEntityException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
 import { Repository } from 'typeorm';
-
+import { GrantType } from '../domain/http';
+import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
-import { ProjectUser, ProjectRole } from '../entity/project-user.entity';
 
 @Injectable()
 export class UserService {
@@ -16,20 +16,50 @@ export class UserService {
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
   ) {}
 
-  async create(name: string, email: string, password: string): Promise<User> {
+  async userExists(email: string): Promise<boolean> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const user = await this.userRepo.findOne({ email: normalizedEmail });
+    return user != null;
+  }
+
+  async create({
+    grantType,
+    email,
+    name,
+    password,
+  }: {
+    grantType: GrantType;
+    email: string;
+    name: string;
+    password?: string;
+  }): Promise<{ user: User; isNewUser: boolean }> {
     const normalizedEmail = this.normalizeEmail(email);
     const exists = await this.userRepo.findOne({ email: normalizedEmail });
 
     if (exists) {
-      throw new ConflictException('a user with this email already exists');
+      // Attempting to create an account via provider is idempotent
+      // We offload prooving the user's identity to the provider
+      if (grantType === GrantType.Provider) {
+        return { user: exists, isNewUser: false };
+      } else {
+        throw new ConflictException('a user with this email already exists');
+      }
     }
 
     const user = new User();
     user.name = name;
     user.email = normalizedEmail;
-    user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
 
-    return await this.userRepo.save(user);
+    if (grantType === GrantType.Password) {
+      if (!password) {
+        throw new BadRequestException('you need a password to create an account');
+      }
+
+      user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
+    }
+
+    const newUser = await this.userRepo.save(user);
+    return { user: newUser, isNewUser: true };
   }
 
   async forgotPassword(email: string): Promise<{ user: User; token: string }> {
@@ -148,7 +178,7 @@ export class UserService {
     return await this.userRepo.save(user);
   }
 
-  async authenticate(email: string, password: string): Promise<User> {
+  async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {
     const normalizedEmail = this.normalizeEmail(email);
     const user = await this.userRepo.findOneOrFail({ email: normalizedEmail });
 
@@ -164,23 +194,29 @@ export class UserService {
       throw new TooManyRequestsException('too many login attempts');
     }
 
-    const valid = await new Promise((resolve, reject) => {
-      bcrypt.compare(password, user.encryptedPassword.toString('utf8'), (err, same) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(same);
-        }
+    if (grantType === GrantType.Password) {
+      if (!user.encryptedPassword) {
+        await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
+        throw new TooManyRequestsException('you used a provider too signup');
+      }
+
+      const valid = await new Promise((resolve, reject) => {
+        bcrypt.compare(password, user.encryptedPassword.toString('utf8'), (err, same) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(same);
+          }
+        });
       });
-    });
+      // When credentials are invalid, increment login attempts and respond with error
+      if (!valid) {
+        await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
+        throw new UnauthorizedException('invalid credentials');
+      }
+    }
 
     user.lastLogin = new Date();
-
-    // When credentials are invalid, increment login attempts and respond with error
-    if (!valid) {
-      await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
-      throw new UnauthorizedException('invalid credentials');
-    }
 
     // All good, reset login attempts
     user.loginAttempts = 0;

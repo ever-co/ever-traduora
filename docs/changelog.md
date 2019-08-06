@@ -7,7 +7,7 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
--
+- You can now sign-in with Google.
 
 ## 0.11.0
 - Add swagger API docs
