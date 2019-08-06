@@ -1,5 +1,4 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
-
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
 import { ApiModelProperty, ApiModelPropertyOptional, ApiResponseModelProperty } from '@nestjs/swagger';
@@ -12,6 +11,8 @@ export interface JwtPayload {
 export enum GrantType {
   Password = 'password',
   ClientCredentials = 'client_credentials',
+  // TODO: is this part of the oauth2 spec? Investigate alternatives for authenticating tokens
+  Provider = 'provider',
 }
 
 export class NewUserDTO {
@@ -305,6 +306,11 @@ export class AuthenticateRequest {
   @ApiModelPropertyOptional({ minLength: 8, maxLength: 255 })
   @IsOptional()
   client_secret: string;
+
+  // provider
+  @IsString()
+  @IsOptional()
+  code: string;
 }
 
 export class AddProjectUserRequest {

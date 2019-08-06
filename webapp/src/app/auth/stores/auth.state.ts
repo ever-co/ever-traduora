@@ -2,8 +2,8 @@ import { Navigate } from '@ngxs/router-plugin';
 import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
 import { throwError } from 'rxjs';
 import { catchError, finalize, map, tap } from 'rxjs/operators';
-
 import { errorToMessage } from '../../shared/util/api-error';
+import { Provider } from '../models/provider';
 import { User } from '../models/user';
 import { AuthService } from '../services/auth.service';
 import { TokenService } from '../services/token.service';
@@ -20,6 +20,10 @@ export class DeleteAccount {
   static readonly type = '[Auth] Delete Account';
 }
 
+export class GetProviders {
+  static readonly type = '[Auth] Get providers';
+}
+
 export class Signup {
   static readonly type = '[Auth] Signup';
   constructor(public name: string, public email: string, public password: string) {}
@@ -33,6 +37,21 @@ export class UpdateUserSelf {
 export class Login {
   static readonly type = '[Auth] Login';
   constructor(public email: string, public password: string) {}
+}
+
+export class ReceiveAuthProviderCode {
+  static readonly type = '[Auth] Receive provider auth code';
+  constructor(public code: string) {}
+}
+
+export class ReceiveAPIAccessToken {
+  static readonly type = '[Auth] Receive API access token';
+  constructor(public payload: { accessToken: string }) {}
+}
+
+export class RedirectToAuthProvider {
+  static readonly type = '[Auth] Redirect to auth provider sign in';
+  constructor(public provider: Provider) {}
 }
 
 export class ForgotPassword {
@@ -64,6 +83,11 @@ export class MustLogin {
   constructor(public redirectTo: string) {}
 }
 
+export class AuthError {
+  static readonly type = '[Auth] Auth Error';
+  constructor(public type: string, public error: any) {}
+}
+
 export interface AuthStateModel {
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -71,6 +95,7 @@ export interface AuthStateModel {
   statusMessage: string | undefined;
   errorMessage: string | undefined;
   redirectTo: string | undefined;
+  providers: Provider[] | undefined;
 }
 
 @State<AuthStateModel>({
@@ -82,6 +107,7 @@ export interface AuthStateModel {
     statusMessage: undefined,
     errorMessage: undefined,
     redirectTo: undefined,
+    providers: undefined,
   },
 })
 export class AuthState implements NgxsOnInit {
@@ -135,21 +161,25 @@ export class AuthState implements NgxsOnInit {
     );
   }
 
+  @Action(GetProviders)
+  getProviders(ctx: StateContext<AuthStateModel>) {
+    return this.authService.getProviders().pipe(
+      tap(providers => {
+        ctx.patchState({ providers });
+      }),
+    );
+  }
+
   @Action(Signup)
   signup(ctx: StateContext<AuthStateModel>, action: Signup) {
     ctx.patchState({ isLoading: true });
     return this.authService.signup(action).pipe(
       map(user => {
-        ctx.patchState({ user: user, isAuthenticated: true });
-        this.tokenService.setToken(user.accessToken);
-        const redirect = ctx.getState().redirectTo;
-        if (redirect) {
-          ctx.patchState({ redirectTo: undefined });
-        }
-        ctx.dispatch(new Navigate([redirect || '/']));
+        ctx.patchState({ user });
+        ctx.dispatch(new ReceiveAPIAccessToken(user));
       }),
       catchError(error => {
-        ctx.patchState({ errorMessage: errorToMessage(error, 'Signup') });
+        ctx.dispatch(new AuthError('Signup', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -164,7 +194,7 @@ export class AuthState implements NgxsOnInit {
         ctx.dispatch(new Logout('Your account has been permanently deleted.'));
       }),
       catchError(error => {
-        ctx.patchState({ errorMessage: errorToMessage(error, 'DeleteAccount') });
+        ctx.dispatch(new AuthError('DeleteAccount', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -183,7 +213,7 @@ export class AuthState implements NgxsOnInit {
         });
       }),
       catchError(error => {
-        ctx.patchState({ errorMessage: errorToMessage(error, 'UpdateUserSelf') });
+        ctx.dispatch(new AuthError('UpdateUserSelf', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -194,22 +224,45 @@ export class AuthState implements NgxsOnInit {
   login(ctx: StateContext<AuthStateModel>, action: Login) {
     ctx.patchState({ isLoading: true });
     return this.authService.login(action).pipe(
-      tap(token => {
-        this.tokenService.setToken(token.accessToken);
-        ctx.patchState({ isAuthenticated: true });
-        ctx.dispatch(new GetUserInfo());
-        const redirect = ctx.getState().redirectTo;
-        if (redirect) {
-          ctx.patchState({ redirectTo: undefined });
-        }
-        ctx.dispatch(new Navigate([redirect || '/']));
-      }),
+      tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
-        ctx.patchState({ errorMessage: errorToMessage(error, 'Login') });
+        ctx.dispatch(new AuthError('login', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
     );
+  }
+
+  @Action(ReceiveAuthProviderCode)
+  receiveProviderAuthCode(ctx: StateContext<AuthStateModel>, action: ReceiveAuthProviderCode) {
+    ctx.patchState({ isLoading: true });
+    return this.authService.signInWithProvider(action).pipe(
+      tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
+      catchError(error => {
+        ctx.dispatch(new AuthError('login', error));
+        return throwError(error);
+      }),
+      finalize(() => {
+        ctx.patchState({ isLoading: false });
+      }),
+    );
+  }
+
+  @Action(ReceiveAPIAccessToken)
+  receiveAPIAccessToken(ctx: StateContext<AuthStateModel>, { payload }: ReceiveAPIAccessToken) {
+    this.tokenService.setToken(payload.accessToken);
+    ctx.patchState({ isAuthenticated: true });
+    ctx.dispatch(new GetUserInfo());
+    const redirect = ctx.getState().redirectTo;
+    if (redirect) {
+      ctx.patchState({ redirectTo: undefined });
+    }
+    ctx.dispatch(new Navigate([redirect || '/']));
+  }
+
+  @Action(RedirectToAuthProvider)
+  redirectToAuthProvider(ctx: StateContext<AuthStateModel>, action: RedirectToAuthProvider) {
+    return this.authService.redirectWithProvider(action.provider);
   }
 
   @Action(ForgotPassword)
@@ -224,7 +277,7 @@ export class AuthState implements NgxsOnInit {
         ctx.patchState({ errorMessage: undefined, statusMessage });
       }),
       catchError(error => {
-        ctx.patchState({ errorMessage: errorToMessage(error, 'ForgotPassword') });
+        ctx.dispatch(new AuthError('ForgotPassword', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -239,7 +292,7 @@ export class AuthState implements NgxsOnInit {
         ctx.patchState({ errorMessage: undefined, statusMessage: 'Password successfully changed!' });
       }),
       catchError(error => {
-        ctx.patchState({ errorMessage: errorToMessage(error, 'ChangePassword'), statusMessage: undefined });
+        ctx.dispatch(new AuthError('ChangePassword', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -278,5 +331,11 @@ export class AuthState implements NgxsOnInit {
   @Action(ClearMessages)
   clearMessages(ctx: StateContext<AuthStateModel>) {
     ctx.patchState({ errorMessage: undefined, statusMessage: undefined });
+  }
+
+  @Action(AuthError)
+  onError(ctx: StateContext<AuthStateModel>, action: AuthError) {
+    ctx.patchState({ errorMessage: errorToMessage(action.error, action.type) });
+    return throwError(action.error);
   }
 }

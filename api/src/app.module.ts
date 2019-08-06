@@ -1,13 +1,15 @@
-import { INestApplication, INestExpressApplication, MiddlewareConsumer, Module, RequestMethod, ValidationPipe } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { MorganMiddleware } from '@nest-middlewares/morgan';
+import { HttpModule, INestApplication, INestExpressApplication, MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { renderFile } from 'ejs';
 import { config } from './config';
 import { AuthController } from './controllers/auth.controller';
 import { ExportsController } from './controllers/exports.controller';
 import HealthController from './controllers/health.controller';
 import { ImportController } from './controllers/import.controller';
+import IndexController from './controllers/index.controller';
 import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
@@ -26,12 +28,11 @@ import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
 import { User } from './entity/user.entity';
 import { CustomExceptionFilter } from './filters/exception.filter';
+import { AuthService } from './services/auth.service';
 import AuthorizationService from './services/authorization.service';
 import { JwtStrategy } from './services/jwt.strategy';
 import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
-import { renderFile } from 'ejs';
-import IndexController from './controllers/index.controller';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import IndexController from './controllers/index.controller';
     }),
     TypeOrmModule.forRoot(config.db.default),
     TypeOrmModule.forFeature([User, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan]),
+    HttpModule,
   ],
   controllers: [
     HealthController,
@@ -60,7 +62,7 @@ import IndexController from './controllers/index.controller';
     LocaleController,
     IndexController,
   ],
-  providers: [UserService, MailService, JwtStrategy, AuthorizationService],
+  providers: [UserService, AuthService, MailService, JwtStrategy, AuthorizationService],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
