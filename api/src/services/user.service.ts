@@ -16,6 +16,12 @@ export class UserService {
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
   ) {}
 
+  async userExists(email: string): Promise<boolean> {
+    const normalizedEmail = this.normalizeEmail(email);
+    const user = await this.userRepo.findOne({ email: normalizedEmail });
+    return user != null;
+  }
+
   async create({
     grantType,
     email,

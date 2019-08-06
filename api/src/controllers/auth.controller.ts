@@ -90,12 +90,15 @@ export class AuthController {
 
   @Post('signup-provider')
   async signupWithProvider(@Body() { code }: { code: string }): Promise<{ data: { id: string; email: string; name: string; accessToken: string } }> {
-    if (!config.signupsEnabled) {
-      throw new ForbiddenException('Signups are disabled');
-    }
-
     const { id_token } = await this.authService.getTokenFromGoogle(code);
     const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
+
+    // This endpoint can be used for signing in too in the case of providers.
+    // Ensure that we forbid a new account if we have disabled signups.
+    // But still allow logging in in case the account had already been created.
+    if (!config.signupsEnabled && !this.userService.userExists(decodedToken.email)) {
+      throw new ForbiddenException('Signups are disabled');
+    }
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
