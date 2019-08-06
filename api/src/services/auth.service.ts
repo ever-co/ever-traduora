@@ -7,7 +7,7 @@ export class AuthService {
   constructor(private readonly httpService: HttpService) {}
 
   async getTokenFromGoogle(code: string): Promise<any> {
-    const { apiUrl, clientId, privateKey, redirectUrl } = config.providers.google;
+    const { apiUrl, clientId, clientSecret, redirectUrl } = config.providers.google;
 
     try {
       const body = stringify(
@@ -15,7 +15,7 @@ export class AuthService {
           access_type: 'offline',
           code,
           client_id: clientId,
-          client_secret: privateKey,
+          client_secret: clientSecret,
           redirect_uri: redirectUrl,
           grant_type: 'authorization_code',
         },

@@ -22,8 +22,8 @@ export const config = {
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
   providers: {
     google: {
-      active: env.TR_AUTH_GOOGLE,
-      privateKey: env.TR_AUTH_GOOGLE_PRIVATE_KEY,
+      active: env.TR_AUTH_GOOGLE_ENABLED,
+      clientSecret: env.TR_AUTH_GOOGLE_CLIENT_SECRET,
       clientId: env.TR_AUTH_GOOGLE_CLIENT_ID,
       redirectUrl: env.TR_AUTH_GOOGLE_REDIRECT_URL,
       apiUrl: 'https://www.googleapis.com/oauth2/v4/token',
