@@ -30,7 +30,7 @@
     "ejs": "^2.6.1",
     "generate-password": "^1.4.1",
     "gettext-parser": "^3.1.0",
-    "handlebars": "^4.1.0",
+    "handlebars": "^4.1.2",
     "iconv-lite": "^0.4.24",
     "js-yaml": "^3.13.1",
     "moment": "^2.22.2",
