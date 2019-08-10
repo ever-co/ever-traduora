@@ -186,34 +186,39 @@ export class UserService {
       .subtract(15, 'minutes')
       .toDate();
 
-    // If more than N time has passed, reset counter
+    // If lockout time has passed, reset counter
     if (user.lastLogin < timeThreshold) {
       user.loginAttempts = 0;
-      // Otherwise rate limit based on login attempts for time period
+      // Otherwise abort request
     } else if (user.loginAttempts >= 3) {
       throw new TooManyRequestsException('too many login attempts');
     }
 
-    if (grantType === GrantType.Password) {
-      if (!user.encryptedPassword) {
-        await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
-        throw new TooManyRequestsException('you used a provider too signup');
-      }
+    switch (grantType) {
+      case GrantType.Password:
+        if (!user.encryptedPassword) {
+          await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
+          throw new UnprocessableEntityException('No password for this user, was this account created via a provider?');
+        }
 
-      const valid = await new Promise((resolve, reject) => {
-        bcrypt.compare(password, user.encryptedPassword.toString('utf8'), (err, same) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(same);
-          }
+        const valid = await new Promise((resolve, reject) => {
+          bcrypt.compare(password, user.encryptedPassword.toString('utf8'), (err, same) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(same);
+            }
+          });
         });
-      });
-      // When credentials are invalid, increment login attempts and respond with error
-      if (!valid) {
-        await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
-        throw new UnauthorizedException('invalid credentials');
-      }
+        // When credentials are invalid, increment login attempts and respond with error
+        if (!valid) {
+          await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
+          throw new UnauthorizedException('invalid credentials');
+        }
+        break;
+
+      default:
+        throw new BadRequestException('Tried to authenticate with unsupported grant type');
     }
 
     user.lastLogin = new Date();
