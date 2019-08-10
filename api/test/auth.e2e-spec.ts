@@ -399,7 +399,7 @@ describe('AuthController (e2e)', () => {
     const mail = app.get(MailService);
 
     let capturedToken;
-    jest.spyOn(mail, 'passwordResetToken').mockImplementation((user, token) => {
+    jest.spyOn(mail, 'passwordResetToken').mockImplementation(async (user, token) => {
       capturedToken = token;
     });
 
