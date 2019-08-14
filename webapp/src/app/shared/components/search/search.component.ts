@@ -50,7 +50,7 @@ export class SearchComponent implements OnInit {
             return items;
           }
           return items.filter(item => {
-            const value = this.key(item);
+            const value = this.key(item).toLowerCase();
             for (const term of searchTerms) {
               if (value.indexOf(term) === -1) {
                 return false;
