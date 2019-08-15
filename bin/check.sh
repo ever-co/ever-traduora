@@ -37,6 +37,6 @@ pprint "Linting webapp code"
 cd ../webapp && yarn lint
 
 pprint "Running unit and e2e tests" "Ensure you are running a local MySQL with a database called 'tr_e2e'"
-bin/test.sh
+cd .. && bin/test.sh
 
 pprint "All checks passed!"
