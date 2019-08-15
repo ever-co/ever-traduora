@@ -22,9 +22,6 @@ function pprint() {
 pprint "Installing dependencies if needed"
 bin/install-deps.sh
 
-pprint "Running unit and e2e tests" "Ensure you are running a local MySQL with a database called 'tr_e2e'"
-bin/test.sh
-
 pprint "Applying code format"
 yarn fmt
 
@@ -38,5 +35,8 @@ cd api && yarn lint
 
 pprint "Linting webapp code"
 cd ../webapp && yarn lint
+
+pprint "Running unit and e2e tests" "Ensure you are running a local MySQL with a database called 'tr_e2e'"
+bin/test.sh
 
 pprint "All checks passed!"
