@@ -6,7 +6,7 @@ sidebar_label: Deployment
 
 ## Requirements
 
-Traduora requires MySQL 5.7 and it is **strongly recommended** that you deploy it behind a reverse-proxy/load balancer that does TLS termination. Otherwise you risk exposing the JWT authentication tokens that it uses to authorize user and API access.
+Traduora requires MySQL 5.7+ and it is **strongly recommended** that you deploy it behind a reverse-proxy/load balancer that does TLS termination. Otherwise you risk exposing the JWT authentication tokens that it uses to authorize user and API access.
 
 By default, the server will try to connect to MySQL on localhost port `3306`, with a database called `tr_dev` and with credentials username `root` and empty password. To override this checkout the [configuration](configuration.md) section.
 
@@ -56,7 +56,7 @@ This will run traduora **without any persistent storage**. You will likely want 
 
 We'll soon include a Helm chart for traduora, but you can easily deploy it with plain kubernetes manifests.
 
-A simple example manifest which deploys traduora and the required MySQL 5.7 database together as a pod is localed in the repo at `deploy/k8s/traduora-preview.yaml`, you can check it out as reference.
+A simple example manifest which deploys traduora and the required MySQL 5.7+ database together as a pod is localed in the repo at `deploy/k8s/traduora-preview.yaml`, you can check it out as reference.
 
 To override any of the configuration params, you can update the `configmap` or the `secret` resource as needed.
 
