@@ -6,7 +6,6 @@ jobs:
     docker:
       - image: circleci/node:10.16
       - image: mysql:5.7
-        command: --max-allowed-packet=67108864
         environment:
           MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
           MYSQL_DATABASE: "tr_e2e"
