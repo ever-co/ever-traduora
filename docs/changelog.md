@@ -8,6 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 - You can now sign-in with Google.
+- Fix search component case sensitivity.
 - Various dependency upgrades and security fixes.
 
 ## 0.11.0
