@@ -52,8 +52,6 @@ export const config = {
       charset: 'utf8mb4',
       synchronize: false,
       logging: false,
-      retryAttempts: 10,
-      retryDelay: 100,
       entities: ['src/entity/*.entity*'],
       migrations: ['src/migrations/*'],
     } as TypeOrmModuleOptions,
