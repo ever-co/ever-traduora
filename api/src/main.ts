@@ -3,6 +3,7 @@ import { Connection } from 'typeorm';
 import { addPipesAndFilters, AppModule } from './app.module';
 import { config } from './config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 
 interface Closable {
   close(): Promise<void>;
@@ -19,7 +20,7 @@ process.on('SIGINT', async () => {
 });
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
   addPipesAndFilters(app);
   closables.push(app);
 

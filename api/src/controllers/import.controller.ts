@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Controller,
-  FileInterceptor,
   HttpCode,
   HttpStatus,
   Param,
@@ -12,6 +11,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';

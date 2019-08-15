@@ -1,6 +1,7 @@
 import { MorganMiddleware } from '@nest-middlewares/morgan';
-import { HttpModule, INestApplication, INestExpressApplication, MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
+import { HttpModule, INestApplication, MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { renderFile } from 'ejs';
@@ -73,7 +74,7 @@ export class AppModule {
   }
 }
 
-export const addPipesAndFilters = (app: INestApplication & INestExpressApplication) => {
+export const addPipesAndFilters = (app: NestExpressApplication) => {
   app.disable('x-powered-by');
 
   app.set('etag', false);

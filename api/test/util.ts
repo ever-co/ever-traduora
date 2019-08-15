@@ -5,6 +5,7 @@ import { Connection } from 'typeorm';
 
 import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { ProjectRole } from '../src/entity/project-user.entity';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 
 export interface TestingUser {
   id: string;
@@ -108,7 +109,7 @@ export async function createAndMigrateApp(): Promise<INestApplication> {
     imports: [AppModule],
   }).compile();
 
-  let app = moduleFixture.createNestApplication();
+  let app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
   addPipesAndFilters(app);
   app = await app.init();
 
