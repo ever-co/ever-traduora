@@ -51,7 +51,7 @@ async function bootstrap() {
     SwaggerModule.setup('api/v1/swagger', app, document, { customSiteTitle: 'Traduora API v1 docs' });
   }
 
-  await app.listen(config.port, '0.0.0.0');
+  await app.listenAsync(config.port, '0.0.0.0');
 }
 
 bootstrap();

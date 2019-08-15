@@ -3,9 +3,8 @@ import * as request from 'supertest';
 import { jsonFlatExporter } from '../src/formatters/jsonflat';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
-import { FindOperator } from 'typeorm';
 
-describe('ImportController (e2e)', async () => {
+describe('ImportController (e2e)', () => {
   let app: INestApplication;
   let testingUser: TestingUser;
   let anotherUser: TestingUser;

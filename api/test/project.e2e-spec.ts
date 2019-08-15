@@ -3,7 +3,7 @@ import * as request from 'supertest';
 import './util';
 import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
 
-describe('ProjectController (e2e)', async () => {
+describe('ProjectController (e2e)', () => {
   let app: INestApplication;
   let testingUser: TestingUser;
   let anotherUser: TestingUser;
