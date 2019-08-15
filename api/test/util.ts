@@ -108,14 +108,15 @@ export async function createAndMigrateApp(): Promise<INestApplication> {
     imports: [AppModule],
   }).compile();
 
-  const app = moduleFixture.createNestApplication();
+  let app = moduleFixture.createNestApplication();
   addPipesAndFilters(app);
+  app = await app.init();
 
   const connection = app.get(Connection);
   await connection.dropDatabase();
   await connection.runMigrations();
 
-  return await app.init();
+  return app;
 }
 
 expect.extend({
