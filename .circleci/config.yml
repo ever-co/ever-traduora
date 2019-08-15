@@ -4,8 +4,9 @@ jobs:
   test:
     working_directory: ~/workspace
     docker:
-      - image: circleci/node:10.9
+      - image: circleci/node:10.16
       - image: mysql:5.7
+        command: --max-allowed-packet=67108864
         environment:
           MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
           MYSQL_DATABASE: "tr_e2e"
@@ -35,7 +36,7 @@ jobs:
 
   build:
     docker:
-      - image: circleci/node:10.9
+      - image: circleci/node:10.16
     steps:
       - checkout
       - setup_remote_docker
