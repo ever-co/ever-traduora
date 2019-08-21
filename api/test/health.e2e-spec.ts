@@ -14,7 +14,9 @@ describe('HealthController (e2e)', () => {
       .get('/health')
       .expect(200)
       .expect(res => {
+        expect(res.body).toHaveExactProperties(['status', 'version']);
         expect(res.body.status).toEqual('ok');
+        expect(res.body.version).toMatch(require('semver-regex')());
       });
   });
 

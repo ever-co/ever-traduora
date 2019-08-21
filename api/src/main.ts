@@ -5,6 +5,8 @@ import { config } from './config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 
+import { version } from '../package.json';
+
 interface Closable {
   close(): Promise<void>;
 }
@@ -42,7 +44,7 @@ async function bootstrap() {
           'Additional documentation: https://docs.traduora.com\n' +
           'Source code: https://github.com/traduora/traduora',
       )
-      .setVersion('1.0')
+      .setVersion(version)
       .setBasePath('/')
       .addOAuth2('password', '/api/v1/auth/token', '/api/v1/auth/token')
       .setSchemes('http', 'https')

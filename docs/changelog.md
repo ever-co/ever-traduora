@@ -9,6 +9,8 @@ To download the source code for each release, check out [GitHub](https://github.
 ## next
 
 ## 0.12.1
+- Ensure swagger version is same as in package.json
+- expose version in `/health` endpoint
 - Release script utilizes [jq](https://stedolan.github.io/jq/) for introspection on release version
 
 ## 0.12.0
