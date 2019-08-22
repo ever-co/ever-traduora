@@ -3,30 +3,34 @@
 
 set -e
 
-# Check prerequisites
+RELEASE=$1
 
-## no jq? -> https://stedolan.github.io/jq/
-command -v jq || echo "Please make sure jq is executable"
+function isGitClean {
+    if ! [[ -z $(git status -s) ]]; then
+        echo "You have uncommited or staged changes on git, please commit them or stash them"
+        return 1
+    fi
+    return 0
+}
+
+function displayVersioningHint {
+    echo "Versions altered, you may fix this by running the following:"
+    echo ""
+    echo "  git add -u && git commit --amend --no-edit -a && bin/release.sh $RELEASE "
+    echo ""
+    echo "When preparing a new release, you can edit all package.json files at once via"
+    echo ""
+    echo "  bin/version.sh $RELEASE"
+}
+
+# Check prerequisites
+isGitClean || exit 1
 
 ## ./bin/version.sh 1.2.3
-./bin/version.sh $1
+(./bin/version.sh $RELEASE)
 
-if ! [[ -z $(git status -s) ]]; then
-    echo "You have uncommited or staged changes on git, please commit them or stash them"
-    exit 1
-fi
-
-TAGS_FOUND=$(jq -r --slurp 'reduce .[] as $item ([]; . += ["\($item.version)"] ) | unique | join(", ")' \
-    package.json \
-    api/package.json \
-    webapp/package.json \
-)
-
-if ! [[ "$TAGS_FOUND" == "$RELEASE" ]]; then
-    echo "package.json version and release version provided should be equal"
-    echo "Found: $TAGS_FOUND - expected $RELEASE"
-    exit 1
-fi
+# Check prerequisites
+isGitClean || (displayVersioningHint && exit 1)
 
 echo "Running checks"
 bin/check.sh

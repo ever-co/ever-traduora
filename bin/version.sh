@@ -21,7 +21,7 @@ RELEASE=$1
 #   or a semver'ish version starting with a zero
 function version {
     cd $1 > /dev/null
-    echo "Setting version in $(pwd)/$1/package.json"
+    echo "Setting version in $1/package.json"
     npm version $RELEASE --allow-same-version --git-tag-version false
     cd - > /dev/null
 }
