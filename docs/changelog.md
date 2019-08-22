@@ -8,6 +8,9 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+## 0.12.1
+- Release script utilizes [jq](https://stedolan.github.io/jq/) for introspection on release version
+
 ## 0.12.0
 - You can now sign-in with Google.
 - Fix search component case sensitivity.
