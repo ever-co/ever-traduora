@@ -57,4 +57,3 @@ You can check our [changelog](https://docs.traduora.com/docs/changelog) for info
 
 ## License
 See [LICENSE](https://github.com/traduora/traduora/blob/master/LICENSE).
-

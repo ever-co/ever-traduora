@@ -10,7 +10,7 @@ textarea {
 
 textarea.is-editing {
   border: 1px solid #e6ecf1 !important;
-} 
+}
 
 .form-control:hover:not(.is-editing):not(.readonly) {
   cursor: pointer;

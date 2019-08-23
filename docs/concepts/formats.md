@@ -92,4 +92,3 @@ msgstr "Check out {{ project.name }}"
 
 ## New formats on the way
 The roadmap includes: PHP arrays, Microsoft Resources, Android Resources (xml).
-

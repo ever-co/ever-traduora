@@ -7,7 +7,7 @@
 
           <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
           <div *ngIf="(statsMessage$ | async) as statusMessage" class="alert alert-success">{{ statusMessage }}</div>
-          
+
           <h5 class="font-serif">Your Profile</h5>
 
           <form [formGroup]="userDataForm" (ngSubmit)="updateUserData()" novalidate>

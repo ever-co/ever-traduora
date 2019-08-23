@@ -111,4 +111,3 @@ The server will be (by default) listening on `0.0.0.0:8080`. You might want to s
 
 ## Configuration
 You can of course configure traduora according to your needs, to see the available environment variables checkout the [configuration](configuration.md) section.
-

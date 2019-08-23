@@ -25,7 +25,7 @@
         </div>
         <div class="d-flex flex-column" [ngClass]='{collapsible: shouldCollapse}'>
           <hr class="m-0 mb-3" />
-          
+
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
             routerLink="terms"
             routerLinkActive="active"
@@ -33,14 +33,14 @@
             <i class="material-icons mr-1">list</i>
             <ng-container i18n>Terms</ng-container>
           </a>
-          
+
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
             routerLink="translations"
             routerLinkActive="active">
             <i class="material-icons mr-1">language</i>
             <ng-container i18n>Translations</ng-container>
           </a>
-          
+
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
             routerLink="team"
             routerLinkActive="active"
@@ -48,23 +48,23 @@
             <i class="material-icons mr-1">people</i>
             <ng-container i18n>Team</ng-container>
           </a>
-          
+
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
-            [ngClass]="{'disabled': !(true | can: 'ImportTranslation' | async)}"  
+            [ngClass]="{'disabled': !(true | can: 'ImportTranslation' | async)}"
             routerLink="import"
             routerLinkActive="active"
             >
             <i class="material-icons mr-1">note_add</i>
             <ng-container i18n>Import</ng-container>
           </a>
-          
+
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
           routerLink="export"
           routerLinkActive="active"
           >
           <i class="material-icons mr-1">get_app</i>
           <ng-container i18n>Export</ng-container></a>
-          
+
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
             [ngClass]="{'disabled': !(true | can: 'ViewProjectClients' | async)}"
             routerLink="api"
@@ -73,7 +73,7 @@
             <i class="material-icons mr-1">https</i>
             <ng-container i18n>API Keys</ng-container>
           </a>
-          
+
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center"
             routerLink="settings"
             routerLinkActive="active"
