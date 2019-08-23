@@ -68,10 +68,10 @@ spec:
               cpu: 50m
               memory: 64Mi
           envFrom:
-           - configMapRef:
-               name: traduora
-           - secretRef:
-               name: traduora
+            - configMapRef:
+                name: traduora
+            - secretRef:
+                name: traduora
         - name: mysql
           image: mysql:5.7
           imagePullPolicy: Always

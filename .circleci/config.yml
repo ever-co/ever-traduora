@@ -43,7 +43,6 @@ jobs:
           name: Build
           command: RELEASE=$CIRCLE_TAG bin/build-docker.sh
 
-
 workflows:
   version: 2
   test:
@@ -66,4 +65,3 @@ workflows:
               ignore: /.*/
             tags:
               only: /^([0-9.]+)$/
-
