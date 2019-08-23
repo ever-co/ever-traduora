@@ -2,6 +2,7 @@
 [![Latest Release](https://img.shields.io/github/release/traduora/traduora.svg?label=latest%20release)](https://github.com/traduora/traduora/releases)
 [![GitHub License](https://img.shields.io/badge/license-AGPL-v3.svg)](https://raw.githubusercontent.com/traduora/traduora/master/LICENSE)
 [![CircleCI](https://circleci.com/gh/traduora/traduora.svg?style=svg)](https://circleci.com/gh/traduora/traduora)
+![Docker Pulls](https://img.shields.io/docker/pulls/traduora/traduora)
 
 Traduora is a **translation management platform for teams**. Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
 
