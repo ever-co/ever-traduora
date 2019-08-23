@@ -13,8 +13,10 @@ describe('HealthController (e2e)', () => {
     await request(app.getHttpServer())
       .get('/health')
       .expect(200)
-      .expect({
-        status: 'ok',
+      .expect(res => {
+        expect(res.body).toHaveExactProperties(['status', 'version']);
+        expect(res.body.status).toEqual('ok');
+        expect(res.body.version).toMatch(require('semver-regex')());
       });
   });
 

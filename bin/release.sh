@@ -3,22 +3,34 @@
 
 set -e
 
-if [[ $1 == "" ]]; then
-    echo "No release version set"
-    exit 1
-fi
-
 RELEASE=$1
 
-if ! [[ $RELEASE =~ ^([0-9.]+)$ ]]; then
-    echo "Release tag does not match expected pattern: MAJOR.MINOR.PATCH"
-    exit 1
-fi
+function isGitClean {
+    if ! [[ -z $(git status -s) ]]; then
+        echo "You have uncommited or staged changes on git, please commit them or stash them"
+        return 1
+    fi
+    return 0
+}
 
-if ! [[ -z $(git status -s) ]]; then
-    echo "You have uncommited or staged changes on git, please commit them or stash them"
-    exit 1
-fi
+function displayVersioningHint {
+    echo "Versions altered, you may fix this by running the following:"
+    echo ""
+    echo "  git add -u && git commit --amend --no-edit -a && bin/release.sh $RELEASE "
+    echo ""
+    echo "When preparing a new release, you can edit all package.json files at once via"
+    echo ""
+    echo "  bin/version.sh $RELEASE"
+}
+
+# Check prerequisites
+isGitClean || exit 1
+
+## ./bin/version.sh 1.2.3
+(./bin/version.sh $RELEASE)
+
+# Check prerequisites
+isGitClean || (displayVersioningHint && exit 1)
 
 echo "Running checks"
 bin/check.sh

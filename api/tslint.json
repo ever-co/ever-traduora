@@ -29,6 +29,10 @@
   },
   "rulesDirectory": [],
   "linterOptions": {
-    "exclude": ["bin", "src/migrations/*"]
+    "exclude": [
+      "bin",
+      "src/migrations/*",
+      "**/*.json"
+    ]
   }
 }

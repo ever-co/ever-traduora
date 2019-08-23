@@ -8,6 +8,10 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+## 0.12.1
+- Ensure swagger version is same as in package.json
+- expose version in `/health` endpoint
+
 ## 0.12.0
 - You can now sign-in with Google.
 - Fix search component case sensitivity.
