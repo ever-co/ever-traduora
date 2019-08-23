@@ -15,3 +15,10 @@ trim_trailing_whitespace = false
 
 [*.gitkeep]
 insert_final_newline = false
+
+[{*.po,*.yml,*.yaml,*.properties,*.map}]
+charset = unset
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
