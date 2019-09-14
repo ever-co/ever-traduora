@@ -5,8 +5,8 @@
       <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
       <div *ngIf="inviteOnly" class="alert alert-warning">Traduora is currently invite-only.</div>
-      
-      <h4 class="card-title font-serif" i18n>Create an account</h4>  
+
+      <h4 class="card-title font-serif" i18n>Create an account</h4>
 
       <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" novalidate>
         <div class="form-group">
@@ -64,6 +64,12 @@
 
         <button type="submit" [disabled]="!signupForm.valid || (isLoading$ | async)" class="btn btn-primary w-100" i18n>Get started</button>
       </form>
+
+      <div class="text-center border-top mt-5">
+        <div class="mt-3" *ngFor="let provider of (providers$ | async)">
+          <app-sign-in-with [provider]="provider"></app-sign-in-with>
+        </div>
+      </div>
     </div>
   </div>
   <div class="text-center mt-3">

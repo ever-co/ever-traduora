@@ -4,11 +4,10 @@ jobs:
   test:
     working_directory: ~/workspace
     docker:
-      - image: circleci/node:10.9
+      - image: circleci/node:10.16
       - image: mysql:5.7
         environment:
           MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-          MYSQL_ROOT_PASSWORD: ""
           MYSQL_DATABASE: "tr_e2e"
     steps:
       - checkout
@@ -36,7 +35,7 @@ jobs:
 
   build:
     docker:
-      - image: circleci/node:10.9
+      - image: circleci/node:10.16
     steps:
       - checkout
       - setup_remote_docker

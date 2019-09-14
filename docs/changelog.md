@@ -7,7 +7,19 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
-- 
+
+## 0.12.1
+- Ensure swagger version is same as in package.json
+- expose version in `/health` endpoint
+
+## 0.12.0
+- You can now sign-in with Google.
+- Fix search component case sensitivity.
+- Various dependency upgrades and security fixes.
+
+## 0.11.0
+- Add swagger API docs
+- Conform auth token endpoint to oauth2 conventions
 
 ## 0.10.0
 - Support Apple .strings format

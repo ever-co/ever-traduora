@@ -5,6 +5,7 @@ import { Connection } from 'typeorm';
 
 import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { ProjectRole } from '../src/entity/project-user.entity';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 
 export interface TestingUser {
   id: string;
@@ -109,14 +110,14 @@ export async function createTestProjectClient(
   await request(app.getHttpServer())
     .post('/api/v1/auth/token')
     .send({
-      grantType: 'client_credentials',
-      clientId: result.id,
-      clientSecret: secret,
+      grant_type: 'client_credentials',
+      client_id: result.id,
+      client_secret: secret,
     })
     .expect(200)
     .expect(res => {
-      expect(res.body.data).toHaveExactProperties(['accessToken']);
-      result.accessToken = res.body.data.accessToken;
+      expect(res.body).toHaveExactProperties(['access_token', 'expires_in', 'token_type']);
+      result.accessToken = res.body.access_token;
     });
 
   return result;
@@ -127,14 +128,15 @@ export async function createAndMigrateApp(): Promise<INestApplication> {
     imports: [AppModule],
   }).compile();
 
-  const app = moduleFixture.createNestApplication();
+  let app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
   addPipesAndFilters(app);
+  app = await app.init();
 
   const connection = app.get(Connection);
   await connection.dropDatabase();
   await connection.runMigrations();
 
-  return await app.init();
+  return app;
 }
 
 expect.extend({

@@ -273,7 +273,7 @@ describe('TranslationController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value']);
+        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'date']);
         expect(res.body.data[0].termId).toEqual(termId);
         expect(res.body.data[0].value).toEqual('eins');
       });
@@ -284,7 +284,7 @@ describe('TranslationController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value']);
+        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'date']);
         expect(res.body.data[0].termId).toEqual(termId);
         expect(res.body.data[0].value).toEqual('un');
       });

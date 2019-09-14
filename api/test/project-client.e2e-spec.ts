@@ -131,14 +131,16 @@ describe('ProjectClientController (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/token')
       .send({
-        grantType: 'client_credentials',
-        clientId: newClientId,
-        clientSecret: newClientSecret,
+        grant_type: 'client_credentials',
+        client_id: newClientId,
+        client_secret: newClientSecret,
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['accessToken']);
-        expect(res.body.data.accessToken).toBeDefined();
+        expect(res.body).toHaveExactProperties(['access_token', 'expires_in', 'token_type']);
+        expect(res.body.access_token).toBeDefined();
+        expect(res.body.expires_in).toBeDefined();
+        expect(res.body.token_type).toBeDefined();
       });
   });
 

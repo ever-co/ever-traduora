@@ -1,13 +1,14 @@
 # Traduora
+[![Latest Release](https://img.shields.io/github/release/traduora/traduora.svg?label=latest%20release)](https://github.com/traduora/traduora/releases)
+[![GitHub License](https://img.shields.io/badge/license-AGPL-v3.svg)](https://raw.githubusercontent.com/traduora/traduora/master/LICENSE)
+[![CircleCI](https://circleci.com/gh/traduora/traduora.svg?style=svg)](https://circleci.com/gh/traduora/traduora)
+[![Docker Pulls](https://img.shields.io/docker/pulls/traduora/traduora)](https://hub.docker.com/r/traduora/traduora)
+
 Traduora is a **translation management platform for teams**. Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
 
 We want traduora to become the home for managing your translation workflow, that's why we have made all of the core product **open-source** with the intention to grow a **community** and enable developers to build on top of it as a platform.
 
 ![Traduora Product Screenshot](docs-website/static/img/traduora-preview.png)
-
-[![Latest Release](https://img.shields.io/github/release/traduora/traduora.svg?label=latest%20release)](https://github.com/traduora/traduora/releases)
-[![GitHub License](https://img.shields.io/badge/license-AGPL-v3.svg)](https://raw.githubusercontent.com/traduora/traduora/master/LICENSE)
-[![CircleCI](https://circleci.com/gh/traduora/traduora.svg?style=svg)](https://circleci.com/gh/traduora/traduora)
 
 
 ## Features
@@ -26,6 +27,8 @@ Any missing feature you'd like to see? File an [issue](https://github.com/traduo
 
 ## Try it out
 Traduora can be run just about anywhere, check out our [quickstart](https://docs.traduora.com/docs/getting-started) for more info.
+
+Also check out traduora's [Docker Hub page](https://hub.docker.com/r/traduora/traduora) for pre-built images.
 
 
 ### Configuration and Deployment

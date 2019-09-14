@@ -1,5 +1,4 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-
 import { AccessTimestamps } from './base';
 
 @Entity()
@@ -13,7 +12,7 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ type: 'binary', length: 60 })
+  @Column({ type: 'binary', length: 60, nullable: true })
   encryptedPassword: Buffer;
 
   @Column({ nullable: true })

@@ -3,3 +3,7 @@ export interface UserSignup {
   email: string;
   password: string;
 }
+
+export interface UserSignupWithProvider {
+  code: string;
+}

@@ -1,11 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, tap } from 'rxjs/operators';
 import { Payload } from 'src/app/shared/models/http';
+import { Provider } from '../models/provider';
 import { User } from '../models/user';
-import { UserLogin } from '../models/user-login';
-import { UserSignup } from '../models/user-signup';
+import { UserLogin, UserLoginWithProvider } from '../models/user-login';
+import { UserSignup, UserSignupWithProvider } from '../models/user-signup';
 import { environment } from './../../../environments/environment';
 
 @Injectable({
@@ -24,17 +25,36 @@ export class AuthService {
     return this.http.patch<Payload<User>>(`${this.endpoint}/users/me`, updates).pipe(map(res => res.data));
   }
 
+  getProviders(): Observable<Provider[]> {
+    return this.http.get<Payload<Provider[]>>(`${this.endpoint}/auth/providers`).pipe(map(res => res.data));
+  }
+
   signup(data: UserSignup): Observable<{ accessToken: string } & User> {
     return this.http.post<Payload<{ accessToken: string } & User>>(`${this.endpoint}/auth/signup`, data).pipe(map(res => res.data));
   }
 
+  // Signing in with a provider is an idempotent operation
+  signInWithProvider(data: UserSignupWithProvider): Observable<{ accessToken: string } & User> {
+    return this.http.post<Payload<{ accessToken: string } & User>>(`${this.endpoint}/auth/signup-provider`, data).pipe(map(res => res.data));
+  }
+
   login(data: UserLogin): Observable<{ accessToken: string }> {
     return this.http
-      .post<Payload<{ accessToken: string }>>(`${this.endpoint}/auth/token`, {
-        ...data,
-        grantType: 'password',
+      .post<{ access_token: string; expires_in: string; token_type: string }>(`${this.endpoint}/auth/token`, {
+        username: data.email,
+        password: data.password,
+        grant_type: 'password',
       })
-      .pipe(map(res => res.data));
+      .pipe(map(res => ({ accessToken: res.access_token })));
+  }
+
+  redirectWithProvider(provider: Provider) {
+    window.open(
+      `${provider.url}?redirect_uri=${provider.redirectUrl}&client_id=${
+        provider.clientId
+      }&scope=email profile openid&access_type=offline&prompt=select_account&response_type=code`,
+      '_self',
+    );
   }
 
   deleteAccount(): Observable<any> {

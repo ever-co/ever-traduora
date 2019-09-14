@@ -20,6 +20,16 @@ export const config = {
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
+  providers: {
+    google: {
+      active: env.TR_AUTH_GOOGLE_ENABLED,
+      clientSecret: env.TR_AUTH_GOOGLE_CLIENT_SECRET,
+      clientId: env.TR_AUTH_GOOGLE_CLIENT_ID,
+      redirectUrl: env.TR_AUTH_GOOGLE_REDIRECT_URL,
+      apiUrl: 'https://www.googleapis.com/oauth2/v4/token',
+      url: 'https://accounts.google.com/o/oauth2/v2/auth',
+    },
+  },
   mail: {
     debug: getBoolOrDefault(env.TR_MAIL_DEBUG, false),
     sender: env.TR_MAIL_SENDER || 'no-reply@localhost.com',

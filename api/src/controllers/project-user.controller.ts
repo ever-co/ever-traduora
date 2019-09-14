@@ -3,12 +3,16 @@ import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { UpdateProjectUserRequest } from '../domain/http';
+import { AddProjectUserRequest, UpdateProjectUserRequest, ListProjectUsersResponse, ProjectUserResponse } from '../domain/http';
 import { ProjectUser } from '../entity/project-user.entity';
 import AuthorizationService from '../services/authorization.service';
+import MailService from '../services/mail.service';
+import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
+@ApiOAuth2Auth()
+@ApiUseTags('Project Users')
 export default class ProjectUserController {
   constructor(
     private auth: AuthorizationService,
@@ -16,6 +20,10 @@ export default class ProjectUserController {
   ) {}
 
   @Get(':projectId/users')
+  @ApiOperation({ title: 'List all users with access to a project' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectUsersResponse })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async find(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewProjectUsers);
@@ -36,6 +44,11 @@ export default class ProjectUserController {
   }
 
   @Patch(':projectId/users/:userId')
+  @ApiOperation({ title: `Update a project user's role` })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectUserResponse })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request params or attempting to edit own role' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(
     @Req() req,
     @Param('projectId') projectId: string,
@@ -71,6 +84,11 @@ export default class ProjectUserController {
 
   @Delete(':projectId/users/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ title: `Revoke a user's access to a project` })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: `Bad request, can't edit your own role` })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Param('projectId') projectId: string, @Param('userId') userId: string) {
     const requestingUser = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.DeleteProjectUsers);

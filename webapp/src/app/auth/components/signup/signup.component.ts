@@ -2,9 +2,9 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
-
 import { environment } from '../../../../environments/environment';
-import { ClearMessages, Signup } from '../../stores/auth.state';
+import { Provider } from '../../models/provider';
+import { ClearMessages, GetProviders, Signup } from '../../stores/auth.state';
 
 @Component({
   selector: 'app-signup',
@@ -28,9 +28,14 @@ export class SignupComponent implements OnInit, OnDestroy {
   @Select(state => state.auth.isLoading)
   isLoading$: Observable<boolean>;
 
+  @Select(state => state.auth.providers)
+  providers$: Observable<Provider[]>;
+
   constructor(private fb: FormBuilder, private store: Store) {}
 
-  ngOnInit() {}
+  ngOnInit() {
+    this.store.dispatch(new GetProviders());
+  }
 
   ngOnDestroy() {
     this.store.dispatch(new ClearMessages());

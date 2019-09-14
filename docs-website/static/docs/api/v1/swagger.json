@@ -1,0 +1,865 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "Documentation for the traduora REST API\n\nOfficial website: https://traduora.com\nAdditional documentation: https://docs.traduora.com\nSource code: https://github.com/traduora/traduora",
+    "version": "1.0",
+    "title": "Traduora API"
+  },
+  "basePath": "/",
+  "tags": [],
+  "schemes": ["http", "https"],
+  "securityDefinitions": {
+    "oauth2": { "type": "oauth2", "flow": "password", "authorizationUrl": "/api/v1/auth/token", "tokenUrl": "/api/v1/auth/token" }
+  },
+  "paths": {
+    "/api/v1/auth/signup": {
+      "post": {
+        "summary": "Create a new user account",
+        "parameters": [{ "name": "SignupRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/SignupRequest" } }],
+        "responses": {
+          "200": { "description": "User account created", "schema": { "$ref": "#/definitions/SignupResponse" } },
+          "400": { "description": "Bad request" },
+          "409": { "description": "A user with this email already exists" }
+        },
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/auth/token": {
+      "post": {
+        "summary": "Request an authentication token for an existing user or project client",
+        "description": "The grant type must be one of **password** or **client_credentials**.When using a grant type of *password*, you must provide the fields *username* (email) and *password*.When using the grant type *client_credentials* you must provide the fields *client_id* and *client_secret*",
+        "parameters": [{ "name": "AuthenticateRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AuthenticateRequest" } }],
+        "responses": {
+          "200": { "description": "Successfully authenticated", "schema": { "$ref": "#/definitions/AccessTokenDTO" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Bad credentials" },
+          "404": { "description": "No resource with such credentials found" },
+          "429": { "description": "Too many attempts, please wait at least 15 minutes before retrying" }
+        },
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "summary": "Request reset password email",
+        "parameters": [
+          { "name": "ForgotPasswordRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/ForgotPasswordRequest" } }
+        ],
+        "responses": { "200": { "description": "Email sent" }, "404": { "description": "No user with such email found" } },
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "summary": "Reset password from token",
+        "parameters": [
+          { "name": "ResetPasswordRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/ResetPasswordRequest" } }
+        ],
+        "responses": {
+          "200": { "description": "Password changed" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "No such resource found" }
+        },
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "summary": "Change password using current one",
+        "parameters": [
+          { "name": "ChangePasswordRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/ChangePasswordRequest" } }
+        ],
+        "responses": {
+          "204": { "description": "Password changed" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "No such resource found" }
+        },
+        "tags": ["Authentication"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "summary": "Get the current user's profile",
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/UserInfoResponse" } },
+          "401": { "description": "Unauthorized" }
+        },
+        "tags": ["Users"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "patch": {
+        "summary": "Update the current user's profile",
+        "parameters": [
+          { "name": "UpdateUserDataRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/UpdateUserDataRequest" } }
+        ],
+        "responses": {
+          "200": { "description": "Updated", "schema": { "$ref": "#/definitions/UserInfoResponse" } },
+          "401": { "description": "Unauthorized" }
+        },
+        "tags": ["Users"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Delete the current user's account",
+        "responses": {
+          "204": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "422": { "description": "Cannot delete account" }
+        },
+        "tags": ["Users"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "summary": "List projects",
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListProjectsResponse" } },
+          "401": { "description": "Unauthorized" }
+        },
+        "tags": ["Projects"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "post": {
+        "summary": "Create a new project",
+        "description": "Creates a new project and assigns the requesting user as the admin",
+        "parameters": [
+          { "name": "CreateProjectRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/CreateProjectRequest" } }
+        ],
+        "responses": {
+          "201": { "description": "Created", "schema": { "$ref": "#/definitions/ProjectResponse" } },
+          "401": { "description": "Unauthorized" }
+        },
+        "tags": ["Projects"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}": {
+      "get": {
+        "summary": "Get a project by id",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ProjectResponse" } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Projects"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "patch": {
+        "summary": "Update a project",
+        "parameters": [
+          { "name": "UpdateProjectRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/UpdateProjectRequest" } },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ProjectResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Projects"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Delete a project",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": { "204": { "description": "Deleted" }, "401": { "description": "Unauthorized" }, "404": { "description": "Not found" } },
+        "tags": ["Projects"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/plan": {
+      "get": {
+        "summary": "Get a project's plan",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ProjectPlanResponse" } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Plans"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/users": {
+      "get": {
+        "summary": "List all users with access to a project",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListProjectUsersResponse" } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Users"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "post": {
+        "summary": "Grant access to a project to an existing user",
+        "parameters": [
+          { "name": "AddProjectUserRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AddProjectUserRequest" } },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "201": { "description": "Created", "schema": { "$ref": "#/definitions/ProjectUserResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Users"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/users/{userId}": {
+      "patch": {
+        "summary": "Update a project user's role",
+        "parameters": [
+          { "name": "UpdateProjectUserRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/UpdateProjectUserRequest" } },
+          { "type": "string", "name": "userId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Updated", "schema": { "$ref": "#/definitions/ProjectUserResponse" } },
+          "400": { "description": "Bad request params or attempting to edit own role" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Users"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Revoke a user's access to a project",
+        "parameters": [
+          { "type": "string", "name": "userId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "400": { "description": "Bad request, can't edit your own role" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Users"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/terms": {
+      "get": {
+        "summary": "List a project's terms",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListProjectTermsResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Terms"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "post": {
+        "summary": "Add a new project term",
+        "parameters": [
+          { "name": "AddTermRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AddTermRequest" } },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "201": { "description": "Created", "schema": { "$ref": "#/definitions/ProjectTermResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "402": { "description": "Plan limit reached" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Terms"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/terms/{termId}": {
+      "patch": {
+        "summary": "Update a project's term",
+        "parameters": [
+          { "name": "UpdateTermRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/UpdateTermRequest" } },
+          { "type": "string", "name": "termId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Updated", "schema": { "$ref": "#/definitions/ProjectTermResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Terms"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Remove a project's term",
+        "description": "Removes a project's term and all related translations",
+        "parameters": [
+          { "type": "string", "name": "termId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Terms"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/translations": {
+      "get": {
+        "summary": "List all translation locales for a project",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListProjectLocalesResponse" } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Translations"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "post": {
+        "summary": "Add a new translation locale for a project",
+        "parameters": [
+          { "name": "AddLocaleRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AddLocaleRequest" } },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "201": { "description": "Created", "schema": { "$ref": "#/definitions/ProjectLocaleResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "402": { "description": "Plan limit reached" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Translations"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/translations/{localeCode}": {
+      "get": {
+        "summary": "List translated terms for a locale",
+        "parameters": [
+          { "type": "string", "name": "localeCode", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListTermTranslatonsResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Translations"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "patch": {
+        "summary": "Update a term's translation",
+        "parameters": [
+          { "name": "UpdateTranslationRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/UpdateTranslationRequest" } },
+          { "type": "string", "name": "localeCode", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Updated", "schema": { "$ref": "#/definitions/TermTranslatonResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project or locale not found" }
+        },
+        "tags": ["Translations"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Delete a project's locale",
+        "description": "Deletes a project's locale and all related translations",
+        "parameters": [
+          { "type": "string", "name": "localeCode", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project or locale not found" }
+        },
+        "tags": ["Translations"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/imports": {
+      "post": {
+        "summary": "Import a translation file",
+        "parameters": [
+          { "type": "string", "name": "locale", "required": true, "in": "query", "minLength": 2, "maxLength": 16 },
+          {
+            "type": "string",
+            "name": "format",
+            "required": true,
+            "in": "query",
+            "enum": {
+              "Csv": "csv",
+              "Xliff12": "xliff12",
+              "JsonFlat": "jsonflat",
+              "JsonNested": "jsonnested",
+              "YamlFlat": "yamlflat",
+              "YamlNested": "yamlnested",
+              "Properties": "properties",
+              "Gettext": "po",
+              "Strings": "strings"
+            }
+          },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" },
+          { "name": "file", "required": true, "in": "formData", "description": "The file to import", "type": "file" }
+        ],
+        "responses": {
+          "200": { "description": "File imported", "schema": { "$ref": "#/definitions/ImportResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "402": { "description": "Plan limit reached" },
+          "404": { "description": "No such resource found" }
+        },
+        "tags": ["Imports"],
+        "consumes": ["multipart/form-data"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/clients": {
+      "get": {
+        "summary": "List a project's clients",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListProjectClientsResponse" } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Project Clients"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "post": {
+        "summary": "Create a new project client",
+        "parameters": [
+          { "name": "AddProjectClientRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AddProjectClientRequest" } },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "201": { "description": "Created", "schema": { "$ref": "#/definitions/ProjectClientWithSecretResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Project Clients"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/clients/{clientId}": {
+      "patch": {
+        "summary": "Update a project's client",
+        "parameters": [
+          { "name": "UpdateProjectClientRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/UpdateProjectClientRequest" } },
+          { "type": "string", "name": "clientId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Updated", "schema": { "$ref": "#/definitions/ProjectClientResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project or client not found" }
+        },
+        "tags": ["Project Clients"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Revoke access from a project's client",
+        "parameters": [
+          { "type": "string", "name": "clientId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project or client not found" }
+        },
+        "tags": ["Project Clients"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/clients/{clientId}/rotate-secret": {
+      "post": {
+        "summary": "Rotate a project's client secret key",
+        "parameters": [
+          { "type": "string", "name": "clientId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ProjectClientWithSecretResponse" } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project or client not found" }
+        },
+        "tags": ["Project Clients"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/exports": {
+      "get": {
+        "summary": "Export all translated terms for a project's locale",
+        "parameters": [
+          { "type": "string", "name": "locale", "required": true, "in": "query", "minLength": 2, "maxLength": 16 },
+          {
+            "type": "string",
+            "name": "format",
+            "required": true,
+            "in": "query",
+            "enum": {
+              "Csv": "csv",
+              "Xliff12": "xliff12",
+              "JsonFlat": "jsonflat",
+              "JsonNested": "jsonnested",
+              "YamlFlat": "yamlflat",
+              "YamlNested": "yamlnested",
+              "Properties": "properties",
+              "Gettext": "po",
+              "Strings": "strings"
+            }
+          },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "File exported" },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project or locale not found" }
+        },
+        "produces": ["application/octet-stream"],
+        "security": [{ "oauth2": [] }],
+        "tags": ["Exports"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/locales": {
+      "get": {
+        "summary": "List all available locales",
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListLocalesResponse" } },
+          "401": { "description": "Unauthorized" }
+        },
+        "tags": ["Locales"],
+        "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    }
+  },
+  "definitions": {
+    "SignupRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 8, "maxLength": 255 },
+        "email": { "type": "string" },
+        "password": { "type": "string", "minLength": 8, "maxLength": 255 }
+      },
+      "required": ["name", "email", "password"]
+    },
+    "NewUserDTO": {
+      "type": "object",
+      "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "email": { "type": "string" }, "accessToken": { "type": "string" } },
+      "required": ["id", "name", "email", "accessToken"]
+    },
+    "SignupResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/NewUserDTO" } }, "required": ["data"] },
+    "AuthenticateRequest": {
+      "type": "object",
+      "properties": {
+        "grant_type": { "type": "string", "enum": ["password", "client_credentials"] },
+        "username": { "type": "string" },
+        "password": { "type": "string", "minLength": 8, "maxLength": 255 },
+        "client_id": { "type": "string" },
+        "client_secret": { "type": "string", "minLength": 8, "maxLength": 255 }
+      },
+      "required": ["grant_type"]
+    },
+    "AccessTokenDTO": {
+      "type": "object",
+      "properties": { "access_token": { "type": "string" }, "expires_in": { "type": "string" }, "token_type": { "type": "string" } },
+      "required": ["access_token", "expires_in", "token_type"]
+    },
+    "ForgotPasswordRequest": { "type": "object", "properties": { "email": { "type": "string" } }, "required": ["email"] },
+    "ResetPasswordRequest": {
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "token": { "type": "string" },
+        "newPassword": { "type": "string", "minLength": 8, "maxLength": 255 }
+      },
+      "required": ["email", "token", "newPassword"]
+    },
+    "ChangePasswordRequest": {
+      "type": "object",
+      "properties": {
+        "oldPassword": { "type": "string", "minLength": 8, "maxLength": 255 },
+        "newPassword": { "type": "string", "minLength": 8, "maxLength": 255 }
+      },
+      "required": ["oldPassword", "newPassword"]
+    },
+    "UserInfoDTO": {
+      "type": "object",
+      "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "email": { "type": "string" } },
+      "required": ["id", "name", "email"]
+    },
+    "UserInfoResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/UserInfoDTO" } }, "required": ["data"] },
+    "UpdateUserDataRequest": {
+      "type": "object",
+      "properties": { "name": { "type": "string", "minLength": 2, "maxLength": 255 }, "email": { "type": "string" } }
+    },
+    "AccessDatesDTO": {
+      "type": "object",
+      "properties": { "created": { "type": "string" }, "modified": { "type": "string" } },
+      "required": ["created", "modified"]
+    },
+    "ProjectDTO": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "localesCount": { "type": "number" },
+        "termsCount": { "type": "number" },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+        "date": { "$ref": "#/definitions/AccessDatesDTO" }
+      },
+      "required": ["id", "name", "description", "localesCount", "termsCount", "role", "date"]
+    },
+    "ListProjectsResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/ProjectDTO" } } },
+      "required": ["data"]
+    },
+    "CreateProjectRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "description": { "type": "string", "minLength": 0, "maxLength": 255 }
+      },
+      "required": ["name"]
+    },
+    "ProjectResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectDTO" } }, "required": ["data"] },
+    "UpdateProjectRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "description": { "type": "string", "minLength": 0, "maxLength": 255 }
+      }
+    },
+    "ProjectPlanDTO": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "maxStrings": { "type": "number" },
+        "date": { "$ref": "#/definitions/AccessDatesDTO" }
+      },
+      "required": ["code", "name", "maxStrings", "date"]
+    },
+    "ProjectPlanResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectPlanDTO" } }, "required": ["data"] },
+    "ProjectUserDTO": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "ListProjectUsersResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/ProjectUserDTO" } } },
+      "required": ["data"]
+    },
+    "AddProjectUserRequest": {
+      "type": "object",
+      "properties": { "email": { "type": "string" }, "role": { "type": "string", "enum": ["admin", "editor", "viewer"] } },
+      "required": ["email", "role"]
+    },
+    "ProjectUserResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectUserDTO" } }, "required": ["data"] },
+    "UpdateProjectUserRequest": {
+      "type": "object",
+      "properties": { "role": { "type": "string", "enum": ["admin", "editor", "viewer"] } },
+      "required": ["role"]
+    },
+    "ProjectTermDTO": {
+      "type": "object",
+      "properties": { "id": { "type": "string" }, "value": { "type": "string" }, "date": { "$ref": "#/definitions/AccessDatesDTO" } },
+      "required": ["id", "value", "date"]
+    },
+    "ListProjectTermsResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/ProjectTermDTO" } } },
+      "required": ["data"]
+    },
+    "AddTermRequest": { "type": "object", "properties": { "value": { "type": "string", "minLength": 1, "maxLength": 255 } }, "required": ["value"] },
+    "ProjectTermResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectTermDTO" } }, "required": ["data"] },
+    "UpdateTermRequest": {
+      "type": "object",
+      "properties": { "value": { "type": "string", "minLength": 1, "maxLength": 255 } },
+      "required": ["value"]
+    },
+    "LocaleDTO": {
+      "type": "object",
+      "properties": { "code": { "type": "string" }, "language": { "type": "string" }, "region": { "type": "string" } },
+      "required": ["code", "language", "region"]
+    },
+    "ProjectLocaleDTO": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "locale": { "$ref": "#/definitions/LocaleDTO" },
+        "date": { "$ref": "#/definitions/AccessDatesDTO" }
+      },
+      "required": ["id", "locale", "date"]
+    },
+    "ListProjectLocalesResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/ProjectLocaleDTO" } } },
+      "required": ["data"]
+    },
+    "AddLocaleRequest": { "type": "object", "properties": { "code": { "type": "string", "minLength": 2, "maxLength": 16 } }, "required": ["code"] },
+    "ProjectLocaleResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectLocaleDTO" } }, "required": ["data"] },
+    "TermTranslationDTO": {
+      "type": "object",
+      "properties": { "termId": { "type": "string" }, "value": { "type": "string" }, "date": { "$ref": "#/definitions/AccessDatesDTO" } },
+      "required": ["termId", "value", "date"]
+    },
+    "ListTermTranslatonsResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/TermTranslationDTO" } } },
+      "required": ["data"]
+    },
+    "UpdateTranslationRequest": {
+      "type": "object",
+      "properties": { "termId": { "type": "string" }, "value": { "type": "string", "minLength": 0, "maxLength": 8192 } },
+      "required": ["termId", "value"]
+    },
+    "TermTranslatonResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/TermTranslationDTO" } }, "required": ["data"] },
+    "ImportTermsDTO": {
+      "type": "object",
+      "properties": { "added": { "type": "number" }, "skipped": { "type": "number" } },
+      "required": ["added", "skipped"]
+    },
+    "ImportTranslationsDTO": { "type": "object", "properties": { "upserted": { "type": "number" } }, "required": ["upserted"] },
+    "ImportFileDTO": {
+      "type": "object",
+      "properties": { "terms": { "$ref": "#/definitions/ImportTermsDTO" }, "translations": { "$ref": "#/definitions/ImportTranslationsDTO" } },
+      "required": ["terms", "translations"]
+    },
+    "ImportResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ImportFileDTO" } }, "required": ["data"] },
+    "ProjectClientDTO": {
+      "type": "object",
+      "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "role": { "type": "string", "enum": ["admin", "editor", "viewer"] } },
+      "required": ["id", "name", "role"]
+    },
+    "ListProjectClientsResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/ProjectClientDTO" } } },
+      "required": ["data"]
+    },
+    "AddProjectClientRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] }
+      },
+      "required": ["name", "role"]
+    },
+    "ProjectClientWithSecretDTO": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] },
+        "secret": { "type": "string" }
+      },
+      "required": ["id", "name", "role", "secret"]
+    },
+    "ProjectClientWithSecretResponse": {
+      "type": "object",
+      "properties": { "data": { "$ref": "#/definitions/ProjectClientWithSecretDTO" } },
+      "required": ["data"]
+    },
+    "UpdateProjectClientRequest": {
+      "type": "object",
+      "properties": { "role": { "type": "string", "enum": ["admin", "editor", "viewer"] } },
+      "required": ["role"]
+    },
+    "ProjectClientResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectClientDTO" } }, "required": ["data"] },
+    "ListLocalesResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/LocaleDTO" } } },
+      "required": ["data"]
+    }
+  }
+}

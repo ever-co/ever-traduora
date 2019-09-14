@@ -2,6 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { Connection } from 'typeorm';
 import { addPipesAndFilters, AppModule } from './app.module';
 import { config } from './config';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
+
+import { version } from '../package.json';
 
 interface Closable {
   close(): Promise<void>;
@@ -18,7 +22,7 @@ process.on('SIGINT', async () => {
 });
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
   addPipesAndFilters(app);
   closables.push(app);
 
@@ -30,7 +34,27 @@ async function bootstrap() {
     console.log('DB migrations up to date');
   }
 
-  await app.listen(config.port, '0.0.0.0');
+  // Setup swagger
+  {
+    const options = new DocumentBuilder()
+      .setTitle('Traduora API')
+      .setDescription(
+        'Documentation for the traduora REST API\n\n' +
+          'Official website: https://traduora.com\n' +
+          'Additional documentation: https://docs.traduora.com\n' +
+          'Source code: https://github.com/traduora/traduora',
+      )
+      .setVersion(version)
+      .setBasePath('/')
+      .addOAuth2('password', '/api/v1/auth/token', '/api/v1/auth/token')
+      .setSchemes('http', 'https')
+      .build();
+
+    const document = SwaggerModule.createDocument(app, options);
+    SwaggerModule.setup('api/v1/swagger', app, document, { customSiteTitle: 'Traduora API v1 docs' });
+  }
+
+  await app.listenAsync(config.port, '0.0.0.0');
 }
 
 bootstrap();

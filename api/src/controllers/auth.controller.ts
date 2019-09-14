@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -12,12 +13,13 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-
 import { config } from '../config';
 import {
+  AccessTokenDTO,
   AuthenticateRequest,
   ChangePasswordRequest,
   ForgotPasswordRequest,
@@ -25,8 +27,10 @@ import {
   JwtPayload,
   ResetPasswordRequest,
   SignupRequest,
+  SignupResponse,
 } from '../domain/http';
 import { ProjectClient } from '../entity/project-client.entity';
+import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
@@ -35,33 +39,50 @@ import { ProjectUser } from '../entity/project-user.entity';
 import { normalizeEmail } from '../domain/validators';
 
 @Controller('api/v1/auth')
+@ApiUseTags('Authentication')
 export class AuthController {
   constructor(
     private mailService: MailService,
     private userService: UserService,
     private jwtService: JwtService,
-    private authService: AuthorizationService,
     @InjectRepository(Invite) private inviteRepo: Repository<Invite>,
+    private authorizationService: AuthorizationService,
     @InjectRepository(ProjectClient) private projectClientRepo: Repository<ProjectClient>,
+    private authService: AuthService,
   ) {}
+
+  @Get('providers')
+  @HttpCode(HttpStatus.OK)
+  async getProviders(): Promise<{ data: { url: string; redirectUrl: string; clientId: string }[] }> {
+    return {
+      data: Object.keys(config.providers).reduce((acc, provider) => {
+        const { url, active, redirectUrl, clientId } = config.providers[provider];
+        return active ? [...acc, { slug: provider, url, redirectUrl, clientId }] : acc;
+      }, []),
+    };
+  }
 
   @Post('signup')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ title: 'Create a new user account' })
+  @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'A user with this email already exists' })
   async signup(@Body() payload: SignupRequest) {
     const normalizedEmail = normalizeEmail(payload.email);
-    
+
     // check for invite
-    const invites = await this.inviteRepo.find({ 
+    const invites = await this.inviteRepo.find({
       where: { email: normalizedEmail, status: InviteStatus.Sent },
       relations: ['project'],
     });
-    
+
     // Early exit if the user has no invitation and sign up is disabled.
     if (invites.length == 0 && !config.signupsEnabled) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
-    const user = await this.userService.create(payload.name, normalizedEmail, payload.password);
+    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...payload });
 
     if (invites.length > 0) {
       // accept project invites
@@ -82,7 +103,41 @@ export class AuthController {
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
-    this.mailService.welcomeNewUser(user);
+
+    if (isNewUser) {
+      this.mailService.welcomeNewUser(user);
+    }
+
+    return {
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        accessToken: token,
+      },
+    };
+  }
+
+  @Post('signup-provider')
+  async signupWithProvider(@Body() { code }: { code: string }): Promise<{ data: { id: string; email: string; name: string; accessToken: string } }> {
+    const { id_token } = await this.authService.getTokenFromGoogle(code);
+    const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
+
+    // This endpoint can be used for signing in too in the case of providers.
+    // Ensure that we forbid a new account if we have disabled signups.
+    // But still allow logging in in case the account had already been created.
+    if (!config.signupsEnabled && !this.userService.userExists(decodedToken.email)) {
+      throw new ForbiddenException('Signups are disabled');
+    }
+
+    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
+
+    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
+    const token = this.jwtService.sign(tokenPayload);
+
+    if (isNewUser) {
+      this.mailService.welcomeNewUser(user);
+    }
 
     return {
       data: {
@@ -96,20 +151,48 @@ export class AuthController {
 
   @Post('token')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    title: 'Request an authentication token for an existing user or project client',
+    description:
+      'The grant type must be one of **password** or **client_credentials**. ' +
+      'When using a grant type of *password*, you must provide the fields *username* (email) and *password*. ' +
+      'When using the grant type *client_credentials* you must provide the fields *client_id* and *client_secret*. ' +
+      'The grant type **provider** is reserved for internal purposes and should not be used.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Successfully authenticated', type: AccessTokenDTO })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No resource with such credentials found' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Too many attempts, please wait at least 15 minutes before retrying' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Bad credentials' })
   async token(@Body() payload: AuthenticateRequest) {
-    switch (payload.grantType) {
+    switch (payload.grant_type) {
       case GrantType.Password: {
-        if (!payload.email || !payload.password) {
+        if (!payload.username || !payload.password) {
           throw new BadRequestException('missing credentials');
         }
-        const token = await this.authenticateUser(payload.email, payload.password);
-        return { data: { accessToken: token } };
+        const token = await this.authenticateUser(payload.username, payload.password);
+        return {
+          access_token: token,
+          token_type: 'bearer',
+          expires_in: `${config.authTokenExpires}s`,
+        };
       }
       case GrantType.ClientCredentials: {
-        if (!payload.clientId || !payload.clientSecret) {
+        if (!payload.client_id || !payload.client_secret) {
           throw new BadRequestException('missing credentials');
         }
-        const token = await this.authenticateClient(payload.clientId, payload.clientSecret);
+        const token = await this.authenticateClient(payload.client_id, payload.client_secret);
+        return {
+          access_token: token,
+          token_type: 'bearer',
+          expires_in: `${config.authTokenExpires}s`,
+        };
+      }
+      case GrantType.Provider: {
+        if (!payload.code) {
+          throw new BadRequestException('missing credentials');
+        }
+        const token = await this.authenticateProvider(payload.code);
         return { data: { accessToken: token } };
       }
       default:
@@ -118,7 +201,7 @@ export class AuthController {
   }
 
   private async authenticateUser(email, password) {
-    const user = await this.userService.authenticate(email, password);
+    const user = await this.userService.authenticate({ grantType: GrantType.Password, email, password });
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
     return token;
@@ -145,8 +228,23 @@ export class AuthController {
     return token;
   }
 
+  private async authenticateProvider(code: string) {
+    const { id_token } = await this.authService.getTokenFromGoogle(code);
+
+    const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
+
+    const user = await this.userService.authenticate({ grantType: GrantType.Provider, email: decodedToken.email });
+
+    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
+    const token = this.jwtService.sign(tokenPayload);
+    return token;
+  }
+
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ title: 'Request reset password email' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Email sent' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No user with such email found' })
   async forgotPassword(@Body() payload: ForgotPasswordRequest) {
     const { user, token } = await this.userService.forgotPassword(payload.email);
     this.mailService.passwordResetToken(user, token);
@@ -154,17 +252,27 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ title: 'Reset password from token' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Password changed' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async resetPassword(@Body() payload: ResetPasswordRequest) {
     const user = await this.userService.resetPassword(payload.email, payload.token, payload.newPassword);
-
     this.mailService.passwordChanged(user);
   }
 
   @Post('change-password')
   @UseGuards(AuthGuard())
+  @ApiOAuth2Auth()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ title: 'Change password using current one' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Password changed' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async changePassword(@Req() req, @Body() payload: ChangePasswordRequest) {
-    const requestingUser = this.authService.getRequestUserOrClient(req, { mustBeUser: true });
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     const user = await this.userService.changePassword(requestingUser.id, payload.oldPassword, payload.newPassword);
     this.mailService.passwordChanged(user);
   }
