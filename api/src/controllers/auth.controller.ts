@@ -123,14 +123,39 @@ export class AuthController {
     const { id_token } = await this.authService.getTokenFromGoogle(code);
     const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
 
+    const normalizedEmail = normalizeEmail(decodedToken.email);
+
+    // check for invite
+    const invites = await this.inviteRepo.find({
+      where: { email: normalizedEmail, status: InviteStatus.Sent },
+      relations: ['project'],
+    });
+
     // This endpoint can be used for signing in too in the case of providers.
     // Ensure that we forbid a new account if we have disabled signups.
     // But still allow logging in in case the account had already been created.
-    if (!config.signupsEnabled && !this.userService.userExists(decodedToken.email)) {
-      throw new ForbiddenException('Signups are disabled');
+    if (!config.signupsEnabled && invites.length === 0 && !this.userService.userExists(decodedToken.email)) {
+      throw new ForbiddenException('Signups are invitation based only.');
     }
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
+
+    if (invites.length > 0) {
+      // accept project invites
+      await this.inviteRepo.manager.transaction(async entityManager => {
+        invites.forEach(invite => (invite.status = InviteStatus.Accepted));
+        await entityManager.save(invites);
+
+        const projectUsers = invites.map(invite => {
+          return entityManager.create(ProjectUser, {
+            project: { id: invite.project.id },
+            user: user,
+            role: invite.role,
+          });
+        });
+        await entityManager.save(projectUsers);
+      });
+    }
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);

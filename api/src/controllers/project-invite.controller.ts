@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
+import { normalizeEmail } from 'domain/validators';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import { InviteUserRequest, UpdateProjectInviteRequest } from '../domain/http';
@@ -41,7 +42,7 @@ export default class ProjectInviteController {
     await this.auth.authorizeProjectAction(user, projectId, ProjectAction.InviteProjectUser);
 
     const targetUser = await this.userRepo.findOne({
-      where: { email: this.normalizeEmail(inviteUserRequest.email) },
+      where: { email: normalizeEmail(inviteUserRequest.email) },
     });
 
     if (targetUser) {
@@ -70,7 +71,7 @@ export default class ProjectInviteController {
       };
     } else {
       const record = this.inviteRepo.create({
-        email: this.normalizeEmail(inviteUserRequest.email),
+        email: normalizeEmail(inviteUserRequest.email),
         project: { id: projectId },
         role: inviteUserRequest.role,
       });
@@ -127,10 +128,5 @@ export default class ProjectInviteController {
     });
 
     await this.inviteRepo.remove(targetInvite);
-  }
-
-  private normalizeEmail(email: string): string {
-    const [user, rest] = email.split('@');
-    return `${user}@${rest.toLowerCase()}`;
   }
 }
