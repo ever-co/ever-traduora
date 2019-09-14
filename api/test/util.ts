@@ -2,7 +2,6 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
-
 import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
@@ -12,11 +11,6 @@ export interface TestingUser {
   name: string;
   email: string;
   accessToken: string;
-}
-
-export interface TestingInvite {
-  id: string;
-  emai: string;
 }
 
 export interface TestingProject {
@@ -38,7 +32,7 @@ export async function signupTestUser(app: INestApplication, email: string = 'e2e
     .post('/api/v1/auth/signup')
     .send({
       name: `End to End Tester (${email})`,
-      email: email,
+      email,
       password: 'mysupersecretpassword',
     });
   const result = res.body.data as TestingUser;
@@ -58,20 +52,6 @@ export async function createTestProject(app: INestApplication, user: TestingUser
   const result = res.body.data as TestingProject;
   if (!result.id || !result.name || !result.role) {
     throw new Error('Malformed create project response! Maybe fields need updating?');
-  }
-  return result;
-}
-
-export async function addProjectInvite(app: INestApplication, project: TestingProject, email: String): Promise<TestingInvite> {
-  const res = await request(app.getHttpServer())
-    .post(`/api/v1/projects/${project.id}/invites`)
-    .send({
-      email: email,
-      role: ProjectRole.Admin
-    });
-  const result = res.body.data as TestingInvite;
-  if (!result.id || !result.emai) {
-    throw new Error('Malformed invite response! Maybe fields need updating?');
   }
   return result;
 }

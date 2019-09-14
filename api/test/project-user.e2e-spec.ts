@@ -41,7 +41,7 @@ describe('ProjectUserController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/users/:userId (PATCH) should be able to edit project users if allowed', async () => {
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject1.id}/users`)
+      .post(`/api/v1/projects/${testProject1.id}/invites`)
       .set('Authorization', `Bearer ${testingUser1.accessToken}`)
       .send({
         email: testingUser2.email,
@@ -91,7 +91,7 @@ describe('ProjectUserController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/users/:userId (PATCH) should not affect the other projects from that user', async () => {
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject1.id}/users`)
+      .post(`/api/v1/projects/${testProject1.id}/invites`)
       .set('Authorization', `Bearer ${testingUser1.accessToken}`)
       .send({
         email: testingUser2.email,
@@ -143,7 +143,7 @@ describe('ProjectUserController (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject1c.id}/users`)
+      .post(`/api/v1/projects/${testProject1c.id}/invites`)
       .set('Authorization', `Bearer ${testingUser1.accessToken}`)
       .send({
         email: testingUser2.email,
