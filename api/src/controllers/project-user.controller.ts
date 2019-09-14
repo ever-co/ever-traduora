@@ -14,10 +14,7 @@ import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/sw
 @ApiOAuth2Auth()
 @ApiUseTags('Project Users')
 export default class ProjectUserController {
-  constructor(
-    private auth: AuthorizationService,
-    @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
-  ) {}
+  constructor(private auth: AuthorizationService, @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>) {}
 
   @Get(':projectId/users')
   @ApiOperation({ title: 'List all users with access to a project' })

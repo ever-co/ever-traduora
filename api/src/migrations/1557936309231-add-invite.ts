@@ -15,9 +15,10 @@ export class addInvite1557936309231 implements MigrationInterface {
           UNIQUE INDEX `IDX_email_project` (`projectId`, `email`) \
         ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;",
     );
-    await queryRunner.query('ALTER TABLE `invite` ADD CONSTRAINT `FK_invite_project` FOREIGN KEY (`projectId`) REFERENCES `project`(`id`) ON DELETE CASCADE');
+    await queryRunner.query(
+      'ALTER TABLE `invite` ADD CONSTRAINT `FK_invite_project` FOREIGN KEY (`projectId`) REFERENCES `project`(`id`) ON DELETE CASCADE',
+    );
   }
-
 
   public async down(queryRunner: QueryRunner): Promise<any> {
     await queryRunner.query('ALTER TABLE `invite` DROP FOREIGN KEY `FK_invite_project`');

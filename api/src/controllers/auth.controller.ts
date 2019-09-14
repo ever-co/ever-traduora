@@ -29,14 +29,14 @@ import {
   SignupRequest,
   SignupResponse,
 } from '../domain/http';
+import { normalizeEmail } from '../domain/validators';
+import { Invite, InviteStatus } from '../entity/invite.entity';
 import { ProjectClient } from '../entity/project-client.entity';
+import { ProjectUser } from '../entity/project-user.entity';
 import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
-import { Invite, InviteStatus } from '../entity/invite.entity';
-import { ProjectUser } from '../entity/project-user.entity';
-import { normalizeEmail } from '../domain/validators';
 
 @Controller('api/v1/auth')
 @ApiUseTags('Authentication')
@@ -78,7 +78,7 @@ export class AuthController {
     });
 
     // Early exit if the user has no invitation and sign up is disabled.
-    if (invites.length == 0 && !config.signupsEnabled) {
+    if (invites.length === 0 && !config.signupsEnabled) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
@@ -97,7 +97,7 @@ export class AuthController {
             role: invite.role,
           });
         });
-        await entityManager.save(projectUsers)
+        await entityManager.save(projectUsers);
       });
     }
 
