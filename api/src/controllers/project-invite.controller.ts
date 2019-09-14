@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
-import { normalizeEmail } from 'domain/validators';
+import { normalizeEmail } from '../domain/validators';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import { InviteUserRequest, UpdateProjectInviteRequest } from '../domain/http';
