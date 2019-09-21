@@ -110,7 +110,7 @@ export default class TermController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTerm);
     await this.termRepo.manager.transaction(async entityManager => {
-      const term = await entityManager.findOneOrFail(Term, termId);
+      const term = await entityManager.findOneOrFail(Term, termId, { where: { project: membership.project } });
       await entityManager.remove(term);
       await entityManager.decrement(Project, { id: membership.project.id }, 'termsCount', 1);
     });
