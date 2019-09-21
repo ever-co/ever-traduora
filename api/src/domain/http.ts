@@ -133,6 +133,17 @@ export class ProjectTermDTO {
   date: AccessDatesDTO;
 }
 
+export class ProjectTagDTO {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty()
+  value: string;
+  @ApiModelProperty()
+  color: string;
+  @ApiModelProperty()
+  date: AccessDatesDTO;
+}
+
 export class ProjectLocaleDTO {
   @ApiModelProperty()
   id: string;
@@ -243,6 +254,16 @@ export class ProjectLocaleResponse extends ServiceApiResponse<ProjectLocaleDTO> 
 export class ProjectTermResponse extends ServiceApiResponse<ProjectTermDTO> {
   @ApiModelProperty()
   data: ProjectTermDTO;
+}
+
+export class ListProjectTagsResponse extends ServiceApiResponse<ProjectTagDTO[]> {
+  @ApiModelProperty({ type: ProjectTagDTO, isArray: true })
+  data: ProjectTagDTO[];
+}
+
+export class ProjectTagResponse extends ServiceApiResponse<ProjectTagDTO> {
+  @ApiModelProperty()
+  data: ProjectTagDTO;
 }
 
 export class ListProjectTermsResponse extends ServiceApiResponse<ProjectTermDTO[]> {
@@ -412,6 +433,32 @@ export class UpdateProjectRequest {
   @IsOptional()
   @Length(0, 255)
   description: string | undefined;
+}
+
+export class AddTagRequest {
+  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @Length(1, 255)
+  @Validate(IsNotOnlyWhitespace)
+  value: string;
+
+  // TODO: add hex code validation
+  @ApiModelProperty({ minLength: 7, maxLength: 7 })
+  @Length(7, 7)
+  @Validate(IsNotOnlyWhitespace)
+  color: string;
+}
+
+export class UpdateTagRequest {
+  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @Length(1, 255)
+  @Validate(IsNotOnlyWhitespace)
+  value: string;
+
+  // TODO: add hex code validation
+  @ApiModelProperty({ minLength: 7, maxLength: 7 })
+  @Length(7, 7)
+  @Validate(IsNotOnlyWhitespace)
+  color: string;
 }
 
 export class AddTermRequest {

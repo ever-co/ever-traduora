@@ -34,6 +34,9 @@ import AuthorizationService from './services/authorization.service';
 import { JwtStrategy } from './services/jwt.strategy';
 import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
+import { Tag } from './entity/tag.entity';
+import { TranslationTag } from './entity/translation-tag.entity';
+import TagController from './controllers/tags.controller';
 
 @Module({
   imports: [
@@ -45,7 +48,7 @@ import { UserService } from './services/user.service';
       },
     }),
     TypeOrmModule.forRoot(config.db.default),
-    TypeOrmModule.forFeature([User, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan]),
+    TypeOrmModule.forFeature([User, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Tag, TranslationTag]),
     HttpModule,
   ],
   controllers: [
@@ -59,6 +62,7 @@ import { UserService } from './services/user.service';
     TranslationController,
     ImportController,
     ProjectClientController,
+    TagController,
     ExportsController,
     LocaleController,
     IndexController,
