@@ -313,16 +313,6 @@ export class AuthenticateRequest {
   code: string;
 }
 
-export class AddProjectUserRequest {
-  @ApiModelProperty()
-  @IsEmail()
-  email: string;
-
-  @ApiModelProperty({ enum: ProjectRole })
-  @IsEnum(ProjectRole)
-  role: ProjectRole;
-}
-
 export class InviteUserRequest {
   @IsEmail()
   email: string;

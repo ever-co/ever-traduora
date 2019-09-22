@@ -12,12 +12,12 @@ export enum ProjectAction {
   EditProjectPlan,
 
   // Project Users
-  AddProjectUser,
   ViewProjectUsers,
   EditProjectUsers,
   DeleteProjectUsers,
 
   // Project Invites
+  InviteProjectUser,
   ViewProjectInvites,
   EditProjectInvites,
   DeleteProjectInvites,

@@ -1,13 +1,12 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { AddProjectUserRequest, UpdateProjectUserRequest, ListProjectUsersResponse, ProjectUserResponse } from '../domain/http';
+import { ListProjectUsersResponse, ProjectUserResponse, UpdateProjectUserRequest } from '../domain/http';
 import { ProjectUser } from '../entity/project-user.entity';
 import AuthorizationService from '../services/authorization.service';
-import MailService from '../services/mail.service';
-import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())

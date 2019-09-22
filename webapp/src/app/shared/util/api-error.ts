@@ -22,7 +22,7 @@ export function errorToMessage(error: any, action: string = ''): string {
     switch (action) {
       case 'Signup':
         return 'A user with this email already exists. Please use a different one.';
-      case 'AddProjectUser':
+      case 'InviteProjectUser':
         return `This user is already part of the project's team`;
       default:
         return 'A resource with this value already exists. Please use a different one.';
@@ -32,7 +32,7 @@ export function errorToMessage(error: any, action: string = ''): string {
       case 'ResetPassword':
       case 'Login':
         return 'We could not find a user with the provided email. Did you type it correctly?';
-      case 'AddProjectUser':
+      case 'InviteProjectUser':
         return 'We could not find a user with the provided email. Has the user already registered on traduora?';
       default:
         return 'Error, resource not found';
