@@ -19,7 +19,7 @@ Every user has a role per project. By default, when a user creates a new project
 | EditProjectUsers     | ✓     |        |        |
 | DeleteProjectUsers   | ✓     |        |        |
 | InviteProjectUser    | ✓     |        |        |
-| ViewProjectInvites   | ✓     |        |        |
+| ViewProjectInvites   | ✓     | ✓      | ✓      |
 | EditProjectInvites   | ✓     |        |        |
 | DeleteProjectInvites | ✓     |        |        |
 | AddTerm              | ✓     | ✓      |        |

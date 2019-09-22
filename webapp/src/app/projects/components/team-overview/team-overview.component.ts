@@ -1,15 +1,15 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Select, Store } from '@ngxs/store';
 import { sortBy } from 'lodash';
-import { Observable, Subscription, combineLatest } from 'rxjs';
-import { map, tap, zip } from 'rxjs/operators';
+import { combineLatest, Observable, Subscription } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
 import { Project } from '../../models/project';
+import { ProjectInvite } from '../../models/project-invite';
 import { ProjectRole } from '../../models/project-role';
 import { ProjectUser } from '../../models/project-user';
+import { GetProjectInvites, ProjectInviteState, RemoveProjectInvite, UpdateProjectInvite } from '../../stores/project-invite.state';
 import { GetProjectUsers, ProjectUserState as ProjectUsersState, RemoveProjectUser, UpdateProjectUser } from '../../stores/project-user.state';
 import { ClearMessages, ProjectsState } from '../../stores/projects.state';
-import { ProjectInvite } from '../../models/project-invite';
-import { ProjectInviteState, GetProjectInvites, UpdateProjectInvite, RemoveProjectInvite } from '../../stores/project-invite.state';
 
 @Component({
   selector: 'app-team-overview',
