@@ -41,7 +41,7 @@ describe('ProjectInviteController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['id', 'email', 'status', 'role', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'email', 'status', 'role']);
         expect(res.body.data[0].id).toEqual(testingInvite.id);
         expect(res.body.data[0].email).toEqual(testingInvite.email);
       });
@@ -148,7 +148,7 @@ describe('ProjectInviteController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['id', 'email', 'status', 'role', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'email', 'status', 'role']);
         expect(res.body.data[0].id).toEqual(testingInvite.id);
         expect(res.body.data[0].email).toEqual(testingInvite.email);
       });
@@ -156,7 +156,7 @@ describe('ProjectInviteController (e2e)', () => {
     await request(app.getHttpServer())
       .delete(`/api/v1/projects/${testProject1.id}/invites/${testingInvite.id}`)
       .set('Authorization', `Bearer ${testingUser1.accessToken}`)
-      .expect(200);
+      .expect(204);
 
     await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject1.id}/invites`)
