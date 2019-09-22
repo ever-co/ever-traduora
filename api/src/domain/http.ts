@@ -185,11 +185,13 @@ export class ProjectClientDTO {
 
 export class AuthProviderDTO {
   @ApiModelProperty()
-  id: string;
+  slug: string;
   @ApiModelProperty()
-  name: string;
-  @ApiModelProperty({ enum: ProjectRole })
-  role: ProjectRole;
+  clientId: string;
+  @ApiModelProperty()
+  url: string;
+  @ApiModelProperty()
+  redirectUrl: string;
 }
 
 export class ProjectClientWithSecretDTO {

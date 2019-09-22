@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
@@ -20,6 +20,7 @@ import MailService from '../services/mail.service';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
+@ApiUseTags('Project Invites')
 export default class ProjectInviteController {
   constructor(
     private auth: AuthorizationService,

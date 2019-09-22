@@ -28,6 +28,9 @@ import {
   ResetPasswordRequest,
   SignupRequest,
   SignupResponse,
+  ListAuthProvidersResponse,
+  AuthProviderDTO,
+  ServiceApiResponse,
 } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { Invite, InviteStatus } from '../entity/invite.entity';
@@ -52,8 +55,10 @@ export class AuthController {
   ) {}
 
   @Get('providers')
+  @ApiOperation({ title: 'List available external auth providers' })
+  @ApiResponse({ status: HttpStatus.OK, type: ListAuthProvidersResponse, description: 'Success' })
   @HttpCode(HttpStatus.OK)
-  async getProviders(): Promise<{ data: { url: string; redirectUrl: string; clientId: string }[] }> {
+  async getProviders(): Promise<ServiceApiResponse<AuthProviderDTO[]>> {
     return {
       data: Object.keys(config.providers).reduce((acc, provider) => {
         const { url, active, redirectUrl, clientId } = config.providers[provider];
