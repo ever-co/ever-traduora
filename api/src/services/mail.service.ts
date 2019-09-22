@@ -88,7 +88,7 @@ export default class MailService {
     await this.send({
       from: this.from,
       to: invite.email,
-      subject: 'You have been to a project on Traduora',
+      subject: 'You have been invited to a project on Traduora',
       text: this.knownTemplates.invitedToPlatform({
         invite: invite,
         virtualHost: config.virtualHost,
