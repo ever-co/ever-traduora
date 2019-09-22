@@ -17,11 +17,6 @@ export class GetProjectUsers {
   constructor(public projectId: string) {}
 }
 
-export class AddProjectUser {
-  static readonly type = '[ProjectUser] Add project user';
-  constructor(public projectId: string, public email: string, public role: ProjectRole) {}
-}
-
 export class UpdateProjectUser {
   static readonly type = '[ProjectUser] Update project user';
   constructor(public projectId: string, public userId: string, public role: ProjectRole) {}
@@ -100,19 +95,6 @@ export class ProjectUserState implements NgxsOnInit {
       tap(users => ctx.patchState({ users })),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
-        return throwError(error);
-      }),
-      finalize(() => ctx.patchState({ isLoading: false })),
-    );
-  }
-
-  @Action(AddProjectUser)
-  addProjectUser(ctx: StateContext<ProjectUserStateModel>, action: AddProjectUser) {
-    ctx.patchState({ isLoading: true });
-    return this.projectUserService.create(action.projectId, action.email, action.role).pipe(
-      tap(user => ctx.patchState({ users: [user, ...ctx.getState().users] })),
-      catchError(error => {
-        ctx.patchState({ errorMessage: errorToMessage(error, 'AddProjectUser') });
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),

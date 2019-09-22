@@ -1,0 +1,31 @@
+<div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex flex-row w-100 justify-content-between align-items-center">
+        <div class="d-flex flex-row align-items-center justify-content-start flex-1" i18n>
+          <p class="font-serif m-0">
+            <span class="text-muted">{{ invite.email }}</span>
+          </p>
+          <span class="badge badge-success" style="margin-left: 1em" i18n>Invited</span>
+        </div>
+
+        <ng-container *ngIf="canEdit; else elseTemplate">
+          <div ngbDropdown class="d-flex" placement="bottom-right">
+            <button class="badge badge-secondary border-0" id="roleSelect" ngbDropdownToggle>
+              {{ invite.role | titlecase }}
+            </button>
+            <div ngbDropdownMenu>
+              <button *ngFor="let role of projectRoles" class="dropdown-item" (click)="edit.emit(withRole(invite, role))" >{{ role | titlecase }}</button>
+            </div>
+          </div>
+        </ng-container>
+        <ng-template #elseTemplate>
+          <span class="badge badge-secondary">{{ invite.role | titlecase }}</span>
+        </ng-template>
+  
+        <button *ngIf="canDelete" class="ml-3 btn bg-transparent text-dark btn-sm" style="max-height: 2rem" (click)="remove.emit(invite)">
+          <i class="material-icons" style="font-size: 1.25rem">close</i>
+        </button>
+      </div>
+    </div>
+  </div>
+  

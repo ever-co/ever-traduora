@@ -5,7 +5,8 @@ import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { $enum } from 'ts-enum-util';
 import { ProjectRole } from '../../models/project-role';
-import { AddProjectUser, ClearMessages } from '../../stores/project-user.state';
+import { ClearMessages } from '../../stores/project-user.state';
+import { AddProjectInvite } from '../../stores/project-invite.state';
 
 @Component({
   selector: 'app-add-team-member',
@@ -61,7 +62,7 @@ export class AddTeamMemberComponent implements OnInit, OnDestroy {
     const roleString = this.role.value as string;
     const role = ProjectRole[$enum(ProjectRole).getKeyOrThrow(roleString)];
     if (this.projectId && email && role) {
-      await this.store.dispatch(new AddProjectUser(this.projectId, email, role)).toPromise();
+      await this.store.dispatch(new AddProjectInvite(this.projectId, email, role)).toPromise();
       this.modal.close();
     }
   }

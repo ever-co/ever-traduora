@@ -2,7 +2,6 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
-
 import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
@@ -33,7 +32,7 @@ export async function signupTestUser(app: INestApplication, email: string = 'e2e
     .post('/api/v1/auth/signup')
     .send({
       name: `End to End Tester (${email})`,
-      email: email,
+      email,
       password: 'mysupersecretpassword',
     });
   const result = res.body.data as TestingUser;
