@@ -183,6 +183,15 @@ export class ProjectClientDTO {
   role: ProjectRole;
 }
 
+export class AuthProviderDTO {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty()
+  name: string;
+  @ApiModelProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
 export class ProjectClientWithSecretDTO {
   @ApiModelProperty()
   id: string;
@@ -216,6 +225,11 @@ export class ProjectClientWithSecretResponse extends ServiceApiResponse<ProjectC
 export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
   @ApiModelProperty()
   data: NewUserDTO;
+}
+
+export class ListAuthProvidersResponse extends ServiceApiResponse<AuthProviderDTO[]> {
+  @ApiModelProperty({ type: AuthProviderDTO, isArray: true })
+  data: AuthProviderDTO[];
 }
 
 export class ImportResponse extends ServiceApiResponse<ImportFileDTO> {
