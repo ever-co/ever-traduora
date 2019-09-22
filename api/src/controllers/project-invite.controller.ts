@@ -1,10 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
-import { normalizeEmail } from '../domain/validators';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import { InviteUserRequest, UpdateProjectInviteRequest } from '../domain/http';
+import { normalizeEmail } from '../domain/validators';
 import { Invite, InviteStatus } from '../entity/invite.entity';
 import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
@@ -39,7 +39,7 @@ export default class ProjectInviteController {
   @Post(':projectId/invites')
   async create(@Req() req, @Param('projectId') projectId: string, @Body() inviteUserRequest: InviteUserRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.InviteProjectUser);
+    const { project } = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.InviteProjectUser);
 
     const targetUser = await this.userRepo.findOne({
       where: { email: normalizeEmail(inviteUserRequest.email) },
@@ -78,7 +78,7 @@ export default class ProjectInviteController {
 
       const newInvite = await this.inviteRepo.save(record, { reload: true });
 
-      this.mail.invitedToPlatform(record);
+      this.mail.invitedToPlatform({ ...record, project });
 
       return {
         data: {

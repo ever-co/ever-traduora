@@ -1,6 +1,6 @@
 Hi {{invite.email}},
 
-You've been invited to join '{{invite.project.name}}' on Traduora with the role '{{user.role}}'.
+You've been invited to join '{{invite.project.name}}' on Traduora with the role '{{role}}'.
 
 To get started, go to {{virtualHost}}/sign-up and sign up with your email and password.
 
