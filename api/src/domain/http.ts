@@ -1,7 +1,8 @@
+import { ApiModelProperty, ApiModelPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import { InviteStatus } from 'entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
-import { ApiModelProperty, ApiModelPropertyOptional, ApiResponseModelProperty } from '@nestjs/swagger';
 
 export interface JwtPayload {
   sub: string;
@@ -116,6 +117,28 @@ export class ProjectPlanDTO {
 export class ProjectUserDTO {
   @ApiModelProperty()
   id: string;
+  @ApiModelProperty()
+  name: string;
+  @ApiModelProperty()
+  email: string;
+  @ApiModelProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
+export class ProjectInviteDto {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty({ enum: InviteStatus })
+  status: InviteStatus;
+  @ApiModelProperty()
+  email: string;
+  @ApiModelProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
+export class ProjectInviteAddedUserDto {
+  @ApiModelProperty()
+  userId: string;
   @ApiModelProperty()
   name: string;
   @ApiModelProperty()
@@ -263,6 +286,21 @@ export class ListProjectUsersResponse extends ServiceApiResponse<ProjectUserDTO[
 export class ProjectUserResponse extends ServiceApiResponse<ProjectUserDTO> {
   @ApiModelProperty()
   data: ProjectUserDTO;
+}
+
+export class ListInviteUsersResponse extends ServiceApiResponse<ProjectInviteDto[]> {
+  @ApiModelProperty({ type: ProjectInviteDto, isArray: true })
+  data: ProjectInviteDto[];
+}
+
+export class ProjectInviteResponse extends ServiceApiResponse<ProjectInviteDto> {
+  @ApiModelProperty()
+  data: ProjectInviteDto;
+}
+
+export class ProjectInviteCreatedResponse extends ServiceApiResponse<ProjectInviteDto | ProjectInviteAddedUserDto> {
+  @ApiModelProperty()
+  data: ProjectInviteDto | ProjectInviteAddedUserDto;
 }
 
 export class SignupRequest {
