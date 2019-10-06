@@ -7,6 +7,7 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
+- Minor bug fixes and UI improvements.
 
 ## 0.13.0
 - [PR-66:](https://github.com/traduora/traduora/pull/66) You can now invite non-traduora users into your project with the new invite system.
