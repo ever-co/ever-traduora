@@ -1,3 +1,4 @@
+import { Connection } from 'typeorm';
 import './util';
 
 import { INestApplication } from '@nestjs/common';
@@ -25,6 +26,7 @@ describe('LocaleController (e2e)', () => {
   });
 
   afterAll(async () => {
+    await app.get(Connection).close();
     await app.close();
   });
 });

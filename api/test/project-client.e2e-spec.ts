@@ -1,3 +1,4 @@
+import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { ProjectRole } from '../src/entity/project-user.entity';
@@ -352,6 +353,7 @@ describe('ProjectClientController (e2e)', () => {
   });
 
   afterEach(async () => {
+    await app.get(Connection).close();
     await app.close();
   });
 });

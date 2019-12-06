@@ -52,6 +52,7 @@ export const config = {
       charset: 'utf8mb4',
       synchronize: false,
       logging: false,
+      keepConnectionAlive: true,
       entities: ['src/entity/*.entity*'],
       migrations: ['src/migrations/*'],
     } as TypeOrmModuleOptions,

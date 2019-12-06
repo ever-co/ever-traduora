@@ -1,3 +1,4 @@
+import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import './util';
@@ -412,6 +413,7 @@ describe('TranslationController (e2e)', () => {
   });
 
   afterEach(async () => {
+    await app.get(Connection).close();
     await app.close();
   });
 });

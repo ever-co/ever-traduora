@@ -1,3 +1,4 @@
+import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import MailService from '../src/services/mail.service';
@@ -452,6 +453,7 @@ describe('AuthController (e2e)', () => {
   });
 
   afterEach(async () => {
+    await app.get(Connection).close();
     await app.close();
   });
 });
