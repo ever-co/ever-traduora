@@ -9,6 +9,7 @@ To download the source code for each release, check out [GitHub](https://github.
 ## next
 - Minor bug fixes and UI improvements.
 - Changed DB tables collation to support case-sensitive terms.
+- Add support for the Android Resources (XML) format.
 
 ## 0.13.0
 - [PR-66:](https://github.com/traduora/traduora/pull/66) You can now invite non-traduora users into your project with the new invite system.

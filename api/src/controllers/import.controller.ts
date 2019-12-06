@@ -34,6 +34,7 @@ import AuthorizationService from '../services/authorization.service';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
 import { ApiOAuth2Auth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { androidXmlParser } from '../formatters/android-xml';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiUseTags('Imports')
@@ -174,6 +175,8 @@ export class ImportController {
   private async parse(format: ImportExportFormat, contents): Promise<IntermediateTranslationFormat> {
     try {
       switch (format) {
+        case 'androidxml':
+          return await androidXmlParser(contents);
         case 'csv':
           return await csvParser(contents);
         case 'xliff12':
