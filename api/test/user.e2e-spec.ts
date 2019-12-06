@@ -167,7 +167,7 @@ describe('UserController (e2e)', () => {
   it('/api/v1/users/me (DELETE) should not delete a users account if he is last project user and project has a team', async () => {
     // Add project user (non-admin)
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/users`)
+      .post(`/api/v1/projects/${testProject.id}/invites`)
       .set('Authorization', `Bearer ${testingUser3.accessToken}`)
       .send({
         email: testingUser2.email,

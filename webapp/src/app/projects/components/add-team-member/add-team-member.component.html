@@ -8,10 +8,6 @@
     </div>
     <div class="modal-body">
       <app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
-      <p>
-        Please note that the user must <strong>already have an account</strong> on traduora with the email provided
-        below.
-      </p>
       <div class="form-group">
         <label for="emailInput" i18n>Email address</label>
         <input

@@ -20,6 +20,7 @@ import { ProjectListComponent } from './components/project-list/project-list.com
 import { ProjectLocalesComponent } from './components/project-locales/project-locales.component';
 import { ProjectSettingsComponent } from './components/project-settings/project-settings.component';
 import { TeamMemberComponent } from './components/team-member/team-member.component';
+import { TeamInviteComponent } from './components/team-invite/team-invite.component';
 import { TeamOverviewComponent } from './components/team-overview/team-overview.component';
 import { TermsListComponent } from './components/terms-list/terms-list.component';
 import { TranslationsListComponent } from './components/translations-list/translations-list.component';
@@ -74,6 +75,7 @@ import { TranslationsState } from './stores/translations.state';
     TeamOverviewComponent,
     AddTeamMemberComponent,
     TeamMemberComponent,
+    TeamInviteComponent,
     ApiClientsOverviewComponent,
     AddApiClientComponent,
     ApiClientComponent,

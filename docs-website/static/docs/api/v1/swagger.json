@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "description": "Documentation for the traduora REST API\n\nOfficial website: https://traduora.com\nAdditional documentation: https://docs.traduora.com\nSource code: https://github.com/traduora/traduora",
-    "version": "1.0",
+    "version": "0.13.0",
     "title": "Traduora API"
   },
   "basePath": "/",
@@ -12,6 +12,15 @@
     "oauth2": { "type": "oauth2", "flow": "password", "authorizationUrl": "/api/v1/auth/token", "tokenUrl": "/api/v1/auth/token" }
   },
   "paths": {
+    "/api/v1/auth/providers": {
+      "get": {
+        "summary": "List available external auth providers",
+        "responses": { "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListAuthProvidersResponse" } } },
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
     "/api/v1/auth/signup": {
       "post": {
         "summary": "Create a new user account",
@@ -26,10 +35,19 @@
         "consumes": ["application/json"]
       }
     },
+    "/api/v1/auth/signup-provider": {
+      "post": {
+        "parameters": [],
+        "responses": { "201": { "description": "" } },
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
     "/api/v1/auth/token": {
       "post": {
         "summary": "Request an authentication token for an existing user or project client",
-        "description": "The grant type must be one of **password** or **client_credentials**.When using a grant type of *password*, you must provide the fields *username* (email) and *password*.When using the grant type *client_credentials* you must provide the fields *client_id* and *client_secret*",
+        "description": "The grant type must be one of **password** or **client_credentials**. When using a grant type of *password*, you must provide the fields *username* (email) and *password*. When using the grant type *client_credentials* you must provide the fields *client_id* and *client_secret*. The grant type **provider** is reserved for internal purposes and should not be used.",
         "parameters": [{ "name": "AuthenticateRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AuthenticateRequest" } }],
         "responses": {
           "200": { "description": "Successfully authenticated", "schema": { "$ref": "#/definitions/AccessTokenDTO" } },
@@ -226,23 +244,6 @@
         "security": [{ "oauth2": [] }],
         "produces": ["application/json"],
         "consumes": ["application/json"]
-      },
-      "post": {
-        "summary": "Grant access to a project to an existing user",
-        "parameters": [
-          { "name": "AddProjectUserRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/AddProjectUserRequest" } },
-          { "type": "string", "name": "projectId", "required": true, "in": "path" }
-        ],
-        "responses": {
-          "201": { "description": "Created", "schema": { "$ref": "#/definitions/ProjectUserResponse" } },
-          "400": { "description": "Bad request" },
-          "401": { "description": "Unauthorized" },
-          "404": { "description": "Not found" }
-        },
-        "tags": ["Project Users"],
-        "security": [{ "oauth2": [] }],
-        "produces": ["application/json"],
-        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/users/{userId}": {
@@ -278,6 +279,71 @@
         },
         "tags": ["Project Users"],
         "security": [{ "oauth2": [] }],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/invites": {
+      "get": {
+        "summary": "List all invites with access to a project",
+        "parameters": [{ "type": "string", "name": "projectId", "required": true, "in": "path" }],
+        "responses": {
+          "200": { "description": "Success", "schema": { "$ref": "#/definitions/ListInviteUsersResponse" } },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Invites"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "post": {
+        "summary": "Add a new project invite",
+        "parameters": [
+          { "name": "InviteUserRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/InviteUserRequest" } },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "201": { "description": "Created", "schema": { "$ref": "#/definitions/ProjectInviteCreatedResponse" } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Project not found" }
+        },
+        "tags": ["Project Invites"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/invites/{inviteId}": {
+      "patch": {
+        "summary": "Update a project invite's role",
+        "parameters": [
+          { "name": "UpdateProjectInviteRequest", "required": true, "in": "body", "schema": { "$ref": "#/definitions/UpdateProjectInviteRequest" } },
+          { "type": "string", "name": "inviteId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "200": { "description": "Updated", "schema": { "$ref": "#/definitions/ProjectInviteResponse" } },
+          "400": { "description": "Bad request params or attempting to edit own role" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Invites"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Remove a project invite",
+        "parameters": [
+          { "type": "string", "name": "inviteId", "required": true, "in": "path" },
+          { "type": "string", "name": "projectId", "required": true, "in": "path" }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "400": { "description": "Bad request, can't edit your own role" },
+          "401": { "description": "Unauthorized" },
+          "404": { "description": "Not found" }
+        },
+        "tags": ["Project Invites"],
         "produces": ["application/json"],
         "consumes": ["application/json"]
       }
@@ -616,6 +682,21 @@
     }
   },
   "definitions": {
+    "AuthProviderDTO": {
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string" },
+        "clientId": { "type": "string" },
+        "url": { "type": "string" },
+        "redirectUrl": { "type": "string" }
+      },
+      "required": ["slug", "clientId", "url", "redirectUrl"]
+    },
+    "ListAuthProvidersResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/AuthProviderDTO" } } },
+      "required": ["data"]
+    },
     "SignupRequest": {
       "type": "object",
       "properties": {
@@ -634,7 +715,7 @@
     "AuthenticateRequest": {
       "type": "object",
       "properties": {
-        "grant_type": { "type": "string", "enum": ["password", "client_credentials"] },
+        "grant_type": { "type": "string", "enum": ["password", "client_credentials", "provider"] },
         "username": { "type": "string" },
         "password": { "type": "string", "minLength": 8, "maxLength": 255 },
         "client_id": { "type": "string" },
@@ -740,17 +821,31 @@
       "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/ProjectUserDTO" } } },
       "required": ["data"]
     },
-    "AddProjectUserRequest": {
-      "type": "object",
-      "properties": { "email": { "type": "string" }, "role": { "type": "string", "enum": ["admin", "editor", "viewer"] } },
-      "required": ["email", "role"]
-    },
-    "ProjectUserResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectUserDTO" } }, "required": ["data"] },
     "UpdateProjectUserRequest": {
       "type": "object",
       "properties": { "role": { "type": "string", "enum": ["admin", "editor", "viewer"] } },
       "required": ["role"]
     },
+    "ProjectUserResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectUserDTO" } }, "required": ["data"] },
+    "ProjectInviteDto": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string", "enum": ["sent", "accepted"] },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "editor", "viewer"] }
+      },
+      "required": ["id", "status", "email", "role"]
+    },
+    "ListInviteUsersResponse": {
+      "type": "object",
+      "properties": { "data": { "type": "array", "items": { "$ref": "#/definitions/ProjectInviteDto" } } },
+      "required": ["data"]
+    },
+    "InviteUserRequest": { "type": "object", "properties": {} },
+    "ProjectInviteCreatedResponse": { "type": "object", "properties": { "data": { "type": "object" } }, "required": ["data"] },
+    "UpdateProjectInviteRequest": { "type": "object", "properties": {} },
+    "ProjectInviteResponse": { "type": "object", "properties": { "data": { "$ref": "#/definitions/ProjectInviteDto" } }, "required": ["data"] },
     "ProjectTermDTO": {
       "type": "object",
       "properties": { "id": { "type": "string" }, "value": { "type": "string" }, "date": { "$ref": "#/definitions/AccessDatesDTO" } },

@@ -1,26 +1,19 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { AddProjectUserRequest, UpdateProjectUserRequest, ListProjectUsersResponse, ProjectUserResponse } from '../domain/http';
+import { ListProjectUsersResponse, ProjectUserResponse, UpdateProjectUserRequest } from '../domain/http';
 import { ProjectUser } from '../entity/project-user.entity';
-import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import MailService from '../services/mail.service';
-import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
 @ApiOAuth2Auth()
 @ApiUseTags('Project Users')
 export default class ProjectUserController {
-  constructor(
-    private auth: AuthorizationService,
-    private mail: MailService,
-    @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
-    @InjectRepository(User) private userRepo: Repository<User>,
-  ) {}
+  constructor(private auth: AuthorizationService, @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>) {}
 
   @Get(':projectId/users')
   @ApiOperation({ title: 'List all users with access to a project' })
@@ -43,46 +36,6 @@ export default class ProjectUserController {
         name: member.user.name,
         email: member.user.email,
       })),
-    };
-  }
-
-  @Post(':projectId/users')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Grant access to a project to an existing user' })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectUserResponse })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
-  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
-  async create(@Req() req, @Param('projectId') projectId: string, @Body() addProjectUserRequest: AddProjectUserRequest) {
-    const requestingUser = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.AddProjectUser);
-
-    const targetUser = await this.userRepo.findOneOrFail({
-      where: { email: addProjectUserRequest.email },
-    });
-
-    const record = this.projectUserRepo.create({
-      project: { id: projectId },
-      user: targetUser,
-      role: addProjectUserRequest.role,
-    });
-
-    let newProjectUser = await this.projectUserRepo.save(record);
-
-    newProjectUser = await this.projectUserRepo.findOneOrFail({
-      where: { id: newProjectUser.id },
-      relations: ['user', 'project'],
-    });
-
-    this.mail.invitedToProject(newProjectUser);
-
-    return {
-      data: {
-        userId: newProjectUser.user.id,
-        role: newProjectUser.role,
-        name: newProjectUser.user.name,
-        email: newProjectUser.user.email,
-      },
     };
   }
 

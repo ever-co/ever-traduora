@@ -21,6 +21,7 @@ import { TermsState } from './projects/stores/terms.state';
 import { TranslationsState } from './projects/stores/translations.state';
 import { NotFoundComponent } from './shared/components/not-found/not-found.component';
 import { SharedModule } from './shared/shared.module';
+import { ProjectInviteState } from './projects/stores/project-invite.state';
 
 @NgModule({
   declarations: [AppComponent],
@@ -30,7 +31,7 @@ import { SharedModule } from './shared/shared.module';
     SharedModule,
     NgbModule,
     HttpClientModule,
-    NgxsModule.forRoot([TermsState, ProjectsState, AuthState, TranslationsState, ProjectUserState, ProjectClientState]),
+    NgxsModule.forRoot([TermsState, ProjectsState, AuthState, TranslationsState, ProjectUserState, ProjectInviteState, ProjectClientState]),
     NgxsRouterPluginModule.forRoot(),
     NgxsReduxDevtoolsPluginModule.forRoot({ disabled: environment.production }),
     AuthModule,

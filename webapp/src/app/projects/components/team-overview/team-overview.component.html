@@ -3,7 +3,7 @@
   <div *ngIf="(project$ | async) as project" class="h-100">
     <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
       <h5 class="font-serif m-0" i18n>Project Team</h5>
-      <app-add-team-member *ngIf="true | can: 'AddProjectUser' | async" [projectId]="project.id"></app-add-team-member>
+      <app-add-team-member *ngIf="true | can: 'InviteProjectUser' | async" [projectId]="project.id"></app-add-team-member>
     </div>
     <div *ngFor="let user of (projectUsers$ | async)">
       <app-team-member
@@ -13,6 +13,17 @@
         (edit)="updateProjectUser(project.id, $event.userId, $event.role)"
         (remove)="removeProjectUser(project.id, $event.userId)"
       ></app-team-member>
+    </div>
+    <div *ngIf="(true | can: 'ViewProjectInvites' | async)">
+      <div *ngFor="let invite of (projectInvites$ | async)">
+        <app-team-invite
+          [invite]="invite"
+          [canEdit]="true | can: 'EditProjectInvites' | async"
+          [canDelete]="true | can: 'DeleteProjectInvites' | async"
+          (edit)="updateProjectInvite(project.id, $event.id, $event.role)"
+          (remove)="removeProjectInvite(project.id, $event.id)"
+        ></app-team-invite>
+      </div>
     </div>
   </div>
 </div>
