@@ -1,3 +1,4 @@
+import { Connection } from 'typeorm';
 import './util';
 
 import { INestApplication } from '@nestjs/common';
@@ -231,6 +232,7 @@ describe('TermController (e2e)', () => {
   });
 
   afterEach(async () => {
+    await app.get(Connection).close();
     await app.close();
   });
 });

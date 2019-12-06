@@ -1,3 +1,4 @@
+import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { jsonFlatExporter } from '../src/formatters/jsonflat';
@@ -411,6 +412,7 @@ describe('ImportController (e2e)', () => {
   });
 
   afterEach(async () => {
+    await app.get(Connection).close();
     await app.close();
   });
 });

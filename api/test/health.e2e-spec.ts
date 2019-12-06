@@ -1,3 +1,4 @@
+import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { createAndMigrateApp } from './util';
@@ -21,6 +22,7 @@ describe('HealthController (e2e)', () => {
   });
 
   afterAll(async () => {
+    await app.get(Connection).close();
     await app.close();
   });
 });
