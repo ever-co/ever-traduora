@@ -36,14 +36,14 @@ export class AppComponent {
   @Select(ProjectClientState.isLoading)
   projectClientLoading$: Observable<boolean>;
 
-  isLoading$ = combineLatest(
+  isLoading$ = combineLatest([
     this.authLoading$,
     this.termLoading$,
     this.projectLoading$,
     this.translationLoading$,
     this.projectUserLoading$,
     this.projectClientLoading$,
-  ).pipe(
+  ]).pipe(
     map(([authLoading, termLoading, projectLoading, translationLoading, projectUserLoading, projectClientLoading]) => {
       return authLoading || termLoading || projectLoading || translationLoading || projectUserLoading || projectClientLoading;
     }),
