@@ -90,6 +90,22 @@ msgstr "Check out {{ project.name }}"
 "term.two" = "Check out {{ project.name }}";
 ```
 
+## Strings
+```text
+"term.one" = "Hello there, this is a translation string";
+"term.two" = "Check out {{ project.name }}";
+```
+
+## Android Resources (xml)
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="term.one">Hello there, this is a translation string</string>
+  <string name="term.two">Check out {{ project.name }}</string>
+</resources>
+```
+
+
 ## New formats on the way
-The roadmap includes: PHP arrays, Microsoft Resources, Android Resources (xml).
+The roadmap includes: PHP arrays and Microsoft Resources.
 

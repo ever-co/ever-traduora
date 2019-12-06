@@ -508,6 +508,7 @@ export class UpdateTranslationRequest {
 }
 
 export enum ImportExportFormat {
+  AndroidXml = 'androidxml',
   Csv = 'csv',
   Xliff12 = 'xliff12',
   JsonFlat = 'jsonflat',

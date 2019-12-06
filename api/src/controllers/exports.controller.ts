@@ -19,6 +19,7 @@ import AuthorizationService from '../services/authorization.service';
 import { gettextExporter } from '../formatters/gettext';
 import { stringsExporter } from '../formatters/strings';
 import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiConsumes, ApiProduces, ApiResponse } from '@nestjs/swagger';
+import { androidXmlExporter } from '../formatters/android-xml';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -87,6 +88,8 @@ export class ExportsController {
 
   private async dump(format: ImportExportFormat, data: IntermediateTranslationFormat): Promise<string | Buffer> {
     switch (format) {
+      case 'androidxml':
+        return await androidXmlExporter(data);
       case 'csv':
         return await csvExporter(data);
       case 'xliff12':
