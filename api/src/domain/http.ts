@@ -182,6 +182,8 @@ export class TermTranslationDTO {
   @ApiModelProperty()
   value: string;
   @ApiModelProperty()
+  tags: ProjectTagDTO[];
+  @ApiModelProperty()
   date: AccessDatesDTO;
 }
 

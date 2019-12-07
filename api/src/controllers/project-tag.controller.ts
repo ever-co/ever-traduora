@@ -4,11 +4,13 @@ import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/sw
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { AddTagRequest, ProjectTagResponse, UpdateTagRequest } from '../domain/http';
+import { AddTagRequest, ProjectTagResponse, UpdateTagRequest, ProjectLocaleDTO } from '../domain/http';
 import { Project } from '../entity/project.entity';
 import { Tag } from '../entity/tag.entity';
 import AuthorizationService from '../services/authorization.service';
 import { Term } from '../entity/term.entity';
+import { Translation } from '../entity/translation.entity';
+import { ProjectLocale } from '../entity/project-locale.entity';
 
 @Controller('api/v1/projects/:projectId/tags')
 @UseGuards(AuthGuard())
@@ -19,6 +21,8 @@ export default class ProjectTagController {
     private auth: AuthorizationService,
     @InjectRepository(Tag) private tagRepo: Repository<Tag>,
     @InjectRepository(Term) private termsRepo: Repository<Term>,
+    @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
+    @InjectRepository(Translation) private translationsRepo: Repository<Translation>,
   ) {}
 
   @Get()
@@ -39,7 +43,6 @@ export default class ProjectTagController {
         id: t.id,
         value: t.value,
         color: t.color,
-        date: t.date,
       })),
     };
   }
@@ -69,7 +72,6 @@ export default class ProjectTagController {
         id: tag.id,
         value: tag.value,
         color: tag.color,
-        date: tag.date,
       },
     };
   }
@@ -92,7 +94,6 @@ export default class ProjectTagController {
         id: tag.id,
         value: tag.value,
         color: tag.color,
-        date: tag.date,
       },
     };
   }
@@ -147,5 +148,81 @@ export default class ProjectTagController {
     term.tags = term.tags.filter(t => t.id !== tag.id);
 
     await this.termsRepo.save(term);
+  }
+
+  @Post(':tagId/terms/:termId/translations/:localeCode')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ title: 'Tag a project term translation' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Created' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or tag not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async tagTranslation(
+    @Req() req,
+    @Param('projectId') projectId: string,
+    @Param('tagId') tagId: string,
+    @Param('termId') termId: string,
+    @Param('localeCode') localeCode: string,
+  ) {
+    const user = this.auth.getRequestUserOrClient(req);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+
+    const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
+
+    const projectLocale = await this.projectLocaleRepo.findOneOrFail({
+      where: {
+        project: membership.project,
+        locale: {
+          code: localeCode,
+        },
+      },
+    });
+
+    const translation = await this.translationsRepo.findOneOrFail({
+      where: { termId: termId, projectLocale: projectLocale, project: membership.project },
+      relations: ['tags'],
+    });
+
+    translation.tags.push(tag);
+
+    await this.translationsRepo.save(translation);
+  }
+
+  @Delete(':tagId/terms/:termId/translations/:localeCode')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ title: 'Untag a project term translation' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Tag removed' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or tag not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async untagTranslation(
+    @Req() req,
+    @Param('projectId') projectId: string,
+    @Param('tagId') tagId: string,
+    @Param('termId') termId: string,
+    @Param('localeCode') localeCode: string,
+  ) {
+    const user = this.auth.getRequestUserOrClient(req);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+
+    const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
+
+    const projectLocale = await this.projectLocaleRepo.findOneOrFail({
+      where: {
+        project: membership.project,
+        locale: {
+          code: localeCode,
+        },
+      },
+    });
+
+    const translation = await this.translationsRepo.findOneOrFail({
+      where: { termId: termId, projectLocale: projectLocale, project: membership.project },
+      relations: ['tags'],
+    });
+
+    translation.tags = translation.tags.filter(t => t.id !== tag.id);
+
+    await this.translationsRepo.save(translation);
   }
 }
