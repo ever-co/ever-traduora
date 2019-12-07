@@ -156,11 +156,22 @@ export class ProjectTermDTO {
   date: AccessDatesDTO;
 }
 
+export class ProjectLocaleStatsDTO {
+  @ApiModelProperty()
+  progress: number;
+  @ApiModelProperty()
+  translated: number;
+  @ApiModelProperty()
+  total: number;
+}
+
 export class ProjectLocaleDTO {
   @ApiModelProperty()
   id: string;
   @ApiModelProperty()
   locale: LocaleDTO;
+  @ApiModelProperty()
+  stats: ProjectLocaleStatsDTO;
   @ApiModelProperty()
   date: AccessDatesDTO;
 }

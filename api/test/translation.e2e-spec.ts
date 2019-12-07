@@ -37,8 +37,12 @@ describe('TranslationController (e2e)', () => {
       })
       .expect(201)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'locale', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'locale', 'stats', 'date']);
         expect(res.body.data.locale).toHaveExactProperties(['code', 'region', 'language']);
+        expect(res.body.data.stats).toHaveExactProperties(['progress', 'translated', 'total']);
+        expect(res.body.data.stats.progress).toEqual(0);
+        expect(res.body.data.stats.translated).toEqual(0);
+        expect(res.body.data.stats.total).toEqual(0);
       });
 
     await request(app.getHttpServer())
@@ -49,8 +53,9 @@ describe('TranslationController (e2e)', () => {
       })
       .expect(201)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'locale', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'locale', 'stats', 'date']);
         expect(res.body.data.locale).toHaveExactProperties(['code', 'region', 'language']);
+        expect(res.body.data.stats).toHaveExactProperties(['progress', 'translated', 'total']);
       });
   });
 
@@ -111,11 +116,99 @@ describe('TranslationController (e2e)', () => {
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
 
-        expect(res.body.data[0]).toHaveExactProperties(['id', 'locale', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'locale', 'stats', 'date']);
 
         expect(res.body.data[0]).toHaveProperty('locale.code');
         expect(res.body.data[0].locale.code).toEqual('de_DE');
         expect(res.body.data[1].locale.code).toEqual('fr');
+      });
+  });
+
+  it('/api/v1/projects/:projectId/translations (GET) should update the project locale stats', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'fr',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(2);
+        expect(res.body.data[0].locale.code).toEqual('de_DE');
+        expect(res.body.data[0].stats.progress).toEqual(0);
+        expect(res.body.data[0].stats.total).toEqual(1);
+        expect(res.body.data[0].stats.translated).toEqual(0);
+
+        expect(res.body.data[1].locale.code).toEqual('fr');
+        expect(res.body.data[1].stats.progress).toEqual(0);
+        expect(res.body.data[1].stats.total).toEqual(1);
+        expect(res.body.data[1].stats.translated).toEqual(0);
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        termId,
+        value: 'eins',
+      })
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'date']);
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(2);
+        expect(res.body.data[0].locale.code).toEqual('de_DE');
+        expect(res.body.data[0].stats.progress).toEqual(1);
+        expect(res.body.data[0].stats.total).toEqual(1);
+        expect(res.body.data[0].stats.translated).toEqual(1);
+
+        expect(res.body.data[1].locale.code).toEqual('fr');
+        expect(res.body.data[1].stats.progress).toEqual(0);
+        expect(res.body.data[1].stats.total).toEqual(1);
+        expect(res.body.data[1].stats.translated).toEqual(0);
+      });
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.two',
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(2);
+        expect(res.body.data[0].locale.code).toEqual('de_DE');
+        expect(res.body.data[0].stats.progress).toEqual(0.5);
+        expect(res.body.data[0].stats.total).toEqual(2);
+        expect(res.body.data[0].stats.translated).toEqual(1);
+
+        expect(res.body.data[1].locale.code).toEqual('fr');
+        expect(res.body.data[1].stats.progress).toEqual(0);
+        expect(res.body.data[1].stats.total).toEqual(2);
+        expect(res.body.data[1].stats.translated).toEqual(0);
       });
   });
 

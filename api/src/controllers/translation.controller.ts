@@ -1,16 +1,17 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import {
   AddLocaleRequest,
-  UpdateTranslationRequest,
-  ProjectLocaleResponse,
   ListProjectLocalesResponse,
   ListTermTranslatonsResponse,
+  ProjectLocaleResponse,
   TermTranslatonResponse,
+  UpdateTranslationRequest,
 } from '../domain/http';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
@@ -18,7 +19,6 @@ import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/translations')
 @UseGuards(AuthGuard())
@@ -53,8 +53,38 @@ export default class TranslationController {
       return { data: [] };
     }
 
+    const termCount = await this.termRepo.count({ where: { project: { id: membership.project.id } } });
+
+    const translatedByLocale = await this.projectLocaleRepo
+      .createQueryBuilder('projectLocale')
+      .leftJoin('projectLocale.translations', 'translations')
+      .select('projectLocale.localeCode', 'localeCode')
+      .addSelect("count(translations.value <> '')", 'translated')
+      .groupBy('localeCode')
+      .whereInIds(locales.map(l => l.id))
+      .execute();
+
+    const stats = translatedByLocale.map(s => {
+      const translatedCount = parseInt(s.translated, 10);
+      return {
+        localeCode: s.localeCode,
+        stats: {
+          progress: _.round(translatedCount / termCount, 2),
+          translated: translatedCount,
+          total: termCount,
+        },
+      };
+    });
+
+    const statsByLocale = _.keyBy(stats, s => s.localeCode);
+
+    const data = locales.map(locale => ({
+      ..._.pick(locale, ['id', 'date', 'locale.code', 'locale.region', 'locale.language']),
+      stats: statsByLocale[locale.locale.code].stats,
+    }));
+
     return {
-      data: locales.map(loc => _.pick(loc, ['id', 'date', 'locale.code', 'locale.region', 'locale.language'])),
+      data,
     };
   }
 
@@ -98,6 +128,11 @@ export default class TranslationController {
           code: projectLocale.locale.code,
           region: projectLocale.locale.region,
           language: projectLocale.locale.language,
+        },
+        stats: {
+          progress: 0,
+          translated: 0,
+          total: 0,
         },
         date: result.date,
       },
