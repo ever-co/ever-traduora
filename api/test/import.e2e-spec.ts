@@ -160,10 +160,12 @@ describe('ImportController (e2e)', () => {
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'some one',
+          tags: [],
         });
         expect(res.body.data).toContainEqual({
           termId: termTwoId,
           value: 'some two',
+          tags: [],
         });
       });
 
@@ -180,10 +182,12 @@ describe('ImportController (e2e)', () => {
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'eins',
+          tags: [],
         });
         expect(res.body.data).toContainEqual({
           termId: termTwoId,
           value: 'zwei',
+          tags: [],
         });
       });
 
@@ -198,10 +202,12 @@ describe('ImportController (e2e)', () => {
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'un',
+          tags: [],
         });
         expect(res.body.data).toContainEqual({
           termId: termTwoId,
           value: 'deux',
+          tags: [],
         });
       });
 
@@ -258,10 +264,12 @@ describe('ImportController (e2e)', () => {
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'eins?',
+          tags: [],
         });
         expect(res.body.data).toContainEqual({
           termId: termTwoId,
           value: 'zwei',
+          tags: [],
         });
         const termValues = res.body.data.map(t => t.value);
         expect(termValues).toContainEqual('drei ⛄ 😀👍 🍉你好');
@@ -278,10 +286,12 @@ describe('ImportController (e2e)', () => {
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'un',
+          tags: [],
         });
         expect(res.body.data).toContainEqual({
           termId: termTwoId,
           value: 'deux',
+          tags: [],
         });
       });
     await request(app.getHttpServer())
@@ -326,10 +336,12 @@ describe('ImportController (e2e)', () => {
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'eins',
+          tags: [],
         });
         expect(res.body.data).toContainEqual({
           termId: termTwoId,
           value: 'zwei',
+          tags: [],
         });
       });
 
@@ -344,10 +356,12 @@ describe('ImportController (e2e)', () => {
         expect(res.body.data).toContainEqual({
           termId: termOneId,
           value: 'un',
+          tags: [],
         });
         expect(res.body.data).toContainEqual({
           termId: termTwoId,
           value: 'deux',
+          tags: [],
         });
       });
 
