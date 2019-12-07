@@ -1,0 +1,221 @@
+import { INestApplication } from '@nestjs/common';
+import * as request from 'supertest';
+import { Connection } from 'typeorm';
+import './util';
+import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
+
+describe('ProjectTagController (e2e)', () => {
+  let app: INestApplication;
+  let testingUser: TestingUser;
+  let anotherUser: TestingUser;
+  let testProject: TestingProject;
+
+  beforeEach(async () => {
+    app = await createAndMigrateApp();
+    testingUser = await signupTestUser(app);
+    anotherUser = await signupTestUser(app, 'another-user@test.com');
+    testProject = await createTestProject(app, testingUser);
+  });
+
+  it('/api/v1/projects/:projectId/tags (POST) should create tags for project', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'todo',
+        color: '#202020',
+      })
+      .expect(201)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'color', 'date']);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/tags (POST) should accept tags with utf-8 encoding', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.two őúüöá 😀👍🍉你好',
+        color: '#202020',
+      })
+      .expect(201)
+      .expect(res => {
+        expect(res.body.data.value).toEqual('term.two őúüöá 😀👍🍉你好');
+      });
+  });
+
+  it('/api/v1/projects/:projectId/tags (GET) should find tags for project', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'todo',
+        color: '#202020',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'done 😀👍',
+        color: '#808080',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(2);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'color', 'date']);
+        expect(res.body.data.map(t => [t.value, t.color])).toEqual([['done 😀👍', '#808080'], ['todo', '#202020']]);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/tags/:tagId (PATCH) should update a tag by id', async () => {
+    let tagId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'todo',
+        color: '#202020',
+      })
+      .expect(201)
+      .expect(res => (tagId = res.body.data.id));
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'done',
+        color: '#808080',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'wip',
+        color: '#aaffaa',
+      })
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'color', 'date']);
+        expect(res.body.data.color).toEqual('#aaffaa');
+        expect(res.body.data.value).toEqual('wip');
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(2);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'color', 'date']);
+        expect(res.body.data.map(t => [t.value, t.color])).toEqual([['done', '#808080'], ['wip', '#aaffaa']]);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/tags/:tagId (DELETE) should tags by id', async () => {
+    let tagId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'todo',
+        color: '#202020',
+      })
+      .expect(201)
+      .expect(res => (tagId = res.body.data.id));
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'done',
+        color: '#808080',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'color', 'date']);
+        expect(res.body.data.map(t => [t.value, t.color])).toEqual([['done', '#808080']]);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/tags should not access terms resource if not authenticated or authorized', async () => {
+    let tagId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'todo',
+        color: '#202020',
+      })
+      .expect(201)
+      .expect(res => (tagId = res.body.data.id));
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${anotherUser.accessToken}`)
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .set('Authorization', `Bearer ${anotherUser.accessToken}`)
+      .send({
+        value: 'done',
+        color: '#808080',
+      })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .expect(401);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'color', 'date']);
+        expect(res.body.data.map(t => [t.value, t.color])).toEqual([['todo', '#202020']]);
+      });
+  });
+
+  afterEach(async () => {
+    await app.get(Connection).close();
+    await app.close();
+  });
+});

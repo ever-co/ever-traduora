@@ -12,8 +12,8 @@ import AuthorizationService from '../services/authorization.service';
 @Controller('api/v1/projects/:projectId/tags')
 @UseGuards(AuthGuard())
 @ApiOAuth2Auth()
-@ApiUseTags('Tags')
-export default class TagController {
+@ApiUseTags('Project Tags')
+export default class ProjectTagController {
   constructor(
     private auth: AuthorizationService,
     @InjectRepository(Tag) private tagRepo: Repository<Tag>,
@@ -60,6 +60,8 @@ export default class TagController {
       color: payload.color,
       project: membership.project,
     });
+
+    await this.tagRepo.save(tag);
 
     return {
       data: {

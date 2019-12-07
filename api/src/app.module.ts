@@ -17,7 +17,7 @@ import ProjectInviteController from './controllers/project-invite.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
 import ProjectUserController from './controllers/project-user.controller';
 import ProjectController from './controllers/project.controller';
-import TagController from './controllers/tags.controller';
+import ProjectTagController from './controllers/project-tag.controller';
 import TermController from './controllers/term.controller';
 import TranslationController from './controllers/translation.controller';
 import UserController from './controllers/user.controller';
@@ -80,7 +80,7 @@ import { UserService } from './services/user.service';
     TranslationController,
     ImportController,
     ProjectClientController,
-    TagController,
+    ProjectTagController,
     ExportsController,
     LocaleController,
     IndexController,
