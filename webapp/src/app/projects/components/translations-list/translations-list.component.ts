@@ -52,19 +52,19 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
 
   localeCode$: Observable<string | undefined> = this.route.paramMap.pipe(map(params => params.get('localeCode')));
 
-  currentLocale$: Observable<Locale | undefined> = combineLatest(this.knownLocales$, this.localeCode$).pipe(
+  currentLocale$: Observable<Locale | undefined> = combineLatest([this.knownLocales$, this.localeCode$]).pipe(
     map(([knownLocales, localeCode]) => knownLocales.find(l => l.code === localeCode)),
   );
 
   private referenceLocale = new BehaviorSubject<Locale | undefined>(undefined);
-  referenceLocale$ = combineLatest(this.referenceLocale.asObservable(), this.currentLocale$).pipe(
+  referenceLocale$ = combineLatest([this.referenceLocale.asObservable(), this.currentLocale$]).pipe(
     map(([refLocale, currentLocale]) => (this.sameLocale(refLocale, currentLocale) ? undefined : refLocale)),
   );
 
   private filterTranslated: Subject<boolean> = new BehaviorSubject(false);
   filterTranslated$ = this.filterTranslated.asObservable();
 
-  translations$ = combineLatest(this.allTranslations$, this.localeCode$, this.terms$, this.referenceLocale$, this.filterTranslated$).pipe(
+  translations$ = combineLatest([this.allTranslations$, this.localeCode$, this.terms$, this.referenceLocale$, this.filterTranslated$]).pipe(
     map(([translations, localeCode, terms, referenceLocale, filterTranslated]) =>
       this.translationsView(translations, terms, localeCode, referenceLocale ? referenceLocale.code : undefined, { filterTranslated }),
     ),
@@ -90,7 +90,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     );
 
     this.subs.push(
-      combineLatest(this.project$, this.knownLocales$, this.projectLocales$)
+      combineLatest([this.project$, this.knownLocales$, this.projectLocales$])
         .pipe(
           tap(res => {
             const [project, knownLocales, projectLocales] = res;
