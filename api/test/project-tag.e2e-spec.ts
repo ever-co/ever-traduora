@@ -413,17 +413,19 @@ describe('ProjectTagController (e2e)', () => {
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
 
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
-        expect(res.body.data[1].termId).toEqual(term1Id);
-        expect(res.body.data[1].value).toEqual('eins');
-        expect(res.body.data[1].tags[0].value).toEqual('todo');
-        expect(res.body.data[1].tags[0].color).toEqual('#202020');
+        const translation1 = res.body.data.find(d => d.termId === term1Id);
+        expect(translation1).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation1.termId).toEqual(term1Id);
+        expect(translation1.value).toEqual('eins');
+        expect(translation1.tags[0].value).toEqual('todo');
+        expect(translation1.tags[0].color).toEqual('#202020');
 
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
-        expect(res.body.data[0].termId).toEqual(term2Id);
-        expect(res.body.data[0].value).toEqual('zwei');
-        expect(res.body.data[0].tags[0].value).toEqual('todo');
-        expect(res.body.data[0].tags[0].color).toEqual('#202020');
+        const translation2 = res.body.data.find(d => d.termId === term2Id);
+        expect(translation2).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation2.termId).toEqual(term2Id);
+        expect(translation2.value).toEqual('zwei');
+        expect(translation2.tags[0].value).toEqual('todo');
+        expect(translation2.tags[0].color).toEqual('#202020');
       });
 
     await request(app.getHttpServer())
@@ -438,16 +440,18 @@ describe('ProjectTagController (e2e)', () => {
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
 
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
-        expect(res.body.data[1].termId).toEqual(term1Id);
-        expect(res.body.data[1].value).toEqual('eins');
-        expect(res.body.data[1].tags).toHaveLength(0);
+        const translation1 = res.body.data.find(d => d.termId === term1Id);
+        expect(translation1).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation1.termId).toEqual(term1Id);
+        expect(translation1.value).toEqual('eins');
+        expect(translation1.tags).toHaveLength(0);
 
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
-        expect(res.body.data[0].termId).toEqual(term2Id);
-        expect(res.body.data[0].value).toEqual('zwei');
-        expect(res.body.data[0].tags[0].value).toEqual('todo');
-        expect(res.body.data[0].tags[0].color).toEqual('#202020');
+        const translation2 = res.body.data.find(d => d.termId === term2Id);
+        expect(translation2).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation2.termId).toEqual(term2Id);
+        expect(translation2.value).toEqual('zwei');
+        expect(translation2.tags[0].value).toEqual('todo');
+        expect(translation2.tags[0].color).toEqual('#202020');
       });
   });
 
