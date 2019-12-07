@@ -153,6 +153,8 @@ export class ProjectTermDTO {
   @ApiModelProperty()
   value: string;
   @ApiModelProperty()
+  tags: ProjectTagDTO[];
+  @ApiModelProperty()
   date: AccessDatesDTO;
 }
 
@@ -163,8 +165,6 @@ export class ProjectTagDTO {
   value: string;
   @ApiModelProperty()
   color: string;
-  @ApiModelProperty()
-  date: AccessDatesDTO;
 }
 
 export class ProjectLocaleDTO {

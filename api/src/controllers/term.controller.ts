@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -29,16 +29,22 @@ export default class TermController {
   async find(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTerm);
+
     const terms = await this.termRepo.find({
       where: { project: { id: membership.project.id } },
       order: { value: 'ASC' },
+      relations: ['tags'],
     });
+
+    const data = terms.map(t => ({
+      id: t.id,
+      value: t.value,
+      tags: t.tags,
+      date: t.date,
+    }));
+
     return {
-      data: terms.map(t => ({
-        id: t.id,
-        value: t.value,
-        date: t.date,
-      })),
+      data,
     };
   }
 
@@ -68,6 +74,7 @@ export default class TermController {
       data: {
         id: term.id,
         value: term.value,
+        tags: [],
         date: term.date,
       },
     };
@@ -88,12 +95,13 @@ export default class TermController {
 
     await this.termRepo.update({ id: termId }, { value: payload.value });
 
-    const term = await this.termRepo.findOneOrFail({ id: termId });
+    const term = await this.termRepo.findOneOrFail({ id: termId }, { relations: ['tags'] });
 
     return {
       data: {
         id: term.id,
         value: term.value,
+        tags: term.tags,
         date: term.date,
       },
     };

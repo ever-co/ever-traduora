@@ -8,6 +8,7 @@ import { AddTagRequest, ProjectTagResponse, UpdateTagRequest } from '../domain/h
 import { Project } from '../entity/project.entity';
 import { Tag } from '../entity/tag.entity';
 import AuthorizationService from '../services/authorization.service';
+import { Term } from '../entity/term.entity';
 
 @Controller('api/v1/projects/:projectId/tags')
 @UseGuards(AuthGuard())
@@ -17,7 +18,7 @@ export default class ProjectTagController {
   constructor(
     private auth: AuthorizationService,
     @InjectRepository(Tag) private tagRepo: Repository<Tag>,
-    @InjectRepository(Project) private projectRepo: Repository<Project>,
+    @InjectRepository(Term) private termsRepo: Repository<Term>,
   ) {}
 
   @Get()
@@ -108,5 +109,43 @@ export default class ProjectTagController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTags);
     const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
     await this.tagRepo.remove(tag);
+  }
+
+  @Post(':tagId/terms/:termId')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ title: 'Tag a project term' })
+  @ApiResponse({ status: HttpStatus.CREATED, description: 'Created' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or tag not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async tagTerm(@Req() req, @Param('projectId') projectId: string, @Param('tagId') tagId: string, @Param('termId') termId: string) {
+    const user = this.auth.getRequestUserOrClient(req);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+
+    const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
+    const term = await this.termsRepo.findOneOrFail(termId, { where: { project: membership.project }, relations: ['tags'] });
+
+    term.tags.push(tag);
+
+    await this.termsRepo.save(term);
+  }
+
+  @Delete(':tagId/terms/:termId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ title: 'Untag a project term' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Tag removed' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or tag not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async untagTerm(@Req() req, @Param('projectId') projectId: string, @Param('tagId') tagId: string, @Param('termId') termId: string) {
+    const user = this.auth.getRequestUserOrClient(req);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+
+    const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
+    const term = await this.termsRepo.findOneOrFail(termId, { where: { project: membership.project }, relations: ['tags'] });
+
+    term.tags = term.tags.filter(t => t.id !== tag.id);
+
+    await this.termsRepo.save(term);
   }
 }

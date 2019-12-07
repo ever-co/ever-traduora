@@ -15,9 +15,9 @@ import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectInviteController from './controllers/project-invite.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
+import ProjectTagController from './controllers/project-tag.controller';
 import ProjectUserController from './controllers/project-user.controller';
 import ProjectController from './controllers/project.controller';
-import ProjectTagController from './controllers/project-tag.controller';
 import TermController from './controllers/term.controller';
 import TranslationController from './controllers/translation.controller';
 import UserController from './controllers/user.controller';
@@ -29,9 +29,7 @@ import { ProjectLocale } from './entity/project-locale.entity';
 import { ProjectUser } from './entity/project-user.entity';
 import { Project } from './entity/project.entity';
 import { Tag } from './entity/tag.entity';
-import { TermTag } from './entity/term-tag.entity';
 import { Term } from './entity/term.entity';
-import { TranslationTag } from './entity/translation-tag.entity';
 import { Translation } from './entity/translation.entity';
 import { User } from './entity/user.entity';
 import { CustomExceptionFilter } from './filters/exception.filter';
@@ -51,21 +49,7 @@ import { UserService } from './services/user.service';
       },
     }),
     TypeOrmModule.forRoot(config.db.default),
-    TypeOrmModule.forFeature([
-      User,
-      Invite,
-      ProjectUser,
-      Project,
-      Term,
-      Locale,
-      ProjectLocale,
-      Translation,
-      ProjectClient,
-      Plan,
-      Tag,
-      TermTag,
-      TranslationTag,
-    ]),
+    TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Tag]),
     HttpModule,
   ],
   controllers: [

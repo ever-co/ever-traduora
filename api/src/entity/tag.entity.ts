@@ -1,6 +1,8 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, ManyToMany, JoinTable } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { Project } from './project.entity';
+import { Term } from './term.entity';
+import { Translation } from './translation.entity';
 
 @Entity()
 @Index(['project', 'value'], { unique: true })
@@ -18,6 +20,11 @@ export class Tag {
   @JoinColumn()
   project: Project;
 
-  @Column(type => AccessTimestamps)
-  date: AccessTimestamps;
+  @ManyToMany(() => Term, term => term.tags, { cascade: true })
+  @JoinTable()
+  terms: Term[];
+
+  @ManyToMany(() => Translation, translation => translation.tags, { cascade: true })
+  @JoinTable()
+  translations: Translation[];
 }
