@@ -26,9 +26,7 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
   @Select(ProjectInviteState.isLoading)
   _areInvitesLoading$: Observable<boolean>;
 
-  isLoading: Observable<boolean> = combineLatest([this._areProjectsLoading$], function(a, b) {
-    return a || b;
-  });
+  isLoading: Observable<boolean> = combineLatest([this._areProjectsLoading$, this._areInvitesLoading$]).pipe(map(([a, b]) => a || b));
 
   @Select(state => state.projectUsers.errorMessage)
   errorMessage$: Observable<string | undefined>;
