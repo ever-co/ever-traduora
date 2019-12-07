@@ -1,5 +1,5 @@
 import { ApiModelProperty, ApiModelPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate, IsHexColor } from 'class-validator';
 import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
@@ -498,10 +498,9 @@ export class AddTagRequest {
   @Validate(IsNotOnlyWhitespace)
   value: string;
 
-  // TODO: add hex code validation
   @ApiModelProperty({ minLength: 7, maxLength: 7 })
   @Length(7, 7)
-  @Validate(IsNotOnlyWhitespace)
+  @Validate(IsHexColor)
   color: string;
 }
 
@@ -511,10 +510,9 @@ export class UpdateTagRequest {
   @Validate(IsNotOnlyWhitespace)
   value: string;
 
-  // TODO: add hex code validation
   @ApiModelProperty({ minLength: 7, maxLength: 7 })
   @Length(7, 7)
-  @Validate(IsNotOnlyWhitespace)
+  @Validate(IsHexColor)
   color: string;
 }
 
