@@ -29,6 +29,7 @@ import { ProjectLocale } from './entity/project-locale.entity';
 import { ProjectUser } from './entity/project-user.entity';
 import { Project } from './entity/project.entity';
 import { Tag } from './entity/tag.entity';
+import { TermTag } from './entity/term-tag';
 import { Term } from './entity/term.entity';
 import { TranslationTag } from './entity/translation-tag.entity';
 import { Translation } from './entity/translation.entity';
@@ -62,6 +63,7 @@ import { UserService } from './services/user.service';
       ProjectClient,
       Plan,
       Tag,
+      TermTag,
       TranslationTag,
     ]),
     HttpModule,
