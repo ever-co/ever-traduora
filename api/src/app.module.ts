@@ -15,6 +15,7 @@ import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
 import ProjectUserController from './controllers/project-user.controller';
+import ProjectInviteController from './controllers/project-invite.controller';
 import ProjectController from './controllers/project.controller';
 import TermController from './controllers/term.controller';
 import TranslationController from './controllers/translation.controller';
@@ -28,6 +29,7 @@ import { Project } from './entity/project.entity';
 import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
 import { User } from './entity/user.entity';
+import { Invite } from './entity/invite.entity';
 import { CustomExceptionFilter } from './filters/exception.filter';
 import { AuthService } from './services/auth.service';
 import AuthorizationService from './services/authorization.service';
@@ -48,7 +50,20 @@ import TagController from './controllers/tags.controller';
       },
     }),
     TypeOrmModule.forRoot(config.db.default),
-    TypeOrmModule.forFeature([User, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Tag, TranslationTag]),
+    TypeOrmModule.forFeature([
+      User,
+      Invite,
+      ProjectUser,
+      Project,
+      Term,
+      Locale,
+      ProjectLocale,
+      Translation,
+      ProjectClient,
+      Plan,
+      Tag,
+      TranslationTag,
+    ]),
     HttpModule,
   ],
   controllers: [
@@ -58,6 +73,7 @@ import TagController from './controllers/tags.controller';
     ProjectController,
     ProjectPlanController,
     ProjectUserController,
+    ProjectInviteController,
     TermController,
     TranslationController,
     ImportController,

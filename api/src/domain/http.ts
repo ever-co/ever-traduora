@@ -1,7 +1,8 @@
+import { ApiModelProperty, ApiModelPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
-import { ApiModelProperty, ApiModelPropertyOptional, ApiResponseModelProperty } from '@nestjs/swagger';
 
 export interface JwtPayload {
   sub: string;
@@ -124,6 +125,28 @@ export class ProjectUserDTO {
   role: ProjectRole;
 }
 
+export class ProjectInviteDto {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty({ enum: InviteStatus })
+  status: InviteStatus;
+  @ApiModelProperty()
+  email: string;
+  @ApiModelProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
+export class ProjectInviteAddedUserDto {
+  @ApiModelProperty()
+  userId: string;
+  @ApiModelProperty()
+  name: string;
+  @ApiModelProperty()
+  email: string;
+  @ApiModelProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
 export class ProjectTermDTO {
   @ApiModelProperty()
   id: string;
@@ -171,6 +194,17 @@ export class ProjectClientDTO {
   role: ProjectRole;
 }
 
+export class AuthProviderDTO {
+  @ApiModelProperty()
+  slug: string;
+  @ApiModelProperty()
+  clientId: string;
+  @ApiModelProperty()
+  url: string;
+  @ApiModelProperty()
+  redirectUrl: string;
+}
+
 export class ProjectClientWithSecretDTO {
   @ApiModelProperty()
   id: string;
@@ -204,6 +238,11 @@ export class ProjectClientWithSecretResponse extends ServiceApiResponse<ProjectC
 export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
   @ApiModelProperty()
   data: NewUserDTO;
+}
+
+export class ListAuthProvidersResponse extends ServiceApiResponse<AuthProviderDTO[]> {
+  @ApiModelProperty({ type: AuthProviderDTO, isArray: true })
+  data: AuthProviderDTO[];
 }
 
 export class ImportResponse extends ServiceApiResponse<ImportFileDTO> {
@@ -286,6 +325,21 @@ export class ProjectUserResponse extends ServiceApiResponse<ProjectUserDTO> {
   data: ProjectUserDTO;
 }
 
+export class ListInviteUsersResponse extends ServiceApiResponse<ProjectInviteDto[]> {
+  @ApiModelProperty({ type: ProjectInviteDto, isArray: true })
+  data: ProjectInviteDto[];
+}
+
+export class ProjectInviteResponse extends ServiceApiResponse<ProjectInviteDto> {
+  @ApiModelProperty()
+  data: ProjectInviteDto;
+}
+
+export class ProjectInviteCreatedResponse extends ServiceApiResponse<ProjectInviteDto | ProjectInviteAddedUserDto> {
+  @ApiModelProperty()
+  data: ProjectInviteDto | ProjectInviteAddedUserDto;
+}
+
 export class SignupRequest {
   @ApiModelProperty({ minLength: 8, maxLength: 255 })
   @Length(2, 255)
@@ -334,18 +388,21 @@ export class AuthenticateRequest {
   code: string;
 }
 
-export class AddProjectUserRequest {
-  @ApiModelProperty()
+export class InviteUserRequest {
   @IsEmail()
   email: string;
 
-  @ApiModelProperty({ enum: ProjectRole })
   @IsEnum(ProjectRole)
   role: ProjectRole;
 }
 
 export class UpdateProjectUserRequest {
   @ApiModelProperty({ enum: ProjectRole })
+  @IsEnum(ProjectRole)
+  role: ProjectRole;
+}
+
+export class UpdateProjectInviteRequest {
   @IsEnum(ProjectRole)
   role: ProjectRole;
 }
@@ -498,6 +555,7 @@ export class UpdateTranslationRequest {
 }
 
 export enum ImportExportFormat {
+  AndroidXml = 'androidxml',
   Csv = 'csv',
   Xliff12 = 'xliff12',
   JsonFlat = 'jsonflat',

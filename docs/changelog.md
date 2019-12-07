@@ -7,6 +7,16 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
+-
+
+## 0.14.0
+- Minor bug fixes and UI improvements.
+- Changed DB tables collation to support case-sensitive terms.
+- [PR-87:](https://github.com/traduora/traduora/pull/87) We now support the Android Resources (XML) format.
+
+## 0.13.0
+- [PR-66:](https://github.com/traduora/traduora/pull/66) You can now invite non-traduora users into your project with the new invite system.
+- Updated API reference docs.
 
 ## 0.12.1
 - Ensure swagger version is same as in package.json

@@ -14,6 +14,7 @@ The API endpoint reference is available **[here](/docs/api/v1/swagger)**.
 - **Project Plan:** the feature plan for which a project is signed up for (default to open-source).
 - **Project User:** a user which has access to a given project.
 - **Project Client:** an API client which has access to a given project.
+- **Project Invite:** an invitation to join a project on traduora.
 - **Term:** a string key which groups together translations across multiple locales.
 - **Translation:** the translation for a term on a particular locale.
 - **Import:** a job to convert and import a group of translations.

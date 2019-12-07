@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import * as moment from 'moment';
 import { Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
+import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
@@ -17,7 +18,7 @@ export class UserService {
   ) {}
 
   async userExists(email: string): Promise<boolean> {
-    const normalizedEmail = this.normalizeEmail(email);
+    const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOne({ email: normalizedEmail });
     return user != null;
   }
@@ -33,7 +34,7 @@ export class UserService {
     name: string;
     password?: string;
   }): Promise<{ user: User; isNewUser: boolean }> {
-    const normalizedEmail = this.normalizeEmail(email);
+    const normalizedEmail = normalizeEmail(email);
     const exists = await this.userRepo.findOne({ email: normalizedEmail });
 
     if (exists) {
@@ -63,7 +64,7 @@ export class UserService {
   }
 
   async forgotPassword(email: string): Promise<{ user: User; token: string }> {
-    const normalizedEmail = this.normalizeEmail(email);
+    const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneOrFail({
       where: { email: normalizedEmail },
     });
@@ -91,7 +92,7 @@ export class UserService {
 
   async updateUserData(userId: string, updates: { name?: string; email?: string }): Promise<User> {
     if (updates.email) {
-      updates.email = this.normalizeEmail(updates.email);
+      updates.email = normalizeEmail(updates.email);
     }
     await this.userRepo.update(userId, updates);
     return await this.userRepo.findOneOrFail(userId);
@@ -149,7 +150,7 @@ export class UserService {
   }
 
   async resetPassword(email: string, token: string, newPassword: string): Promise<User> {
-    const normalizedEmail = this.normalizeEmail(email);
+    const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneOrFail({ email: normalizedEmail });
 
     const valid = await new Promise((resolve, reject) => {
@@ -179,7 +180,7 @@ export class UserService {
   }
 
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {
-    const normalizedEmail = this.normalizeEmail(email);
+    const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneOrFail({ email: normalizedEmail });
 
     const timeThreshold = moment()
@@ -228,10 +229,5 @@ export class UserService {
     await this.userRepo.save(user);
 
     return user;
-  }
-
-  private normalizeEmail(email: string): string {
-    const [user, rest] = email.split('@');
-    return `${user}@${rest.toLowerCase()}`;
   }
 }

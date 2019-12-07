@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><resources><string name="term.one">Current Plan: {{ project.plan.name }}</string><string name="term two">{VAR_PLURAL, plural, =0 {locales} =1 {locale} other {locales} }</string><string name="TERM_THREE">Export format...</string><string name="term:four">hello there you\nthis should be in a newline</string></resources>
