@@ -59,9 +59,10 @@ export default class TranslationController {
       .createQueryBuilder('projectLocale')
       .leftJoin('projectLocale.translations', 'translations')
       .select('projectLocale.localeCode', 'localeCode')
-      .addSelect("count(translations.value <> '')", 'translated')
+      .addSelect('count(*)', 'translated')
       .groupBy('localeCode')
       .whereInIds(locales.map(l => l.id))
+      .andWhere("translations.value <> ''")
       .execute();
 
     const stats = translatedByLocale.map(s => {
@@ -78,10 +79,14 @@ export default class TranslationController {
 
     const statsByLocale = _.keyBy(stats, s => s.localeCode);
 
-    const data = locales.map(locale => ({
-      ..._.pick(locale, ['id', 'date', 'locale.code', 'locale.region', 'locale.language']),
-      stats: statsByLocale[locale.locale.code].stats,
-    }));
+    const data = locales.map(locale => {
+      const found = statsByLocale[locale.locale.code];
+      let stats = found ? found.stats : { progress: 0, translated: 0, total: termCount };
+      return {
+        ..._.pick(locale, ['id', 'date', 'locale.code', 'locale.region', 'locale.language']),
+        stats,
+      };
+    });
 
     return {
       data,
