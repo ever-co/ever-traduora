@@ -7,7 +7,7 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
--
+- [PR-89:](https://github.com/traduora/traduora/pull/89) Added translation progress stats per locale.
 
 ## 0.14.0
 - Minor bug fixes and UI improvements.
