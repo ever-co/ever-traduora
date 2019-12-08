@@ -81,10 +81,10 @@ export default class TranslationController {
 
     const data = locales.map(locale => {
       const found = statsByLocale[locale.locale.code];
-      let stats = found ? found.stats : { progress: 0, translated: 0, total: termCount };
+      const withDefault = found ? found.stats : { progress: 0, translated: 0, total: termCount };
       return {
         ..._.pick(locale, ['id', 'date', 'locale.code', 'locale.region', 'locale.language']),
-        stats,
+        stats: withDefault,
       };
     });
 
