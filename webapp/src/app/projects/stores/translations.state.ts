@@ -181,7 +181,7 @@ export class TranslationsState implements NgxsOnInit {
         // if not found then add it to translations. This can happen with
         // newly added terms.
         let found = false;
-        let previousValue = undefined;
+        let previousValue;
         const forLocale = storeTranslations[action.localeCode].map(tr => {
           if (tr.termId === translation.termId) {
             found = true;
@@ -198,7 +198,7 @@ export class TranslationsState implements NgxsOnInit {
 
         // Only refresh project stats if necessary
         const newValueIsEmpty = !translation.value || translation.value === '';
-        const previousValueIsEmpty = previousValue == null || previousValue == '';
+        const previousValueIsEmpty = !previousValue || previousValue == '';
         const isAddition = previousValueIsEmpty && !newValueIsEmpty;
         const isRemoval = !previousValueIsEmpty && newValueIsEmpty;
 
