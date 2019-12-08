@@ -42,7 +42,7 @@ describe('TranslationController (e2e)', () => {
         expect(res.body.data.stats).toHaveExactProperties(['progress', 'translated', 'total']);
         expect(res.body.data.stats.progress).toEqual(0);
         expect(res.body.data.stats.translated).toEqual(0);
-        expect(res.body.data.stats.total).toEqual(0);
+        expect(res.body.data.stats.total).toEqual(1);
       });
 
     await request(app.getHttpServer())
