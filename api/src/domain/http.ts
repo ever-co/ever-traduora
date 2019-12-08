@@ -171,8 +171,6 @@ export class ProjectLocaleDTO {
   @ApiModelProperty()
   locale: LocaleDTO;
   @ApiModelProperty()
-  stats: ProjectLocaleStatsDTO;
-  @ApiModelProperty()
   date: AccessDatesDTO;
 }
 

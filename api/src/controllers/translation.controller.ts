@@ -49,47 +49,10 @@ export default class TranslationController {
       relations: ['locale'],
     });
 
-    if (!locales || locales.length === 0) {
-      return { data: [] };
-    }
-
-    const termCount = await this.termRepo.count({ where: { project: { id: membership.project.id } } });
-
-    const translatedByLocale = await this.projectLocaleRepo
-      .createQueryBuilder('projectLocale')
-      .leftJoin('projectLocale.translations', 'translations')
-      .select('projectLocale.localeCode', 'localeCode')
-      .addSelect('count(*)', 'translated')
-      .groupBy('localeCode')
-      .whereInIds(locales.map(l => l.id))
-      .andWhere("translations.value <> ''")
-      .execute();
-
-    const stats = translatedByLocale.map(s => {
-      const translatedCount = parseInt(s.translated, 10);
-      return {
-        localeCode: s.localeCode,
-        stats: {
-          progress: _.round(translatedCount / termCount, 2),
-          translated: translatedCount,
-          total: termCount,
-        },
-      };
-    });
-
-    const statsByLocale = _.keyBy(stats, s => s.localeCode);
-
-    const data = locales.map(locale => {
-      const found = statsByLocale[locale.locale.code];
-      const withDefault = found ? found.stats : { progress: 0, translated: 0, total: termCount };
-      return {
-        ..._.pick(locale, ['id', 'date', 'locale.code', 'locale.region', 'locale.language']),
-        stats: withDefault,
-      };
-    });
-
     return {
-      data,
+      data: _.chain(locales)
+        .map(v => _.pick(v, ['id', 'date', 'locale.code', 'locale.region', 'locale.language']))
+        .value(),
     };
   }
 
@@ -126,8 +89,6 @@ export default class TranslationController {
       project: membership.project,
     });
 
-    const termCount = await this.termRepo.count({ where: { project: { id: membership.project.id } } });
-
     return {
       data: {
         id: result.id,
@@ -135,11 +96,6 @@ export default class TranslationController {
           code: projectLocale.locale.code,
           region: projectLocale.locale.region,
           language: projectLocale.locale.language,
-        },
-        stats: {
-          progress: 0,
-          translated: 0,
-          total: termCount,
         },
         date: result.date,
       },
