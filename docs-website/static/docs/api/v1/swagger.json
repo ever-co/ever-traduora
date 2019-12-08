@@ -456,6 +456,41 @@
         "consumes": ["application/json"]
       }
     },
+    "/api/v1/projects/{projectId}/stats": {
+      "get": {
+        "summary": "Get stats for project",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ProjectStatsResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "tags": ["Project Stats"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
     "/api/v1/projects/{projectId}/plan": {
       "get": {
         "summary": "Get a project's plan",
@@ -1175,6 +1210,7 @@
             "required": true,
             "in": "query",
             "enum": {
+              "AndroidXml": "androidxml",
               "Csv": "csv",
               "Xliff12": "xliff12",
               "JsonFlat": "jsonflat",
@@ -1456,6 +1492,7 @@
             "required": true,
             "in": "query",
             "enum": {
+              "AndroidXml": "androidxml",
               "Csv": "csv",
               "Xliff12": "xliff12",
               "JsonFlat": "jsonflat",
@@ -1811,6 +1848,48 @@
           "maxLength": 255
         }
       }
+    },
+    "ProjectStatsDTO": {
+      "type": "object",
+      "properties": {
+        "progress": {
+          "type": "number"
+        },
+        "translated": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "terms": {
+          "type": "number"
+        },
+        "locales": {
+          "type": "number"
+        }
+      },
+      "required": ["progress", "translated", "total", "terms", "locales"]
+    },
+    "GetProjectStatsDTO": {
+      "type": "object",
+      "properties": {
+        "projectStats": {
+          "$ref": "#/definitions/ProjectStatsDTO"
+        },
+        "localeStats": {
+          "type": "object"
+        }
+      },
+      "required": ["projectStats", "localeStats"]
+    },
+    "ProjectStatsResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/GetProjectStatsDTO"
+        }
+      },
+      "required": ["data"]
     },
     "ProjectPlanDTO": {
       "type": "object",
