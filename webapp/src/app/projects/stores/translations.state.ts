@@ -198,7 +198,7 @@ export class TranslationsState implements NgxsOnInit {
 
         // Only refresh project stats if necessary
         const newValueIsEmpty = !translation.value || translation.value === '';
-        const previousValueIsEmpty = !previousValue || previousValue == '';
+        const previousValueIsEmpty = !previousValue || previousValue === '';
         const isAddition = previousValueIsEmpty && !newValueIsEmpty;
         const isRemoval = !previousValueIsEmpty && newValueIsEmpty;
 
