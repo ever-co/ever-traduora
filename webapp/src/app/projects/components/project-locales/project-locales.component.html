@@ -24,11 +24,12 @@
               </h5>
 
               <span class="flex-1"></span>
+
               <ngb-progressbar type="primary" [value]="locale.stats.translated" [max]="locale.stats.total" height="auto">
-                <span class="px-3 font-weight-bold"
-                  >{{ locale.stats.progress | percent }} <ng-container i18n>translated</ng-container></span
-                > </ngb-progressbar
-              ><span class="ml-1 badge badge-secondary">{{ locale.locale.code }}</span>
+                <span class="px-3 font-weight-bold">{{ locale.stats.progress | percent }} <ng-container i18n>translated</ng-container></span>
+              </ngb-progressbar>
+
+              <span class="ml-1 badge badge-secondary">{{ locale.locale.code }}</span>
             </div>
           </div>
         </div>
