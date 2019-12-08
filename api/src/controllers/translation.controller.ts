@@ -126,6 +126,8 @@ export default class TranslationController {
       project: membership.project,
     });
 
+    const termCount = await this.termRepo.count({ where: { project: { id: membership.project.id } } });
+
     return {
       data: {
         id: result.id,
@@ -137,7 +139,7 @@ export default class TranslationController {
         stats: {
           progress: 0,
           translated: 0,
-          total: 0,
+          total: termCount,
         },
         date: result.date,
       },
