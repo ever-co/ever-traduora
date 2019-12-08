@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { ListProjectLocalesResponse } from '../domain/http';
+import { ProjectStatsResponse } from '../domain/http';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
@@ -29,7 +29,7 @@ export default class ProjectStatsController {
 
   @Get()
   @ApiOperation({ title: 'Get stats for project' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectLocalesResponse }) // TODO: correct response type
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectStatsResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async getStats(@Req() req, @Param('projectId') projectId: string) {
@@ -86,12 +86,16 @@ export default class ProjectStatsController {
       .value();
 
     const totalTranslated = _.sumBy(stats, 'translated');
-    const totalTerms = locales.length > 0 ? termCount * locales.length : termCount;
+    const localeCount = locales.length;
+    const totalTerms = localeCount > 0 ? termCount * localeCount : termCount;
     const totalProgress = totalTerms > 0 ? _.round(totalTranslated / totalTerms, 10) : 0;
+
     const projectStats = {
       progress: totalProgress,
       translated: totalTranslated,
       total: totalTerms,
+      terms: termCount,
+      locales: localeCount,
     };
 
     return {

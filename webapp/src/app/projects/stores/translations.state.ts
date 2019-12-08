@@ -8,7 +8,7 @@ import { Locale } from '../models/locale';
 import { ProjectLocale } from '../models/project-locale';
 import { Translation } from '../models/translation';
 import { ProjectTranslationsService } from '../services/translations.service';
-import { ClearCurrentProject } from './projects.state';
+import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
 
 export class ClearMessages {
   static readonly type = '[Translations] Clear messages';
@@ -128,6 +128,7 @@ export class TranslationsState implements NgxsOnInit {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
       }),
+      tap(() => ctx.dispatch(new RefreshProjectStats())),
       finalize(() => ctx.patchState({ isLoading: false })),
     );
   }
@@ -141,6 +142,7 @@ export class TranslationsState implements NgxsOnInit {
           projectLocales: ctx.getState().projectLocales.filter(x => x.locale.code !== action.localeCode),
         }),
       ),
+      tap(() => ctx.dispatch(new RefreshProjectStats())),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
@@ -179,9 +181,11 @@ export class TranslationsState implements NgxsOnInit {
         // if not found then add it to translations. This can happen with
         // newly added terms.
         let found = false;
+        let previousValue = undefined;
         const forLocale = storeTranslations[action.localeCode].map(tr => {
           if (tr.termId === translation.termId) {
             found = true;
+            previousValue = tr.value;
             return translation;
           }
           return tr;
@@ -191,6 +195,16 @@ export class TranslationsState implements NgxsOnInit {
         }
         const translations = { ...storeTranslations, [action.localeCode]: forLocale };
         ctx.patchState({ translations });
+
+        // Only refresh project stats if necessary
+        const newValueIsEmpty = !translation.value || translation.value === '';
+        const previousValueIsEmpty = previousValue == null || previousValue == '';
+        const isAddition = previousValueIsEmpty && !newValueIsEmpty;
+        const isRemoval = !previousValueIsEmpty && newValueIsEmpty;
+
+        if (isAddition || isRemoval) {
+          ctx.dispatch(new RefreshProjectStats());
+        }
       }),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });

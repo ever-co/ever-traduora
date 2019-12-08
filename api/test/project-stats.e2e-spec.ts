@@ -28,6 +28,8 @@ describe('ProjectStatsController (e2e)', () => {
             progress: 0,
             translated: 0,
             total: 0,
+            terms: 0,
+            locales: 0,
           },
           localeStats: {},
         });
@@ -55,6 +57,8 @@ describe('ProjectStatsController (e2e)', () => {
             progress: 0,
             translated: 0,
             total: 1,
+            terms: 1,
+            locales: 0,
           },
           localeStats: {},
         });
@@ -78,6 +82,8 @@ describe('ProjectStatsController (e2e)', () => {
             progress: 0,
             translated: 0,
             total: 1,
+            terms: 1,
+            locales: 1,
           },
           localeStats: {
             de_DE: {
@@ -108,6 +114,8 @@ describe('ProjectStatsController (e2e)', () => {
             progress: 1,
             translated: 1,
             total: 1,
+            terms: 1,
+            locales: 1,
           },
           localeStats: {
             de_DE: {
@@ -137,6 +145,8 @@ describe('ProjectStatsController (e2e)', () => {
             progress: 0.5,
             translated: 1,
             total: 2,
+            terms: 1,
+            locales: 2,
           },
           localeStats: {
             de_DE: {
@@ -170,6 +180,8 @@ describe('ProjectStatsController (e2e)', () => {
             progress: 0.25,
             translated: 1,
             total: 4,
+            terms: 2,
+            locales: 2,
           },
           localeStats: {
             de_DE: {

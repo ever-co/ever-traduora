@@ -4,6 +4,8 @@ import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { Project } from '../../models/project';
 import { ClearCurrentProject, ProjectsState, SetCurrentProject } from '../../stores/projects.state';
+import { ProjectStats } from '../../models/project-stats';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-project-container',
@@ -13,6 +15,18 @@ import { ClearCurrentProject, ProjectsState, SetCurrentProject } from '../../sto
 export class ProjectContainerComponent implements OnInit, OnDestroy {
   @Select(ProjectsState.currentProject)
   project$: Observable<Project | undefined>;
+
+  @Select(ProjectsState.currentProjectStats)
+  projectStats$: Observable<ProjectStats | undefined>;
+
+  projectProgress$ = this.projectStats$.pipe(
+    map(v => {
+      if (v) {
+        return v.projectStats.progress;
+      }
+      return 0;
+    }),
+  );
 
   @Select(state => state.projects.isLoading)
   isLoading$: Observable<boolean>;

@@ -1,11 +1,13 @@
 import { Navigate } from '@ngxs/router-plugin';
 import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
 import { throwError } from 'rxjs';
-import { catchError, finalize, switchMap, tap } from 'rxjs/operators';
+import { catchError, finalize, switchMap, tap, map } from 'rxjs/operators';
 import { Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
 import { Project } from '../models/project';
 import { ProjectsService } from '../services/projects.service';
+import { ProjectStats } from '../models/project-stats';
+import { ProjectStatsService } from '../services/project-stats.service';
 
 export class ClearMessages {
   static readonly type = '[Projects] ClearMessages';
@@ -22,6 +24,11 @@ export class ClearCurrentProject {
 export class SetCurrentProject {
   static readonly type = '[Projects] Set current project';
   constructor(public id: string) {}
+}
+
+export class RefreshProjectStats {
+  static readonly type = '[Projects] Refresh current project stats';
+  constructor() {}
 }
 
 export class UpdateProject {
@@ -46,6 +53,7 @@ export class ReloadCurrentProject {
 export interface ProjectsStateModel {
   projects: Project[];
   currentProject: Project | undefined;
+  currentProjectStats: ProjectStats | undefined;
   isLoading: boolean;
   errorMessage: string | undefined;
 }
@@ -53,6 +61,7 @@ export interface ProjectsStateModel {
 const stateDefaults = {
   projects: [],
   currentProject: undefined,
+  currentProjectStats: undefined,
   isLoading: false,
   errorMessage: undefined,
 };
@@ -62,7 +71,7 @@ const stateDefaults = {
   defaults: stateDefaults,
 })
 export class ProjectsState implements NgxsOnInit {
-  constructor(private projectsService: ProjectsService) {}
+  constructor(private projectsService: ProjectsService, private projectStatsService: ProjectStatsService) {}
 
   @Selector()
   static projects(state: ProjectsStateModel) {
@@ -77,6 +86,11 @@ export class ProjectsState implements NgxsOnInit {
   @Selector()
   static currentProject(state: ProjectsStateModel) {
     return state.currentProject;
+  }
+
+  @Selector()
+  static currentProjectStats(state: ProjectsStateModel) {
+    return state.currentProjectStats;
   }
 
   ngxsOnInit(ctx: StateContext<ProjectsStateModel>) {}
@@ -159,6 +173,7 @@ export class ProjectsState implements NgxsOnInit {
           }),
         ),
       ),
+      tap(() => ctx.dispatch(new RefreshProjectStats())),
       catchError(error => {
         if (error.status === 404) {
           ctx.dispatch(new Navigate(['404']));
@@ -187,6 +202,20 @@ export class ProjectsState implements NgxsOnInit {
         if (error.status === 404) {
           ctx.dispatch(new Navigate(['404']));
         }
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(RefreshProjectStats)
+  refreshProjectStats(ctx: StateContext<ProjectsStateModel>) {
+    ctx.patchState({ isLoading: true });
+    const projectId = ctx.getState().currentProject.id;
+    return this.projectStatsService.getStats(projectId).pipe(
+      map(stats => ctx.patchState({ currentProjectStats: stats })),
+      catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
       }),

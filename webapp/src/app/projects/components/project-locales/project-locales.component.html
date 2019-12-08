@@ -12,7 +12,7 @@
       ></app-new-locale>
     </div>
 
-    <app-search [items]="projectLocales$" [key]="searchKey" [trackBy]="trackElement">
+    <app-search [items]="projectLocalesWithStats$" [key]="searchKey" [trackBy]="trackElement">
       <ng-template #searchResultsItem let-locale="result">
         <div class="card btn mb-3" [routerLink]="[locale.locale.code]">
           <div class="card-body">
@@ -25,7 +25,7 @@
 
               <span class="flex-1"></span>
 
-              <ngb-progressbar type="primary" style="min-width: 150px;" [value]="locale.stats.translated" [max]="locale.stats.total" height="auto">
+              <ngb-progressbar type="success" style="min-width: 150px;" [value]="locale.stats.translated" [max]="locale.stats.total" height="auto">
                 <span class="px-4 font-weight-bold">{{ locale.stats.progress | percent }} translated</span>
               </ngb-progressbar>
 
