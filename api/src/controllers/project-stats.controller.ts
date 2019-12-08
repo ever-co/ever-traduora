@@ -85,7 +85,7 @@ export default class ProjectStatsController {
       .mapValues(v => _.omit(v, 'localeCode'))
       .value();
 
-    const totalTranslated = _.sumBy(stats, 'translated');
+    const totalTranslated = _.sumBy(withDefaults, 'translated');
     const localeCount = locales.length;
     const totalTerms = localeCount > 0 ? termCount * localeCount : termCount;
     const totalProgress = totalTerms > 0 ? _.round(totalTranslated / totalTerms, 10) : 0;
