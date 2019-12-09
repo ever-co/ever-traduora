@@ -4,13 +4,12 @@ import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/sw
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
-import { AddTagRequest, ProjectTagResponse, UpdateTagRequest, ProjectLocaleDTO } from '../domain/http';
-import { Project } from '../entity/project.entity';
+import { AddTagRequest, ProjectTagResponse, UpdateTagRequest } from '../domain/http';
+import { ProjectLocale } from '../entity/project-locale.entity';
 import { Tag } from '../entity/tag.entity';
-import AuthorizationService from '../services/authorization.service';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
-import { ProjectLocale } from '../entity/project-locale.entity';
+import AuthorizationService from '../services/authorization.service';
 
 @Controller('api/v1/projects/:projectId/tags')
 @UseGuards(AuthGuard())
@@ -33,7 +32,7 @@ export default class ProjectTagController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async find(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req);
-    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTags);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTag);
     const tags = await this.tagRepo.find({
       where: { project: { id: membership.project.id } },
       order: { value: 'ASC' },
@@ -57,7 +56,7 @@ export default class ProjectTagController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async create(@Req() req, @Param('projectId') projectId: string, @Body() payload: AddTagRequest) {
     const user = this.auth.getRequestUserOrClient(req);
-    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.AddTags);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.AddTag);
 
     const tag = this.tagRepo.create({
       value: payload.value,
@@ -84,7 +83,7 @@ export default class ProjectTagController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(@Req() req, @Param('projectId') projectId: string, @Param('tagId') tagId: string, @Body() payload: UpdateTagRequest) {
     const user = this.auth.getRequestUserOrClient(req);
-    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTag);
     await this.tagRepo.findOneOrFail({ where: { id: tagId, project: { id: projectId } } });
     await this.tagRepo.update({ id: tagId }, payload);
     const tag = await this.tagRepo.findOneOrFail({ id: tagId });
@@ -107,7 +106,7 @@ export default class ProjectTagController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Param('projectId') projectId: string, @Param('tagId') tagId: string) {
     const user = this.auth.getRequestUserOrClient(req);
-    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTags);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTag);
     const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
     await this.tagRepo.remove(tag);
   }
@@ -121,7 +120,7 @@ export default class ProjectTagController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async tagTerm(@Req() req, @Param('projectId') projectId: string, @Param('tagId') tagId: string, @Param('termId') termId: string) {
     const user = this.auth.getRequestUserOrClient(req);
-    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTag);
 
     const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
     const term = await this.termsRepo.findOneOrFail(termId, { where: { project: membership.project }, relations: ['tags'] });
@@ -140,7 +139,7 @@ export default class ProjectTagController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async untagTerm(@Req() req, @Param('projectId') projectId: string, @Param('tagId') tagId: string, @Param('termId') termId: string) {
     const user = this.auth.getRequestUserOrClient(req);
-    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTag);
 
     const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
     const term = await this.termsRepo.findOneOrFail(termId, { where: { project: membership.project }, relations: ['tags'] });
@@ -165,7 +164,7 @@ export default class ProjectTagController {
     @Param('localeCode') localeCode: string,
   ) {
     const user = this.auth.getRequestUserOrClient(req);
-    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTag);
 
     const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
 
@@ -203,7 +202,7 @@ export default class ProjectTagController {
     @Param('localeCode') localeCode: string,
   ) {
     const user = this.auth.getRequestUserOrClient(req);
-    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTags);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTag);
 
     const tag = await this.tagRepo.findOneOrFail(tagId, { where: { project: membership.project } });
 

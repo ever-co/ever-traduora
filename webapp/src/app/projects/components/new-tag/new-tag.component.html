@@ -1,0 +1,59 @@
+<ng-template #content let-modal>
+  <div class="modal-header flex-column">
+    <div class="d-flex flex-row w-100">
+      <h4 class="modal-title font-serif flex-1" i18n>Add a new Tag</h4>
+      <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    <app-error-message class="mt-1" *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
+  </div>
+
+  <div class="modal-body">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="form-group">
+        <label for="valueInput" i18n>The tag's label</label>
+        <input
+          id="valueInput"
+          class="form-control"
+          type="text"
+          formControlName="value"
+          placeholder="The tag's value, i.e. new-feature"
+          [ngClass]="{ 'is-invalid': value.touched && value.invalid }"
+          autocomplete="off"
+        />
+        <div class="invalid-feedback">
+          <div *ngIf="value.getError('required')" i18n>Value is required.</div>
+          <div *ngIf="value.getError('pattern')" i18n>Cannot be only whitespace.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="colorInput" i18n>Select a tag color</label>
+        <div class="input-group">
+          <select id="colorInput" formControlName="color" class="custom-select">
+            <option *ngFor="let color of availableColors" [value]="color.hex">
+              {{ color.displayName }}
+            </option>
+          </select>
+        </div>
+        <div class="invalid-feedback">
+          <div *ngIf="color.getError('required')" i18n>Color value is required.</div>
+          <div *ngIf="color.getError('pattern')" i18n>Invalid color.</div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
+        <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-sm btn-primary w-100" style="max-width: 120px;" i18n>
+          Add
+        </button>
+      </div>
+    </form>
+  </div>
+</ng-template>
+
+<button class="btn btn-sm d-flex justify-content-center align-items-center" (click)="open(content)" [ngClass]="btnClass">
+  <i class="material-icons mr-1" style="font-size: 18px">add</i>
+  <ng-container i18n>New Tag</ng-container>
+</button>

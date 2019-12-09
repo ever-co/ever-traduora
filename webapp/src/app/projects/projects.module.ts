@@ -28,12 +28,15 @@ import { ProjectRole } from './models/project-role';
 import { ProjectsState } from './stores/projects.state';
 import { TermsState } from './stores/terms.state';
 import { TranslationsState } from './stores/translations.state';
+import { ProjectTagState } from './stores/project-tag.state';
+import { TagsListComponent } from './components/tags-list/tags-list.component';
+import { NewTagComponent } from './components/new-tag/new-tag.component';
 
 @NgModule({
   imports: [
     CommonModule,
     SharedModule,
-    NgxsModule.forFeature([ProjectsState, TermsState, TranslationsState]),
+    NgxsModule.forFeature([ProjectsState, TermsState, TranslationsState, ProjectTagState]),
     RouterModule.forChild([
       { path: '', component: ProjectListComponent },
       {
@@ -42,6 +45,7 @@ import { TranslationsState } from './stores/translations.state';
         children: [
           { path: '', redirectTo: 'translations', pathMatch: 'full' },
           { path: 'terms', component: TermsListComponent },
+          { path: 'tags', component: TagsListComponent },
           { path: 'translations', component: ProjectLocalesComponent },
           { path: 'translations/:localeCode', component: TranslationsListComponent },
           { path: 'team', component: TeamOverviewComponent },
@@ -65,9 +69,11 @@ import { TranslationsState } from './stores/translations.state';
     ProjectContainerComponent,
     ImportLocaleComponent,
     TermsListComponent,
+    TagsListComponent,
     ProjectCardComponent,
     TranslationsListComponent,
     NewTermComponent,
+    NewTagComponent,
     ExportLocaleComponent,
     ImportContainerComponent,
     ExportContainerComponent,

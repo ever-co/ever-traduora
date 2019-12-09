@@ -28,6 +28,12 @@ export enum ProjectAction {
   EditTerm,
   DeleteTerm,
 
+  // Tags
+  AddTag,
+  ViewTag,
+  EditTag,
+  DeleteTag,
+
   // Translations
   AddTranslation,
   ViewTranslation,
@@ -52,6 +58,10 @@ export const AllowedEditorActions = new Set([
   ProjectAction.ViewTerm,
   ProjectAction.EditTerm,
   ProjectAction.DeleteTerm,
+  ProjectAction.AddTag,
+  ProjectAction.ViewTag,
+  ProjectAction.EditTag,
+  ProjectAction.DeleteTag,
   ProjectAction.AddTranslation,
   ProjectAction.ViewTranslation,
   ProjectAction.EditTranslation,
@@ -67,6 +77,7 @@ export const AllowedViewerActions = new Set([
   ProjectAction.ViewProjectUsers,
   ProjectAction.ViewProjectInvites,
   ProjectAction.ViewTerm,
+  ProjectAction.ViewTag,
   ProjectAction.ViewTranslation,
   ProjectAction.ExportTranslation,
   ProjectAction.ViewProjectClients,
