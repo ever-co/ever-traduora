@@ -1,16 +1,17 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import {
   AddLocaleRequest,
-  UpdateTranslationRequest,
-  ProjectLocaleResponse,
   ListProjectLocalesResponse,
   ListTermTranslatonsResponse,
+  ProjectLocaleResponse,
   TermTranslatonResponse,
+  UpdateTranslationRequest,
 } from '../domain/http';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
@@ -18,7 +19,6 @@ import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('api/v1/projects/:projectId/translations')
 @UseGuards(AuthGuard())
@@ -49,12 +49,10 @@ export default class TranslationController {
       relations: ['locale'],
     });
 
-    if (!locales || locales.length === 0) {
-      return { data: [] };
-    }
-
     return {
-      data: locales.map(loc => _.pick(loc, ['id', 'date', 'locale.code', 'locale.region', 'locale.language'])),
+      data: _.chain(locales)
+        .map(v => _.pick(v, ['id', 'date', 'locale.code', 'locale.region', 'locale.language']))
+        .value(),
     };
   }
 

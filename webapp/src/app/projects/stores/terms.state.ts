@@ -5,7 +5,7 @@ import { Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
 import { Term } from '../models/term';
 import { ProjectTermsService } from '../services/terms.service';
-import { ClearCurrentProject } from './projects.state';
+import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
 
 export class ClearMessages {
   static readonly type = '[Terms] Clear messages';
@@ -85,6 +85,7 @@ export class TermsState implements NgxsOnInit {
     ctx.patchState({ isLoading: true });
     return this.termService.create(action.projectId, action.value).pipe(
       tap(term => ctx.patchState({ terms: [term, ...ctx.getState().terms] })),
+      tap(() => ctx.dispatch(new RefreshProjectStats())),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
@@ -123,6 +124,7 @@ export class TermsState implements NgxsOnInit {
         const terms = ctx.getState().terms.filter(t => t.id !== action.termId);
         ctx.patchState({ terms });
       }),
+      tap(() => ctx.dispatch(new RefreshProjectStats())),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);

@@ -38,6 +38,7 @@ import AuthorizationService from './services/authorization.service';
 import { JwtStrategy } from './services/jwt.strategy';
 import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
+import ProjectStatsController from './controllers/project-stats.controller';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { UserService } from './services/user.service';
     AuthController,
     UserController,
     ProjectController,
+    ProjectStatsController,
     ProjectPlanController,
     ProjectUserController,
     ProjectInviteController,

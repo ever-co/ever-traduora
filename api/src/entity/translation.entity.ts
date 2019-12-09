@@ -20,7 +20,6 @@ export class Translation {
   term: Term;
 
   @ManyToOne(type => ProjectLocale, { onDelete: 'CASCADE', nullable: false })
-  @JoinColumn()
   projectLocale: ProjectLocale;
 
   @ManyToMany(() => Tag, tag => tag.translations)
