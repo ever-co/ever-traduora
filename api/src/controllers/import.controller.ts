@@ -50,7 +50,7 @@ export class ImportController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard())
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 512 * 1024 } })) // 500 kb max size
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 1024 * 1024 } })) // 1024 KB max size
   @ApiOAuth2Auth()
   @ApiOperation({ title: 'Import a translation file' })
   @ApiConsumes('multipart/form-data')
