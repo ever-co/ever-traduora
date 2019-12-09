@@ -10,6 +10,14 @@ export function errorToMessage(error: any, action: string = ''): string {
       default:
         return 'Error too many requests, please wait a while before making another request.';
     }
+  } else if (error.status === 413) {
+    switch (action) {
+      case 'ImportLocale':
+        // tslint:disable-next-line:max-line-length
+        return 'The file that you are trying to import is too large, try importing it as multiple smaller files instead.';
+      default:
+        return 'Payload too large';
+    }
   } else if (domainCode === 'BadRequest') {
     switch (action) {
       case 'ImportLocale':
