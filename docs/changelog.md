@@ -7,7 +7,10 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
+- Automatically detect file import format.
 - [PR-89:](https://github.com/traduora/traduora/pull/89) Added translation progress stats per locale.
+- Increase max size for file import (1MB).
+- Improve error message when importing files which are too large.
 
 ## 0.14.0
 - Minor bug fixes and UI improvements.
