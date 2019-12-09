@@ -4,7 +4,7 @@
     #focusTarget
     type="text"
     class="form-control form-control-sm rounded"
-    [ngClass]="{'rounded-bl-0 is-editing': isEditing && !readOnly, 'readonly': readOnly}"
+    [ngClass]="{ 'rounded-bl-0 is-editing': isEditing && !readOnly, readonly: readOnly }"
     id="termInputEditable"
     [value]="current"
     (input)="current = $event.target.value"
@@ -13,15 +13,22 @@
     [placeholder]="placeholder"
     (keyup.control.enter)="onSave()"
     (keyup.esc)="revert()"
-    appAutosize
+    appAutoheight
   >
   </textarea>
   <div *ngIf="isEditing && !readOnly" class="edit-controls d-flex w-100 justify-content-between">
-    <button class="btn btn-sm btn-primary rounded-t-0 rounded-br-0 m-0 px-2 d-flex" style="height: 2rem" (click)="onSave()" [disabled]="!valid()" type="button" i18n>
-        <i class="material-icons" style="font-size: 18px">check</i>
+    <button
+      class="btn btn-sm btn-primary rounded-t-0 rounded-br-0 m-0 px-2 d-flex"
+      style="height: 2rem"
+      (click)="onSave()"
+      [disabled]="!valid()"
+      type="button"
+      i18n
+    >
+      <i class="material-icons" style="font-size: 18px">check</i>
     </button>
     <button class="btn btn-sm btn-secondary rounded-t-0 rounded-bl-0 m-0 px-2 d-flex" style="height: 2rem" (click)="revert()" type="button" i18n>
-        <i class="material-icons" style="font-size: 18px">undo</i>
+      <i class="material-icons" style="font-size: 18px">undo</i>
     </button>
     <div class="flex-1"></div>
     <p *ngIf="showLength" class="px-3 text-muted d-flex justify-content-center align-items-center">

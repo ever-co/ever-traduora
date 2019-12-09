@@ -3,7 +3,7 @@
   <div *ngIf="project$ | async as project" class="h-100">
     <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
       <h5 class="font-serif m-0" i18n>Tags</h5>
-      <app-new-tag *ngIf="true | can: 'AddTag' | async" [project]="project"></app-new-tag>
+      <app-new-tag *ngIf="true | can: 'AddTag' | async" [project]="project" [availableColors]="availableColors"></app-new-tag>
     </div>
 
     <app-search [items]="projectTags$" [key]="searchKey" [trackBy]="trackElement">
@@ -11,15 +11,16 @@
         <div class="card mb-3">
           <div class="card-body">
             <div class="d-flex flex-row w-100">
-              <app-editable-text
+              <app-editable-tag
                 class="flex-1"
                 [readOnly]="!(true | can: 'EditTag' | async)"
                 [value]="tag.value"
-                placeholder="No tag value yet"
+                [backgroundColor]="tag.color"
+                [availableColors]="availableColors"
+                placeholder="Tag name cannot be empty"
                 [allowEmpty]="false"
-                showLength="true"
-                (save)="updateTag(project.id, tag.id, $event, tag.color)"
-              ></app-editable-text>
+                (save)="updateTag(project.id, tag.id, $event.value, $event.color)"
+              ></app-editable-tag>
               <button
                 *ngIf="true | can: 'DeleteTag' | async"
                 class="ml-3 btn bg-transparent text-dark btn-sm"

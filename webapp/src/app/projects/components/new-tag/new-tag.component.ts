@@ -5,7 +5,7 @@ import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { Project } from '../../models/project';
 import { ClearMessages, CreateProjectTag } from '../../stores/project-tag.state';
-import { TagColor, TAG_COLORS } from '../../models/tag';
+import * as _ from 'lodash';
 
 @Component({
   selector: 'app-new-tag',
@@ -19,8 +19,11 @@ export class NewTagComponent implements OnInit, OnDestroy {
   @Input()
   project: Project;
 
+  @Input()
+  availableColors: string[] = [];
+
   form = this.fb.group({
-    value: ['', Validators.compose([Validators.required, Validators.pattern('.*[^ ].*')])],
+    value: ['', Validators.compose([Validators.required, Validators.maxLength(30), Validators.pattern('.*[^ ].*')])],
     color: ['', Validators.compose([Validators.required, Validators.pattern('^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$')])],
   });
 
@@ -29,9 +32,6 @@ export class NewTagComponent implements OnInit, OnDestroy {
 
   @Select(state => state.projectTags.errorMessage)
   errorMessage$: Observable<string | undefined>;
-
-  selectedColor: TagColor | undefined;
-  availableColors: TagColor[] = TAG_COLORS;
 
   modal: NgbModalRef | undefined;
 
@@ -43,7 +43,13 @@ export class NewTagComponent implements OnInit, OnDestroy {
     this.reset();
   }
 
+  randomColor() {
+    const choice = _.sample(this.availableColors);
+    if (choice) this.color.setValue(choice);
+  }
+
   open(content) {
+    this.randomColor();
     this.modal = this.modalService.open(content);
     this.modal.result.then(() => this.reset(), () => this.reset());
   }

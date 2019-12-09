@@ -3,6 +3,7 @@ import { IsEmail, IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, Length, 
 import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
+import { IsValidTag } from '../validators/IsValidTag';
 
 export interface JwtPayload {
   sub: string;
@@ -531,7 +532,7 @@ export class UpdateProjectRequest {
 export class AddTagRequest {
   @ApiModelProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
-  @Validate(IsNotOnlyWhitespace)
+  @Validate(IsValidTag)
   value: string;
 
   @ApiModelProperty({ minLength: 7, maxLength: 7 })
@@ -543,7 +544,7 @@ export class AddTagRequest {
 export class UpdateTagRequest {
   @ApiModelProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
-  @Validate(IsNotOnlyWhitespace)
+  @Validate(IsValidTag)
   value: string;
 
   @ApiModelProperty({ minLength: 7, maxLength: 7 })

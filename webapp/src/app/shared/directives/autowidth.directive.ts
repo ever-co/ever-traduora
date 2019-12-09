@@ -1,11 +1,11 @@
 import { AfterViewChecked, Directive, ElementRef, HostListener, Input } from '@angular/core';
 
 @Directive({
-  selector: 'textarea[appAutosize]',
+  selector: 'textarea[appAutowidth]',
 })
-export class AutosizeDirective implements AfterViewChecked {
+export class AutowidthDirective implements AfterViewChecked {
   @Input()
-  maxHeight = 500;
+  minLength = 10;
 
   private lastValue: string;
 
@@ -27,9 +27,7 @@ export class AutosizeDirective implements AfterViewChecked {
       return;
     }
     this.lastValue = textarea.value;
-    // Reset textarea height to auto that correctly calculate the new height
-    textarea.style.height = 'auto';
-    // Set new height
-    textarea.style.height = `${textarea.scrollHeight}px`;
+    textarea.style.width = 'auto';
+    textarea.cols = Math.max(textarea.textLength, this.minLength);
   }
 }

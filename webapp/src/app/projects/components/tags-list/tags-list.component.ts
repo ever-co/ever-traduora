@@ -6,7 +6,7 @@ import { Project } from '../../models/project';
 import { Tag } from '../../models/tag';
 import { ClearMessages, CreateProjectTag, GetProjectTags, ProjectTagState, RemoveProjectTag, UpdateProjectTag } from '../../stores/project-tag.state';
 import { ProjectsState } from '../../stores/projects.state';
-
+import { TAG_COLORS } from '../../models/tag';
 @Component({
   selector: 'app-tags-list',
   templateUrl: './tags-list.component.html',
@@ -24,6 +24,8 @@ export class TagsListComponent implements OnInit, OnDestroy {
 
   @Select(state => state.projectTags.errorMessage)
   errorMessage$: Observable<string | undefined>;
+
+  availableColors: string[] = TAG_COLORS;
 
   newValue = '';
 

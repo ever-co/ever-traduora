@@ -12,13 +12,14 @@
   <div class="modal-body">
     <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
       <div class="form-group">
-        <label for="valueInput" i18n>The tag's label</label>
+        <label for="valueInput" i18n>Tag name</label>
         <input
           id="valueInput"
           class="form-control"
           type="text"
+          maxlength="30"
           formControlName="value"
-          placeholder="The tag's value, i.e. new-feature"
+          placeholder="Some tag to help you organize your project"
           [ngClass]="{ 'is-invalid': value.touched && value.invalid }"
           autocomplete="off"
         />
@@ -29,18 +30,31 @@
       </div>
 
       <div class="form-group">
-        <label for="colorInput" i18n>Select a tag color</label>
-        <div class="input-group">
-          <select id="colorInput" formControlName="color" class="custom-select">
-            <option *ngFor="let color of availableColors" [value]="color.hex">
-              {{ color.displayName }}
-            </option>
-          </select>
+        <label for="colorInput" i18n>Tag color</label>
+        <div class="d-flex flex-row justify-content-start align-items-center">
+          <input
+            id="colorInput"
+            class="form-control mr-1"
+            style="max-width: 120px"
+            type="text"
+            formControlName="color"
+            placeholder="A HEX color like #3AB795"
+            [ngClass]="{ 'is-invalid': color.touched && color.invalid }"
+            autocomplete="off"
+          />
+          <button class="btn btn-secondary rounded-t-0 m-0 px-2 d-flex" style="height: 100%" (click)="randomColor()" type="button" i18n>
+            <i class="material-icons" style="font-size: 18px">autorenew</i>
+          </button>
         </div>
         <div class="invalid-feedback">
           <div *ngIf="color.getError('required')" i18n>Color value is required.</div>
-          <div *ngIf="color.getError('pattern')" i18n>Invalid color.</div>
+          <div *ngIf="color.getError('pattern')" i18n>Invalid HEX color.</div>
         </div>
+      </div>
+
+      <div class="mb-3 d-flex flex-column justify-content-center align-items-center">
+        <p>Preview</p>
+        <app-editable-tag [readOnly]="true" [value]="value.value || 'Example tag'" [backgroundColor]="color.value"></app-editable-tag>
       </div>
 
       <div class="modal-footer">

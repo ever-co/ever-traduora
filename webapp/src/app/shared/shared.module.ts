@@ -14,22 +14,26 @@ import { NotFoundComponent } from './components/not-found/not-found.component';
 import { SearchComponent } from './components/search/search.component';
 import { SelectLocaleModalComponent } from './components/select-locale-modal/select-locale-modal.component';
 import { SelectLocaleComponent } from './components/select-locale/select-locale.component';
-import { AutosizeDirective } from './directives/autosize.directive';
+import { AutoheightDirective } from './directives/autoheight.directive';
 import { CanPipe } from './directives/can.pipe';
 import { DropzoneDirective } from './directives/dropzone.directive';
+import { EditableTagComponent } from './components/editable-tag/editable-tag.component';
+import { AutowidthDirective } from './directives/autowidth.directive';
 
 @NgModule({
   imports: [CommonModule, ReactiveFormsModule, FormsModule, NgbModule, RouterModule.forChild([])],
   declarations: [
     DropzoneDirective,
     EditableTextComponent,
+    EditableTagComponent,
     LoadingIndicatorComponent,
     CountryFlagComponent,
     ErrorMessageComponent,
     TrLogoComponent,
     NotFoundComponent,
     SelectLocaleComponent,
-    AutosizeDirective,
+    AutoheightDirective,
+    AutowidthDirective,
     NewLocaleComponent,
     SelectLocaleModalComponent,
     CanPipe,
@@ -41,15 +45,16 @@ import { DropzoneDirective } from './directives/dropzone.directive';
     FormsModule,
     NgbModule,
     EditableTextComponent,
+    EditableTagComponent,
     LoadingIndicatorComponent,
     CountryFlagComponent,
     DropzoneDirective,
-    AutosizeDirective,
+    AutoheightDirective,
     ErrorMessageComponent,
     TrLogoComponent,
     NotFoundComponent,
     SelectLocaleComponent,
-    AutosizeDirective,
+    AutowidthDirective,
     NewLocaleComponent,
     SelectLocaleModalComponent,
     CanPipe,
