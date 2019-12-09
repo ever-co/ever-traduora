@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { Navigate } from '@ngxs/router-plugin';
 import { Store } from '@ngxs/store';
+import * as _ from 'lodash';
 import { errorToMessage } from '../../../shared/util/api-error';
 import { ImportFormat, ImportResult, IMPORT_FORMATS } from '../../models/import';
 import { Locale } from '../../models/locale';
@@ -91,10 +92,38 @@ export class ImportLocaleComponent implements OnInit {
       list.push(files.item(i));
     }
     this.files = list;
+    this.guessAndSelectFormat();
+  }
+
+  guessAndSelectFormat() {
+    const filenames = this.files.map(v => v.name);
+    const extensions = filenames.map(filename => {
+      const matches = filename.match(/.*\.([a-zA-Z0-9]*)$/);
+      if (matches.length <= 1) {
+        return undefined;
+      }
+      const extension = matches[1];
+      return extension;
+    });
+
+    const mostFrequentExtension = _.head(
+      _(extensions)
+        .countBy()
+        .entries()
+        .maxBy(_.last),
+    );
+
+    if (mostFrequentExtension) {
+      const format = IMPORT_FORMATS.find(v => v.extension === mostFrequentExtension);
+      if (format) {
+        this.selectedFormat = format;
+      }
+    }
   }
 
   removeFile(file: File) {
     this.files = this.files.filter(f => f !== file);
+    this.guessAndSelectFormat();
   }
 
   setHover(event: boolean) {
