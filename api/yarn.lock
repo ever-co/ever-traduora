@@ -4971,6 +4971,18 @@ performance-now@^2.1.0:
   resolved "https://registry.yarnpkg.com/performance-now/-/performance-now-2.1.0.tgz#6309f4e0e5fa913ec1c69307ae364b4b377c9e7b"
   integrity sha1-Ywn04OX6kT7BxpMHrjZLSzd8nns=
 
+php-array-parser@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/php-array-parser/-/php-array-parser-1.0.1.tgz#9da12683c3bebbe228a7e238c716435437631eaa"
+  integrity sha512-elnanzvSd/+U2eWD9Hp2MIab6LzWlnp9J+sTrQasDoR6VsWMDa3fDYBS8pojvu3RwPbpgDUHUxV5WGhfJ1NewQ==
+  dependencies:
+    php-parser "^2.0.3"
+
+php-parser@^2.0.3:
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/php-parser/-/php-parser-2.2.0.tgz#67384f0a5933dbbef40beab0ab31d0b8c582ff88"
+  integrity sha1-ZzhPClkz2770C+qwqzHQuMWC/4g=
+
 pify@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/pify/-/pify-3.0.0.tgz#e5a4acd2c101fdf3d9a4d07f0dbc4db49dd28176"

@@ -11,6 +11,7 @@ To download the source code for each release, check out [GitHub](https://github.
 - [PR-89:](https://github.com/traduora/traduora/pull/89) Added translation progress stats per locale.
 - Increase max size for file import (1MB).
 - Improve error message when importing files which are too large.
+- Support PHP format
 
 ## 0.14.0
 - Minor bug fixes and UI improvements.

@@ -18,6 +18,7 @@ import { yamlNestedExporter } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextExporter } from '../formatters/gettext';
 import { stringsExporter } from '../formatters/strings';
+import { phpExporter } from '../formatters/php';
 import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiConsumes, ApiProduces, ApiResponse } from '@nestjs/swagger';
 import { androidXmlExporter } from '../formatters/android-xml';
 
@@ -108,6 +109,8 @@ export class ExportsController {
         return await gettextExporter(data);
       case 'strings':
         return await stringsExporter(data);
+      case 'php':
+        return await phpExporter(data);
       default:
         throw new Error('Export format not implemented');
     }

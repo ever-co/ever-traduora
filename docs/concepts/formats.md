@@ -105,7 +105,18 @@ msgstr "Check out {{ project.name }}"
 </resources>
 ```
 
+## PHP Arrays
+```php
+<?php
+
+return [
+    "term" => [
+        "one" => "Hello there, this is a translation string",
+        "two" => "Check out :project_name"
+    ],
+];
+```
 
 ## New formats on the way
-The roadmap includes: PHP arrays and Microsoft Resources.
+The roadmap includes: Microsoft Resources.
 

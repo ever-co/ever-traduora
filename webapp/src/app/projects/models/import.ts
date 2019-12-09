@@ -15,6 +15,7 @@ export const IMPORT_FORMATS: ImportFormat[] = [
   { displayName: 'Java Properties', extension: 'properties', code: 'properties' },
   { displayName: 'Gettext (po)', extension: 'po', code: 'po' },
   { displayName: 'Strings', extension: 'strings', code: 'strings' },
+  { displayName: 'PHP', extension: 'php', code: 'php' },
 ];
 
 export interface ImportResult {
