@@ -19,7 +19,6 @@ export class Translation {
   term: Term;
 
   @ManyToOne(type => ProjectLocale, { onDelete: 'CASCADE', nullable: false })
-  @JoinColumn()
   projectLocale: ProjectLocale;
 
   @Column(type => AccessTimestamps)

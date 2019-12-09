@@ -7,6 +7,7 @@ import { ImportFormat, ImportResult, IMPORT_FORMATS } from '../../models/import'
 import { Locale } from '../../models/locale';
 import { Project } from '../../models/project';
 import { ImportService } from '../../services/import.service';
+import { RefreshProjectStats } from '../../stores/projects.state';
 
 @Component({
   selector: 'app-import-locale',
@@ -53,6 +54,7 @@ export class ImportLocaleComponent implements OnInit {
       const result = await this.importService.import(this.project.id, this.selectedLocale, this.selectedFormat, this.files[0]).toPromise();
       this.errorMessage = undefined;
       this.result = result.data;
+      this.store.dispatch(new RefreshProjectStats());
     } catch (error) {
       console.error(error);
       this.errorMessage = errorToMessage(error, 'ImportLocale');

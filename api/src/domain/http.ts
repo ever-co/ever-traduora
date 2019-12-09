@@ -156,6 +156,35 @@ export class ProjectTermDTO {
   date: AccessDatesDTO;
 }
 
+export class ProjectStatsDTO {
+  @ApiModelProperty()
+  progress: number;
+  @ApiModelProperty()
+  translated: number;
+  @ApiModelProperty()
+  total: number;
+  @ApiModelProperty()
+  terms: number;
+  @ApiModelProperty()
+  locales: number;
+}
+
+export class ProjectLocaleStatsDTO {
+  @ApiModelProperty()
+  progress: number;
+  @ApiModelProperty()
+  translated: number;
+  @ApiModelProperty()
+  total: number;
+}
+
+export class GetProjectStatsDTO {
+  @ApiModelProperty()
+  projectStats: ProjectStatsDTO;
+  @ApiModelProperty()
+  localeStats: { [localeCode: string]: ProjectLocaleStatsDTO };
+}
+
 export class ProjectLocaleDTO {
   @ApiModelProperty()
   id: string;
@@ -222,6 +251,11 @@ export class ProjectClientResponse extends ServiceApiResponse<ProjectClientDTO> 
 export class ProjectClientWithSecretResponse extends ServiceApiResponse<ProjectClientWithSecretDTO> {
   @ApiModelProperty()
   data: ProjectClientWithSecretDTO;
+}
+
+export class ProjectStatsResponse extends ServiceApiResponse<GetProjectStatsDTO> {
+  @ApiModelProperty()
+  data: GetProjectStatsDTO;
 }
 
 export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
