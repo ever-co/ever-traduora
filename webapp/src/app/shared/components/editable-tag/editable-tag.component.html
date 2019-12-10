@@ -1,7 +1,7 @@
-<span class="badge" [ngStyle]="{ 'background-color': currentBackgroundColor }">
+<span class="badge p-0" [ngClass]="{ 'rounded-b-0': isEditing }" [ngStyle]="{ 'background-color': currentBackgroundColor }">
   <div class="input-group">
-    <div class="d-flex flex-row">
-      <i class="material-icons align-self-center mr-1" style="font-size: 18px" [ngStyle]="{ color: textColor }">label</i>
+    <div class="d-flex flex-row p-1">
+      <i class="material-icons align-self-center" style="font-size: medium" [ngStyle]="{ color: textColor }">label</i>
       <textarea
         [readOnly]="readOnly"
         #focusTarget

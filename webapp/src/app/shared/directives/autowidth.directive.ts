@@ -5,7 +5,7 @@ import { AfterViewChecked, Directive, ElementRef, HostListener, Input } from '@a
 })
 export class AutowidthDirective implements AfterViewChecked {
   @Input()
-  minLength = 10;
+  minLength = 8;
 
   private lastValue: string;
 

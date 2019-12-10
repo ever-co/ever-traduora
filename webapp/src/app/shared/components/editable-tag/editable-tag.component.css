@@ -6,6 +6,7 @@ textarea {
   border: 0px solid transparent;
   box-shadow: none;
   resize: none;
+  font-size: small;
 }
 
 .form-control:hover:not(.is-editing):not(.readonly) {
@@ -39,6 +40,7 @@ textarea:hover:not(.is-editing):not(.readonly) {
   position: absolute;
   bottom: 0;
   transform: translateY(100%);
+  z-index: 900;
 }
 
 .edit-controls .length-hint,

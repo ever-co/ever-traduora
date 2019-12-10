@@ -10,7 +10,7 @@ textarea {
 
 textarea.is-editing {
   border: 1px solid #e6ecf1 !important;
-} 
+}
 
 .form-control:hover:not(.is-editing):not(.readonly) {
   cursor: pointer;
@@ -47,9 +47,11 @@ textarea:placeholder-shown {
   position: absolute;
   bottom: 0;
   transform: translateY(100%);
+  z-index: 900;
 }
 
-.edit-controls .length-hint, .btn {
+.edit-controls .length-hint,
+.btn {
   box-shadow: rgba(116, 129, 141, 0.1) 0px 3px 8px 0px;
 }
 
