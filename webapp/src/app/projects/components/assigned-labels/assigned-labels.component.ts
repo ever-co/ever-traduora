@@ -26,6 +26,9 @@ export class AssignedLabelsComponent implements OnInit {
   @Output()
   remove = new EventEmitter<Label>();
 
+  @Input()
+  editable: boolean = true;
+
   @Select(ProjectLabelState.errorMessage)
   errorMessage$: Observable<string | undefined>;
 

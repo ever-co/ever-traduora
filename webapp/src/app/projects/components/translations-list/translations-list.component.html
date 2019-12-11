@@ -23,77 +23,84 @@
     </div>
 
     <app-search *ngIf="(translations$ | async).length > 0" [items]="translations$" [key]="searchKey" [trackBy]="trackElement">
-      <ng-template #searchResultsHeader>
-        <div class="mb-3 mx-3" *ngIf="projectLocales$ | async as projectLocales">
-          <div class="d-flex flex-row w-100 align-items-center">
-            <p class="m-0 mr-3 truncate text-sm" style="width: 33%">Term</p>
-            <app-select-locale-modal
-              class="flex-1"
-              [readonly]="false"
-              [currentLocale]="currentLocale"
-              [exclude]="[currentLocale]"
-              [locales]="asLocales(projectLocales)"
-              (select)="setCurrentLocale(project, $event)"
-            >
-            </app-select-locale-modal>
-            <div class="flex-1 d-flex flex-row">
-              <app-select-locale-modal
-                class="mr-1"
-                noSelectionLabel="Pick a reference locale"
-                [currentLocale]="referenceLocale$ | async"
-                [exclude]="[currentLocale]"
-                [locales]="asLocales(projectLocales)"
-                (select)="setReferenceLocale(project, $event)"
-              >
-              </app-select-locale-modal>
-              <button
-                *ngIf="referenceLocale$ | async"
-                type="button"
-                class="close m-0 p-0"
-                aria-label="Remove"
-                (click)="removeReferenceLocale(project)"
-              >
-                <i class="material-icons" style="font-size: 18px">close</i>
-              </button>
+      <div class="mb-3 mx-3" *ngIf="projectLocales$ | async as projectLocales">
+        <ng-template #searchResultsItem let-translation="result">
+          <div class="card mb-3">
+            <div class="card-body">
+              <div class="d-flex flex-column w-100 align-items-start justify-content-center">
+                <div class="d-flex flex-column mb-3 w-100">
+                  <p class="m-0 mb-1 mr-3 truncate text-sm">Term: {{ translation.term.value }}</p>
+                  <app-assigned-labels
+                    hint="Translation labels are only assigned to the current translation locale. Use term labels if you'd like to group all translations for a given term."
+                    [labels]="translation.term.labels"
+                    [availableLabels]="projectLabels$ | async"
+                    [editable]="false"
+                  ></app-assigned-labels>
+                </div>
+                <div class="d-flex flex-row mb-3 w-100">
+                  <!-- TODO: add translation labels UI component -->
+                  <!-- <app-assigned-labels
+                    hint="Translation labels are only assigned to the current translation locale. Use term labels if you'd like to group all translations for a given term."
+                    [labels]="concatLabels(translation)"
+                    [availableLabels]="projectLabels$ | async"
+                    (add)="labelTranslation(project.id, translation, $event)"
+                    (remove)="unlabelTranslation(project.id, translation, $event)"
+                  ></app-assigned-labels> -->
+                  <app-select-locale-modal
+                    class="mr-4"
+                    [readonly]="false"
+                    [currentLocale]="currentLocale"
+                    [exclude]="[currentLocale]"
+                    [locales]="asLocales(projectLocales)"
+                    (select)="setCurrentLocale(project, $event)"
+                  >
+                  </app-select-locale-modal>
+                  <app-editable-text
+                    [readOnly]="!(true | can: 'EditTranslation' | async)"
+                    class="flex-1"
+                    showLength="true"
+                    [value]="translation.value"
+                    placeholder="Not translated yet"
+                    (save)="updateTranslation(project.id, currentLocale.code, translation.term.id, $event)"
+                  >
+                  </app-editable-text>
+                </div>
+                <div class="d-flex flex-row mb-3 w-100 align-items-start">
+                  <app-select-locale-modal
+                    class="mr-1"
+                    noSelectionLabel="Pick a reference locale"
+                    [currentLocale]="referenceLocale$ | async"
+                    [exclude]="[currentLocale]"
+                    [locales]="asLocales(projectLocales)"
+                    (select)="setReferenceLocale(project, $event)"
+                  >
+                  </app-select-locale-modal>
+                  <button
+                    *ngIf="referenceLocale$ | async"
+                    type="button"
+                    class="close m-0 p-0 mr-1"
+                    style="height: 2rem"
+                    aria-label="Remove"
+                    (click)="removeReferenceLocale(project)"
+                  >
+                    <i class="material-icons" style="font-size: 18px">close</i>
+                  </button>
+                  <app-editable-text
+                    *ngIf="referenceLocale$ | async as referenceLocale"
+                    [readOnly]="!(true | can: 'EditTranslation' | async)"
+                    class="flex-1"
+                    showLength="true"
+                    [value]="translation.valueRef"
+                    placeholder="Not translated yet"
+                    (save)="updateTranslation(project.id, referenceLocale.code, translation.term.id, $event)"
+                  >
+                  </app-editable-text>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </ng-template>
-      <ng-template #searchResultsItem let-translation="result">
-        <div class="card mb-3">
-          <div class="card-body">
-            <div class="d-flex flex-row w-100 align-items-center">
-              <p class="m-0 mr-3 truncate text-sm" style="width: 33%">{{ translation.term.value }}</p>
-              <app-editable-text
-                [readOnly]="!(true | can: 'EditTranslation' | async)"
-                class="flex-1"
-                showLength="true"
-                [value]="translation.value"
-                placeholder="Not translated yet"
-                (save)="updateTranslation(project.id, currentLocale.code, translation.term.id, $event)"
-              >
-              </app-editable-text>
-              <app-editable-text
-                *ngIf="referenceLocale$ | async as referenceLocale"
-                [readOnly]="!(true | can: 'EditTranslation' | async)"
-                class="flex-1"
-                showLength="true"
-                [value]="translation.valueRef"
-                placeholder="Not translated yet"
-                (save)="updateTranslation(project.id, referenceLocale.code, translation.term.id, $event)"
-              >
-              </app-editable-text>
-            </div>
-            <app-assigned-labels
-              hint="Translation labels are only assigned to the current translation locale. Use term labels if you'd like to group all translations for a given term."
-              [labels]="concatLabels(translation)"
-              [availableLabels]="projectLabels$ | async"
-              (add)="labelTranslation(project.id, translation, $event)"
-              (remove)="unlabelTranslation(project.id, translation, $event)"
-            ></app-assigned-labels>
-          </div>
-        </div>
-      </ng-template>
+        </ng-template>
+      </div>
     </app-search>
 
     <div

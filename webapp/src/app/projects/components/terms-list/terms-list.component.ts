@@ -68,7 +68,7 @@ export class TermsListComponent implements OnInit, OnDestroy {
   private sub: Subscription;
 
   searchKey = (item: Term) => {
-    return [item.value, ...item.labels.map(v => v.value)].join(' ');
+    return [item.value, ...item.labels.map(v => v.value)].join('').toLowerCase();
   };
 
   constructor(private store: Store) {}

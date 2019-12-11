@@ -21,7 +21,7 @@
 
 <div class="d-flex flex-row justify-content-start align-items-center flex-wrap">
   <button
-    *ngIf="true | can: 'EditLabel' | async"
+    *ngIf="editable && (true | can: 'EditLabel' | async)"
     (click)="open(content)"
     class="m-1 btn btn-sm btn-outline-secondary d-flex justify-content-center align-items-center"
     [ngStyle]="{ 'font-size': 'x-small', height: '1.5rem' }"
@@ -32,7 +32,7 @@
     class="m-1 d-flex align-items-center justify-content-center"
     *ngFor="let label of labels"
     [label]="label"
-    [removable]="(true | can: 'EditLabel' | async) || false"
+    [removable]="(editable && (true | can: 'EditLabel' | async)) || false"
     (remove)="remove.emit($event)"
   ></app-label>
 </div>

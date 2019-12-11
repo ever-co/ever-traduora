@@ -139,7 +139,8 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   }
 
   searchKey(item: { term: Term; value: string; valueRef: string }): string {
-    return `${item.term.value}${item.value}${item.valueRef}`.toLowerCase();
+    const termLabels = item.term.labels.map(v => v.value).join(' ');
+    return `${item.term.value}${item.value}${item.valueRef}${termLabels}`.toLowerCase();
   }
 
   trackElement(index: number, element: { term: Term; value: string; valueRef: string }) {
@@ -160,13 +161,15 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   }
 
   labelTranslation(projectId, translation, label) {
+    // TODO
     console.log(translation, label);
-    // this.store.dispatch(new LabelTerm(projectId, label, termId));
+    // this.store.dispatch(new LabelTranslation(projectId, label, termId, localeCode));
   }
 
   unlabelTranslation(projectId, translation, label) {
+    // TODO
     console.log(translation, label);
-    // this.store.dispatch(new UnlabelTerm(projectId, label, termId));
+    // this.store.dispatch(new UnlabelTranslation(projectId, label, termId, localeCode));
   }
 
   concatLabels(view: TranslationView) {
