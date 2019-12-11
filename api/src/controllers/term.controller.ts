@@ -8,6 +8,8 @@ import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
 import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Translation } from '../entity/translation.entity';
+import { ProjectLocale } from '../entity/project-locale.entity';
 
 @Controller('api/v1/projects/:projectId/terms')
 @UseGuards(AuthGuard())
@@ -17,7 +19,8 @@ export default class TermController {
   constructor(
     private auth: AuthorizationService,
     @InjectRepository(Term) private termRepo: Repository<Term>,
-    @InjectRepository(Project) private projectRepo: Repository<Project>,
+    @InjectRepository(Translation) private translationRepo: Repository<Translation>,
+    @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
   ) {}
 
   @Get()
@@ -67,6 +70,23 @@ export default class TermController {
 
     await this.termRepo.manager.transaction(async entityManager => {
       await entityManager.save(term);
+
+      const projectLocales = await this.projectLocaleRepo.find({
+        where: {
+          project: membership.project,
+        },
+      });
+
+      const translations = projectLocales.map(projectLocale =>
+        this.translationRepo.create({
+          projectLocale: projectLocale,
+          term: term,
+          value: '',
+          labels: [],
+        }),
+      );
+      await entityManager.save(translations);
+
       await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', 1);
     });
 

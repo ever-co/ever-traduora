@@ -128,6 +128,14 @@ export default class ProjectLabelController {
     term.labels.push(label);
 
     await this.termsRepo.save(term);
+
+    const translations = await this.translationsRepo.find({ where: { termId: term.id }, relations: ['labels'] });
+
+    translations.forEach(t => {
+      t.labels.push(label);
+    });
+
+    await this.translationsRepo.save(translations);
   }
 
   @Delete(':labelId/terms/:termId')
