@@ -17,7 +17,7 @@ import { SelectLocaleComponent } from './components/select-locale/select-locale.
 import { AutoheightDirective } from './directives/autoheight.directive';
 import { CanPipe } from './directives/can.pipe';
 import { DropzoneDirective } from './directives/dropzone.directive';
-import { EditableLabelComponent } from './components/editable-label/editable-label.component';
+import { LabelComponent } from './components/label/label.component';
 import { AutowidthDirective } from './directives/autowidth.directive';
 import { SelectLabelComponent } from './components/select-label/select-label.component';
 
@@ -26,7 +26,7 @@ import { SelectLabelComponent } from './components/select-label/select-label.com
   declarations: [
     DropzoneDirective,
     EditableTextComponent,
-    EditableLabelComponent,
+    LabelComponent,
     LoadingIndicatorComponent,
     CountryFlagComponent,
     ErrorMessageComponent,
@@ -47,7 +47,7 @@ import { SelectLabelComponent } from './components/select-label/select-label.com
     FormsModule,
     NgbModule,
     EditableTextComponent,
-    EditableLabelComponent,
+    LabelComponent,
     LoadingIndicatorComponent,
     SelectLabelComponent,
     CountryFlagComponent,

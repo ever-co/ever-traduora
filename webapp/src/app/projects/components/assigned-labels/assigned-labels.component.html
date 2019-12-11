@@ -28,12 +28,11 @@
   >
     <i class="material-icons text-sm">add</i>Label
   </button>
-  <app-editable-label
+  <app-label
     class="m-1 d-flex align-items-center justify-content-center"
     *ngFor="let label of labels"
-    [readOnly]="true"
     [label]="label"
     [removable]="(true | can: 'EditLabel' | async) || false"
     (remove)="remove.emit($event)"
-  ></app-editable-label>
+  ></app-label>
 </div>

@@ -4,7 +4,7 @@ import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
 import * as _ from 'lodash';
 import { Observable } from 'rxjs';
-import { Label } from '../../models/label';
+import { Label, TAG_COLORS } from '../../models/label';
 import { Project } from '../../models/project';
 import { ClearMessages, UpdateProjectLabel } from '../../stores/project-label.state';
 
@@ -19,9 +19,6 @@ export class EditLabelComponent implements OnInit, OnDestroy {
 
   @Input()
   label: Label;
-
-  @Input()
-  availableColors: string[] = [];
 
   form = this.fb.group({
     value: ['', Validators.compose([Validators.required, Validators.maxLength(30), Validators.pattern('.*[^ ].*')])],
@@ -45,7 +42,7 @@ export class EditLabelComponent implements OnInit, OnDestroy {
   }
 
   randomColor() {
-    const choice = _.sample(this.availableColors);
+    const choice = _.sample(TAG_COLORS);
     if (choice) this.color.setValue(choice);
   }
 

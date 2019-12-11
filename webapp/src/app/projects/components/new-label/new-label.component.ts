@@ -2,10 +2,11 @@ import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
+import * as _ from 'lodash';
 import { Observable } from 'rxjs';
+import { TAG_COLORS } from '../../models/label';
 import { Project } from '../../models/project';
 import { ClearMessages, CreateProjectLabel } from '../../stores/project-label.state';
-import * as _ from 'lodash';
 
 @Component({
   selector: 'app-new-label',
@@ -19,8 +20,7 @@ export class NewLabelComponent implements OnInit, OnDestroy {
   @Input()
   project: Project;
 
-  @Input()
-  availableColors: string[] = [];
+  initialValue = 'Example label';
 
   form = this.fb.group({
     value: ['', Validators.compose([Validators.required, Validators.maxLength(30), Validators.pattern('.*[^ ].*')])],
@@ -44,11 +44,12 @@ export class NewLabelComponent implements OnInit, OnDestroy {
   }
 
   randomColor() {
-    const choice = _.sample(this.availableColors);
+    const choice = _.sample(TAG_COLORS);
     if (choice) this.color.setValue(choice);
   }
 
   open(content) {
+    this.value.setValue(this.initialValue);
     this.randomColor();
     this.modal = this.modalService.open(content);
     this.modal.result.then(() => this.reset(), () => this.reset());

@@ -1,0 +1,16 @@
+<span class="badge p-0" [ngStyle]="{ 'background-color': label.color }">
+  <div class="input-group">
+    <div class="d-flex flex-row p-1 justify-content-center align-items-center" [ngStyle]="{ color: textColor }">
+      <i class="material-icons align-self-center" style="font-size: small">label</i>
+      <p class="font-xs m-0 mx-1 p-0" style="font-size: smaller">{{ label.value }}</p>
+      <button
+        *ngIf="removable"
+        [ngStyle]="{ color: textColor }"
+        class="m-0 px-1 d-flex justify-content-between align-self-center bg-transparent border-0"
+        (click)="onRemove(label)"
+      >
+        <i class="material-icons" style="font-size: smaller">close</i>
+      </button>
+    </div>
+  </div>
+</span>

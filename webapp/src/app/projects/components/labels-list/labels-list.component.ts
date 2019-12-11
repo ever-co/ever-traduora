@@ -4,7 +4,14 @@ import { BehaviorSubject, Observable, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map, switchMap, tap } from 'rxjs/operators';
 import { Project } from '../../models/project';
 import { Label } from '../../models/label';
-import { ClearMessages, CreateProjectLabel, GetProjectLabels, ProjectLabelState, RemoveProjectLabel, UpdateProjectLabel } from '../../stores/project-label.state';
+import {
+  ClearMessages,
+  CreateProjectLabel,
+  GetProjectLabels,
+  ProjectLabelState,
+  RemoveProjectLabel,
+  UpdateProjectLabel,
+} from '../../stores/project-label.state';
 import { ProjectsState } from '../../stores/projects.state';
 import { TAG_COLORS } from '../../models/label';
 @Component({
@@ -24,8 +31,6 @@ export class LabelsListComponent implements OnInit, OnDestroy {
 
   @Select(state => state.projectLabels.errorMessage)
   errorMessage$: Observable<string | undefined>;
-
-  availableColors: string[] = TAG_COLORS;
 
   newValue = '';
 

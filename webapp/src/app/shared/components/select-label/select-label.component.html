@@ -2,7 +2,7 @@
   <div class="card p-3 mb-3 d-flex flex-column justify-content-start align-items-start" *ngIf="selection">
     <p class="m-0 text-muted">Selected:</p>
     <div class="w-100 d-flex flex-row justify-content-between align-items-center">
-      <app-editable-label class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [label]="selection"></app-editable-label>
+      <app-label class="m-1 d-flex align-items-center justify-content-center" [label]="selection"></app-label>
     </div>
   </div>
   <div *ngIf="availableLabels().length as labelCount" class="input-group input-group mb-3">
@@ -33,7 +33,7 @@
         [ngClass]="{ active: selection ? selection.id === label.id : false }"
         (click)="select(label)"
       >
-        <app-editable-label class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [label]="label"></app-editable-label>
+        <app-label class="m-1 d-flex align-items-center justify-content-center" [label]="label"></app-label>
       </li>
     </ul>
     <div class="d-flex w-100 justify-content-end">
