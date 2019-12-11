@@ -18,7 +18,7 @@ export const androidXmlParser: Parser = async (data: string) => {
               const translation = translationElem.type === 'text' ? translationElem.text : '';
               result.push({
                 term: term,
-                translation: translation,
+                translation: unescape(translation),
               });
             }
           }
@@ -35,7 +35,7 @@ export const androidXmlParser: Parser = async (data: string) => {
 export const androidXmlExporter: Exporter = async (data: IntermediateTranslationFormat) => {
   const strings = data.translations.map(translation => ({
     _attributes: { name: translation.term },
-    _text: translation.translation,
+    _text: escape(translation.translation),
   }));
   return xmlJs.js2xml(
     {
@@ -47,3 +47,11 @@ export const androidXmlExporter: Exporter = async (data: IntermediateTranslation
     { compact: true },
   );
 };
+
+function unescape(str: string): string {
+  return str.replace(/(?<!\\)"/g, '').replace(/\\([\'@"\?])/g, '$1');
+}
+
+function escape(str: string): string {
+  return str.replace(/([\'@"\?])/g, '\\$1');
+}
