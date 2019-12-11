@@ -17,7 +17,7 @@ export class AssignedLabelsComponent implements OnInit {
   project$: Observable<Project | undefined>;
 
   @Input()
-  hint: string = '';
+  hint = '';
 
   @Input()
   labels: Label[];
@@ -32,7 +32,7 @@ export class AssignedLabelsComponent implements OnInit {
   remove = new EventEmitter<Label>();
 
   @Input()
-  editable: boolean = true;
+  editable = true;
 
   @Select(ProjectLabelState.errorMessage)
   errorMessage$: Observable<string | undefined>;
@@ -47,8 +47,6 @@ export class AssignedLabelsComponent implements OnInit {
   constructor(private modalService: NgbModal, private store: Store) {}
 
   ngOnInit() {}
-
-  ngOnDestroy() {}
 
   open(content) {
     this.modal = this.modalService.open(content);

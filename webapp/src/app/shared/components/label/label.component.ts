@@ -20,8 +20,7 @@ export class LabelComponent implements OnInit {
   get textColor(): string {
     if (this.label) {
       const hsl = hexToHSL(this.label.color);
-      if (hsl.luminance >= 50) return this.darkText;
-      else return this.lightText;
+      return hsl.luminance >= 50 ? this.darkText : this.lightText;
     }
     return this.lightText;
   }

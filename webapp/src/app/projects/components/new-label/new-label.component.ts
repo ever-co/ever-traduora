@@ -48,7 +48,9 @@ export class NewLabelComponent implements OnInit, OnDestroy {
 
   randomColor() {
     const choice = _.sample(TAG_COLORS);
-    if (choice) this.color.setValue(choice);
+    if (choice) {
+      this.color.setValue(choice);
+    }
   }
 
   open(content) {
