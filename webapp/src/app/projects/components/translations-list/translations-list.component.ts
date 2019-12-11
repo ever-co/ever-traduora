@@ -140,7 +140,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   }
 
   searchKey(item: TranslationView): string {
-    const termLabels = item.labels.map(v => v.value).join(' ');
+    const termLabels = item.labels ? item.labels.map(v => v.value).join(' ') : '';
     return `${item.term.value}${item.value}${item.valueRef}${termLabels}`.toLowerCase();
   }
 

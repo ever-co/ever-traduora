@@ -4,6 +4,8 @@ import { Select, Store } from '@ngxs/store';
 import { ProjectLabelState, ClearMessages } from '../../stores/project-label.state';
 import { Observable } from 'rxjs';
 import { NgbModalRef, NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { Project } from '../../models/project';
+import { ProjectsState } from '../../stores/projects.state';
 
 @Component({
   selector: 'app-assigned-labels',
@@ -11,6 +13,9 @@ import { NgbModalRef, NgbModal } from '@ng-bootstrap/ng-bootstrap';
   styleUrls: ['./assigned-labels.component.css'],
 })
 export class AssignedLabelsComponent implements OnInit {
+  @Select(ProjectsState.currentProject)
+  project$: Observable<Project | undefined>;
+
   @Input()
   hint: string = '';
 

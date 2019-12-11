@@ -18,6 +18,9 @@ export class NewLabelComponent implements OnInit, OnDestroy {
   btnClass = 'btn-light';
 
   @Input()
+  buttonLabel = 'New Label';
+
+  @Input()
   project: Project;
 
   initialValue = 'Example label';

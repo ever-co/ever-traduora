@@ -14,6 +14,8 @@
     </app-select-label>
   </div>
   <div class="modal-footer">
+    <app-new-label *ngIf="true | can: 'AddLabel' | async" [project]="project$ | async" buttonLabel="Create a new label"></app-new-label>
+    <div class="flex-1"></div>
     <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
     <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()" i18n>Add selected</button>
   </div>
