@@ -10,12 +10,11 @@
       <ng-template #searchResultsItem let-tag="result">
         <div class="card mb-3">
           <div class="card-body">
-            <div class="d-flex flex-row w-100">
+            <div class="d-flex flex-row w-100 justify-content-center align-items-center">
               <app-editable-tag
                 class="flex-1"
                 [readOnly]="!(true | can: 'EditTag' | async)"
-                [value]="tag.value"
-                [backgroundColor]="tag.color"
+                [tag]="tag"
                 [availableColors]="availableColors"
                 placeholder="Tag name cannot be empty"
                 [allowEmpty]="false"

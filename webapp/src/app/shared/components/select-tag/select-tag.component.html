@@ -1,0 +1,45 @@
+<div>
+  <div class="card p-3 mb-3 d-flex flex-column justify-content-start align-items-start" *ngIf="selection">
+    <p class="m-0 text-muted">Selected:</p>
+    <div class="w-100 d-flex flex-row justify-content-between align-items-center">
+      <app-editable-tag class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [tag]="selection"></app-editable-tag>
+    </div>
+  </div>
+  <div *ngIf="availableTags().length as tagCount" class="input-group input-group mb-3">
+    <div class="input-group-prepend">
+      <span class="input-group-text"><i class="material-icons">search</i></span>
+    </div>
+    <input
+      id="tagsSearch"
+      name="tagsSearch"
+      type="text"
+      [placeholder]="'Search over ' + tagCount + ' tags...'"
+      class="form-control"
+      autocomplete="off"
+      (keyup)="text$.next($event.target.value)"
+    />
+  </div>
+  <div class="d-flex flex-column">
+    <ul class="list-group w-100 mb-2" [ngStyle]="{ 'min-height': preserveHeight ? limit * 50 + 'px' : 0 }">
+      <li
+        *ngIf="!loading && ((results$ | async) || defaultTags()).length == 0"
+        class="m-0 alert alert-secondary d-flex justify-content-start align-items-center"
+      >
+        No tags available
+      </li>
+      <li
+        *ngFor="let tag of (results$ | async) || defaultTags()"
+        class="list-group-item list-group-item-action d-flex justify-content-start align-items-center"
+        [ngClass]="{ active: selection ? selection.id === tag.id : false }"
+        (click)="select(tag)"
+      >
+        <app-editable-tag class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [tag]="tag"></app-editable-tag>
+      </li>
+    </ul>
+    <div class="d-flex w-100 justify-content-end">
+      <p class="text-sm text-muted m-0">
+        <span class="font-weight-bold">{{ availableTags().length }}</span> available tags
+      </p>
+    </div>
+  </div>
+</div>

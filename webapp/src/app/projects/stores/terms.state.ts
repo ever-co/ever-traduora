@@ -6,6 +6,7 @@ import { errorToMessage } from '../../shared/util/api-error';
 import { Term } from '../models/term';
 import { ProjectTermsService } from '../services/terms.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
+import { TagTerm, UntagTerm } from './project-tag.state';
 
 export class ClearMessages {
   static readonly type = '[Terms] Clear messages';
@@ -131,6 +132,30 @@ export class TermsState implements NgxsOnInit {
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
     );
+  }
+
+  @Action(TagTerm)
+  tagTerm(ctx: StateContext<TermsStateModel>, action: TagTerm) {
+    const terms = ctx.getState().terms;
+    const updated = terms.map(v => {
+      if (v.id === action.termId) {
+        v.tags = [...v.tags, action.tag];
+      }
+      return v;
+    });
+    ctx.patchState({ terms: updated });
+  }
+
+  @Action(UntagTerm)
+  untagTerm(ctx: StateContext<TermsStateModel>, action: UntagTerm) {
+    const terms = ctx.getState().terms;
+    const updated = terms.map(v => {
+      if (v.id === action.termId) {
+        v.tags = v.tags.filter(t => t.id !== action.tag.id);
+      }
+      return v;
+    });
+    ctx.patchState({ terms: updated });
   }
 
   @Action(ClearMessages)

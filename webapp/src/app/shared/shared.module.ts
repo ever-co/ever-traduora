@@ -19,6 +19,7 @@ import { CanPipe } from './directives/can.pipe';
 import { DropzoneDirective } from './directives/dropzone.directive';
 import { EditableTagComponent } from './components/editable-tag/editable-tag.component';
 import { AutowidthDirective } from './directives/autowidth.directive';
+import { SelectTagComponent } from './components/select-tag/select-tag.component';
 
 @NgModule({
   imports: [CommonModule, ReactiveFormsModule, FormsModule, NgbModule, RouterModule.forChild([])],
@@ -32,6 +33,7 @@ import { AutowidthDirective } from './directives/autowidth.directive';
     TrLogoComponent,
     NotFoundComponent,
     SelectLocaleComponent,
+    SelectTagComponent,
     AutoheightDirective,
     AutowidthDirective,
     NewLocaleComponent,
@@ -47,6 +49,7 @@ import { AutowidthDirective } from './directives/autowidth.directive';
     EditableTextComponent,
     EditableTagComponent,
     LoadingIndicatorComponent,
+    SelectTagComponent,
     CountryFlagComponent,
     DropzoneDirective,
     AutoheightDirective,

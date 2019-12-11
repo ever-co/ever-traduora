@@ -31,6 +31,7 @@ import { TranslationsState } from './stores/translations.state';
 import { ProjectTagState } from './stores/project-tag.state';
 import { TagsListComponent } from './components/tags-list/tags-list.component';
 import { NewTagComponent } from './components/new-tag/new-tag.component';
+import { AssignedTagsComponent } from './components/assigned-tags/assigned-tags.component';
 
 @NgModule({
   imports: [
@@ -85,6 +86,7 @@ import { NewTagComponent } from './components/new-tag/new-tag.component';
     ApiClientsOverviewComponent,
     AddApiClientComponent,
     ApiClientComponent,
+    AssignedTagsComponent,
   ],
 })
 export class ProjectsModule {}

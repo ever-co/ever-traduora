@@ -29,15 +29,13 @@
                 <i class="material-icons" style="font-size: 1.25rem">close</i>
               </button>
             </div>
-            <div class="d-flex flex-row">
-              <app-editable-tag
-                class="m-1"
-                *ngFor="let tag of term.tags"
-                [readOnly]="true"
-                [value]="tag.value"
-                [backgroundColor]="tag.color"
-              ></app-editable-tag>
-            </div>
+            <app-assigned-tags
+              hint="Term tags are automatically assigned to all related translations."
+              [tags]="term.tags"
+              [availableTags]="projectTags$ | async"
+              (add)="tagTerm(project.id, term.id, $event)"
+              (remove)="untagTerm(project.id, term.id, $event)"
+            ></app-assigned-tags>
           </div>
         </div>
       </ng-template>

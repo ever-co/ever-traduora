@@ -1,0 +1,37 @@
+<ng-template #content let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title font-serif" i18n>Assigned tags</h4>
+    <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
+      <i class="material-icons">close</i>
+    </button>
+  </div>
+  <div class="modal-body">
+    <app-error-message *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
+    <p class="text-muted" i18n>
+      {{ hint }}
+    </p>
+    <app-select-tag class="mb-5" [tags]="availableTags" [exclude]="tags" [limit]="5" (selectTag)="selectedTag = $event"> </app-select-tag>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
+    <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()" i18n>Add selected</button>
+  </div>
+</ng-template>
+
+<div class="d-flex flex-row justify-content-start align-items-center flex-wrap">
+  <button
+    (click)="open(content)"
+    class="m-1 btn btn-sm btn-outline-secondary d-flex justify-content-center align-items-center"
+    [ngStyle]="{ 'font-size': 'x-small', height: '1.5rem' }"
+  >
+    <i class="material-icons text-sm">add</i>Tag
+  </button>
+  <app-editable-tag
+    class="m-1 d-flex align-items-center justify-content-center"
+    *ngFor="let tag of tags"
+    [readOnly]="true"
+    [tag]="tag"
+    [removable]="true"
+    (remove)="remove.emit($event)"
+  ></app-editable-tag>
+</div>

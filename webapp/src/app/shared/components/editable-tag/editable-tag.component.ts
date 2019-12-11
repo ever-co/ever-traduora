@@ -1,6 +1,7 @@
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, ViewChild } from '@angular/core';
 import { hexToHSL } from './../../util/color-utils';
 import * as _ from 'lodash';
+import { Tag } from '../../../projects/models/tag';
 
 @Component({
   selector: 'app-editable-tag',
@@ -12,7 +13,7 @@ export class EditableTagComponent implements OnInit, OnChanges {
   readOnly = false;
 
   @Input()
-  value = '';
+  tag: Tag;
 
   @Input()
   placeholder = '';
@@ -21,27 +22,30 @@ export class EditableTagComponent implements OnInit, OnChanges {
   allowEmpty = false;
 
   @Input()
-  backgroundColor = '#008C45';
+  removable = false;
 
   @Input()
   availableColors: string[] = [];
 
   get textColor(): string {
-    const hsl = hexToHSL(this.currentBackgroundColor);
+    const hsl = hexToHSL(this.editedBackgroundColor);
     if (hsl.luminance >= 50) return '#202020';
-    else return '#dfdfdf';
+    else return '#f0f0f0';
   }
 
   @Output()
-  save = new EventEmitter<{ value: string; color: string }>();
+  save = new EventEmitter<Tag>();
+
+  @Output()
+  remove = new EventEmitter<Tag>();
 
   @ViewChild('focusTarget')
   focusTarget: ElementRef;
 
   isEditing = false;
 
-  current = '';
-  currentBackgroundColor = '';
+  editedValue = '';
+  editedBackgroundColor = '';
 
   constructor() {}
 
@@ -49,15 +53,15 @@ export class EditableTagComponent implements OnInit, OnChanges {
 
   ngOnChanges() {
     if (!this.isEditing) {
-      this.current = this.value;
-      this.currentBackgroundColor = this.backgroundColor;
+      this.editedValue = this.tag.value;
+      this.editedBackgroundColor = this.tag.color;
     }
   }
 
   enterEdit() {
     if (!this.isEditing) {
-      this.current = this.value;
-      this.currentBackgroundColor = this.backgroundColor;
+      this.editedValue = this.tag.value;
+      this.editedBackgroundColor = this.tag.color;
       this.isEditing = true;
       this.focus();
     }
@@ -69,27 +73,32 @@ export class EditableTagComponent implements OnInit, OnChanges {
   }
 
   revert() {
-    this.current = this.value;
-    this.currentBackgroundColor = this.backgroundColor;
+    this.editedValue = this.tag.value;
+    this.editedBackgroundColor = this.tag.color;
     this.exitEdit();
   }
 
   randomColor() {
-    this.currentBackgroundColor = _.sample(this.availableColors);
+    this.editedBackgroundColor = _.sample(this.availableColors);
   }
 
   onSave() {
     if (this.valid()) {
-      this.save.emit({ value: this.current, color: this.currentBackgroundColor });
+      this.save.emit({ id: this.tag.id, value: this.editedValue, color: this.editedBackgroundColor });
       this.exitEdit();
     }
+  }
+
+  onRemove() {
+    this.remove.emit(this.tag);
+    this.exitEdit();
   }
 
   valid() {
     if (this.allowEmpty) {
       return true;
     }
-    return this.current && this.current.length > 0;
+    return this.editedValue && this.editedValue.length > 0;
   }
 
   focus() {

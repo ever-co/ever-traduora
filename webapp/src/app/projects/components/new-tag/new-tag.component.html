@@ -1,7 +1,7 @@
 <ng-template #content let-modal>
   <div class="modal-header flex-column">
     <div class="d-flex flex-row w-100">
-      <h4 class="modal-title font-serif flex-1" i18n>Add a new Tag</h4>
+      <h4 class="modal-title font-serif flex-1" i18n>Create a new Tag</h4>
       <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
         <i class="material-icons">close</i>
       </button>
@@ -18,6 +18,7 @@
           class="form-control"
           type="text"
           maxlength="30"
+          style="max-width: 380px"
           formControlName="value"
           placeholder="Some tag to help you organize your project"
           [ngClass]="{ 'is-invalid': value.touched && value.invalid }"
@@ -54,13 +55,13 @@
 
       <div class="mb-3 d-flex flex-column justify-content-center align-items-center">
         <p>Preview</p>
-        <app-editable-tag [readOnly]="true" [value]="value.value || 'Example tag'" [backgroundColor]="color.value"></app-editable-tag>
+        <app-editable-tag [readOnly]="true" [tag]="{ id: '', value: value.value, color: color.value }"></app-editable-tag>
       </div>
 
       <div class="modal-footer">
         <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
         <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-sm btn-primary w-100" style="max-width: 120px;" i18n>
-          Add
+          Create
         </button>
       </div>
     </form>

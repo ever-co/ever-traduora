@@ -1,6 +1,6 @@
-<span class="badge p-0" [ngClass]="{ 'rounded-b-0': isEditing }" [ngStyle]="{ 'background-color': currentBackgroundColor }">
+<span class="badge p-0" [ngClass]="{ 'rounded-b-0': isEditing }" [ngStyle]="{ 'background-color': editedBackgroundColor }">
   <div class="input-group">
-    <div class="d-flex flex-row p-1">
+    <div class="d-flex flex-row px-1">
       <i class="material-icons align-self-center" style="font-size: medium" [ngStyle]="{ color: textColor }">label</i>
       <textarea
         [readOnly]="readOnly"
@@ -9,11 +9,11 @@
         maxlength="30"
         rows="1"
         class="form-control form-control-sm rounded font-weight-bold"
-        [ngStyle]="{ color: textColor }"
+        [ngStyle]="{ color: textColor, 'font-size': 'smaller' }"
         [ngClass]="{ 'rounded-b-0 is-editing': isEditing && !readOnly, readonly: readOnly }"
         id="tagInputEditable"
-        [value]="current"
-        (input)="current = $event.target.value"
+        [value]="editedValue"
+        (input)="editedValue = $event.target.value"
         autocomplete="off"
         (click)="!readOnly && enterEdit()"
         [placeholder]="placeholder"
@@ -23,6 +23,14 @@
         appAutowidth
       >
       </textarea>
+      <button
+        *ngIf="removable"
+        [ngStyle]="{ color: textColor }"
+        class="m-0 px-1 d-flex justify-content-between align-self-center bg-transparent border-0"
+        (click)="onRemove(tag)"
+      >
+        <i class="material-icons" style="font-size: smaller">close</i>
+      </button>
     </div>
     <div *ngIf="isEditing && !readOnly" class="edit-controls d-flex w-100 justify-content-between">
       <button

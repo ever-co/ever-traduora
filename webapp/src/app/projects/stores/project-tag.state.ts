@@ -30,6 +30,16 @@ export class RemoveProjectTag {
   constructor(public projectId: string, public tagId: string) {}
 }
 
+export class TagTerm {
+  static readonly type = '[ProjectTag] Tag term';
+  constructor(public projectId: string, public tag: Tag, public termId: string) {}
+}
+
+export class UntagTerm {
+  static readonly type = '[ProjectTag] Untag term';
+  constructor(public projectId: string, public tag: Tag, public termId: string) {}
+}
+
 export interface ProjectTagStateModel {
   tags: Tag[];
   isLoading: boolean;
@@ -57,6 +67,11 @@ export class ProjectTagState implements NgxsOnInit {
   @Selector()
   static isLoading(state: ProjectTagStateModel) {
     return state.isLoading;
+  }
+
+  @Selector()
+  static errorMessage(state: ProjectTagStateModel) {
+    return state.errorMessage;
   }
 
   ngxsOnInit(ctx: StateContext<ProjectTagStateModel>) {}
@@ -122,6 +137,30 @@ export class ProjectTagState implements NgxsOnInit {
         const tags = ctx.getState().tags.filter(v => v.id !== action.tagId);
         ctx.patchState({ tags });
       }),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(TagTerm)
+  tagTerm(ctx: StateContext<ProjectTagStateModel>, action: TagTerm) {
+    ctx.patchState({ isLoading: true });
+    return this.projectTagsService.tagTerm(action.projectId, action.tag.id, action.termId).pipe(
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(UntagTerm)
+  untagTerm(ctx: StateContext<ProjectTagStateModel>, action: UntagTerm) {
+    ctx.patchState({ isLoading: true });
+    return this.projectTagsService.untagTerm(action.projectId, action.tag.id, action.termId).pipe(
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);

@@ -6,6 +6,8 @@ import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
 import { ClearMessages, CreateTerm, DeleteTerm, GetTerms, TermsState, UpdateTerm } from '../../stores/terms.state';
+import { TagTerm, UntagTerm, ProjectTagState, GetProjectTags } from '../../stores/project-tag.state';
+import { Tag } from '../../models/tag';
 
 @Component({
   selector: 'app-terms-list',
@@ -18,6 +20,9 @@ export class TermsListComponent implements OnInit, OnDestroy {
 
   @Select(TermsState.terms)
   projectTerms$: Observable<Term[]>;
+
+  @Select(ProjectTagState.tags)
+  projectTags$: Observable<Tag[]>;
 
   @Select(state => state.terms.isLoading)
   isLoading$: Observable<boolean>;
@@ -67,12 +72,18 @@ export class TermsListComponent implements OnInit, OnDestroy {
   constructor(private store: Store) {}
 
   ngOnInit() {
-    this.sub = this.project$.pipe(tap(project => this.store.dispatch(new GetTerms(project.id)))).subscribe();
+    this.sub = this.project$
+      .pipe(
+        tap(project => {
+          this.store.dispatch(new GetTerms(project.id));
+          this.store.dispatch(new GetProjectTags(project.id));
+        }),
+      )
+      .subscribe();
   }
 
   ngOnDestroy() {
     this.sub.unsubscribe();
-
     this.store.dispatch(new ClearMessages());
   }
 
@@ -92,6 +103,14 @@ export class TermsListComponent implements OnInit, OnDestroy {
     if (confirm('Are you sure that you want to delete this term?')) {
       this.store.dispatch(new DeleteTerm(projectId, termId));
     }
+  }
+
+  tagTerm(projectId, termId, tag) {
+    this.store.dispatch(new TagTerm(projectId, tag, termId));
+  }
+
+  untagTerm(projectId, termId, tag) {
+    this.store.dispatch(new UntagTerm(projectId, tag, termId));
   }
 
   trackElement(index: number, term: Term) {
