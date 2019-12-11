@@ -22,12 +22,13 @@ import {
   TranslationsState,
   UpdateTranslation,
 } from '../../stores/translations.state';
-import { ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
+import { ProjectLabelState, GetProjectLabels, LabelTranslation, UnlabelTranslation } from '../../stores/project-label.state';
 import { Label } from '../../models/label';
 
 interface TranslationView {
   term: Term;
   translation: Translation | undefined;
+  labels: Label[];
   value: string;
   valueRef: string;
 }
@@ -138,8 +139,8 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     }
   }
 
-  searchKey(item: { term: Term; value: string; valueRef: string }): string {
-    const termLabels = item.term.labels.map(v => v.value).join(' ');
+  searchKey(item: TranslationView): string {
+    const termLabels = item.labels.map(v => v.value).join(' ');
     return `${item.term.value}${item.value}${item.valueRef}${termLabels}`.toLowerCase();
   }
 
@@ -160,24 +161,17 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     }
   }
 
-  labelTranslation(projectId, translation, label) {
-    // TODO
-    console.log(translation, label);
-    // this.store.dispatch(new LabelTranslation(projectId, label, termId, localeCode));
+  labelTranslation(projectId, termId, label, localeCode) {
+    this.store.dispatch(new LabelTranslation(projectId, label, termId, localeCode));
   }
 
-  unlabelTranslation(projectId, translation, label) {
-    // TODO
-    console.log(translation, label);
-    // this.store.dispatch(new UnlabelTranslation(projectId, label, termId, localeCode));
+  unlabelTranslation(projectId, termId, label, localeCode) {
+    this.store.dispatch(new UnlabelTranslation(projectId, label, termId, localeCode));
   }
 
   concatLabels(view: TranslationView) {
     // There might be no translation for this term yet.
-    if (!view.translation) {
-      return view.term.labels;
-    }
-    return [...view.term.labels, ...view.translation.labels];
+    return view.labels;
   }
 
   async setReferenceLocale(project: Project, locale: Locale) {
@@ -214,6 +208,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
       return {
         term,
         translation,
+        labels: translation ? translation.labels : [],
         value: translation ? translation.value : '',
         valueRef: refTranslation ? refTranslation.value : '',
       };

@@ -9,6 +9,7 @@ import { ProjectLocale } from '../models/project-locale';
 import { Translation } from '../models/translation';
 import { ProjectTranslationsService } from '../services/translations.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
+import { LabelTranslation, UnlabelTranslation } from './project-label.state';
 
 export class ClearMessages {
   static readonly type = '[Translations] Clear messages';
@@ -212,6 +213,36 @@ export class TranslationsState implements NgxsOnInit {
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
     );
+  }
+
+  @Action(LabelTranslation)
+  labelTranslation(ctx: StateContext<TranslationsStateModel>, action: LabelTranslation) {
+    const translations = ctx.getState().translations;
+    const forLocale = translations[action.localeCode];
+    if (forLocale) {
+      const updated = forLocale.map(v => {
+        if (v.termId === action.termId) {
+          v.labels = [...v.labels, action.label];
+        }
+        return v;
+      });
+      ctx.patchState({ translations: { ...translations, [action.localeCode]: updated } });
+    }
+  }
+
+  @Action(UnlabelTranslation)
+  unlabelTranslation(ctx: StateContext<TranslationsStateModel>, action: UnlabelTranslation) {
+    const translations = ctx.getState().translations;
+    const forLocale = translations[action.localeCode];
+    if (forLocale) {
+      const updated = forLocale.map(v => {
+        if (v.termId === action.termId) {
+          v.labels = v.labels.filter(t => t.id !== action.label.id);
+        }
+        return v;
+      });
+      ctx.patchState({ translations: { ...translations, [action.localeCode]: updated } });
+    }
   }
 
   @Action(ClearMessages)

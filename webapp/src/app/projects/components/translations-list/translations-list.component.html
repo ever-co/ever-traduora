@@ -24,28 +24,24 @@
 
     <app-search *ngIf="(translations$ | async).length > 0" [items]="translations$" [key]="searchKey" [trackBy]="trackElement">
       <div class="mb-3 mx-3" *ngIf="projectLocales$ | async as projectLocales">
-        <ng-template #searchResultsItem let-translation="result">
+        <ng-template #searchResultsItem let-translationView="result">
           <div class="card mb-3">
             <div class="card-body">
               <div class="d-flex flex-column w-100 align-items-start justify-content-center">
                 <div class="d-flex flex-column mb-3 w-100">
-                  <p class="m-0 mb-1 mr-3 truncate text-sm">Term: {{ translation.term.value }}</p>
+                  <p class="m-0 mb-1 mr-3 truncate text-sm"><span class="text-muted">Term:</span> {{ translationView.term.value }}</p>
                   <app-assigned-labels
-                    hint="Translation labels are only assigned to the current translation locale. Use term labels if you'd like to group all translations for a given term."
-                    [labels]="translation.term.labels"
+                    hint="Hint: You can use term labels if you'd like to assign a label to all related translations."
+                    [labels]="translationView.labels"
                     [availableLabels]="projectLabels$ | async"
-                    [editable]="false"
+                    (add)="labelTranslation(project.id, translationView.term.id, $event, currentLocale.code)"
+                    (remove)="unlabelTranslation(project.id, translationView.term.id, $event, currentLocale.code)"
                   ></app-assigned-labels>
                 </div>
+                <div class="w-100">
+                  <div class="border-top my-3"></div>
+                </div>
                 <div class="d-flex flex-row mb-3 w-100">
-                  <!-- TODO: add translation labels UI component -->
-                  <!-- <app-assigned-labels
-                    hint="Translation labels are only assigned to the current translation locale. Use term labels if you'd like to group all translations for a given term."
-                    [labels]="concatLabels(translation)"
-                    [availableLabels]="projectLabels$ | async"
-                    (add)="labelTranslation(project.id, translation, $event)"
-                    (remove)="unlabelTranslation(project.id, translation, $event)"
-                  ></app-assigned-labels> -->
                   <app-select-locale-modal
                     class="mr-4"
                     [readonly]="false"
@@ -59,9 +55,9 @@
                     [readOnly]="!(true | can: 'EditTranslation' | async)"
                     class="flex-1"
                     showLength="true"
-                    [value]="translation.value"
+                    [value]="translationView.value"
                     placeholder="Not translated yet"
-                    (save)="updateTranslation(project.id, currentLocale.code, translation.term.id, $event)"
+                    (save)="updateTranslation(project.id, currentLocale.code, translationView.term.id, $event)"
                   >
                   </app-editable-text>
                 </div>
@@ -90,9 +86,9 @@
                     [readOnly]="!(true | can: 'EditTranslation' | async)"
                     class="flex-1"
                     showLength="true"
-                    [value]="translation.valueRef"
+                    [value]="translationView.valueRef"
                     placeholder="Not translated yet"
-                    (save)="updateTranslation(project.id, referenceLocale.code, translation.term.id, $event)"
+                    (save)="updateTranslation(project.id, referenceLocale.code, translationView.term.id, $event)"
                   >
                   </app-editable-text>
                 </div>

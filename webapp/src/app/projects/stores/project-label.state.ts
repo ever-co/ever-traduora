@@ -40,6 +40,16 @@ export class UnlabelTerm {
   constructor(public projectId: string, public label: Label, public termId: string) {}
 }
 
+export class LabelTranslation {
+  static readonly type = '[ProjectLabel] Label translation';
+  constructor(public projectId: string, public label: Label, public termId: string, public localeCode: string) {}
+}
+
+export class UnlabelTranslation {
+  static readonly type = '[ProjectLabel] Unlabel translation';
+  constructor(public projectId: string, public label: Label, public termId: string, public localeCode: string) {}
+}
+
 export interface ProjectLabelStateModel {
   labels: Label[];
   isLoading: boolean;
@@ -161,6 +171,30 @@ export class ProjectLabelState implements NgxsOnInit {
   unlabelTerm(ctx: StateContext<ProjectLabelStateModel>, action: UnlabelTerm) {
     ctx.patchState({ isLoading: true });
     return this.projectLabelsService.unlabelTerm(action.projectId, action.label.id, action.termId).pipe(
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(LabelTranslation)
+  labelTranslation(ctx: StateContext<ProjectLabelStateModel>, action: LabelTranslation) {
+    ctx.patchState({ isLoading: true });
+    return this.projectLabelsService.labelTranslation(action.projectId, action.label.id, action.termId, action.localeCode).pipe(
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(UnlabelTranslation)
+  unlabelTranslation(ctx: StateContext<ProjectLabelStateModel>, action: UnlabelTranslation) {
+    ctx.patchState({ isLoading: true });
+    return this.projectLabelsService.unlabelTranslation(action.projectId, action.label.id, action.termId, action.localeCode).pipe(
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
