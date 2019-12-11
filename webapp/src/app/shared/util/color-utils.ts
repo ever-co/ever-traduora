@@ -51,7 +51,9 @@ export function hexToHSL(hex: string): HSL {
 
   hue = Math.round(hue * 60);
 
-  if (hue < 0) hue += 360;
+  if (hue < 0) {
+    hue += 360;
+  }
 
   luminance = (maxColor + minColor) / 2;
   saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * luminance - 1));
