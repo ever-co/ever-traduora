@@ -26,13 +26,13 @@ The API server can be configured via the following environment variables:
 | TR_MAX_PROJECTS_PER_USER | The max number of projects that can be created per user | 100 |
 | TR_DEFAULT_PROJECT_PLAN | The default project plan, by default set to *open-source* and is limited to 100,000 strings (you are free to change it) | open-source |
 | TR_DB_AUTOMIGRATE | If enabled, on startup the server will ensure that all DB migrations have been applied | true |
-| TR_MAIL_DEBUG | If enabled, and default mail settings are untouched it will log the preview email link instead of sending it to the actual recipient | false |
-| TR_MAIL_SENDER | The mail sender | no-reply@localhost.com |
-| TR_MAIL_HOST | The mail server host | smtp.ethereal.email |
+| TR_MAIL_DEBUG | If enabled, it log a preview email link | false |
+| TR_MAIL_SENDER | The mail sender | not set |
+| TR_MAIL_HOST | The mail server host | not set |
 | TR_MAIL_PORT | The mail server port | 587 |
 | TR_MAIL_SECURE | If enabled, attempt to send mail securely | false |
-| TR_MAIL_USER | The auth user for the mail server | l4kzu3nw7o4x45wz@ethereal.email |
-| TR_MAIL_PASSWORD | The auth password for the mail server | 3mJgh1g9dpMf3uZaBM |
+| TR_MAIL_USER | The auth user for the mail server | not set |
+| TR_MAIL_PASSWORD | The auth password for the mail server | not set |
 | TR_AUTH_GOOGLE_ENABLED | Set to 'true' if you'd like to enable sign-in with Google | not set |
 | TR_AUTH_GOOGLE_CLIENT_ID | Your Google OAuth client ID | not set |
 | TR_AUTH_GOOGLE_CLIENT_SECRET | Your Google OAuth client secret | not set |

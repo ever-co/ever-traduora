@@ -32,13 +32,13 @@ export const config = {
   },
   mail: {
     debug: getBoolOrDefault(env.TR_MAIL_DEBUG, false),
-    sender: env.TR_MAIL_SENDER || 'no-reply@localhost.com',
-    host: env.TR_MAIL_HOST || 'smtp.ethereal.email',
+    sender: env.TR_MAIL_SENDER,
+    host: env.TR_MAIL_HOST,
     port: parseInt(env.TR_MAIL_PORT, 10) || 587,
     secure: getBoolOrDefault(env.TR_MAIL_SECURE, false),
     auth: {
-      user: env.TR_MAIL_USER || 'l4kzu3nw7o4x45wz@ethereal.email',
-      pass: env.TR_MAIL_PASSWORD || '3mJgh1g9dpMf3uZaBM',
+      user: env.TR_MAIL_USER,
+      pass: env.TR_MAIL_PASSWORD,
     },
   },
   db: {
