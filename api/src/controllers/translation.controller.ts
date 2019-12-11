@@ -176,7 +176,7 @@ export default class TranslationController {
       throw new NotFoundException('term not found');
     }
 
-    let translation = await this.translationRepo.findOne({ where: { termId: term.id, projectLocale: projectLocale } });
+    let translation = await this.translationRepo.findOne({ where: { termId: term.id, projectLocale: projectLocale }, relations: ['labels'] });
     if (translation) {
       translation.value = payload.value;
     } else {
