@@ -22,6 +22,15 @@ import {
   TranslationsState,
   UpdateTranslation,
 } from '../../stores/translations.state';
+import { ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
+import { Label } from '../../models/label';
+
+interface TranslationView {
+  term: Term;
+  translation: Translation | undefined;
+  value: string;
+  valueRef: string;
+}
 
 @Component({
   selector: 'app-translations-list',
@@ -49,6 +58,9 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
 
   @Select(state => state.terms.errorMessage)
   errorMessage$: Observable<string | undefined>;
+
+  @Select(ProjectLabelState.labels)
+  projectLabels$: Observable<Label[]>;
 
   localeCode$: Observable<string | undefined> = this.route.paramMap.pipe(map(params => params.get('localeCode')));
 
@@ -81,6 +93,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
           filter(project => !!project),
           tap(project => {
             this.store.dispatch([new GetProjectLocales(project.id), new GetKnownLocales(), new GetTerms(project.id)]);
+            this.store.dispatch(new GetProjectLabels(project.id));
           }),
           flatMap(project => {
             return this.localeCode$.pipe(map(localeCode => this.store.dispatch(new GetTranslations(project.id, localeCode))));
@@ -146,6 +159,24 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     }
   }
 
+  labelTranslation(projectId, translation, label) {
+    console.log(translation, label);
+    // this.store.dispatch(new LabelTerm(projectId, label, termId));
+  }
+
+  unlabelTranslation(projectId, translation, label) {
+    console.log(translation, label);
+    // this.store.dispatch(new UnlabelTerm(projectId, label, termId));
+  }
+
+  concatLabels(view: TranslationView) {
+    // There might be no translation for this term yet.
+    if (!view.translation) {
+      return view.term.labels;
+    }
+    return [...view.term.labels, ...view.translation.labels];
+  }
+
   async setReferenceLocale(project: Project, locale: Locale) {
     if (locale) {
       await this.store.dispatch(new GetTranslations(project.id, locale.code));
@@ -165,7 +196,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     localeCode: string,
     referenceLocaleCode: string | undefined,
     options: { filterTranslated: boolean | undefined },
-  ): { term: Term; value: string; valueRef: string }[] {
+  ): TranslationView[] {
     // Find translations for locales, fallback to empty list if not found.
     const mainTranslations = translationsIndex[localeCode] || [];
     const refTranslations = referenceLocaleCode ? translationsIndex[referenceLocaleCode] || [] : [];
@@ -179,6 +210,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
       const refTranslation = refTranslationsByTermId[term.id];
       return {
         term,
+        translation,
         value: translation ? translation.value : '',
         valueRef: refTranslation ? refTranslation.value : '',
       };

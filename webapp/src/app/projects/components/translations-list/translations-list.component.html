@@ -1,22 +1,16 @@
-<app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
-<div *ngIf="(currentLocale$ | async) as currentLocale" class="w-100 h-100">
-  <div *ngIf="(project$ | async) as project" class="h-100">
+<app-error-message *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
+<div *ngIf="currentLocale$ | async as currentLocale" class="w-100 h-100">
+  <div *ngIf="project$ | async as project" class="h-100">
     <div class="d-flex justify-content-center align-items-center mb-4 section-title-row">
       <h5 class="m-0 font-serif">
         Translations
       </h5>
       <span class="flex-1"></span>
       <div class="form-check text-sm mr-3">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          value=""
-          (change)="onFiltersChanged($event.target.checked)"
-          id="untranslatedFilter"
-        />
+        <input class="form-check-input" type="checkbox" value="" (change)="onFiltersChanged($event.target.checked)" id="untranslatedFilter" />
         <label class="form-check-label" for="untranslatedFilter" i18n>Hide translated</label>
       </div>
-      <div ngbDropdown placement="bottom-right" *ngIf="(true | can: 'DeleteTranslation' | async)">
+      <div ngbDropdown placement="bottom-right" *ngIf="true | can: 'DeleteTranslation' | async">
         <button class="btn m-0 p-0 bg-transparent btn-sm d-flex" ngbDropdownToggle>
           <i class="text-secondary material-icons">settings</i>
         </button>
@@ -30,7 +24,7 @@
 
     <app-search *ngIf="(translations$ | async).length > 0" [items]="translations$" [key]="searchKey" [trackBy]="trackElement">
       <ng-template #searchResultsHeader>
-        <div class="mb-3 mx-3" *ngIf="(projectLocales$ | async) as projectLocales">
+        <div class="mb-3 mx-3" *ngIf="projectLocales$ | async as projectLocales">
           <div class="d-flex flex-row w-100 align-items-center">
             <p class="m-0 mr-3 truncate text-sm" style="width: 33%">Term</p>
             <app-select-locale-modal
@@ -53,7 +47,7 @@
               >
               </app-select-locale-modal>
               <button
-                *ngIf="(referenceLocale$ | async)"
+                *ngIf="referenceLocale$ | async"
                 type="button"
                 class="close m-0 p-0"
                 aria-label="Remove"
@@ -80,7 +74,7 @@
               >
               </app-editable-text>
               <app-editable-text
-                *ngIf="(referenceLocale$ | async) as referenceLocale"
+                *ngIf="referenceLocale$ | async as referenceLocale"
                 [readOnly]="!(true | can: 'EditTranslation' | async)"
                 class="flex-1"
                 showLength="true"
@@ -90,6 +84,13 @@
               >
               </app-editable-text>
             </div>
+            <app-assigned-labels
+              hint="Translation labels are only assigned to the current translation locale. Use term labels if you'd like to group all translations for a given term."
+              [labels]="concatLabels(translation)"
+              [availableLabels]="projectLabels$ | async"
+              (add)="labelTranslation(project.id, translation, $event)"
+              (remove)="unlabelTranslation(project.id, translation, $event)"
+            ></app-assigned-labels>
           </div>
         </div>
       </ng-template>
