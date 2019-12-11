@@ -145,7 +145,7 @@ describe('TranslationController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
       });
 
     await request(app.getHttpServer())
@@ -157,7 +157,7 @@ describe('TranslationController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
       });
   });
 
@@ -179,7 +179,7 @@ describe('TranslationController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(res.body.data.value).toEqual('őúüöá');
       });
 
@@ -192,7 +192,7 @@ describe('TranslationController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(res.body.data).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(res.body.data.value).toEqual('őúüöá 😀👍🍉你好');
       });
   });
@@ -274,7 +274,7 @@ describe('TranslationController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(res.body.data[0].termId).toEqual(termId);
         expect(res.body.data[0].value).toEqual('eins');
       });
@@ -285,7 +285,7 @@ describe('TranslationController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(res.body.data[0].termId).toEqual(termId);
         expect(res.body.data[0].value).toEqual('un');
       });

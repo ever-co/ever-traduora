@@ -17,23 +17,23 @@ import { SelectLocaleComponent } from './components/select-locale/select-locale.
 import { AutoheightDirective } from './directives/autoheight.directive';
 import { CanPipe } from './directives/can.pipe';
 import { DropzoneDirective } from './directives/dropzone.directive';
-import { EditableTagComponent } from './components/editable-tag/editable-tag.component';
+import { EditableLabelComponent } from './components/editable-label/editable-label.component';
 import { AutowidthDirective } from './directives/autowidth.directive';
-import { SelectTagComponent } from './components/select-tag/select-tag.component';
+import { SelectLabelComponent } from './components/select-label/select-label.component';
 
 @NgModule({
   imports: [CommonModule, ReactiveFormsModule, FormsModule, NgbModule, RouterModule.forChild([])],
   declarations: [
     DropzoneDirective,
     EditableTextComponent,
-    EditableTagComponent,
+    EditableLabelComponent,
     LoadingIndicatorComponent,
     CountryFlagComponent,
     ErrorMessageComponent,
     TrLogoComponent,
     NotFoundComponent,
     SelectLocaleComponent,
-    SelectTagComponent,
+    SelectLabelComponent,
     AutoheightDirective,
     AutowidthDirective,
     NewLocaleComponent,
@@ -47,9 +47,9 @@ import { SelectTagComponent } from './components/select-tag/select-tag.component
     FormsModule,
     NgbModule,
     EditableTextComponent,
-    EditableTagComponent,
+    EditableLabelComponent,
     LoadingIndicatorComponent,
-    SelectTagComponent,
+    SelectLabelComponent,
     CountryFlagComponent,
     DropzoneDirective,
     AutoheightDirective,

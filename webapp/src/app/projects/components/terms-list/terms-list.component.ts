@@ -6,8 +6,8 @@ import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
 import { ClearMessages, CreateTerm, DeleteTerm, GetTerms, TermsState, UpdateTerm } from '../../stores/terms.state';
-import { TagTerm, UntagTerm, ProjectTagState, GetProjectTags } from '../../stores/project-tag.state';
-import { Tag } from '../../models/tag';
+import { LabelTerm, UnlabelTerm, ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
+import { Label } from '../../models/label';
 
 @Component({
   selector: 'app-terms-list',
@@ -21,8 +21,8 @@ export class TermsListComponent implements OnInit, OnDestroy {
   @Select(TermsState.terms)
   projectTerms$: Observable<Term[]>;
 
-  @Select(ProjectTagState.tags)
-  projectTags$: Observable<Tag[]>;
+  @Select(ProjectLabelState.labels)
+  projectLabels$: Observable<Label[]>;
 
   @Select(state => state.terms.isLoading)
   isLoading$: Observable<boolean>;
@@ -76,7 +76,7 @@ export class TermsListComponent implements OnInit, OnDestroy {
       .pipe(
         tap(project => {
           this.store.dispatch(new GetTerms(project.id));
-          this.store.dispatch(new GetProjectTags(project.id));
+          this.store.dispatch(new GetProjectLabels(project.id));
         }),
       )
       .subscribe();
@@ -105,12 +105,12 @@ export class TermsListComponent implements OnInit, OnDestroy {
     }
   }
 
-  tagTerm(projectId, termId, tag) {
-    this.store.dispatch(new TagTerm(projectId, tag, termId));
+  labelTerm(projectId, termId, label) {
+    this.store.dispatch(new LabelTerm(projectId, label, termId));
   }
 
-  untagTerm(projectId, termId, tag) {
-    this.store.dispatch(new UntagTerm(projectId, tag, termId));
+  unlabelTerm(projectId, termId, label) {
+    this.store.dispatch(new UnlabelTerm(projectId, label, termId));
   }
 
   trackElement(index: number, term: Term) {

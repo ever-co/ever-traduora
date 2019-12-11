@@ -1,40 +1,40 @@
 import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
-import { Tag } from '../../models/tag';
+import { Label } from '../../models/label';
 import { Select, Store } from '@ngxs/store';
-import { ProjectTagState, ClearMessages } from '../../stores/project-tag.state';
+import { ProjectLabelState, ClearMessages } from '../../stores/project-label.state';
 import { Observable } from 'rxjs';
 import { NgbModalRef, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 
 @Component({
-  selector: 'app-assigned-tags',
-  templateUrl: './assigned-tags.component.html',
-  styleUrls: ['./assigned-tags.component.css'],
+  selector: 'app-assigned-labels',
+  templateUrl: './assigned-labels.component.html',
+  styleUrls: ['./assigned-labels.component.css'],
 })
-export class AssignedTagsComponent implements OnInit {
+export class AssignedLabelsComponent implements OnInit {
   @Input()
   hint: string = '';
 
   @Input()
-  tags: Tag[];
+  labels: Label[];
 
   @Input()
-  availableTags: Tag[];
+  availableLabels: Label[];
 
   @Output()
-  add = new EventEmitter<Tag>();
+  add = new EventEmitter<Label>();
 
   @Output()
-  remove = new EventEmitter<Tag>();
+  remove = new EventEmitter<Label>();
 
-  @Select(ProjectTagState.errorMessage)
+  @Select(ProjectLabelState.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
-  @Select(ProjectTagState.isLoading)
+  @Select(ProjectLabelState.isLoading)
   isLoading$: Observable<boolean>;
 
   modal: NgbModalRef | undefined;
 
-  selectedTag: Tag | undefined;
+  selectedLabel: Label | undefined;
 
   constructor(private modalService: NgbModal, private store: Store) {}
 
@@ -48,15 +48,15 @@ export class AssignedTagsComponent implements OnInit {
   }
 
   confirmSelection() {
-    this.add.emit(this.selectedTag);
+    this.add.emit(this.selectedLabel);
     this.modal.close();
   }
 
   isValid() {
-    return !!this.selectedTag;
+    return !!this.selectedLabel;
   }
 
   reset() {
-    this.selectedTag = undefined;
+    this.selectedLabel = undefined;
   }
 }

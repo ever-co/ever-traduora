@@ -1,7 +1,7 @@
-import { Tag } from './tag';
+import { Label } from './label';
 
 export interface Translation {
   termId: string;
   value: string;
-  tags: Tag[];
+  labels: Label[];
 }

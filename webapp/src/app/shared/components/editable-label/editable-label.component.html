@@ -11,7 +11,7 @@
         class="form-control form-control-sm rounded font-weight-bold"
         [ngStyle]="{ color: textColor, 'font-size': 'smaller' }"
         [ngClass]="{ 'rounded-b-0 is-editing': isEditing && !readOnly, readonly: readOnly }"
-        id="tagInputEditable"
+        id="labelInputEditable"
         [value]="editedValue"
         (input)="editedValue = $event.target.value"
         autocomplete="off"
@@ -27,7 +27,7 @@
         *ngIf="removable"
         [ngStyle]="{ color: textColor }"
         class="m-0 px-1 d-flex justify-content-between align-self-center bg-transparent border-0"
-        (click)="onRemove(tag)"
+        (click)="onRemove(label)"
       >
         <i class="material-icons" style="font-size: smaller">close</i>
       </button>

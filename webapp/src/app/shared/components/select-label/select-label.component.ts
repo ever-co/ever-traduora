@@ -1,19 +1,19 @@
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output } from '@angular/core';
 import { BehaviorSubject, merge, Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
-import { Tag } from '../../../projects/models/tag';
+import { Label } from '../../../projects/models/label';
 
 @Component({
-  selector: 'app-select-tag',
-  templateUrl: './select-tag.component.html',
-  styleUrls: ['./select-tag.component.css'],
+  selector: 'app-select-label',
+  templateUrl: './select-label.component.html',
+  styleUrls: ['./select-label.component.css'],
 })
-export class SelectTagComponent implements OnInit, OnChanges {
+export class SelectLabelComponent implements OnInit, OnChanges {
   @Input()
-  tags: Tag[] = [];
+  labels: Label[] = [];
 
   @Input()
-  exclude: Tag[] = [];
+  exclude: Label[] = [];
 
   @Input()
   limit = 25;
@@ -25,9 +25,9 @@ export class SelectTagComponent implements OnInit, OnChanges {
   preserveHeight = false;
 
   @Output()
-  selectTag = new EventEmitter<Tag>();
+  selectLabel = new EventEmitter<Label>();
 
-  selection: Tag | undefined;
+  selection: Label | undefined;
 
   text$ = new BehaviorSubject<string>('');
 
@@ -38,17 +38,17 @@ export class SelectTagComponent implements OnInit, OnChanges {
     distinctUntilChanged(),
   );
 
-  results$: Observable<Tag[]> = merge(this.debouncedText$, this.ngChanged$).pipe(
+  results$: Observable<Label[]> = merge(this.debouncedText$, this.ngChanged$).pipe(
     map(text => {
       if (text === '') {
-        return this.defaultTags();
+        return this.defaultLabels();
       }
 
       const tokens = text.toLowerCase().split(' ');
 
-      return this.availableTags()
-        .filter(tag => {
-          const searchString = this.tagToSearchString(tag);
+      return this.availableLabels()
+        .filter(label => {
+          const searchString = this.labelToSearchString(label);
           for (const token of tokens) {
             if (searchString.indexOf(token) === -1) {
               return false;
@@ -68,24 +68,24 @@ export class SelectTagComponent implements OnInit, OnChanges {
     this.ngChanged$.next(this.text$.getValue());
   }
 
-  select(tag: Tag) {
-    this.selection = tag;
-    this.selectTag.emit(tag);
+  select(label: Label) {
+    this.selection = label;
+    this.selectLabel.emit(label);
   }
 
-  defaultTags(): Tag[] {
-    const all = this.availableTags();
+  defaultLabels(): Label[] {
+    const all = this.availableLabels();
     if (all.length < this.limit) {
       return all.slice(0, this.limit);
     }
     return all.slice(0, this.limit);
   }
 
-  availableTags() {
-    return this.tags.filter(v => !this.exclude.map(x => x.id).includes(v.id));
+  availableLabels() {
+    return this.labels.filter(v => !this.exclude.map(x => x.id).includes(v.id));
   }
 
-  tagToSearchString(tag: Tag): string {
-    return tag.value.toLowerCase();
+  labelToSearchString(label: Label): string {
+    return label.value.toLowerCase();
   }
 }

@@ -3,7 +3,7 @@ import { IsEmail, IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, Length, 
 import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
-import { IsValidTag } from '../validators/IsValidTag';
+import { IsValidLabel } from '../validators/IsValidLabel';
 
 export interface JwtPayload {
   sub: string;
@@ -154,12 +154,12 @@ export class ProjectTermDTO {
   @ApiModelProperty()
   value: string;
   @ApiModelProperty()
-  tags: ProjectTagDTO[];
+  labels: ProjectLabelDTO[];
   @ApiModelProperty()
   date: AccessDatesDTO;
 }
 
-export class ProjectTagDTO {
+export class ProjectLabelDTO {
   @ApiModelProperty()
   id: string;
   @ApiModelProperty()
@@ -212,7 +212,7 @@ export class TermTranslationDTO {
   @ApiModelProperty()
   value: string;
   @ApiModelProperty()
-  tags: ProjectTagDTO[];
+  labels: ProjectLabelDTO[];
   @ApiModelProperty()
   date: AccessDatesDTO;
 }
@@ -332,14 +332,14 @@ export class ProjectTermResponse extends ServiceApiResponse<ProjectTermDTO> {
   data: ProjectTermDTO;
 }
 
-export class ListProjectTagsResponse extends ServiceApiResponse<ProjectTagDTO[]> {
-  @ApiModelProperty({ type: ProjectTagDTO, isArray: true })
-  data: ProjectTagDTO[];
+export class ListProjectLabelsResponse extends ServiceApiResponse<ProjectLabelDTO[]> {
+  @ApiModelProperty({ type: ProjectLabelDTO, isArray: true })
+  data: ProjectLabelDTO[];
 }
 
-export class ProjectTagResponse extends ServiceApiResponse<ProjectTagDTO> {
+export class ProjectLabelResponse extends ServiceApiResponse<ProjectLabelDTO> {
   @ApiModelProperty()
-  data: ProjectTagDTO;
+  data: ProjectLabelDTO;
 }
 
 export class ListProjectTermsResponse extends ServiceApiResponse<ProjectTermDTO[]> {
@@ -529,10 +529,10 @@ export class UpdateProjectRequest {
   description: string | undefined;
 }
 
-export class AddTagRequest {
+export class AddLabelRequest {
   @ApiModelProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
-  @Validate(IsValidTag)
+  @Validate(IsValidLabel)
   value: string;
 
   @ApiModelProperty({ minLength: 7, maxLength: 7 })
@@ -541,10 +541,10 @@ export class AddTagRequest {
   color: string;
 }
 
-export class UpdateTagRequest {
+export class UpdateLabelRequest {
   @ApiModelProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
-  @Validate(IsValidTag)
+  @Validate(IsValidLabel)
   value: string;
 
   @ApiModelProperty({ minLength: 7, maxLength: 7 })

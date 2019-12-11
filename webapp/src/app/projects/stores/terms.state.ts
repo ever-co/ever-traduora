@@ -6,7 +6,7 @@ import { errorToMessage } from '../../shared/util/api-error';
 import { Term } from '../models/term';
 import { ProjectTermsService } from '../services/terms.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
-import { TagTerm, UntagTerm } from './project-tag.state';
+import { LabelTerm, UnlabelTerm } from './project-label.state';
 
 export class ClearMessages {
   static readonly type = '[Terms] Clear messages';
@@ -134,24 +134,24 @@ export class TermsState implements NgxsOnInit {
     );
   }
 
-  @Action(TagTerm)
-  tagTerm(ctx: StateContext<TermsStateModel>, action: TagTerm) {
+  @Action(LabelTerm)
+  labelTerm(ctx: StateContext<TermsStateModel>, action: LabelTerm) {
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
-        v.tags = [...v.tags, action.tag];
+        v.labels = [...v.labels, action.label];
       }
       return v;
     });
     ctx.patchState({ terms: updated });
   }
 
-  @Action(UntagTerm)
-  untagTerm(ctx: StateContext<TermsStateModel>, action: UntagTerm) {
+  @Action(UnlabelTerm)
+  unlabelTerm(ctx: StateContext<TermsStateModel>, action: UnlabelTerm) {
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
-        v.tags = v.tags.filter(t => t.id !== action.tag.id);
+        v.labels = v.labels.filter(t => t.id !== action.label.id);
       }
       return v;
     });

@@ -1,10 +1,10 @@
-export class Tag {
+export class Label {
   id: string;
   value: string;
   color: string;
 }
 
-export interface TagColor {
+export interface LabelColor {
   hex: string;
   displayName: string;
   textMode: string;

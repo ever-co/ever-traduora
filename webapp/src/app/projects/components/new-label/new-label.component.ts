@@ -4,15 +4,15 @@ import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { Project } from '../../models/project';
-import { ClearMessages, CreateProjectTag } from '../../stores/project-tag.state';
+import { ClearMessages, CreateProjectLabel } from '../../stores/project-label.state';
 import * as _ from 'lodash';
 
 @Component({
-  selector: 'app-new-tag',
-  templateUrl: './new-tag.component.html',
-  styleUrls: ['./new-tag.component.css'],
+  selector: 'app-new-label',
+  templateUrl: './new-label.component.html',
+  styleUrls: ['./new-label.component.css'],
 })
-export class NewTagComponent implements OnInit, OnDestroy {
+export class NewLabelComponent implements OnInit, OnDestroy {
   @Input()
   btnClass = 'btn-light';
 
@@ -27,10 +27,10 @@ export class NewTagComponent implements OnInit, OnDestroy {
     color: ['', Validators.compose([Validators.required, Validators.pattern('^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$')])],
   });
 
-  @Select(state => state.projectTags.isLoading)
+  @Select(state => state.projectLabels.isLoading)
   isLoading$: Observable<boolean>;
 
-  @Select(state => state.projectTags.errorMessage)
+  @Select(state => state.projectLabels.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   modal: NgbModalRef | undefined;
@@ -58,7 +58,7 @@ export class NewTagComponent implements OnInit, OnDestroy {
     if (!this.form.valid) {
       return;
     }
-    await this.store.dispatch(new CreateProjectTag(this.project.id, this.value.value as string, this.color.value as string)).toPromise();
+    await this.store.dispatch(new CreateProjectLabel(this.project.id, this.value.value as string, this.color.value as string)).toPromise();
     this.modal.close();
   }
 

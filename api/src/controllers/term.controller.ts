@@ -33,13 +33,13 @@ export default class TermController {
     const terms = await this.termRepo.find({
       where: { project: { id: membership.project.id } },
       order: { value: 'ASC' },
-      relations: ['tags'],
+      relations: ['labels'],
     });
 
     const data = terms.map(t => ({
       id: t.id,
       value: t.value,
-      tags: t.tags,
+      labels: t.labels,
       date: t.date,
     }));
 
@@ -74,7 +74,7 @@ export default class TermController {
       data: {
         id: term.id,
         value: term.value,
-        tags: [],
+        labels: [],
         date: term.date,
       },
     };
@@ -95,13 +95,13 @@ export default class TermController {
 
     await this.termRepo.update({ id: termId }, { value: payload.value });
 
-    const term = await this.termRepo.findOneOrFail({ id: termId }, { relations: ['tags'] });
+    const term = await this.termRepo.findOneOrFail({ id: termId }, { relations: ['labels'] });
 
     return {
       data: {
         id: term.id,
         value: term.value,
-        tags: term.tags,
+        labels: term.labels,
         date: term.date,
       },
     };

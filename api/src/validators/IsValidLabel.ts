@@ -1,7 +1,7 @@
 import { ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
 
 @ValidatorConstraint({ name: 'containsChars', async: false })
-export class IsValidTag implements ValidatorConstraintInterface {
+export class IsValidLabel implements ValidatorConstraintInterface {
   validate(text: string, args: ValidationArguments) {
     if (typeof text !== 'string') {
       return false;

@@ -28,16 +28,16 @@ import { ProjectRole } from './models/project-role';
 import { ProjectsState } from './stores/projects.state';
 import { TermsState } from './stores/terms.state';
 import { TranslationsState } from './stores/translations.state';
-import { ProjectTagState } from './stores/project-tag.state';
-import { TagsListComponent } from './components/tags-list/tags-list.component';
-import { NewTagComponent } from './components/new-tag/new-tag.component';
-import { AssignedTagsComponent } from './components/assigned-tags/assigned-tags.component';
+import { ProjectLabelState } from './stores/project-label.state';
+import { LabelsListComponent } from './components/labels-list/labels-list.component';
+import { NewLabelComponent } from './components/new-label/new-label.component';
+import { AssignedLabelsComponent } from './components/assigned-labels/assigned-labels.component';
 
 @NgModule({
   imports: [
     CommonModule,
     SharedModule,
-    NgxsModule.forFeature([ProjectsState, TermsState, TranslationsState, ProjectTagState]),
+    NgxsModule.forFeature([ProjectsState, TermsState, TranslationsState, ProjectLabelState]),
     RouterModule.forChild([
       { path: '', component: ProjectListComponent },
       {
@@ -46,7 +46,7 @@ import { AssignedTagsComponent } from './components/assigned-tags/assigned-tags.
         children: [
           { path: '', redirectTo: 'translations', pathMatch: 'full' },
           { path: 'terms', component: TermsListComponent },
-          { path: 'tags', component: TagsListComponent },
+          { path: 'labels', component: LabelsListComponent },
           { path: 'translations', component: ProjectLocalesComponent },
           { path: 'translations/:localeCode', component: TranslationsListComponent },
           { path: 'team', component: TeamOverviewComponent },
@@ -70,11 +70,11 @@ import { AssignedTagsComponent } from './components/assigned-tags/assigned-tags.
     ProjectContainerComponent,
     ImportLocaleComponent,
     TermsListComponent,
-    TagsListComponent,
+    LabelsListComponent,
     ProjectCardComponent,
     TranslationsListComponent,
     NewTermComponent,
-    NewTagComponent,
+    NewLabelComponent,
     ExportLocaleComponent,
     ImportContainerComponent,
     ExportContainerComponent,
@@ -86,7 +86,7 @@ import { AssignedTagsComponent } from './components/assigned-tags/assigned-tags.
     ApiClientsOverviewComponent,
     AddApiClientComponent,
     ApiClientComponent,
-    AssignedTagsComponent,
+    AssignedLabelsComponent,
   ],
 })
 export class ProjectsModule {}

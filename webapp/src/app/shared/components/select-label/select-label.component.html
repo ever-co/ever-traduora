@@ -2,18 +2,18 @@
   <div class="card p-3 mb-3 d-flex flex-column justify-content-start align-items-start" *ngIf="selection">
     <p class="m-0 text-muted">Selected:</p>
     <div class="w-100 d-flex flex-row justify-content-between align-items-center">
-      <app-editable-tag class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [tag]="selection"></app-editable-tag>
+      <app-editable-label class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [label]="selection"></app-editable-label>
     </div>
   </div>
-  <div *ngIf="availableTags().length as tagCount" class="input-group input-group mb-3">
+  <div *ngIf="availableLabels().length as labelCount" class="input-group input-group mb-3">
     <div class="input-group-prepend">
       <span class="input-group-text"><i class="material-icons">search</i></span>
     </div>
     <input
-      id="tagsSearch"
-      name="tagsSearch"
+      id="labelsSearch"
+      name="labelsSearch"
       type="text"
-      [placeholder]="'Search over ' + tagCount + ' tags...'"
+      [placeholder]="'Search over ' + labelCount + ' labels...'"
       class="form-control"
       autocomplete="off"
       (keyup)="text$.next($event.target.value)"
@@ -22,23 +22,23 @@
   <div class="d-flex flex-column">
     <ul class="list-group w-100 mb-2" [ngStyle]="{ 'min-height': preserveHeight ? limit * 50 + 'px' : 0 }">
       <li
-        *ngIf="!loading && ((results$ | async) || defaultTags()).length == 0"
+        *ngIf="!loading && ((results$ | async) || defaultLabels()).length == 0"
         class="m-0 alert alert-secondary d-flex justify-content-start align-items-center"
       >
-        No tags available
+        No labels available
       </li>
       <li
-        *ngFor="let tag of (results$ | async) || defaultTags()"
+        *ngFor="let label of (results$ | async) || defaultLabels()"
         class="list-group-item list-group-item-action d-flex justify-content-start align-items-center"
-        [ngClass]="{ active: selection ? selection.id === tag.id : false }"
-        (click)="select(tag)"
+        [ngClass]="{ active: selection ? selection.id === label.id : false }"
+        (click)="select(label)"
       >
-        <app-editable-tag class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [tag]="tag"></app-editable-tag>
+        <app-editable-label class="m-1 d-flex align-items-center justify-content-center" [readOnly]="true" [label]="label"></app-editable-label>
       </li>
     </ul>
     <div class="d-flex w-100 justify-content-end">
       <p class="text-sm text-muted m-0">
-        <span class="font-weight-bold">{{ availableTags().length }}</span> available tags
+        <span class="font-weight-bold">{{ availableLabels().length }}</span> available labels
       </p>
     </div>
   </div>

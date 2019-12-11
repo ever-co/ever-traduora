@@ -126,10 +126,10 @@ export default class TranslationController {
       where: {
         projectLocale,
       },
-      relations: ['term', 'tags'],
+      relations: ['term', 'labels'],
     });
 
-    const result = translations.map(t => ({ termId: t.term.id, value: t.value, tags: t.tags, date: t.date }));
+    const result = translations.map(t => ({ termId: t.term.id, value: t.value, labels: t.labels, date: t.date }));
 
     return { data: result };
   }
@@ -183,7 +183,7 @@ export default class TranslationController {
       data: {
         termId: term.id,
         value: translation.value,
-        tags: [], // TODO: load tags on translation update?
+        labels: [], // TODO: load labels on translation update?
         date: translation.date,
       },
     };

@@ -6,7 +6,7 @@ import { Translation } from './translation.entity';
 
 @Entity()
 @Index(['project', 'value'], { unique: true })
-export class Tag {
+export class Label {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -20,11 +20,11 @@ export class Tag {
   @JoinColumn()
   project: Project;
 
-  @ManyToMany(() => Term, term => term.tags, { cascade: true })
+  @ManyToMany(() => Term, term => term.labels, { cascade: true })
   @JoinTable()
   terms: Term[];
 
-  @ManyToMany(() => Translation, translation => translation.tags, { cascade: true })
+  @ManyToMany(() => Translation, translation => translation.labels, { cascade: true })
   @JoinTable()
   translations: Translation[];
 }

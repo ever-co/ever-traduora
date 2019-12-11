@@ -3,26 +3,26 @@ import { Select, Store } from '@ngxs/store';
 import { BehaviorSubject, Observable, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map, switchMap, tap } from 'rxjs/operators';
 import { Project } from '../../models/project';
-import { Tag } from '../../models/tag';
-import { ClearMessages, CreateProjectTag, GetProjectTags, ProjectTagState, RemoveProjectTag, UpdateProjectTag } from '../../stores/project-tag.state';
+import { Label } from '../../models/label';
+import { ClearMessages, CreateProjectLabel, GetProjectLabels, ProjectLabelState, RemoveProjectLabel, UpdateProjectLabel } from '../../stores/project-label.state';
 import { ProjectsState } from '../../stores/projects.state';
-import { TAG_COLORS } from '../../models/tag';
+import { TAG_COLORS } from '../../models/label';
 @Component({
-  selector: 'app-tags-list',
-  templateUrl: './tags-list.component.html',
-  styleUrls: ['./tags-list.component.css'],
+  selector: 'app-labels-list',
+  templateUrl: './labels-list.component.html',
+  styleUrls: ['./labels-list.component.css'],
 })
-export class TagsListComponent implements OnInit, OnDestroy {
+export class LabelsListComponent implements OnInit, OnDestroy {
   @Select(ProjectsState.currentProject)
   project$: Observable<Project | undefined>;
 
-  @Select(ProjectTagState.tags)
-  projectTags$: Observable<Tag[]>;
+  @Select(ProjectLabelState.labels)
+  projectLabels$: Observable<Label[]>;
 
-  @Select(ProjectTagState.isLoading)
+  @Select(ProjectLabelState.isLoading)
   isLoading$: Observable<boolean>;
 
-  @Select(state => state.projectTags.errorMessage)
+  @Select(state => state.projectLabels.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   availableColors: string[] = TAG_COLORS;
@@ -33,7 +33,7 @@ export class TagsListComponent implements OnInit, OnDestroy {
   pageSize = 10;
 
   searchText = new BehaviorSubject('');
-  searchResults$: Observable<Tag[]> = this.searchText.pipe(
+  searchResults$: Observable<Label[]> = this.searchText.pipe(
     debounceTime(50),
     distinctUntilChanged(),
     map(search =>
@@ -43,7 +43,7 @@ export class TagsListComponent implements OnInit, OnDestroy {
         .split(' '),
     ),
     switchMap(searchTerms =>
-      this.projectTags$.pipe(
+      this.projectLabels$.pipe(
         map(results => {
           if (searchTerms.length === 0) {
             return results;
@@ -64,12 +64,12 @@ export class TagsListComponent implements OnInit, OnDestroy {
 
   private sub: Subscription;
 
-  searchKey = (item: Tag) => item.value;
+  searchKey = (item: Label) => item.value;
 
   constructor(private store: Store) {}
 
   ngOnInit() {
-    this.sub = this.project$.pipe(tap(project => this.store.dispatch(new GetProjectTags(project.id)))).subscribe();
+    this.sub = this.project$.pipe(tap(project => this.store.dispatch(new GetProjectLabels(project.id)))).subscribe();
   }
 
   ngOnDestroy() {
@@ -82,20 +82,20 @@ export class TagsListComponent implements OnInit, OnDestroy {
       return;
     }
     this.store.dispatch(new ClearMessages());
-    this.store.dispatch(new CreateProjectTag(projectId, value, color));
+    this.store.dispatch(new CreateProjectLabel(projectId, value, color));
   }
 
-  updateTag(projectId, tagId, newValue, newColor) {
-    this.store.dispatch(new UpdateProjectTag(projectId, tagId, newValue, newColor));
+  updateLabel(projectId, labelId, newValue, newColor) {
+    this.store.dispatch(new UpdateProjectLabel(projectId, labelId, newValue, newColor));
   }
 
-  deleteTag(projectId, tagId) {
-    if (confirm('Are you sure that you want to delete this tag?')) {
-      this.store.dispatch(new RemoveProjectTag(projectId, tagId));
+  deleteLabel(projectId, labelId) {
+    if (confirm('Are you sure that you want to delete this label?')) {
+      this.store.dispatch(new RemoveProjectLabel(projectId, labelId));
     }
   }
 
-  trackElement(index: number, tag: Tag) {
-    return tag.id;
+  trackElement(index: number, label: Label) {
+    return label.id;
   }
 }

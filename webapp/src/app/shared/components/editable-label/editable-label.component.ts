@@ -1,19 +1,19 @@
 import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, ViewChild } from '@angular/core';
-import { hexToHSL } from './../../util/color-utils';
+import { hexToHSL } from '../../util/color-utils';
 import * as _ from 'lodash';
-import { Tag } from '../../../projects/models/tag';
+import { Label } from '../../../projects/models/label';
 
 @Component({
-  selector: 'app-editable-tag',
-  templateUrl: './editable-tag.component.html',
-  styleUrls: ['./editable-tag.component.css'],
+  selector: 'app-editable-label',
+  templateUrl: './editable-label.component.html',
+  styleUrls: ['./editable-label.component.css'],
 })
-export class EditableTagComponent implements OnInit, OnChanges {
+export class EditableLabelComponent implements OnInit, OnChanges {
   @Input()
   readOnly = false;
 
   @Input()
-  tag: Tag;
+  label: Label;
 
   @Input()
   placeholder = '';
@@ -34,10 +34,10 @@ export class EditableTagComponent implements OnInit, OnChanges {
   }
 
   @Output()
-  save = new EventEmitter<Tag>();
+  save = new EventEmitter<Label>();
 
   @Output()
-  remove = new EventEmitter<Tag>();
+  remove = new EventEmitter<Label>();
 
   @ViewChild('focusTarget')
   focusTarget: ElementRef;
@@ -53,15 +53,15 @@ export class EditableTagComponent implements OnInit, OnChanges {
 
   ngOnChanges() {
     if (!this.isEditing) {
-      this.editedValue = this.tag.value;
-      this.editedBackgroundColor = this.tag.color;
+      this.editedValue = this.label.value;
+      this.editedBackgroundColor = this.label.color;
     }
   }
 
   enterEdit() {
     if (!this.isEditing) {
-      this.editedValue = this.tag.value;
-      this.editedBackgroundColor = this.tag.color;
+      this.editedValue = this.label.value;
+      this.editedBackgroundColor = this.label.color;
       this.isEditing = true;
       this.focus();
     }
@@ -73,8 +73,8 @@ export class EditableTagComponent implements OnInit, OnChanges {
   }
 
   revert() {
-    this.editedValue = this.tag.value;
-    this.editedBackgroundColor = this.tag.color;
+    this.editedValue = this.label.value;
+    this.editedBackgroundColor = this.label.color;
     this.exitEdit();
   }
 
@@ -84,13 +84,13 @@ export class EditableTagComponent implements OnInit, OnChanges {
 
   onSave() {
     if (this.valid()) {
-      this.save.emit({ id: this.tag.id, value: this.editedValue, color: this.editedBackgroundColor });
+      this.save.emit({ id: this.label.id, value: this.editedValue, color: this.editedBackgroundColor });
       this.exitEdit();
     }
   }
 
   onRemove() {
-    this.remove.emit(this.tag);
+    this.remove.emit(this.label);
     this.exitEdit();
   }
 

@@ -15,7 +15,7 @@ import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectInviteController from './controllers/project-invite.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
-import ProjectTagController from './controllers/project-tag.controller';
+import ProjectLabelController from './controllers/project-label.controller';
 import ProjectUserController from './controllers/project-user.controller';
 import ProjectController from './controllers/project.controller';
 import TermController from './controllers/term.controller';
@@ -28,7 +28,7 @@ import { ProjectClient } from './entity/project-client.entity';
 import { ProjectLocale } from './entity/project-locale.entity';
 import { ProjectUser } from './entity/project-user.entity';
 import { Project } from './entity/project.entity';
-import { Tag } from './entity/tag.entity';
+import { Label } from './entity/label.entity';
 import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
 import { User } from './entity/user.entity';
@@ -50,7 +50,7 @@ import ProjectStatsController from './controllers/project-stats.controller';
       },
     }),
     TypeOrmModule.forRoot(config.db.default),
-    TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Tag]),
+    TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Label]),
     HttpModule,
   ],
   controllers: [
@@ -66,7 +66,7 @@ import ProjectStatsController from './controllers/project-stats.controller';
     TranslationController,
     ImportController,
     ProjectClientController,
-    ProjectTagController,
+    ProjectLabelController,
     ExportsController,
     LocaleController,
     IndexController,

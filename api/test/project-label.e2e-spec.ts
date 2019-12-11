@@ -4,7 +4,7 @@ import { Connection } from 'typeorm';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 
-describe('ProjectTagController (e2e)', () => {
+describe('ProjectLabelController (e2e)', () => {
   let app: INestApplication;
   let testingUser: TestingUser;
   let anotherUser: TestingUser;
@@ -17,9 +17,9 @@ describe('ProjectTagController (e2e)', () => {
     testProject = await createTestProject(app, testingUser);
   });
 
-  it('/api/v1/projects/:projectId/tags (POST) should create tags for project', async () => {
+  it('/api/v1/projects/:projectId/labels (POST) should create labels for project', async () => {
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
@@ -31,9 +31,9 @@ describe('ProjectTagController (e2e)', () => {
       });
   });
 
-  it('/api/v1/projects/:projectId/tags (POST) should accept tags with utf-8 encoding', async () => {
+  it('/api/v1/projects/:projectId/labels (POST) should accept labels with utf-8 encoding', async () => {
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'term.two őúüöá 😀👍🍉你好',
@@ -45,9 +45,9 @@ describe('ProjectTagController (e2e)', () => {
       });
   });
 
-  it('/api/v1/projects/:projectId/tags (GET) should find tags for project', async () => {
+  it('/api/v1/projects/:projectId/labels (GET) should find labels for project', async () => {
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
@@ -56,7 +56,7 @@ describe('ProjectTagController (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'done 😀👍',
@@ -65,7 +65,7 @@ describe('ProjectTagController (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .get(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -75,21 +75,21 @@ describe('ProjectTagController (e2e)', () => {
       });
   });
 
-  it('/api/v1/projects/:projectId/tags/:tagId (PATCH) should update a tag by id', async () => {
-    let tagId: string;
+  it('/api/v1/projects/:projectId/labels/:labelId (PATCH) should update a label by id', async () => {
+    let labelId: string;
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
         color: '#202020',
       })
       .expect(201)
-      .expect(res => (tagId = res.body.data.id));
+      .expect(res => (labelId = res.body.data.id));
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'done',
@@ -98,7 +98,7 @@ describe('ProjectTagController (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .patch(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .patch(`/api/v1/projects/${testProject.id}/labels/${labelId}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'wip',
@@ -112,7 +112,7 @@ describe('ProjectTagController (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .get(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -122,21 +122,21 @@ describe('ProjectTagController (e2e)', () => {
       });
   });
 
-  it('/api/v1/projects/:projectId/tags/:tagId (DELETE) should tags by id', async () => {
-    let tagId: string;
+  it('/api/v1/projects/:projectId/labels/:labelId (DELETE) should labels by id', async () => {
+    let labelId: string;
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
         color: '#202020',
       })
       .expect(201)
-      .expect(res => (tagId = res.body.data.id));
+      .expect(res => (labelId = res.body.data.id));
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'done',
@@ -145,12 +145,12 @@ describe('ProjectTagController (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .delete(`/api/v1/projects/${testProject.id}/labels/${labelId}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .get(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -160,19 +160,19 @@ describe('ProjectTagController (e2e)', () => {
       });
   });
 
-  it('/api/v1/projects/:projectId/tags/:tagId/terms/:termId (POST) should tag a term', async () => {
-    let tagId: string;
+  it('/api/v1/projects/:projectId/labels/:labelId/terms/:termId (POST) should label a term', async () => {
+    let labelId: string;
     let termId: string;
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
         color: '#202020',
       })
       .expect(201)
-      .expect(res => (tagId = res.body.data.id));
+      .expect(res => (labelId = res.body.data.id));
 
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/terms`)
@@ -184,35 +184,35 @@ describe('ProjectTagController (e2e)', () => {
       .expect(res => (termId = res.body.data.id));
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${termId}`)
+      .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(201);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/terms?includeTags=true`)
+      .get(`/api/v1/projects/${testProject.id}/terms?includeLabels=true`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
-        expect(res.body.data[0].tags).toHaveLength(1);
-        expect(res.body.data[0].tags[0].value).toEqual('todo');
-        expect(res.body.data[0].tags[0].color).toEqual('#202020');
+        expect(res.body.data[0].labels).toHaveLength(1);
+        expect(res.body.data[0].labels[0].value).toEqual('todo');
+        expect(res.body.data[0].labels[0].color).toEqual('#202020');
       });
   });
 
-  it('/api/v1/projects/:projectId/tags/:tagId/terms/:termId (DELETE) should untag a term', async () => {
-    let tagId: string;
+  it('/api/v1/projects/:projectId/labels/:labelId/terms/:termId (DELETE) should unlabel a term', async () => {
+    let labelId: string;
     let term1Id: string;
     let term2Id: string;
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
         color: '#202020',
       })
       .expect(201)
-      .expect(res => (tagId = res.body.data.id));
+      .expect(res => (labelId = res.body.data.id));
 
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/terms`)
@@ -233,64 +233,64 @@ describe('ProjectTagController (e2e)', () => {
       .expect(res => (term2Id = res.body.data.id));
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${term1Id}`)
+      .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${term1Id}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(201);
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${term2Id}`)
+      .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${term2Id}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(201);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/terms?includeTags=true`)
+      .get(`/api/v1/projects/${testProject.id}/terms?includeLabels=true`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
 
-        expect(res.body.data[0].tags).toHaveLength(1);
-        expect(res.body.data[0].tags[0].value).toEqual('todo');
-        expect(res.body.data[0].tags[0].color).toEqual('#202020');
+        expect(res.body.data[0].labels).toHaveLength(1);
+        expect(res.body.data[0].labels[0].value).toEqual('todo');
+        expect(res.body.data[0].labels[0].color).toEqual('#202020');
 
-        expect(res.body.data[1].tags).toHaveLength(1);
-        expect(res.body.data[1].tags[0].value).toEqual('todo');
-        expect(res.body.data[1].tags[0].color).toEqual('#202020');
+        expect(res.body.data[1].labels).toHaveLength(1);
+        expect(res.body.data[1].labels[0].value).toEqual('todo');
+        expect(res.body.data[1].labels[0].color).toEqual('#202020');
       });
 
     await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${term1Id}`)
+      .delete(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${term1Id}`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(204);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/terms?includeTags=true`)
+      .get(`/api/v1/projects/${testProject.id}/terms?includeLabels=true`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
 
-        expect(res.body.data[0].tags).toHaveLength(0);
+        expect(res.body.data[0].labels).toHaveLength(0);
 
-        expect(res.body.data[1].tags).toHaveLength(1);
-        expect(res.body.data[1].tags[0].value).toEqual('todo');
-        expect(res.body.data[1].tags[0].color).toEqual('#202020');
+        expect(res.body.data[1].labels).toHaveLength(1);
+        expect(res.body.data[1].labels[0].value).toEqual('todo');
+        expect(res.body.data[1].labels[0].color).toEqual('#202020');
       });
   });
 
-  it('/api/v1/projects/:projectId/tags/:tagId/terms/:termId/translations/:localeCode (POST) should tag a translation', async () => {
-    let tagId: string;
+  it('/api/v1/projects/:projectId/labels/:labelId/terms/:termId/translations/:localeCode (POST) should label a translation', async () => {
+    let labelId: string;
     let termId: string;
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
         color: '#202020',
       })
       .expect(201)
-      .expect(res => (tagId = res.body.data.id));
+      .expect(res => (labelId = res.body.data.id));
 
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/terms`)
@@ -319,7 +319,7 @@ describe('ProjectTagController (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${termId}/translations/de_DE`)
+      .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(201);
 
@@ -329,28 +329,28 @@ describe('ProjectTagController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(res.body.data[0].termId).toEqual(termId);
         expect(res.body.data[0].value).toEqual('eins');
-        expect(res.body.data[0].tags[0].value).toEqual('todo');
-        expect(res.body.data[0].tags[0].color).toEqual('#202020');
+        expect(res.body.data[0].labels[0].value).toEqual('todo');
+        expect(res.body.data[0].labels[0].color).toEqual('#202020');
       });
   });
 
-  it('/api/v1/projects/:projectId/tags/:tagId/terms/:termId/translations/:localeCode (DELETE) should untag a translation', async () => {
-    let tagId: string;
+  it('/api/v1/projects/:projectId/labels/:labelId/terms/:termId/translations/:localeCode (DELETE) should unlabel a translation', async () => {
+    let labelId: string;
     let term1Id: string;
     let term2Id: string;
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
         color: '#202020',
       })
       .expect(201)
-      .expect(res => (tagId = res.body.data.id));
+      .expect(res => (labelId = res.body.data.id));
 
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/terms`)
@@ -397,12 +397,12 @@ describe('ProjectTagController (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${term1Id}/translations/de_DE`)
+      .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${term1Id}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(201);
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${term2Id}/translations/de_DE`)
+      .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${term2Id}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(201);
 
@@ -414,22 +414,22 @@ describe('ProjectTagController (e2e)', () => {
         expect(res.body.data).toHaveLength(2);
 
         const translation1 = res.body.data.find(d => d.termId === term1Id);
-        expect(translation1).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation1).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(translation1.termId).toEqual(term1Id);
         expect(translation1.value).toEqual('eins');
-        expect(translation1.tags[0].value).toEqual('todo');
-        expect(translation1.tags[0].color).toEqual('#202020');
+        expect(translation1.labels[0].value).toEqual('todo');
+        expect(translation1.labels[0].color).toEqual('#202020');
 
         const translation2 = res.body.data.find(d => d.termId === term2Id);
-        expect(translation2).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation2).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(translation2.termId).toEqual(term2Id);
         expect(translation2.value).toEqual('zwei');
-        expect(translation2.tags[0].value).toEqual('todo');
-        expect(translation2.tags[0].color).toEqual('#202020');
+        expect(translation2.labels[0].value).toEqual('todo');
+        expect(translation2.labels[0].color).toEqual('#202020');
       });
 
     await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${testProject.id}/tags/${tagId}/terms/${term1Id}/translations/de_DE`)
+      .delete(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${term1Id}/translations/de_DE`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(204);
 
@@ -441,40 +441,40 @@ describe('ProjectTagController (e2e)', () => {
         expect(res.body.data).toHaveLength(2);
 
         const translation1 = res.body.data.find(d => d.termId === term1Id);
-        expect(translation1).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation1).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(translation1.termId).toEqual(term1Id);
         expect(translation1.value).toEqual('eins');
-        expect(translation1.tags).toHaveLength(0);
+        expect(translation1.labels).toHaveLength(0);
 
         const translation2 = res.body.data.find(d => d.termId === term2Id);
-        expect(translation2).toHaveExactProperties(['termId', 'value', 'tags', 'date']);
+        expect(translation2).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
         expect(translation2.termId).toEqual(term2Id);
         expect(translation2.value).toEqual('zwei');
-        expect(translation2.tags[0].value).toEqual('todo');
-        expect(translation2.tags[0].color).toEqual('#202020');
+        expect(translation2.labels[0].value).toEqual('todo');
+        expect(translation2.labels[0].color).toEqual('#202020');
       });
   });
 
-  it('/api/v1/projects/:projectId/tags should not access terms resource if not authenticated or authorized', async () => {
-    let tagId: string;
+  it('/api/v1/projects/:projectId/labels should not access terms resource if not authenticated or authorized', async () => {
+    let labelId: string;
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'todo',
         color: '#202020',
       })
       .expect(201)
-      .expect(res => (tagId = res.body.data.id));
+      .expect(res => (labelId = res.body.data.id));
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .get(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${anotherUser.accessToken}`)
       .expect(404);
 
     await request(app.getHttpServer())
-      .patch(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .patch(`/api/v1/projects/${testProject.id}/labels/${labelId}`)
       .set('Authorization', `Bearer ${anotherUser.accessToken}`)
       .send({
         value: 'done',
@@ -483,23 +483,23 @@ describe('ProjectTagController (e2e)', () => {
       .expect(404);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .get(`/api/v1/projects/${testProject.id}/labels`)
       .expect(401);
 
     await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/tags`)
+      .post(`/api/v1/projects/${testProject.id}/labels`)
       .expect(401);
 
     await request(app.getHttpServer())
-      .patch(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .patch(`/api/v1/projects/${testProject.id}/labels/${labelId}`)
       .expect(401);
 
     await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${testProject.id}/tags/${tagId}`)
+      .delete(`/api/v1/projects/${testProject.id}/labels/${labelId}`)
       .expect(401);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/tags`)
+      .get(`/api/v1/projects/${testProject.id}/labels`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {

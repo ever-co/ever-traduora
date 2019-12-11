@@ -1,6 +1,6 @@
 <ng-template #content let-modal>
   <div class="modal-header">
-    <h4 class="modal-title font-serif" i18n>Assigned tags</h4>
+    <h4 class="modal-title font-serif" i18n>Assigned labels</h4>
     <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
       <i class="material-icons">close</i>
     </button>
@@ -10,7 +10,7 @@
     <p class="text-muted" i18n>
       {{ hint }}
     </p>
-    <app-select-tag class="mb-5" [tags]="availableTags" [exclude]="tags" [limit]="5" (selectTag)="selectedTag = $event"> </app-select-tag>
+    <app-select-label class="mb-5" [labels]="availableLabels" [exclude]="labels" [limit]="5" (selectLabel)="selectedLabel = $event"> </app-select-label>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
@@ -24,14 +24,14 @@
     class="m-1 btn btn-sm btn-outline-secondary d-flex justify-content-center align-items-center"
     [ngStyle]="{ 'font-size': 'x-small', height: '1.5rem' }"
   >
-    <i class="material-icons text-sm">add</i>Tag
+    <i class="material-icons text-sm">add</i>Label
   </button>
-  <app-editable-tag
+  <app-editable-label
     class="m-1 d-flex align-items-center justify-content-center"
-    *ngFor="let tag of tags"
+    *ngFor="let label of labels"
     [readOnly]="true"
-    [tag]="tag"
+    [label]="label"
     [removable]="true"
     (remove)="remove.emit($event)"
-  ></app-editable-tag>
+  ></app-editable-label>
 </div>

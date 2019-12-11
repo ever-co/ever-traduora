@@ -29,13 +29,13 @@
                 <i class="material-icons" style="font-size: 1.25rem">close</i>
               </button>
             </div>
-            <app-assigned-tags
-              hint="Term tags are automatically assigned to all related translations."
-              [tags]="term.tags"
-              [availableTags]="projectTags$ | async"
-              (add)="tagTerm(project.id, term.id, $event)"
-              (remove)="untagTerm(project.id, term.id, $event)"
-            ></app-assigned-tags>
+            <app-assigned-labels
+              hint="Term labels are automatically assigned to all related translations."
+              [labels]="term.labels"
+              [availableLabels]="projectLabels$ | async"
+              (add)="labelTerm(project.id, term.id, $event)"
+              (remove)="unlabelTerm(project.id, term.id, $event)"
+            ></app-assigned-labels>
           </div>
         </div>
       </ng-template>
