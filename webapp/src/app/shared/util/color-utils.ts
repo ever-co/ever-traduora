@@ -5,7 +5,13 @@ export interface HSL {
 }
 
 export function hexToHSL(hex: string): HSL {
-  if (!hex || hex === '') return { hue: 0, saturation: 0, luminance: 0 };
+  if (!hex || hex === '') {
+    return {
+      hue: 0,
+      saturation: 0,
+      luminance: 0,
+    };
+  }
 
   let rs = '0x';
   let gs = '0x';
@@ -33,10 +39,15 @@ export function hexToHSL(hex: string): HSL {
   let saturation = 0;
   let luminance = 0;
 
-  if (delta === 0) hue = 0;
-  else if (maxColor === r) hue = ((g - b) / delta) % 6;
-  else if (maxColor === g) hue = (b - r) / delta + 2;
-  else hue = (r - g) / delta + 4;
+  if (delta === 0) {
+    hue = 0;
+  } else if (maxColor === r) {
+    hue = ((g - b) / delta) % 6;
+  } else if (maxColor === g) {
+    hue = (b - r) / delta + 2;
+  } else {
+    hue = (r - g) / delta + 4;
+  }
 
   hue = Math.round(hue * 60);
 
