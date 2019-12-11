@@ -10,7 +10,7 @@ Traduora is free, open-source and simple to set up. You can even set it up for y
 
 
 ## Is there a hosted version?
-There is no hosted version of traduora at the moment. However we might offer one sometime in the future, you can sign up to receive updates on the hosted version [here](http://eepurl.com/gj0Qav).
+There is no hosted version of traduora at the moment. However, we might offer this sometime in the future. If you're interested in receiving an email when this happens, you can sign up to the mailing list [here](http://eepurl.com/gj0Qav).
 
 
 ## Where can I send a feature request / bug report?
