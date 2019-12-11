@@ -32,6 +32,8 @@ import { ProjectLabelState } from './stores/project-label.state';
 import { LabelsListComponent } from './components/labels-list/labels-list.component';
 import { NewLabelComponent } from './components/new-label/new-label.component';
 import { AssignedLabelsComponent } from './components/assigned-labels/assigned-labels.component';
+import { EditableLabelComponent } from '../shared/components/editable-label/editable-label.component';
+import { EditLabelComponent } from './components/edit-label/edit-label.component';
 
 @NgModule({
   imports: [
@@ -74,6 +76,7 @@ import { AssignedLabelsComponent } from './components/assigned-labels/assigned-l
     ProjectCardComponent,
     TranslationsListComponent,
     NewTermComponent,
+    EditLabelComponent,
     NewLabelComponent,
     ExportLocaleComponent,
     ImportContainerComponent,

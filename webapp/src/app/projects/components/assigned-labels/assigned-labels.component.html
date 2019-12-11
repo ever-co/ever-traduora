@@ -10,7 +10,8 @@
     <p class="text-muted" i18n>
       {{ hint }}
     </p>
-    <app-select-label class="mb-5" [labels]="availableLabels" [exclude]="labels" [limit]="5" (selectLabel)="selectedLabel = $event"> </app-select-label>
+    <app-select-label class="mb-5" [labels]="availableLabels" [exclude]="labels" [limit]="5" (selectLabel)="selectedLabel = $event">
+    </app-select-label>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
@@ -20,6 +21,7 @@
 
 <div class="d-flex flex-row justify-content-start align-items-center flex-wrap">
   <button
+    *ngIf="true | can: 'EditLabel' | async"
     (click)="open(content)"
     class="m-1 btn btn-sm btn-outline-secondary d-flex justify-content-center align-items-center"
     [ngStyle]="{ 'font-size': 'x-small', height: '1.5rem' }"
@@ -31,7 +33,7 @@
     *ngFor="let label of labels"
     [readOnly]="true"
     [label]="label"
-    [removable]="true"
+    [removable]="(true | can: 'EditLabel' | async) || false"
     (remove)="remove.emit($event)"
   ></app-editable-label>
 </div>

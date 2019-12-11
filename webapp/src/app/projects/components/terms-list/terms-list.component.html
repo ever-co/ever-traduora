@@ -15,7 +15,7 @@
                 class="flex-1"
                 [readOnly]="!(true | can: 'EditTerm' | async)"
                 [value]="term.value"
-                placeholder="No term value yet"
+                placeholder="Terms cannot be empty"
                 [allowEmpty]="false"
                 showLength="true"
                 (save)="updateTerm(project.id, term.id, $event)"

@@ -1,0 +1,75 @@
+<ng-template #content let-modal>
+  <div class="modal-header flex-column">
+    <div class="d-flex flex-row w-100">
+      <h4 class="modal-title font-serif flex-1" i18n>Edit label</h4>
+      <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
+        <i class="material-icons">close</i>
+      </button>
+    </div>
+    <app-error-message class="mt-1" *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
+  </div>
+
+  <div class="modal-body">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="form-group mb-4">
+        <label for="valueInput" i18n>Label name</label>
+        <input
+          id="valueInput"
+          class="form-control"
+          type="text"
+          maxlength="30"
+          style="max-width: 380px"
+          formControlName="value"
+          placeholder="Some label to help you organize your project"
+          [ngClass]="{ 'is-invalid': value.touched && value.invalid }"
+          autocomplete="off"
+        />
+        <div class="invalid-feedback">
+          <div *ngIf="value.getError('required')" i18n>Value is required.</div>
+          <div *ngIf="value.getError('pattern')" i18n>Cannot be only whitespace.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="colorInput" i18n>Label color</label>
+        <div class="d-flex flex-row justify-content-start align-items-center">
+          <span>
+            <input
+              id="colorInput"
+              class="form-control mr-1"
+              style="max-width: 120px"
+              type="text"
+              formControlName="color"
+              placeholder="A HEX color like #3AB795"
+              [ngClass]="{ 'is-invalid': color.touched && color.invalid }"
+              autocomplete="off"
+            />
+            <div class="invalid-feedback">
+              <div *ngIf="color.getError('required')" i18n>Color value is required.</div>
+              <div *ngIf="color.getError('pattern')" i18n>Invalid HEX color.</div>
+            </div>
+          </span>
+          <button class="btn btn-secondary rounded-t-0 m-0 px-2 d-flex" style="height: 100%" (click)="randomColor()" type="button" i18n>
+            <i class="material-icons" style="font-size: 18px">autorenew</i>
+          </button>
+        </div>
+      </div>
+
+      <div class="mb-3 d-flex flex-column justify-content-center align-items-center">
+        <p>Preview</p>
+        <app-editable-label [readOnly]="true" [label]="{ id: '', value: value.value, color: color.value }"></app-editable-label>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
+        <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-sm btn-primary w-100" style="max-width: 120px;" i18n>
+          Save
+        </button>
+      </div>
+    </form>
+  </div>
+</ng-template>
+
+<button class="btn btn-sm d-flex justify-content-center align-items-center" (click)="open(content)">
+  Edit
+</button>

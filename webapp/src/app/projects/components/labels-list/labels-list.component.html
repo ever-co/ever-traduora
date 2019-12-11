@@ -13,13 +13,19 @@
             <div class="d-flex flex-row w-100 justify-content-center align-items-center">
               <app-editable-label
                 class="flex-1"
-                [readOnly]="!(true | can: 'EditLabel' | async)"
+                [readOnly]="true"
                 [label]="label"
                 [availableColors]="availableColors"
                 placeholder="Label name cannot be empty"
                 [allowEmpty]="false"
                 (save)="updateLabel(project.id, label.id, $event.value, $event.color)"
               ></app-editable-label>
+              <app-edit-label
+                *ngIf="true | can: 'EditLabel' | async"
+                [project]="project"
+                [label]="label"
+                [availableColors]="availableColors"
+              ></app-edit-label>
               <button
                 *ngIf="true | can: 'DeleteLabel' | async"
                 class="ml-3 btn bg-transparent text-dark btn-sm"
