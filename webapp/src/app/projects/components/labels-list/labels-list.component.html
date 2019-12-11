@@ -40,7 +40,12 @@
         <div>
           <h4 class="font-serif" i18n>Project labels are empty</h4>
           <p i18n>You haven't yet created any labels for this project. Add a new label to get started!</p>
-          <app-new-label *ngIf="true | can: 'AddLabel' | async" [project]="project" btnClass="btn-primary"></app-new-label>
+          <app-new-label
+            *ngIf="true | can: 'AddLabel' | async"
+            [project]="project"
+            [availableColors]="availableColors"
+            btnClass="btn-primary"
+          ></app-new-label>
         </div>
       </div>
     </div>
