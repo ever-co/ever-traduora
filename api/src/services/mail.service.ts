@@ -31,7 +31,7 @@ export default class MailService {
         pass: config.mail.auth.pass,
       },
     };
-    this.transporter = createTransport(options);
+    this.transporter = options.host ? createTransport(options) : undefined;
     this.from = config.mail.sender;
   }
 
@@ -97,9 +97,15 @@ export default class MailService {
   }
 
   private async send(message: SendMailOptions): Promise<any> {
-    const res = await this.transporter.sendMail(message);
-    if (config.mail.debug) {
-      console.log(`Mail sent. Preview url: ${getTestMessageUrl(res)}`);
+    if (this.transporter) {
+      const res = await this.transporter.sendMail(message);
+      if (config.mail.debug) {
+        console.log(`Mail sent. Preview url: ${getTestMessageUrl(res)}`);
+      }
+    } else {
+      console.log(
+        'Attempting to send mail but no transport configured. Please check the documentation on how to configure a the mail service at: https://docs.traduora.com/docs/configuration',
+      );
     }
   }
 
