@@ -7,6 +7,9 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
+-
+
+## 0.15.0
 - [PR-72](https://github.com/traduora/traduora/pull/72) You can now organize your terms and translations with labels.
 - [PR-89:](https://github.com/traduora/traduora/pull/89) Added translation progress stats per locale.
 - [PR-94](https://github.com/traduora/traduora/pull/94) Fix escaping of special characters on Android Resources.
