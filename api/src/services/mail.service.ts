@@ -32,6 +32,13 @@ export default class MailService {
       },
     };
     this.transporter = options.host ? createTransport(options) : undefined;
+    if (!this.transporter) {
+      console.log(
+        'No email transport configured. ' +
+          'Please check the documentation on how to configure ' +
+          'the mail service at: https://docs.traduora.com/docs/configuration',
+      );
+    }
     this.from = config.mail.sender;
   }
 
@@ -102,12 +109,6 @@ export default class MailService {
       if (config.mail.debug) {
         console.log(`Mail sent. Preview url: ${getTestMessageUrl(res)}`);
       }
-    } else {
-      console.log(
-        'Attempting to send mail but no transport configured. ' +
-          'Please check the documentation on how to configure a ' +
-          'the mail service at: https://docs.traduora.com/docs/configuration',
-      );
     }
   }
 
