@@ -104,7 +104,9 @@ export default class MailService {
       }
     } else {
       console.log(
-        'Attempting to send mail but no transport configured. Please check the documentation on how to configure a the mail service at: https://docs.traduora.com/docs/configuration',
+        'Attempting to send mail but no transport configured. ' +
+          'Please check the documentation on how to configure a ' +
+          'the mail service at: https://docs.traduora.com/docs/configuration',
       );
     }
   }
