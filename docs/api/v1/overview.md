@@ -20,6 +20,7 @@ The API endpoint reference is available **[here](/docs/api/v1/swagger)**.
 - **Import:** a job to convert and import a group of translations.
 - **Export:** a job to export a group of translations into a given format.
 - **Locale:** an entity used to identify a language and region.
+- **Label:** a label can be used to keep your terms and translations organized and tidy.
 
 ## API response
 

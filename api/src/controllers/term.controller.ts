@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -8,6 +8,8 @@ import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
 import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Translation } from '../entity/translation.entity';
+import { ProjectLocale } from '../entity/project-locale.entity';
 
 @Controller('api/v1/projects/:projectId/terms')
 @UseGuards(AuthGuard())
@@ -17,7 +19,8 @@ export default class TermController {
   constructor(
     private auth: AuthorizationService,
     @InjectRepository(Term) private termRepo: Repository<Term>,
-    @InjectRepository(Project) private projectRepo: Repository<Project>,
+    @InjectRepository(Translation) private translationRepo: Repository<Translation>,
+    @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
   ) {}
 
   @Get()
@@ -29,16 +32,22 @@ export default class TermController {
   async find(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTerm);
+
     const terms = await this.termRepo.find({
       where: { project: { id: membership.project.id } },
       order: { value: 'ASC' },
+      relations: ['labels'],
     });
+
+    const data = terms.map(t => ({
+      id: t.id,
+      value: t.value,
+      labels: t.labels,
+      date: t.date,
+    }));
+
     return {
-      data: terms.map(t => ({
-        id: t.id,
-        value: t.value,
-        date: t.date,
-      })),
+      data,
     };
   }
 
@@ -61,6 +70,23 @@ export default class TermController {
 
     await this.termRepo.manager.transaction(async entityManager => {
       await entityManager.save(term);
+
+      const projectLocales = await this.projectLocaleRepo.find({
+        where: {
+          project: membership.project,
+        },
+      });
+
+      const translations = projectLocales.map(projectLocale =>
+        this.translationRepo.create({
+          projectLocale: projectLocale,
+          term: term,
+          value: '',
+          labels: [],
+        }),
+      );
+      await entityManager.save(translations);
+
       await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', 1);
     });
 
@@ -68,6 +94,7 @@ export default class TermController {
       data: {
         id: term.id,
         value: term.value,
+        labels: [],
         date: term.date,
       },
     };
@@ -88,12 +115,13 @@ export default class TermController {
 
     await this.termRepo.update({ id: termId }, { value: payload.value });
 
-    const term = await this.termRepo.findOneOrFail({ id: termId });
+    const term = await this.termRepo.findOneOrFail({ id: termId }, { relations: ['labels'] });
 
     return {
       data: {
         id: term.id,
         value: term.value,
+        labels: term.labels,
         date: term.date,
       },
     };

@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "description": "Documentation for the traduora REST API\n\nOfficial website: https://traduora.com\nAdditional documentation: https://docs.traduora.com\nSource code: https://github.com/traduora/traduora",
-    "version": "0.13.0",
+    "version": "0.14.0",
     "title": "Traduora API"
   },
   "basePath": "/",
@@ -1474,6 +1474,379 @@
         "consumes": ["application/json"]
       }
     },
+    "/api/v1/projects/{projectId}/labels": {
+      "get": {
+        "summary": "List a project's labels",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/ProjectLabelResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "post": {
+        "summary": "Add a new project label",
+        "parameters": [
+          {
+            "name": "AddLabelRequest",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/AddLabelRequest"
+            }
+          },
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": {
+              "$ref": "#/definitions/ProjectLabelResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "402": {
+            "description": "Plan limit reached"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/labels/{labelId}": {
+      "patch": {
+        "summary": "Update a project's label",
+        "parameters": [
+          {
+            "name": "UpdateLabelRequest",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/UpdateLabelRequest"
+            }
+          },
+          {
+            "type": "string",
+            "name": "labelId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "schema": {
+              "$ref": "#/definitions/ProjectLabelResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Remove a project's label",
+        "description": "Removes a project's label and removes it from all attached translations too",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "labelId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/labels/{labelId}/terms/{termId}": {
+      "post": {
+        "summary": "Label a project term",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "termId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "labelId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project, term or label not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Unlabel a project term",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "termId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "labelId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Label removed"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project, term or label not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
+    "/api/v1/projects/{projectId}/labels/{labelId}/terms/{termId}/translations/{localeCode}": {
+      "post": {
+        "summary": "Label a project term translation",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "localeCode",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "termId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "labelId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project, term or label not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      },
+      "delete": {
+        "summary": "Unlabel a project term translation",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "localeCode",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "termId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "labelId",
+            "required": true,
+            "in": "path"
+          },
+          {
+            "type": "string",
+            "name": "projectId",
+            "required": true,
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Label removed"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Project, term or label not found"
+          }
+        },
+        "tags": ["Project Labels"],
+        "security": [
+          {
+            "oauth2": []
+          }
+        ],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
+      }
+    },
     "/api/v1/projects/{projectId}/exports": {
       "get": {
         "summary": "Export all translated terms for a project's locale",
@@ -2035,11 +2408,17 @@
         "value": {
           "type": "string"
         },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "date": {
           "$ref": "#/definitions/AccessDatesDTO"
         }
       },
-      "required": ["id", "value", "date"]
+      "required": ["id", "value", "labels", "date"]
     },
     "ListProjectTermsResponse": {
       "type": "object",
@@ -2155,11 +2534,17 @@
         "value": {
           "type": "string"
         },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "date": {
           "$ref": "#/definitions/AccessDatesDTO"
         }
       },
-      "required": ["termId", "value", "date"]
+      "required": ["termId", "value", "labels", "date"]
     },
     "ListTermTranslatonsResponse": {
       "type": "object",
@@ -2327,6 +2712,62 @@
         }
       },
       "required": ["data"]
+    },
+    "ProjectLabelDTO": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "value", "color"]
+    },
+    "ProjectLabelResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/ProjectLabelDTO"
+        }
+      },
+      "required": ["data"]
+    },
+    "AddLabelRequest": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "color": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 7
+        }
+      },
+      "required": ["value", "color"]
+    },
+    "UpdateLabelRequest": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "color": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 7
+        }
+      },
+      "required": ["value", "color"]
     },
     "ListLocalesResponse": {
       "type": "object",

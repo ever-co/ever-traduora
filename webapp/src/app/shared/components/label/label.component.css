@@ -1,0 +1,81 @@
+.form-control {
+  background-color: transparent !important;
+}
+
+textarea {
+  border: 0px solid transparent;
+  box-shadow: none;
+  resize: none;
+  font-size: small;
+}
+
+.form-control:hover:not(.is-editing):not(.readonly) {
+  cursor: pointer;
+  background-color: #ffffff20 !important;
+  transition: background-color 150ms ease;
+}
+
+.form-control.readonly {
+  border: none;
+  box-shadow: none;
+}
+
+.form-control:focus:not(.readonly) {
+  border: none;
+  box-shadow: none;
+}
+
+textarea:hover:not(.is-editing):not(.readonly) {
+  cursor: pointer;
+  background-color: #ffffff20 !important;
+  transition: background-color 150ms ease;
+}
+
+.is-editing {
+  background-color: #ffffff60 !important;
+  transition: background-color 150ms ease;
+}
+
+.edit-controls {
+  position: absolute;
+  bottom: 0;
+  transform: translateY(100%);
+  z-index: 900;
+}
+
+.edit-controls .length-hint,
+.btn {
+  box-shadow: rgba(116, 129, 141, 0.1) 0px 3px 8px 0px;
+}
+
+.rounded-b-0 {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.rounded-t-0 {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+.rounded-l-0 {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+.rounded-br-0 {
+  border-bottom-right-radius: 0 !important;
+}
+
+.rounded-bl-0 {
+  border-bottom-left-radius: 0 !important;
+}
+
+.rounded-r-0 {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+textarea::placeholder {
+  color: gainsboro;
+}

@@ -1,9 +1,9 @@
-<app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
+<app-error-message *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
 <div class="w-100 h-100">
-  <div *ngIf="(project$ | async) as project" class="h-100">
+  <div *ngIf="project$ | async as project" class="h-100">
     <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
       <h5 class="font-serif m-0" i18n>Terms</h5>
-      <app-new-term *ngIf="(true | can: 'AddTerm' | async)" [project]="project"></app-new-term>
+      <app-new-term *ngIf="true | can: 'AddTerm' | async" [project]="project"></app-new-term>
     </div>
 
     <app-search [items]="projectTerms$" [key]="searchKey" [trackBy]="trackElement">
@@ -15,13 +15,13 @@
                 class="flex-1"
                 [readOnly]="!(true | can: 'EditTerm' | async)"
                 [value]="term.value"
-                placeholder="No term value yet"
+                placeholder="Terms cannot be empty"
                 [allowEmpty]="false"
                 showLength="true"
                 (save)="updateTerm(project.id, term.id, $event)"
               ></app-editable-text>
               <button
-                *ngIf="(true | can: 'DeleteTerm' | async)"
+                *ngIf="true | can: 'DeleteTerm' | async"
                 class="ml-3 btn bg-transparent text-dark btn-sm"
                 style="max-height: 2rem"
                 (click)="deleteTerm(project.id, term.id)"
@@ -29,6 +29,13 @@
                 <i class="material-icons" style="font-size: 1.25rem">close</i>
               </button>
             </div>
+            <app-assigned-labels
+              hint="Term labels are automatically assigned to all related translations."
+              [labels]="term.labels"
+              [availableLabels]="projectLabels$ | async"
+              (add)="labelTerm(project.id, term.id, $event)"
+              (remove)="unlabelTerm(project.id, term.id, $event)"
+            ></app-assigned-labels>
           </div>
         </div>
       </ng-template>
@@ -40,11 +47,7 @@
         <div>
           <h4 class="font-serif" i18n>Project terms are empty</h4>
           <p i18n>You haven't yet created any terms for this project. Add a new term to get started!</p>
-          <app-new-term
-            *ngIf="(true | can: 'AddTerm' | async)"
-            [project]="project"
-            btnClass="btn-primary"
-          ></app-new-term>
+          <app-new-term *ngIf="true | can: 'AddTerm' | async" [project]="project" btnClass="btn-primary"></app-new-term>
         </div>
       </div>
     </div>

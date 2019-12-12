@@ -1,8 +1,9 @@
 import { ApiModelProperty, ApiModelPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import { IsEmail, IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
 import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
+import { IsValidLabel } from '../validators/IsValidLabel';
 
 export interface JwtPayload {
   sub: string;
@@ -153,7 +154,18 @@ export class ProjectTermDTO {
   @ApiModelProperty()
   value: string;
   @ApiModelProperty()
+  labels: ProjectLabelDTO[];
+  @ApiModelProperty()
   date: AccessDatesDTO;
+}
+
+export class ProjectLabelDTO {
+  @ApiModelProperty()
+  id: string;
+  @ApiModelProperty()
+  value: string;
+  @ApiModelProperty()
+  color: string;
 }
 
 export class ProjectStatsDTO {
@@ -199,6 +211,8 @@ export class TermTranslationDTO {
   termId: string;
   @ApiModelProperty()
   value: string;
+  @ApiModelProperty()
+  labels: ProjectLabelDTO[];
   @ApiModelProperty()
   date: AccessDatesDTO;
 }
@@ -316,6 +330,16 @@ export class ProjectLocaleResponse extends ServiceApiResponse<ProjectLocaleDTO> 
 export class ProjectTermResponse extends ServiceApiResponse<ProjectTermDTO> {
   @ApiModelProperty()
   data: ProjectTermDTO;
+}
+
+export class ListProjectLabelsResponse extends ServiceApiResponse<ProjectLabelDTO[]> {
+  @ApiModelProperty({ type: ProjectLabelDTO, isArray: true })
+  data: ProjectLabelDTO[];
+}
+
+export class ProjectLabelResponse extends ServiceApiResponse<ProjectLabelDTO> {
+  @ApiModelProperty()
+  data: ProjectLabelDTO;
 }
 
 export class ListProjectTermsResponse extends ServiceApiResponse<ProjectTermDTO[]> {
@@ -503,6 +527,30 @@ export class UpdateProjectRequest {
   @IsOptional()
   @Length(0, 255)
   description: string | undefined;
+}
+
+export class AddLabelRequest {
+  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @Length(1, 255)
+  @Validate(IsValidLabel)
+  value: string;
+
+  @ApiModelProperty({ minLength: 7, maxLength: 7 })
+  @Length(7, 7)
+  @Validate(IsHexColor)
+  color: string;
+}
+
+export class UpdateLabelRequest {
+  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @Length(1, 255)
+  @Validate(IsValidLabel)
+  value: string;
+
+  @ApiModelProperty({ minLength: 7, maxLength: 7 })
+  @Length(7, 7)
+  @Validate(IsHexColor)
+  color: string;
 }
 
 export class AddTermRequest {

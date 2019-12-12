@@ -6,6 +6,8 @@ import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
 import { ClearMessages, CreateTerm, DeleteTerm, GetTerms, TermsState, UpdateTerm } from '../../stores/terms.state';
+import { LabelTerm, UnlabelTerm, ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
+import { Label } from '../../models/label';
 
 @Component({
   selector: 'app-terms-list',
@@ -18,6 +20,9 @@ export class TermsListComponent implements OnInit, OnDestroy {
 
   @Select(TermsState.terms)
   projectTerms$: Observable<Term[]>;
+
+  @Select(ProjectLabelState.labels)
+  projectLabels$: Observable<Label[]>;
 
   @Select(state => state.terms.isLoading)
   isLoading$: Observable<boolean>;
@@ -62,17 +67,25 @@ export class TermsListComponent implements OnInit, OnDestroy {
 
   private sub: Subscription;
 
-  searchKey = (item: Term) => item.value;
+  searchKey = (item: Term) => {
+    return [item.value, ...item.labels.map(v => v.value)].join('').toLowerCase();
+  };
 
   constructor(private store: Store) {}
 
   ngOnInit() {
-    this.sub = this.project$.pipe(tap(project => this.store.dispatch(new GetTerms(project.id)))).subscribe();
+    this.sub = this.project$
+      .pipe(
+        tap(project => {
+          this.store.dispatch(new GetTerms(project.id));
+          this.store.dispatch(new GetProjectLabels(project.id));
+        }),
+      )
+      .subscribe();
   }
 
   ngOnDestroy() {
     this.sub.unsubscribe();
-
     this.store.dispatch(new ClearMessages());
   }
 
@@ -92,6 +105,14 @@ export class TermsListComponent implements OnInit, OnDestroy {
     if (confirm('Are you sure that you want to delete this term?')) {
       this.store.dispatch(new DeleteTerm(projectId, termId));
     }
+  }
+
+  labelTerm(projectId, termId, label) {
+    this.store.dispatch(new LabelTerm(projectId, label, termId));
+  }
+
+  unlabelTerm(projectId, termId, label) {
+    this.store.dispatch(new UnlabelTerm(projectId, label, termId));
   }
 
   trackElement(index: number, term: Term) {

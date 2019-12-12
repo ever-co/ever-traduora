@@ -28,7 +28,8 @@ describe('TermController (e2e)', () => {
       })
       .expect(201)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'value', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'labels', 'date']);
+        expect(res.body.data.labels).toEqual([]);
       });
   });
 
@@ -47,7 +48,7 @@ describe('TermController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'labels', 'date']);
       });
   });
 
@@ -97,7 +98,7 @@ describe('TermController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'value', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'labels', 'date']);
         expect(res.body.data.id).toEqual(termId);
         expect(res.body.data.value).toEqual('term.two');
       });
@@ -125,7 +126,7 @@ describe('TermController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'value', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'labels', 'date']);
         expect(res.body.data.id).toEqual(termId);
         expect(res.body.data.value).toEqual('term.two őúüöá 😀👍🍉你好');
       });

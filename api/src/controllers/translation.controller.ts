@@ -81,6 +81,16 @@ export default class TranslationController {
 
     await this.termRepo.manager.transaction(async entityManager => {
       await entityManager.save(projectLocale);
+      const terms = await entityManager.find(Term, { where: { project: { id: projectId } }, relations: ['labels'] });
+      const translations = terms.map(term =>
+        this.translationRepo.create({
+          projectLocale: projectLocale,
+          term: term,
+          value: '',
+          labels: term.labels,
+        }),
+      );
+      await entityManager.save(translations);
       await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);
     });
 
@@ -126,10 +136,10 @@ export default class TranslationController {
       where: {
         projectLocale,
       },
-      relations: ['term'],
+      relations: ['term', 'labels'],
     });
 
-    const result = translations.map(t => ({ termId: t.term.id, value: t.value, date: t.date }));
+    const result = translations.map(t => ({ termId: t.term.id, value: t.value, labels: t.labels, date: t.date }));
 
     return { data: result };
   }
@@ -160,22 +170,23 @@ export default class TranslationController {
       },
     });
 
-    const term = await this.termRepo
-      .createQueryBuilder('term')
-      .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', { projectLocaleId: projectLocale.id })
-      .where('term.projectId = :projectId', { projectId })
-      .andWhere('term.id = :termId', { termId: payload.termId })
-      .getOne();
+    const term = await this.termRepo.findOneOrFail({ where: { project: { id: projectId }, id: payload.termId }, relations: ['labels'] });
 
     if (!term) {
       throw new NotFoundException('term not found');
     }
 
-    const translation = this.translationRepo.create({
-      value: payload.value,
-      projectLocale,
-      term,
-    });
+    let translation = await this.translationRepo.findOne({ where: { termId: term.id, projectLocale: projectLocale }, relations: ['labels'] });
+    if (translation) {
+      translation.value = payload.value;
+    } else {
+      translation = this.translationRepo.create({
+        value: payload.value,
+        projectLocale,
+        term,
+        labels: term.labels, // Copy term labels on creation
+      });
+    }
 
     await this.translationRepo.save(translation);
 
@@ -183,6 +194,7 @@ export default class TranslationController {
       data: {
         termId: term.id,
         value: translation.value,
+        labels: translation.labels,
         date: translation.date,
       },
     };

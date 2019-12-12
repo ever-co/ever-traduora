@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn, ManyToMany } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { ProjectLocale } from './project-locale.entity';
 import { Term } from './term.entity';
+import { Label } from './label.entity';
 
 @Entity()
 export class Translation {
@@ -20,6 +21,9 @@ export class Translation {
 
   @ManyToOne(type => ProjectLocale, { onDelete: 'CASCADE', nullable: false })
   projectLocale: ProjectLocale;
+
+  @ManyToMany(() => Label, label => label.translations)
+  labels: Label[];
 
   @Column(type => AccessTimestamps)
   date: AccessTimestamps;

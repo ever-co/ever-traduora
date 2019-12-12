@@ -22,6 +22,16 @@ import {
   TranslationsState,
   UpdateTranslation,
 } from '../../stores/translations.state';
+import { ProjectLabelState, GetProjectLabels, LabelTranslation, UnlabelTranslation } from '../../stores/project-label.state';
+import { Label } from '../../models/label';
+
+interface TranslationView {
+  term: Term;
+  translation: Translation | undefined;
+  labels: Label[];
+  value: string;
+  valueRef: string;
+}
 
 @Component({
   selector: 'app-translations-list',
@@ -49,6 +59,9 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
 
   @Select(state => state.terms.errorMessage)
   errorMessage$: Observable<string | undefined>;
+
+  @Select(ProjectLabelState.labels)
+  projectLabels$: Observable<Label[]>;
 
   localeCode$: Observable<string | undefined> = this.route.paramMap.pipe(map(params => params.get('localeCode')));
 
@@ -81,6 +94,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
           filter(project => !!project),
           tap(project => {
             this.store.dispatch([new GetProjectLocales(project.id), new GetKnownLocales(), new GetTerms(project.id)]);
+            this.store.dispatch(new GetProjectLabels(project.id));
           }),
           flatMap(project => {
             return this.localeCode$.pipe(map(localeCode => this.store.dispatch(new GetTranslations(project.id, localeCode))));
@@ -125,8 +139,9 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     }
   }
 
-  searchKey(item: { term: Term; value: string; valueRef: string }): string {
-    return `${item.term.value}${item.value}${item.valueRef}`.toLowerCase();
+  searchKey(item: TranslationView): string {
+    const termLabels = item.labels ? item.labels.map(v => v.value).join(' ') : '';
+    return `${item.term.value}${item.value}${item.valueRef}${termLabels}`.toLowerCase();
   }
 
   trackElement(index: number, element: { term: Term; value: string; valueRef: string }) {
@@ -144,6 +159,19 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     if (locale) {
       this.store.dispatch(new Navigate(['projects', project.id, 'translations', locale.code]));
     }
+  }
+
+  labelTranslation(projectId, termId, label, localeCode) {
+    this.store.dispatch(new LabelTranslation(projectId, label, termId, localeCode));
+  }
+
+  unlabelTranslation(projectId, termId, label, localeCode) {
+    this.store.dispatch(new UnlabelTranslation(projectId, label, termId, localeCode));
+  }
+
+  concatLabels(view: TranslationView) {
+    // There might be no translation for this term yet.
+    return view.labels;
   }
 
   async setReferenceLocale(project: Project, locale: Locale) {
@@ -165,7 +193,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     localeCode: string,
     referenceLocaleCode: string | undefined,
     options: { filterTranslated: boolean | undefined },
-  ): { term: Term; value: string; valueRef: string }[] {
+  ): TranslationView[] {
     // Find translations for locales, fallback to empty list if not found.
     const mainTranslations = translationsIndex[localeCode] || [];
     const refTranslations = referenceLocaleCode ? translationsIndex[referenceLocaleCode] || [] : [];
@@ -179,6 +207,8 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
       const refTranslation = refTranslationsByTermId[term.id];
       return {
         term,
+        translation,
+        labels: translation ? translation.labels : [],
         value: translation ? translation.value : '',
         valueRef: refTranslation ? refTranslation.value : '',
       };

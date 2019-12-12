@@ -9,12 +9,12 @@ export enum ProjectAction {
   EditProjectPlan,
 
   // Project Users
-  InviteProjectUser,
   ViewProjectUsers,
   EditProjectUsers,
   DeleteProjectUsers,
 
   // Project Invites
+  InviteProjectUser,
   ViewProjectInvites,
   EditProjectInvites,
   DeleteProjectInvites,
@@ -24,6 +24,12 @@ export enum ProjectAction {
   ViewTerm,
   EditTerm,
   DeleteTerm,
+
+  // Labels
+  AddLabel,
+  ViewLabel,
+  EditLabel,
+  DeleteLabel,
 
   // Translations
   AddTranslation,
@@ -49,6 +55,10 @@ export const AllowedEditorActions = new Set([
   ProjectAction.ViewTerm,
   ProjectAction.EditTerm,
   ProjectAction.DeleteTerm,
+  ProjectAction.AddLabel,
+  ProjectAction.ViewLabel,
+  ProjectAction.EditLabel,
+  ProjectAction.DeleteLabel,
   ProjectAction.AddTranslation,
   ProjectAction.ViewTranslation,
   ProjectAction.EditTranslation,
@@ -64,6 +74,7 @@ export const AllowedViewerActions = new Set([
   ProjectAction.ViewProjectUsers,
   ProjectAction.ViewProjectInvites,
   ProjectAction.ViewTerm,
+  ProjectAction.ViewLabel,
   ProjectAction.ViewTranslation,
   ProjectAction.ExportTranslation,
   ProjectAction.ViewProjectClients,

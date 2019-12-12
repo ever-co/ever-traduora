@@ -1,6 +1,7 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { Project } from './project.entity';
+import { Label } from './label.entity';
 import { Translation } from './translation.entity';
 
 @Entity()
@@ -19,6 +20,9 @@ export class Term {
   @OneToMany(() => Translation, translation => translation.term)
   @JoinColumn()
   translations: Translation[];
+
+  @ManyToMany(() => Label, label => label.terms)
+  labels: Label[];
 
   @Column(type => AccessTimestamps)
   date: AccessTimestamps;
