@@ -28,6 +28,10 @@ Traduora can be run just about anywhere, check out our [quickstart](https://docs
 
 Also check out traduora's [Docker Hub page](https://hub.docker.com/r/traduora/traduora) for pre-built images.
 
+## Adopters
+- Your company/project.
+
+Submit a pull-request to include your company/project into the list.
 
 ### Configuration and Deployment
 Please check out the [configuration](https://docs.traduora.com/docs/configuration) and [deployment](https://docs.traduora.com/docs/deployment) documents for more information on deploying traduora.
