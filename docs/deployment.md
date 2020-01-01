@@ -86,7 +86,7 @@ It is **strongly recommended** that you only serve traduora over TLS, you should
 
 
 ## From source
-To build from source the pre-requisites are: `Node.js v10.13.0` and `yarn` (or npm).
+To build from source the pre-requisites are: `Node.js v10+` and `yarn` (or npm).
 
 Clone the repo locally:
 
