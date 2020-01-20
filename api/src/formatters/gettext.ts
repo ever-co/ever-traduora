@@ -16,7 +16,6 @@ const streamAsPromise = stream => {
 
 export const gettextParser: Parser = async (data: string) => {
   const res = po.parse(data);
-  const payload = res.translations[''];
 
   const translations = [];
   for (const context of Object.keys(res.translations)) {
