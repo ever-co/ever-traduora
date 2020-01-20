@@ -32,7 +32,7 @@ export default class MailService {
       },
     };
     this.transporter = options.host ? createTransport(options) : undefined;
-    if (!this.transporter) {
+    if (!this.transporter && !(config.env === 'e2e')) {
       console.log(
         'No email transport configured. ' +
           'Please check the documentation on how to configure ' +
