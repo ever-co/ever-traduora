@@ -19,14 +19,16 @@ export const gettextParser: Parser = async (data: string) => {
   const payload = res.translations[''];
 
   const translations = [];
-
-  if (payload !== undefined) {
-    for (const key of Object.keys(payload)) {
-      if (key === '') {
-        continue;
+  for (const context of Object.keys(res.translations)) {
+    const payload = res.translations[context];
+    if (payload !== undefined) {
+      for (const key of Object.keys(payload)) {
+        if (key === '') {
+          continue;
+        }
+        const item = payload[key];
+        translations.push({ term: item.msgid, translation: item.msgstr.join('') });
       }
-      const item = payload[key];
-      translations.push({ term: item.msgid, translation: item.msgstr.join('') });
     }
   }
 
