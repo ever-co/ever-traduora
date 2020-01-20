@@ -1,6 +1,6 @@
 {
   "name": "traduora-api",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "license": "AGPL-3.0-only",
   "scripts": {
     "fmt": "prettier --write \"src/**/*.ts\"",
