@@ -7,6 +7,12 @@ test('should parse gettext files', async () => {
   expect(result).toEqual(simpleFormatFixture);
 });
 
+test('should parse gettext files with context', async () => {
+  const input = loadFixture('simple-context.po');
+  const result = await gettextParser(input);
+  expect(result).toEqual(simpleFormatFixture);
+});
+
 test('should export gettext files', async () => {
   const result = await gettextExporter({ ...simpleFormatFixture, iso: 'de_DE' });
   const expected = loadFixture('simple.po');

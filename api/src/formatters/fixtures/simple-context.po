@@ -1,0 +1,23 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"MIME-Version: 1.0\n"
+"Language: de_DE\n"
+
+msgid "term.one"
+msgstr "Current Plan: {{ project.plan.name }}"
+
+msgctxt "my context"
+msgid "term two"
+msgstr "{VAR_PLURAL, plural, =0 {locales} =1 {locale} other {locales} }"
+
+msgctxt "my context"
+msgid "TERM_THREE"
+msgstr "Export format..."
+
+msgctxt "my other context"
+msgid "term:four"
+msgstr ""
+"hello there you\\n"
+"this should be in a newline"
