@@ -1,5 +1,5 @@
 import { loadFixture, simpleFormatFixture } from './fixtures';
-import { jsonNestedExporter, jsonNestedParser } from './jsonnested';
+import { jsonNestedExporter, jsonNestedParser, JSON_MAX_NESTED_LEVELS } from './jsonnested';
 
 test('should parse nested json files', async () => {
   const input = `{
@@ -62,7 +62,15 @@ test('should fail if file is malformed or empty', async () => {
 
 test('should fail if the nested JSON goes above 5 levels', async () => {
   const ok = '{ "0": { "1": { "2": { "3": { "4": { "5": "" } } } } } }';
-  const tooMany = '{ "0": { "1": { "2": { "3": { "4": { "5": { "6": "" } } } } } } }';
+
+  const tooManyRoot = {};
+  let next = tooManyRoot;
+  for (let i = 0; i < JSON_MAX_NESTED_LEVELS + 1; i++) {
+    const key = i.toString();
+    next[key] = {};
+    next = next[key];
+  }
+  const tooMany = JSON.stringify(tooManyRoot);
 
   expect.assertions(2);
   await expect(jsonNestedParser(ok)).resolves.toBeDefined();
