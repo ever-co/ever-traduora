@@ -1,6 +1,8 @@
 import * as yaml from 'js-yaml';
 import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
+export const YAML_MAX_NESTED_LEVELS = 100;
+
 export const yamlNestedParser: Parser = async (data: string) => {
   const parsed = yaml.safeLoad(data);
   const translations = [];
@@ -10,8 +12,8 @@ export const yamlNestedParser: Parser = async (data: string) => {
   }
 
   const traverse = (obj, level = 0, parentTerm = undefined) => {
-    if (level >= 6) {
-      throw new Error('Too many nested levels in YAML content');
+    if (level > YAML_MAX_NESTED_LEVELS) {
+      throw new Error(`Too many nested levels in YAML content (>${YAML_MAX_NESTED_LEVELS})`);
     }
     for (const key of Object.keys(obj)) {
       const value = obj[key];
