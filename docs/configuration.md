@@ -33,6 +33,7 @@ The API server can be configured via the following environment variables:
 | TR_MAIL_SECURE | If enabled, attempt to send mail securely | false |
 | TR_MAIL_USER | The auth user for the mail server | not set |
 | TR_MAIL_PASSWORD | The auth password for the mail server | not set |
+| TR_IMPORT_MAX_NESTED_LEVELS | Max number of nested levels in terms allowed for import formats | 100 |
 | TR_AUTH_GOOGLE_ENABLED | Set to 'true' if you'd like to enable sign-in with Google | not set |
 | TR_AUTH_GOOGLE_CLIENT_ID | Your Google OAuth client ID | not set |
 | TR_AUTH_GOOGLE_CLIENT_SECRET | Your Google OAuth client secret | not set |

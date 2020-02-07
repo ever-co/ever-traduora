@@ -6,6 +6,9 @@ sidebar_label: Changelog
 
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
+## next
+- Allow config of max nested levels on import formats (with new default of 100).
+
 ## 0.15.1
 - Fix parsing of gettext (po) files with message contexts.
 

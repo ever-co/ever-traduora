@@ -1,5 +1,6 @@
+import { config } from '../config';
 import { loadFixture, simpleFormatFixture } from './fixtures';
-import { jsonNestedExporter, jsonNestedParser, JSON_MAX_NESTED_LEVELS } from './jsonnested';
+import { jsonNestedExporter, jsonNestedParser } from './jsonnested';
 
 test('should parse nested json files', async () => {
   const input = `{
@@ -65,7 +66,7 @@ test('should fail if the nested JSON goes above 5 levels', async () => {
 
   const tooManyRoot = {};
   let next = tooManyRoot;
-  for (let i = 0; i < JSON_MAX_NESTED_LEVELS + 1; i++) {
+  for (let i = 0; i < config.import.maxNestedLevels + 1; i++) {
     const key = i.toString();
     next[key] = {};
     next = next[key];
