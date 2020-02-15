@@ -20,6 +20,9 @@ export const config = {
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
+  import: {
+    maxNestedLevels: parseInt(env.TR_IMPORT_MAX_NESTED_LEVELS, 10) || 100,
+  },
   providers: {
     google: {
       active: env.TR_AUTH_GOOGLE_ENABLED,

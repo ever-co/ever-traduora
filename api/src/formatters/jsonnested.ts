@@ -1,4 +1,7 @@
+import { config } from '../config';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
+
+export const JSON_MAX_NESTED_LEVELS = 100;
 
 export const jsonNestedParser: Parser = async (data: string) => {
   const parsed = JSON.parse(data);
@@ -9,8 +12,8 @@ export const jsonNestedParser: Parser = async (data: string) => {
   }
 
   const traverse = (obj, level = 0, parentTerm = undefined) => {
-    if (level >= 6) {
-      throw new Error('Too many nested levels in JSON content');
+    if (level > config.import.maxNestedLevels) {
+      throw new Error(`Too many nested levels in JSON content (>${config.import.maxNestedLevels})`);
     }
     for (const key of Object.keys(obj)) {
       const value = obj[key];
