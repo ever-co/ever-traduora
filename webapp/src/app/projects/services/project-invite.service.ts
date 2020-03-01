@@ -20,11 +20,15 @@ export class ProjectInviteService {
   }
 
   create(projectId: string, email: String, role: ProjectRole): Observable<ProjectInvite> {
-    return this.http.post<Payload<ProjectInvite>>(`${this.endpoint}/projects/${projectId}/invites`, { email, role }).pipe(map(res => res.data));
+    return this.http
+      .post<Payload<ProjectInvite>>(`${this.endpoint}/projects/${projectId}/invites`, { email, role })
+      .pipe(map(res => res.data));
   }
 
   update(projectId: string, inviteId: String, role: ProjectRole): Observable<ProjectInvite> {
-    return this.http.patch<Payload<ProjectInvite>>(`${this.endpoint}/projects/${projectId}/invites/${inviteId}`, { role }).pipe(map(res => res.data));
+    return this.http
+      .patch<Payload<ProjectInvite>>(`${this.endpoint}/projects/${projectId}/invites/${inviteId}`, { role })
+      .pipe(map(res => res.data));
   }
 
   remove(projectId: string, inviteId: string): Observable<void> {

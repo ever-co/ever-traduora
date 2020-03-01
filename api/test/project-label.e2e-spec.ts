@@ -72,7 +72,10 @@ describe('ProjectLabelController (e2e)', () => {
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
         expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'color']);
-        expect(res.body.data.map(t => [t.value, t.color])).toEqual([['done 😀👍', '#808080'], ['todo', '#202020']]);
+        expect(res.body.data.map(t => [t.value, t.color])).toEqual([
+          ['done 😀👍', '#808080'],
+          ['todo', '#202020'],
+        ]);
       });
   });
 
@@ -119,7 +122,10 @@ describe('ProjectLabelController (e2e)', () => {
       .expect(res => {
         expect(res.body.data).toHaveLength(2);
         expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'color']);
-        expect(res.body.data.map(t => [t.value, t.color])).toEqual([['done', '#808080'], ['wip', '#aaffaa']]);
+        expect(res.body.data.map(t => [t.value, t.color])).toEqual([
+          ['done', '#808080'],
+          ['wip', '#aaffaa'],
+        ]);
       });
   });
 
@@ -317,7 +323,10 @@ describe('ProjectLabelController (e2e)', () => {
 
     // Try to import
     const fileToImport = (await jsonFlatExporter({
-      translations: [{ term: 'term.one', translation: 'Hello' }, { term: 'term.two', translation: 'Goodbye' }],
+      translations: [
+        { term: 'term.one', translation: 'Hello' },
+        { term: 'term.two', translation: 'Goodbye' },
+      ],
     })) as string;
 
     await request(app.getHttpServer())

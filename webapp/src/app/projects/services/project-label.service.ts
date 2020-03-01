@@ -19,11 +19,15 @@ export class ProjectLabelService {
   }
 
   create(projectId: string, value: String, color: string): Observable<Label> {
-    return this.http.post<Payload<Label>>(`${this.endpoint}/projects/${projectId}/labels`, { value, color }).pipe(map(res => res.data));
+    return this.http
+      .post<Payload<Label>>(`${this.endpoint}/projects/${projectId}/labels`, { value, color })
+      .pipe(map(res => res.data));
   }
 
   update(projectId: string, labelId: string, value: String, color: string): Observable<Label> {
-    return this.http.patch<Payload<Label>>(`${this.endpoint}/projects/${projectId}/labels/${labelId}`, { value, color }).pipe(map(res => res.data));
+    return this.http
+      .patch<Payload<Label>>(`${this.endpoint}/projects/${projectId}/labels/${labelId}`, { value, color })
+      .pipe(map(res => res.data));
   }
 
   remove(projectId: string, labelId: string): Observable<void> {
