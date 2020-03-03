@@ -22,4 +22,4 @@ export const jsonFlatParser: Parser = async (data: string) => {
 };
 
 export const jsonFlatExporter: Exporter = async (data: IntermediateTranslationFormat) =>
-  JSON.stringify(data.translations.reduce((acc, x) => ({ ...acc, [x.term]: x.translation }), {}));
+  JSON.stringify(data.translations.reduce((acc, x) => ({ ...acc, [x.term]: x.translation }), {}), null, 4);
