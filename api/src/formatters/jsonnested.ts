@@ -55,5 +55,5 @@ export const jsonNestedExporter: Exporter = async (data: IntermediateTranslation
       current[parts[partsLen - 1]] = translation.translation;
     }
   }
-  return JSON.stringify(result);
+  return JSON.stringify(result, null, 4);
 };
