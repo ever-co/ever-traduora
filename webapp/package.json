@@ -1,7 +1,7 @@
 {
   "name": "traduora-webapp",
   "license": "AGPL-3.0-only",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
