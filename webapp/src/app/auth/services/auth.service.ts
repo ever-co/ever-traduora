@@ -15,7 +15,7 @@ import { environment } from './../../../environments/environment';
 export class AuthService {
   private endpoint = environment.apiEndpoint;
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
   getUserSelf(): Observable<User> {
     return this.http.get<Payload<User>>(`${this.endpoint}/users/me`).pipe(map(res => res.data));
@@ -51,7 +51,7 @@ export class AuthService {
   redirectWithProvider(provider: Provider) {
     window.open(
       `${provider.url}?redirect_uri=${provider.redirectUrl}&client_id=${
-      provider.clientId
+        provider.clientId
       }&scope=email profile openid&access_type=offline&prompt=select_account&response_type=code`,
       '_self',
     );

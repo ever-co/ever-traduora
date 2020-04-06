@@ -11,7 +11,7 @@ import { ProjectTranslationsService } from '../services/translations.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
 import { LabelTranslation, UnlabelTranslation } from './project-label.state';
 import { Injectable } from '@angular/core';
-import { sortBy } from 'lodash'
+import { sortBy } from 'lodash';
 
 export class ClearMessages {
   static readonly type = '[Translations] Clear messages';
@@ -23,27 +23,27 @@ export class GetKnownLocales {
 
 export class GetProjectLocales {
   static readonly type = '[Translations] Get project locales';
-  constructor(public projectId: string) { }
+  constructor(public projectId: string) {}
 }
 
 export class AddProjectLocale {
   static readonly type = '[Translations] Add project locale';
-  constructor(public projectId: string, public localeCode: string) { }
+  constructor(public projectId: string, public localeCode: string) {}
 }
 
 export class DeleteProjectLocale {
   static readonly type = '[Translations] Delete project locale';
-  constructor(public projectId: string, public localeCode: string) { }
+  constructor(public projectId: string, public localeCode: string) {}
 }
 
 export class GetTranslations {
   static readonly type = '[Translations] Get translation';
-  constructor(public projectId: string, public localeCode: string) { }
+  constructor(public projectId: string, public localeCode: string) {}
 }
 
 export class UpdateTranslation {
   static readonly type = '[Translations] Update translation';
-  constructor(public projectId: string, public localeCode: string, public termId: string, public value: string) { }
+  constructor(public projectId: string, public localeCode: string, public termId: string, public value: string) {}
 }
 
 export interface TranslationsStateModel {
@@ -68,7 +68,7 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class TranslationsState implements NgxsOnInit {
-  constructor(private translationService: ProjectTranslationsService) { }
+  constructor(private translationService: ProjectTranslationsService) {}
 
   @Selector()
   static isLoading(state: TranslationsStateModel) {
@@ -77,7 +77,7 @@ export class TranslationsState implements NgxsOnInit {
 
   @Selector()
   static projectLocales(state: TranslationsStateModel) {
-    return sortBy(state.projectLocales, v => v.locale.code)
+    return sortBy(state.projectLocales, v => v.locale.code);
   }
 
   @Selector()
@@ -90,7 +90,7 @@ export class TranslationsState implements NgxsOnInit {
     return state.knownLocales;
   }
 
-  ngxsOnInit(ctx: StateContext<TranslationsStateModel>) { }
+  ngxsOnInit(ctx: StateContext<TranslationsStateModel>) {}
 
   @Action(Logout)
   logout(ctx: StateContext<TranslationsStateModel>, action: Logout) {
@@ -225,7 +225,7 @@ export class TranslationsState implements NgxsOnInit {
     if (forLocale) {
       const updated = forLocale.map(v => {
         if (v.termId === action.termId) {
-          return { ...v, labels: [...v.labels, action.label] }
+          return { ...v, labels: [...v.labels, action.label] };
         }
         return v;
       });
@@ -240,7 +240,7 @@ export class TranslationsState implements NgxsOnInit {
     if (forLocale) {
       const updated = forLocale.map(v => {
         if (v.termId === action.termId) {
-          return { ...v, labels: v.labels.filter(t => t.id !== action.label.id) }
+          return { ...v, labels: v.labels.filter(t => t.id !== action.label.id) };
         }
         return v;
       });

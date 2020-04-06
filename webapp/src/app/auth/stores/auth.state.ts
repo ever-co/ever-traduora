@@ -27,47 +27,47 @@ export class GetProviders {
 
 export class Signup {
   static readonly type = '[Auth] Signup';
-  constructor(public name: string, public email: string, public password: string) { }
+  constructor(public name: string, public email: string, public password: string) {}
 }
 
 export class UpdateUserSelf {
   static readonly type = '[Auth] Update user self';
-  constructor(public updates: { name?: string; email?: string }) { }
+  constructor(public updates: { name?: string; email?: string }) {}
 }
 
 export class Login {
   static readonly type = '[Auth] Login';
-  constructor(public email: string, public password: string) { }
+  constructor(public email: string, public password: string) {}
 }
 
 export class ReceiveAuthProviderCode {
   static readonly type = '[Auth] Receive provider auth code';
-  constructor(public code: string) { }
+  constructor(public code: string) {}
 }
 
 export class ReceiveAPIAccessToken {
   static readonly type = '[Auth] Receive API access token';
-  constructor(public payload: { accessToken: string }) { }
+  constructor(public payload: { accessToken: string }) {}
 }
 
 export class RedirectToAuthProvider {
   static readonly type = '[Auth] Redirect to auth provider sign in';
-  constructor(public provider: Provider) { }
+  constructor(public provider: Provider) {}
 }
 
 export class ForgotPassword {
   static readonly type = '[Auth] Forgot password';
-  constructor(public email: string) { }
+  constructor(public email: string) {}
 }
 
 export class ResetPassword {
   static readonly type = '[Auth] Reset password';
-  constructor(public email: string, public newPassword: string, public token: string) { }
+  constructor(public email: string, public newPassword: string, public token: string) {}
 }
 
 export class ChangePassword {
   static readonly type = '[Auth] Change password';
-  constructor(public oldPassword: string, public newPassword: string) { }
+  constructor(public oldPassword: string, public newPassword: string) {}
 }
 
 export class ClearMessages {
@@ -76,17 +76,17 @@ export class ClearMessages {
 
 export class Logout {
   static readonly type = '[Auth] Logout';
-  constructor(public reason: string | undefined = null) { }
+  constructor(public reason: string | undefined = null) {}
 }
 
 export class MustLogin {
   static readonly type = '[Auth] Must login with redirect';
-  constructor(public redirectTo: string) { }
+  constructor(public redirectTo: string) {}
 }
 
 export class AuthError {
   static readonly type = '[Auth] Auth Error';
-  constructor(public type: string, public error: any) { }
+  constructor(public type: string, public error: any) {}
 }
 
 export interface AuthStateModel {
@@ -113,7 +113,7 @@ export interface AuthStateModel {
 })
 @Injectable({ providedIn: 'root' })
 export class AuthState implements NgxsOnInit {
-  constructor(private authService: AuthService, private tokenService: TokenService) { }
+  constructor(private authService: AuthService, private tokenService: TokenService) {}
 
   @Selector()
   static isLoading(state: AuthStateModel) {

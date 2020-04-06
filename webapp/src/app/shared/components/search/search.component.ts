@@ -63,7 +63,7 @@ export class SearchComponent implements OnInit {
 
   searchResultsSize$ = this.searchResults$.pipe(map(results => (results ? results.length : 0)));
 
-  constructor() { }
+  constructor() {}
 
-  ngOnInit() { }
+  ngOnInit() {}
 }

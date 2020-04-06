@@ -31,7 +31,9 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
     SharedModule,
     NgbModule,
     HttpClientModule,
-    NgxsModule.forRoot([AuthState, TermsState, ProjectsState, TranslationsState, ProjectUserState, ProjectInviteState, ProjectClientState], { developmentMode: !environment.production }),
+    NgxsModule.forRoot([AuthState, TermsState, ProjectsState, TranslationsState, ProjectUserState, ProjectInviteState, ProjectClientState], {
+      developmentMode: !environment.production,
+    }),
     NgxsRouterPluginModule.forRoot(),
     NgxsReduxDevtoolsPluginModule.forRoot({ disabled: environment.production }),
     AuthModule,
@@ -77,4 +79,4 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
   ],
   bootstrap: [AppComponent],
 })
-export class AppModule { }
+export class AppModule {}

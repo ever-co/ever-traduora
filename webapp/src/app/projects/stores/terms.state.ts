@@ -15,22 +15,22 @@ export class ClearMessages {
 
 export class GetTerms {
   static readonly type = '[Terms] Get terms';
-  constructor(public projectId: string) { }
+  constructor(public projectId: string) {}
 }
 
 export class CreateTerm {
   static readonly type = '[Terms] Create term';
-  constructor(public projectId: string, public value: string) { }
+  constructor(public projectId: string, public value: string) {}
 }
 
 export class UpdateTerm {
   static readonly type = '[Terms] Update term';
-  constructor(public projectId: string, public termId: string, public value: string) { }
+  constructor(public projectId: string, public termId: string, public value: string) {}
 }
 
 export class DeleteTerm {
   static readonly type = '[Terms] Delete term';
-  constructor(public projectId: string, public termId: string) { }
+  constructor(public projectId: string, public termId: string) {}
 }
 
 export interface TermsStateModel {
@@ -51,7 +51,7 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class TermsState implements NgxsOnInit {
-  constructor(private termService: ProjectTermsService) { }
+  constructor(private termService: ProjectTermsService) {}
 
   @Selector()
   static isLoading(state: TermsStateModel) {
@@ -63,7 +63,7 @@ export class TermsState implements NgxsOnInit {
     return state.terms;
   }
 
-  ngxsOnInit(ctx: StateContext<TermsStateModel>) { }
+  ngxsOnInit(ctx: StateContext<TermsStateModel>) {}
 
   @Action(Logout)
   logout(ctx: StateContext<TermsStateModel>, action: Logout) {
@@ -141,7 +141,7 @@ export class TermsState implements NgxsOnInit {
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
-        return { ...v, labels: [...v.labels, action.label] }
+        return { ...v, labels: [...v.labels, action.label] };
       }
       return v;
     });
@@ -153,7 +153,7 @@ export class TermsState implements NgxsOnInit {
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
-        return { ...v, labels: v.labels.filter(t => t.id !== action.label.id) }
+        return { ...v, labels: v.labels.filter(t => t.id !== action.label.id) };
       }
       return v;
     });

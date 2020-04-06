@@ -15,17 +15,17 @@ export class ClearMessages {
 
 export class GetProjectUsers {
   static readonly type = '[ProjectUser] Get project users';
-  constructor(public projectId: string) { }
+  constructor(public projectId: string) {}
 }
 
 export class UpdateProjectUser {
   static readonly type = '[ProjectUser] Update project user';
-  constructor(public projectId: string, public userId: string, public role: ProjectRole) { }
+  constructor(public projectId: string, public userId: string, public role: ProjectRole) {}
 }
 
 export class RemoveProjectUser {
   static readonly type = '[ProjectUser] Remove project user';
-  constructor(public projectId: string, public userId: string) { }
+  constructor(public projectId: string, public userId: string) {}
 }
 
 export interface ProjectUserStateModel {
@@ -46,7 +46,7 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class ProjectUserState implements NgxsOnInit {
-  constructor(private projectUserService: ProjectUserService, private store: Store) { }
+  constructor(private projectUserService: ProjectUserService, private store: Store) {}
 
   @Selector()
   static userSelf(state: ProjectUserStateModel) {
@@ -63,7 +63,7 @@ export class ProjectUserState implements NgxsOnInit {
     return state.users;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectUserStateModel>) { }
+  ngxsOnInit(ctx: StateContext<ProjectUserStateModel>) {}
 
   @Action(SetCurrentProject)
   setCurrentProject(ctx: StateContext<ProjectUserStateModel>, action: SetCurrentProject) {
