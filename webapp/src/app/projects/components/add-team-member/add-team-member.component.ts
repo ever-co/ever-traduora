@@ -54,7 +54,10 @@ export class AddTeamMemberComponent implements OnInit, OnDestroy {
 
   open(content) {
     this.modal = this.modalService.open(content);
-    this.modal.result.then(() => this.reset(), () => this.reset());
+    this.modal.result.then(
+      () => this.reset(),
+      () => this.reset(),
+    );
   }
 
   async addTeamMember() {

@@ -15,14 +15,21 @@ export class Translation {
   @Column({ type: 'text' })
   value: string;
 
-  @ManyToOne(type => Term, term => term.translations, { onDelete: 'CASCADE', nullable: false })
+  @ManyToOne(
+    type => Term,
+    term => term.translations,
+    { onDelete: 'CASCADE', nullable: false },
+  )
   @JoinColumn()
   term: Term;
 
   @ManyToOne(type => ProjectLocale, { onDelete: 'CASCADE', nullable: false })
   projectLocale: ProjectLocale;
 
-  @ManyToMany(() => Label, label => label.translations)
+  @ManyToMany(
+    () => Label,
+    label => label.translations,
+  )
   labels: Label[];
 
   @Column(type => AccessTimestamps)
