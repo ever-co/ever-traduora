@@ -30,7 +30,6 @@ export class TeamInviteComponent implements OnInit {
   ngOnInit() {}
 
   withRole(invite: ProjectInvite, role: ProjectRole): ProjectInvite {
-    invite.role = role;
-    return invite;
+    return { ...invite, role: role };
   }
 }

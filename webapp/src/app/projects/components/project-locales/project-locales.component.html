@@ -25,8 +25,8 @@
 
               <span class="flex-1"></span>
 
-              <ngb-progressbar type="success" style="min-width: 150px;" [value]="locale.stats.translated" [max]="locale.stats.total" height="auto">
-                <span class="px-4 font-weight-bold">{{ locale.stats.progress | percent }} translated</span>
+              <ngb-progressbar type="primary" style="min-width: 150px;" [value]="locale.stats.translated" [max]="locale.stats.total" height="auto">
+                <span class="px-4 font-weight-bold progress-text">{{ locale.stats.progress | percent }}</span>
               </ngb-progressbar>
 
               <span class="ml-1 badge badge-secondary">{{ locale.locale.code }}</span>

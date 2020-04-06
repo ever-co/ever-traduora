@@ -62,21 +62,12 @@
       <hr />
       <div *ngIf="project.plan">
         <h5 class="font-serif" >Plan</h5>
-        <div class="my-3">
-          <ngb-progressbar
-            type="success"
-            [value]="currentUsage(project)"
-            [max]="project.plan.maxStrings"
-            height="1.5rem"
-          >
-            <span class="px-3 font-weight-bold"
-              ><ng-container >Current usage:</ng-container> {{ currentUsage(project) | number }} /
-              {{ project.plan.maxStrings | number }}</span
-            >
-          </ngb-progressbar>
-        </div>
+        
         <p class="mb-0" >
           Plan name: <span class="text-secondary font-weight-bold">{{ project.plan.name }}</span>
+        </p>
+        <p class="mb-0" >
+          Current usage: <span class="text-secondary font-weight-bold">{{ currentUsage(project) | number }} / {{ project.plan.maxStrings | number }}</span>
         </p>
         <p class="mb-0">
           <ng-container >Reference code: </ng-container>
