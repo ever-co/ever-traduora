@@ -25,11 +25,6 @@ bin/install-deps.sh
 pprint "Check code format"
 yarn check-fmt
 
-if ! [[ -z $(git status -s) ]]; then
-    echo "You have uncommited changes on git or you might need to apply formatting to your source code (yarn fmt)"
-    exit 1
-fi
-
 pprint "Linting API code"
 cd api && yarn lint
 
