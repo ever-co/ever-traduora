@@ -3,14 +3,16 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Navigate } from '@ngxs/router-plugin';
 import { Select, Store } from '@ngxs/store';
 import { keyBy } from 'lodash';
-import { BehaviorSubject, combineLatest, Observable, Subscription, Subject } from 'rxjs';
-import { filter, flatMap, map, tap } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, Observable, Subject, Subscription } from 'rxjs';
+import { distinctUntilChanged, filter, flatMap, map, tap } from 'rxjs/operators';
+import { Label } from '../../models/label';
 import { Locale } from '../../models/locale';
 import { Project } from '../../models/project';
 import { ProjectLocale } from '../../models/project-locale';
 import { Term } from '../../models/term';
 import { Translation } from '../../models/translation';
 import { PreferencesService } from '../../services/preferences.service';
+import { GetProjectLabels, LabelTranslation, ProjectLabelState, UnlabelTranslation } from '../../stores/project-label.state';
 import { ProjectsState } from '../../stores/projects.state';
 import { GetTerms, TermsState } from '../../stores/terms.state';
 import {
@@ -22,8 +24,6 @@ import {
   TranslationsState,
   UpdateTranslation,
 } from '../../stores/translations.state';
-import { ProjectLabelState, GetProjectLabels, LabelTranslation, UnlabelTranslation } from '../../stores/project-label.state';
-import { Label } from '../../models/label';
 
 interface TranslationView {
   term: Term;
@@ -106,6 +106,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     this.subs.push(
       combineLatest([this.project$, this.knownLocales$, this.projectLocales$])
         .pipe(
+          distinctUntilChanged(),
           tap(res => {
             const [project, knownLocales, projectLocales] = res;
             if (project && knownLocales && projectLocales) {

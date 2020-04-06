@@ -77,7 +77,7 @@ export class TranslationsState implements NgxsOnInit {
 
   @Selector()
   static projectLocales(state: TranslationsStateModel) {
-    return sortBy(state.projectLocales, v => v.locale.code);
+    return state.projectLocales;
   }
 
   @Selector()
@@ -114,7 +114,7 @@ export class TranslationsState implements NgxsOnInit {
   getProjectLocales(ctx: StateContext<TranslationsStateModel>, action: GetProjectLocales) {
     ctx.patchState({ isLoading: true });
     return this.translationService.findProjectLocales(action.projectId).pipe(
-      tap(projectLocales => ctx.patchState({ projectLocales })),
+      tap(projectLocales => ctx.patchState({ projectLocales: sortBy(projectLocales, v => v.locale.code) })),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
