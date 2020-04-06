@@ -2,7 +2,7 @@
 <div class="w-100 h-100">
   <div *ngIf="(project$ | async) as project" class="h-100">
     <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
-      <h5 class="font-serif m-0" i18n>API Keys</h5>
+      <h5 class="font-serif m-0" >API Keys</h5>
       <app-add-api-client
         *ngIf="(true | can: 'AddProjectClient' | async)"
         [projectId]="project.id"
@@ -15,9 +15,9 @@
     >
       <i class="material-icons mr-3">info</i>
       <div>
-        <h4 class="font-serif" i18n>No API clients created yet</h4>
+        <h4 class="font-serif" >No API clients created yet</h4>
         <ng-container *ngIf="(true | can: 'AddProjectClient' | async); else elseTemplate">
-          <p i18n>You haven't created any API clients for this project yet. Add a new API client to get started!</p>
+          <p >You haven't created any API clients for this project yet. Add a new API client to get started!</p>
           <app-add-api-client
             *ngIf="(true | can: 'AddProjectClient' | async)"
             [projectId]="project.id"
@@ -25,7 +25,7 @@
           ></app-add-api-client>
         </ng-container>
         <ng-template #elseTemplate>
-          <p i18n>
+          <p >
             You haven't created any API clients for this project yet. Only project admins can create API clients.
           </p>
         </ng-template>

@@ -24,7 +24,7 @@ export class EditableTextComponent implements OnInit, OnChanges {
   @Output()
   save = new EventEmitter<string>();
 
-  @ViewChild('focusTarget')
+  @ViewChild('focusTarget', { static: true })
   focusTarget: ElementRef;
 
   isEditing = false;

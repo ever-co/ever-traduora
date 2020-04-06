@@ -1,6 +1,6 @@
 <ng-template #content let-modal>
   <div class="modal-header">
-    <h4 class="modal-title font-serif" i18n>Add project locale</h4>
+    <h4 class="modal-title font-serif" >Add project locale</h4>
     <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
       <i class="material-icons">close</i>
     </button>
@@ -16,12 +16,12 @@
     </app-select-locale>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
-    <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()" i18n>Add selected</button>
+    <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus >Cancel</button>
+    <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()" >Add selected</button>
   </div>
 </ng-template>
 
 <button class="btn btn-sm d-flex justify-content-center align-items-center" (click)="open(content)"  [ngClass]="btnClass">
   <i class="material-icons mr-1" style="font-size: 18px">add</i>
-  <ng-container i18n>New locale</ng-container>
+  <ng-container >New locale</ng-container>
 </button>

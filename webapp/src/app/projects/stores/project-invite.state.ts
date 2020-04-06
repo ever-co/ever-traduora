@@ -7,6 +7,7 @@ import { ProjectRole } from '../models/project-role';
 import { ClearCurrentProject, SetCurrentProject } from './projects.state';
 import { ProjectInvite } from '../models/project-invite';
 import { ProjectInviteService } from '../services/project-invite.service';
+import { Injectable } from '@angular/core';
 
 export class ClearMessages {
   static readonly type = '[ProjectInvite] Clear messages';
@@ -48,6 +49,7 @@ const stateDefaults = {
   name: 'projectInvites',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class ProjectInviteState implements NgxsOnInit {
   constructor(private projectInviteService: ProjectInviteService, private store: Store) {}
 

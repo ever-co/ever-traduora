@@ -7,6 +7,7 @@ import { Term } from '../models/term';
 import { ProjectTermsService } from '../services/terms.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
 import { LabelTerm, UnlabelTerm } from './project-label.state';
+import { Injectable } from '@angular/core';
 
 export class ClearMessages {
   static readonly type = '[Terms] Clear messages';
@@ -48,6 +49,7 @@ const stateDefaults = {
   name: 'terms',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class TermsState implements NgxsOnInit {
   constructor(private termService: ProjectTermsService) {}
 
@@ -139,7 +141,7 @@ export class TermsState implements NgxsOnInit {
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
-        v.labels = [...v.labels, action.label];
+        return { ...v, labels: [...v.labels, action.label] };
       }
       return v;
     });
@@ -151,7 +153,7 @@ export class TermsState implements NgxsOnInit {
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
-        v.labels = v.labels.filter(t => t.id !== action.label.id);
+        return { ...v, labels: v.labels.filter(t => t.id !== action.label.id) };
       }
       return v;
     });

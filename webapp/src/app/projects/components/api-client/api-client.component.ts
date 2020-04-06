@@ -30,8 +30,7 @@ export class ApiClientComponent implements OnInit {
   ngOnInit() {}
 
   withRole(user: ProjectClient, role: ProjectRole): ProjectClient {
-    user.role = role;
-    return user;
+    return { ...user, role: role };
   }
 
   copyToClipboard(text) {

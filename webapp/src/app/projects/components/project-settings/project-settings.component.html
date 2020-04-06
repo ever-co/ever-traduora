@@ -1,14 +1,14 @@
 <app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
 <div class="w-100 h-100" *ngIf="(project$ | async) as project">
   <div class="mb-4 d-flex justify-content-between align-items-center section-title-row">
-    <h5 class="font-serif m-0" i18n>Project Settings</h5>
+    <h5 class="font-serif m-0" >Project Settings</h5>
   </div>
   <div class="card">
     <div class="card-body">
-      <h5 class="font-serif" i18n>Details</h5>
+      <h5 class="font-serif" >Details</h5>
       <form [formGroup]="detailsForm" (ngSubmit)="onSubmit(project.id)" novalidate>
         <div class="form-group">
-          <label for="nameInput" i18n>Project Name</label>
+          <label for="nameInput" >Project Name</label>
           <input
             [readOnly]="!(true | can: 'EditProject' | async)"
             id="nameInput"
@@ -20,13 +20,13 @@
             [ngClass]="{ 'is-invalid': name.touched && name.invalid }"
           />
           <div class="invalid-feedback">
-            <div *ngIf="name.getError('required')" i18n>Name is required.</div>
-            <div *ngIf="name.getError('pattern')" i18n>Cannot be only whitespace.</div>
+            <div *ngIf="name.getError('required')" >Name is required.</div>
+            <div *ngIf="name.getError('pattern')" >Cannot be only whitespace.</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="descriptionInput" i18n>Project Description</label>
+          <label for="descriptionInput" >Project Description</label>
           <input
             [readOnly]="!(true | can: 'EditProject' | async)"
             id="descriptionInput"
@@ -44,7 +44,7 @@
             type="button"
             class="btn btn-sm btn-link-secondary mr-3"
             [routerLink]="['/projects', project.id]"
-            i18n
+            
           >
             Cancel
           </button>
@@ -53,7 +53,7 @@
             [disabled]="!detailsForm.valid || (isLoading$ | async)"
             class="btn btn-sm btn-primary w-100"
             style="max-width: 120px;"
-            i18n
+            
           >
             Save changes
           </button>
@@ -61,30 +61,21 @@
       </form>
       <hr />
       <div *ngIf="project.plan">
-        <h5 class="font-serif" i18n>Plan</h5>
-        <div class="my-3">
-          <ngb-progressbar
-            type="success"
-            [value]="currentUsage(project)"
-            [max]="project.plan.maxStrings"
-            height="1.5rem"
-          >
-            <span class="px-3 font-weight-bold"
-              ><ng-container i18n>Current usage:</ng-container> {{ currentUsage(project) | number }} /
-              {{ project.plan.maxStrings | number }}</span
-            >
-          </ngb-progressbar>
-        </div>
-        <p class="mb-0" i18n>
+        <h5 class="font-serif" >Plan</h5>
+        
+        <p class="mb-0" >
           Plan name: <span class="text-secondary font-weight-bold">{{ project.plan.name }}</span>
         </p>
+        <p class="mb-0" >
+          Current usage: <span class="text-secondary font-weight-bold">{{ currentUsage(project) | number }} / {{ project.plan.maxStrings | number }}</span>
+        </p>
         <p class="mb-0">
-          <ng-container i18n>Reference code: </ng-container>
+          <ng-container >Reference code: </ng-container>
           <span class="text-secondary font-weight-bold">{{ project.plan.code }}</span>
         </p>
         <p class="mb-0">
-          <ng-container i18n>Current usage is calculated as </ng-container>
-          <span class="text-secondary font-weight-bold" i18n>terms * locales</span>
+          <ng-container >Current usage is calculated as </ng-container>
+          <span class="text-secondary font-weight-bold" >terms * locales</span>
         </p>
       </div>
       <hr />
@@ -93,7 +84,7 @@
         [disabled]="isLoading$ | async"
         (click)="onDelete(project)"
         class="btn btn-danger btn-sm float-right"
-        i18n
+        
       >
         Delete project
       </button>

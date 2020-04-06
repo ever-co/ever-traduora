@@ -8,14 +8,14 @@
       <span class="flex-1"></span>
       <div class="form-check text-sm mr-3">
         <input class="form-check-input" type="checkbox" value="" (change)="onFiltersChanged($event.target.checked)" id="untranslatedFilter" />
-        <label class="form-check-label" for="untranslatedFilter" i18n>Hide translated</label>
+        <label class="form-check-label" for="untranslatedFilter" >Hide translated</label>
       </div>
       <div ngbDropdown placement="bottom-right" *ngIf="true | can: 'DeleteTranslation' | async">
         <button class="btn m-0 p-0 bg-transparent btn-sm d-flex" ngbDropdownToggle>
           <i class="text-secondary material-icons">settings</i>
         </button>
         <div ngbDropdownMenu aria-labelledby="dropdownConfig">
-          <button (click)="deleteProjectLocale(project.id, currentLocale.code)" class="dropdown-item" i18n>
+          <button (click)="deleteProjectLocale(project.id, currentLocale.code)" class="dropdown-item" >
             Delete language
           </button>
         </div>
@@ -105,8 +105,8 @@
     >
       <i class="material-icons mr-3">info</i>
       <div>
-        <h4 class="font-serif" i18n>No project terms yet</h4>
-        <p i18n>You haven't created any terms for this project yet. Add a new project term to get started!</p>
+        <h4 class="font-serif" >No project terms yet</h4>
+        <p >You haven't created any terms for this project yet. Add a new project term to get started!</p>
         <button class="btn btn-sm btn-primary" [routerLink]="['/projects', project.id, 'terms']">
           Go to project terms
         </button>
@@ -119,8 +119,8 @@
     >
       <i class="material-icons mr-3">info</i>
       <div>
-        <h4 class="font-serif" i18n>All done!</h4>
-        <p i18n>It looks like you have translated all terms for this locale.</p>
+        <h4 class="font-serif" >All done!</h4>
+        <p >It looks like you have translated all terms for this locale.</p>
       </div>
     </div>
   </div>

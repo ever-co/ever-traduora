@@ -5,6 +5,7 @@ import { errorToMessage } from '../../shared/util/api-error';
 import { Label } from '../models/label';
 import { ProjectLabelService } from '../services/project-label.service';
 import { ClearCurrentProject } from './projects.state';
+import { Injectable } from '@angular/core';
 
 export class ClearMessages {
   static readonly type = '[ProjectLabel] Clear messages';
@@ -66,6 +67,7 @@ const stateDefaults = {
   name: 'projectLabels',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class ProjectLabelState implements NgxsOnInit {
   constructor(private projectLabelsService: ProjectLabelService, private store: Store) {}
 

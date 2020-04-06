@@ -24,11 +24,9 @@ export class SearchComponent implements OnInit {
   placeholder = 'Search...';
 
   @ContentChild('searchResultsHeader')
-  @Input()
   searchResultsHeader: TemplateRef<any>;
 
   @ContentChild('searchResultsItem')
-  @Input()
   searchResultsItem: TemplateRef<any>;
 
   page = 0;

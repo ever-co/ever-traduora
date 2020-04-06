@@ -7,6 +7,7 @@ import { Provider } from '../models/provider';
 import { User } from '../models/user';
 import { AuthService } from '../services/auth.service';
 import { TokenService } from '../services/token.service';
+import { Injectable } from '@angular/core';
 
 export class GetUserInfo {
   static readonly type = '[Auth] Get user info';
@@ -110,6 +111,7 @@ export interface AuthStateModel {
     providers: undefined,
   },
 })
+@Injectable({ providedIn: 'root' })
 export class AuthState implements NgxsOnInit {
   constructor(private authService: AuthService, private tokenService: TokenService) {}
 

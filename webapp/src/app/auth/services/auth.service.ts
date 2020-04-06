@@ -1,11 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import { Payload } from 'src/app/shared/models/http';
 import { Provider } from '../models/provider';
 import { User } from '../models/user';
-import { UserLogin, UserLoginWithProvider } from '../models/user-login';
+import { UserLogin } from '../models/user-login';
 import { UserSignup, UserSignupWithProvider } from '../models/user-signup';
 import { environment } from './../../../environments/environment';
 

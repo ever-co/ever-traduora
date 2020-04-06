@@ -1,7 +1,7 @@
 <ng-template #content let-modal>
   <form [formGroup]="form" (submit)="addApiClient(contentSecret)" novalidate>
     <div class="modal-header">
-      <h4 class="modal-title font-serif" i18n>Add API Client</h4>
+      <h4 class="modal-title font-serif" >Add API Client</h4>
       <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
         <i class="material-icons">close</i>
       </button>
@@ -9,7 +9,7 @@
     <div class="modal-body">
       <app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
       <div class="form-group">
-        <label for="nameInput" i18n>Name</label>
+        <label for="nameInput" >Name</label>
         <input
           id="nameInput"
           class="form-control"
@@ -21,12 +21,12 @@
         />
 
         <div class="invalid-feedback">
-          <div *ngIf="name.getError('required')" i18n>Name is required.</div>
+          <div *ngIf="name.getError('required')" >Name is required.</div>
         </div>
       </div>
 
       <div class="form-group">
-        <label for="projectRole" i18n>Project role</label>
+        <label for="projectRole" >Project role</label>
         <div class="input-group">
           <select id="projectRole" class="custom-select" formControlName="role">
             <option *ngFor="let role of projectRoles" [ngValue]="role">{{ role | titlecase }}</option>
@@ -35,8 +35,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
-      <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-primary" i18n>
+      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus >Cancel</button>
+      <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-primary" >
         Save
       </button>
     </div>
@@ -45,23 +45,23 @@
 
 <ng-template #contentSecret let-modal>
   <div class="modal-header">
-    <h4 class="modal-title font-serif" i18n>Add API Client</h4>
+    <h4 class="modal-title font-serif" >Add API Client</h4>
   </div>
 
   <div class="modal-body">
     <ng-container *ngIf="client; else elseTemplate">
-      <p i18n>
+      <p >
         Below is your API client's ID and secret. The secret will <strong>only be shown once</strong>, store it safely
         as there is no way to recover it afterwards!
       </p>
 
-      <div class="d-flex flex-row h-100 w-100 justify-content-between align-items-center py-3 " i18n>
+      <div class="d-flex flex-row h-100 w-100 justify-content-between align-items-center py-3 " >
         <p class="text-dark m-0 mr-3">Client ID:</p>
         <span class="bg-light text-dark rounded p-1 mr-3">{{ client.id }}</span>
         <button class="btn btn-dark btn-sm" (click)="copyToClipboard(client.id)">Copy</button>
       </div>
 
-      <div class="d-flex flex-row h-100 w-100 justify-content-between align-items-center py-3 " i18n>
+      <div class="d-flex flex-row h-100 w-100 justify-content-between align-items-center py-3 " >
         <p class="text-dark m-0 mr-3">Secret:</p>
         <span class="bg-light text-dark rounded p-1 mr-3">{{ client.secret }}</span>
         <button class="btn btn-dark btn-sm" (click)="copyToClipboard(client.secret)">Copy</button>
@@ -77,7 +77,7 @@
   </div>
 
   <div class="modal-footer">
-    <button class="btn btn-primary" (click)="modal.close()" i18n>
+    <button class="btn btn-primary" (click)="modal.close()" >
       Ok, I have stored the secret somewhere safe
     </button>
   </div>
@@ -89,5 +89,5 @@
   [ngClass]="btnClass"
 >
   <i class="material-icons mr-1" style="font-size: 18px">add</i>
-  <ng-container i18n>Add API client</ng-container>
+  <ng-container >Add API client</ng-container>
 </button>

@@ -10,6 +10,8 @@ import { Translation } from '../models/translation';
 import { ProjectTranslationsService } from '../services/translations.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
 import { LabelTranslation, UnlabelTranslation } from './project-label.state';
+import { Injectable } from '@angular/core';
+import { sortBy } from 'lodash';
 
 export class ClearMessages {
   static readonly type = '[Translations] Clear messages';
@@ -64,6 +66,7 @@ const stateDefaults = {
   name: 'translations',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class TranslationsState implements NgxsOnInit {
   constructor(private translationService: ProjectTranslationsService) {}
 
@@ -74,7 +77,7 @@ export class TranslationsState implements NgxsOnInit {
 
   @Selector()
   static projectLocales(state: TranslationsStateModel) {
-    return state.projectLocales.sort((a, b) => (a.locale.code > b.locale.code ? 1 : -1));
+    return state.projectLocales;
   }
 
   @Selector()
@@ -111,7 +114,7 @@ export class TranslationsState implements NgxsOnInit {
   getProjectLocales(ctx: StateContext<TranslationsStateModel>, action: GetProjectLocales) {
     ctx.patchState({ isLoading: true });
     return this.translationService.findProjectLocales(action.projectId).pipe(
-      tap(projectLocales => ctx.patchState({ projectLocales })),
+      tap(projectLocales => ctx.patchState({ projectLocales: sortBy(projectLocales, v => v.locale.code) })),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
@@ -222,7 +225,7 @@ export class TranslationsState implements NgxsOnInit {
     if (forLocale) {
       const updated = forLocale.map(v => {
         if (v.termId === action.termId) {
-          v.labels = [...v.labels, action.label];
+          return { ...v, labels: [...v.labels, action.label] };
         }
         return v;
       });
@@ -237,7 +240,7 @@ export class TranslationsState implements NgxsOnInit {
     if (forLocale) {
       const updated = forLocale.map(v => {
         if (v.termId === action.termId) {
-          v.labels = v.labels.filter(t => t.id !== action.label.id);
+          return { ...v, labels: v.labels.filter(t => t.id !== action.label.id) };
         }
         return v;
       });

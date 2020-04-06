@@ -13,17 +13,17 @@
                 </p>
                 <p class="text-muted text-sm mb-0">
                   <strong class="mr-1">{{ projectStats.projectStats.terms }}</strong>
-                  <ng-container i18n>{projectStats.projectStats.terms, plural, =0 {terms} =1 {term} other {terms} }</ng-container>
+                  <ng-container >{projectStats.projectStats.terms, plural, =0 {terms} =1 {term} other {terms} }</ng-container>
                 </p>
                 <p class="text-muted text-sm mb-0">
                   <strong class="mr-1">{{ projectStats.projectStats.locales }}</strong>
-                  <ng-container i18n>{projectStats.projectStats.locales, plural, =0 {locales} =1 {locale} other {locales} }</ng-container>
+                  <ng-container >{projectStats.projectStats.locales, plural, =0 {locales} =1 {locale} other {locales} }</ng-container>
                 </p>
               </div>
             </div>
             <div class="collapsible-show">
               <button class="btn btn-primary btn-sm d-flex justify-content-center align-items-center" (click)="toggleMenu()">
-                <i class="material-icons">menu</i><ng-container i18n>Menu</ng-container>
+                <i class="material-icons">menu</i><ng-container >Menu</ng-container>
               </button>
             </div>
           </div>
@@ -33,7 +33,7 @@
 
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center" routerLink="terms" routerLinkActive="active">
             <i class="material-icons mr-1">list</i>
-            <ng-container i18n>Terms</ng-container>
+            <ng-container >Terms</ng-container>
           </a>
 
           <a
@@ -42,7 +42,7 @@
             routerLinkActive="active"
           >
             <i class="material-icons mr-1">language</i>
-            <ng-container i18n>Translations</ng-container>
+            <ng-container >Translations</ng-container>
           </a>
 
           <a
@@ -51,12 +51,12 @@
             routerLinkActive="active"
           >
             <i class="material-icons mr-1">label</i>
-            <ng-container i18n>Labels</ng-container>
+            <ng-container >Labels</ng-container>
           </a>
 
           <a class="nav-item nav-link text-sm px-3 mb-1 d-flex justify-content-start align-items-center" routerLink="team" routerLinkActive="active">
             <i class="material-icons mr-1">people</i>
-            <ng-container i18n>Team</ng-container>
+            <ng-container >Team</ng-container>
           </a>
 
           <a
@@ -66,7 +66,7 @@
             routerLinkActive="active"
           >
             <i class="material-icons mr-1">note_add</i>
-            <ng-container i18n>Import</ng-container>
+            <ng-container >Import</ng-container>
           </a>
 
           <a
@@ -75,7 +75,7 @@
             routerLinkActive="active"
           >
             <i class="material-icons mr-1">get_app</i>
-            <ng-container i18n>Export</ng-container></a
+            <ng-container >Export</ng-container></a
           >
 
           <a
@@ -85,7 +85,7 @@
             routerLinkActive="active"
           >
             <i class="material-icons mr-1">https</i>
-            <ng-container i18n>API Keys</ng-container>
+            <ng-container >API Keys</ng-container>
           </a>
 
           <a
@@ -94,7 +94,7 @@
             routerLinkActive="active"
           >
             <i class="material-icons mr-1">settings_applications</i>
-            <ng-container i18n>Project Settings</ng-container>
+            <ng-container >Project Settings</ng-container>
           </a>
         </div>
       </div>

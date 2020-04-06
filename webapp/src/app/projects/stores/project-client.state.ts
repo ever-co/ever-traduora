@@ -7,6 +7,7 @@ import { ProjectClient } from '../models/project-client';
 import { ProjectRole } from '../models/project-role';
 import { ProjectClientService } from '../services/project-client.service';
 import { ClearCurrentProject } from './projects.state';
+import { Injectable } from '@angular/core';
 
 export class ClearMessages {
   static readonly type = '[ProjectClient] Clear messages';
@@ -48,6 +49,7 @@ const stateDefaults = {
   name: 'projectClients',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class ProjectClientState implements NgxsOnInit {
   constructor(private projectClientService: ProjectClientService, private store: Store) {}
 

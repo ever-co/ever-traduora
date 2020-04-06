@@ -7,6 +7,7 @@ import { ProjectRole } from '../models/project-role';
 import { ProjectUser } from '../models/project-user';
 import { ProjectUserService } from '../services/project-user.service';
 import { ClearCurrentProject, SetCurrentProject } from './projects.state';
+import { Injectable } from '@angular/core';
 
 export class ClearMessages {
   static readonly type = '[ProjectUser] Clear messages';
@@ -43,6 +44,7 @@ const stateDefaults = {
   name: 'projectUsers',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class ProjectUserState implements NgxsOnInit {
   constructor(private projectUserService: ProjectUserService, private store: Store) {}
 

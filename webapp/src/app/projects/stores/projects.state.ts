@@ -8,6 +8,7 @@ import { Project } from '../models/project';
 import { ProjectsService } from '../services/projects.service';
 import { ProjectStats } from '../models/project-stats';
 import { ProjectStatsService } from '../services/project-stats.service';
+import { Injectable } from '@angular/core';
 
 export class ClearMessages {
   static readonly type = '[Projects] ClearMessages';
@@ -70,6 +71,7 @@ const stateDefaults = {
   name: 'projects',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class ProjectsState implements NgxsOnInit {
   constructor(private projectsService: ProjectsService, private projectStatsService: ProjectStatsService) {}
 
