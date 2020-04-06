@@ -9,3 +9,5 @@ build/
 i18n/*
 
 .DS_STORE
+
+.vscode/
