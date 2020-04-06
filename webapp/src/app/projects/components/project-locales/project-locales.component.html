@@ -36,7 +36,7 @@
       </ng-template>
     </app-search>
 
-    <div *ngIf="!(isLoading$ | async) && (projectLocales$ | async).length === 0">
+    <div *ngIf="!(isLoading$ | async) && (projectLocales$ | async)?.length === 0">
       <div class="alert alert-secondary p-5 d-flex flex-row">
         <i class="material-icons mr-3">info</i>
         <div>

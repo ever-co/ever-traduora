@@ -7,6 +7,7 @@ import { ProjectRole } from '../models/project-role';
 import { ClearCurrentProject, SetCurrentProject } from './projects.state';
 import { ProjectInvite } from '../models/project-invite';
 import { ProjectInviteService } from '../services/project-invite.service';
+import { Injectable } from '@angular/core';
 
 export class ClearMessages {
   static readonly type = '[ProjectInvite] Clear messages';
@@ -14,22 +15,22 @@ export class ClearMessages {
 
 export class GetProjectInvites {
   static readonly type = '[ProjectInvite] Get project invites';
-  constructor(public projectId: string) {}
+  constructor(public projectId: string) { }
 }
 
 export class AddProjectInvite {
   static readonly type = '[ProjectInvite] Add project invite';
-  constructor(public projectId: string, public email: string, public role: ProjectRole) {}
+  constructor(public projectId: string, public email: string, public role: ProjectRole) { }
 }
 
 export class UpdateProjectInvite {
   static readonly type = '[ProjectInvite] Update project invite';
-  constructor(public projectId: string, public inviteId: string, public role: ProjectRole) {}
+  constructor(public projectId: string, public inviteId: string, public role: ProjectRole) { }
 }
 
 export class RemoveProjectInvite {
   static readonly type = '[ProjectInvite] Remove project invite';
-  constructor(public projectId: string, public inviteId: string) {}
+  constructor(public projectId: string, public inviteId: string) { }
 }
 
 export interface ProjectInviteStateModel {
@@ -48,8 +49,9 @@ const stateDefaults = {
   name: 'projectInvites',
   defaults: stateDefaults,
 })
+@Injectable({ providedIn: 'root' })
 export class ProjectInviteState implements NgxsOnInit {
-  constructor(private projectInviteService: ProjectInviteService, private store: Store) {}
+  constructor(private projectInviteService: ProjectInviteService, private store: Store) { }
 
   @Selector()
   static isLoading(state: ProjectInviteStateModel) {
@@ -61,7 +63,7 @@ export class ProjectInviteState implements NgxsOnInit {
     return state.invites;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectInviteStateModel>) {}
+  ngxsOnInit(ctx: StateContext<ProjectInviteStateModel>) { }
 
   @Action(Logout)
   logout(ctx: StateContext<ProjectInviteStateModel>, action: Logout) {

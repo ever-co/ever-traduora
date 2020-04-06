@@ -48,11 +48,11 @@ export class ProjectLocalesComponent implements OnInit, OnDestroy {
   @Select(state => state.translations.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
-  existingLocales$: Observable<Locale[]> = this.projectLocales$.pipe(map(x => x.map(y => y.locale)));
+  existingLocales$: Observable<Locale[]> = this.projectLocales$.pipe(map(x => x?.map(y => y.locale)));
 
   private sub: Subscription;
 
-  constructor(private store: Store, private router: Router) {}
+  constructor(private store: Store, private router: Router) { }
 
   ngOnInit() {
     this.store.dispatch(new GetKnownLocales());
