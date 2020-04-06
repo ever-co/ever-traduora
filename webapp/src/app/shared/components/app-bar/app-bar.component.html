@@ -8,7 +8,7 @@
       class="btn btn-primary btn-sm d-flex justify-content-center align-items-center mr-1"
       routerLink="/projects"
     >
-      <i class="material-icons mr-1">assignment</i><ng-container i18n>Projects</ng-container>
+      <i class="material-icons mr-1">assignment</i><ng-container >Projects</ng-container>
     </button>
     <div ngbDropdown display="dynamic" class="d-inline-block" placement="bottom-right">
       <button
@@ -18,8 +18,8 @@
         <i class="material-icons mr-1">account_circle</i>{{ user.name || user.email }}
       </button>
       <div ngbDropdownMenu>
-        <button class="dropdown-item" routerLink="/user-settings" i18n>Account Settings</button>
-        <button class="dropdown-item" (click)="logout()" i18n>Logout</button>
+        <button class="dropdown-item" routerLink="/user-settings" >Account Settings</button>
+        <button class="dropdown-item" (click)="logout()" >Logout</button>
       </div>
     </div>
   </div>

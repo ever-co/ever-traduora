@@ -12,7 +12,7 @@
 
           <form [formGroup]="userDataForm" (ngSubmit)="updateUserData()" novalidate>
             <div class="form-group">
-              <label for="nameInput" i18n>Name</label>
+              <label for="nameInput" >Name</label>
               <input
                 id="nameInput"
                 class="form-control"
@@ -23,12 +23,12 @@
                 autocomplete="name"
               />
               <div class="invalid-feedback">
-                <div *ngIf="name.hasError('required')" i18n>Name is required.</div>
+                <div *ngIf="name.hasError('required')" >Name is required.</div>
               </div>
             </div>
 
             <div class="form-group">
-              <label for="emailInput" i18n>Email address</label>
+              <label for="emailInput" >Email address</label>
               <input
                 id="emailInput"
                 class="form-control"
@@ -40,8 +40,8 @@
               />
 
               <div class="invalid-feedback">
-                <div *ngIf="email.getError('required')" i18n>Email is required.</div>
-                <div *ngIf="email.getError('email')" i18n>Must be a valid email</div>
+                <div *ngIf="email.getError('required')" >Email is required.</div>
+                <div *ngIf="email.getError('email')" >Must be a valid email</div>
               </div>
             </div>
 
@@ -49,7 +49,7 @@
               class="btn btn-primary w-100"
               [disabled]="!userDataForm.dirty || !userDataForm.valid || (isLoading$ | async)"
               type="submit"
-              i18n
+              
             >
               Save changes
             </button>
@@ -62,7 +62,7 @@
 
           <form [formGroup]="userPasswordForm" (ngSubmit)="changePassword()" novalidate>
             <div class="form-group">
-              <label for="oldPasswordInput" i18n>Current Password</label>
+              <label for="oldPasswordInput" >Current Password</label>
               <input
                 id="oldPasswordInput"
                 class="form-control"
@@ -74,13 +74,13 @@
               />
 
               <div class="invalid-feedback">
-                <div *ngIf="oldPassword.getError('required')" i18n>Password is required.</div>
-                <div *ngIf="oldPassword.getError('minlength')" i18n>Password must be at least 8 characters.</div>
+                <div *ngIf="oldPassword.getError('required')" >Password is required.</div>
+                <div *ngIf="oldPassword.getError('minlength')" >Password must be at least 8 characters.</div>
               </div>
             </div>
 
             <div class="form-group">
-              <label for="newPasswordInput" i18n>New Password</label>
+              <label for="newPasswordInput" >New Password</label>
               <input
                 id="newPasswordInput"
                 class="form-control"
@@ -92,15 +92,15 @@
               />
 
               <div class="invalid-feedback">
-                <div *ngIf="newPassword.getError('required')" i18n>Password is required.</div>
-                <div *ngIf="newPassword.getError('minlength')" i18n>Password must be at least 8 characters.</div>
+                <div *ngIf="newPassword.getError('required')" >Password is required.</div>
+                <div *ngIf="newPassword.getError('minlength')" >Password must be at least 8 characters.</div>
               </div>
             </div>
 
             <button
               class="btn btn-primary w-100"
               [disabled]="!userPasswordForm.dirty || !userPasswordForm.valid || (isLoading$ | async)"
-              i18n
+              
               type="submit"
             >
               Change password
@@ -115,7 +115,7 @@
             class="btn btn-danger btn-sm float-right"
             [disabled]="isLoading$ | async"
             (click)="deleteAccount(user)"
-            i18n
+            
           >
             Permanently delete my account
           </button>

@@ -11,28 +11,28 @@
   </div>
 </div>
 <ng-container *ngIf="result; else: noResultTemplate">
-  <p i18n>File imported successfully! Here's a summary of what changed:</p>
-  <h5 class="display-5 mb-3" i18n>Terms</h5>
+  <p >File imported successfully! Here's a summary of what changed:</p>
+  <h5 class="display-5 mb-3" >Terms</h5>
   <ul class="list-group mb-4">
       <li class="p-2 list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-        <span i18n>Added</span><span class="mx-2 badge badge-secondary badge-pill"> {{ result.terms.added }} </span>
+        <span >Added</span><span class="mx-2 badge badge-secondary badge-pill"> {{ result.terms.added }} </span>
       </li>
       <li class="p-2 list-group-item d-flex justify-content-between align-items-center">
-        <span i18n>Skipped</span><span class="mx-2 badge badge-secondary badge-pill"> {{ result.terms.skipped }} </span>
+        <span >Skipped</span><span class="mx-2 badge badge-secondary badge-pill"> {{ result.terms.skipped }} </span>
       </li>
     </ul>
-  <h5 class="display-5 mb-3" i18n>Translations</h5>
+  <h5 class="display-5 mb-3" >Translations</h5>
   <ul class="list-group mb-4">
     <li class="p-2 list-group-item d-flex justify-content-between align-items-center">
-      <span i18n>Upserted</span><span class="mx-2 badge badge-secondary badge-pill"> {{ result.translations.upserted }} </span>
+      <span >Upserted</span><span class="mx-2 badge badge-secondary badge-pill"> {{ result.translations.upserted }} </span>
     </li>
   </ul>
 
   <hr />
 
   <div class="d-flex align-content-center justify-content-end">
-    <button class="btn btn-link no-underline mr-3" (click)="reset()" i18n>Import another file</button>
-    <button type="button" class="btn btn-primary" (click)="navigateToImportedLocale()" ngbAutofocus i18n>Go to imported locale</button>
+    <button class="btn btn-link no-underline mr-3" (click)="reset()" >Import another file</button>
+    <button type="button" class="btn btn-primary" (click)="navigateToImportedLocale()" ngbAutofocus >Go to imported locale</button>
   </div>
 </ng-container>
 <ng-template #noResultTemplate>
@@ -41,7 +41,7 @@
       <i class="material-icons mr-3">warning</i>
       <p class="m-0">You may only import one file at a time, please remove the additional files below.</p>
     </div>
-    <p i18n>Uploaded files</p>
+    <p >Uploaded files</p>
     <ul class="list-group mb-3">
       <li class="list-group-item d-flex" *ngFor="let file of files">
         <i class="text-secondary material-icons mr-2">insert_drive_file</i>
@@ -52,16 +52,16 @@
       </li>
     </ul>
     <div class="form-group">
-      <label for="exportFormat" i18n>Select an import format</label>
+      <label for="exportFormat" >Select an import format</label>
       <div class="input-group">
         <select id="exportFormat" class="custom-select" [(ngModel)]="selectedFormat" [disabled]="loading">
-          <option selected [value]="undefined" i18n>File format...</option>
+          <option selected [value]="undefined" >File format...</option>
           <option *ngFor="let format of availableFormats" [ngValue]="format">{{ format.displayName }}</option>
         </select>
       </div>
     </div>
     <div class="form-group">
-      <label i18n>Select the destination locale</label>
+      <label >Select the destination locale</label>
       <app-select-locale
         class="mb-5"
         [locales]="knownLocales"
@@ -74,12 +74,12 @@
     <hr />
 
     <div class="d-flex align-content-center justify-content-end">
-      <button type="button" class="btn btn-link no-underline mr-3" (click)="reset()" ngbAutofocus i18n>Cancel</button>
-      <button type="button" class="btn btn-primary" (click)="import()" [disabled]="!canImport()" i18n>Import</button>
+      <button type="button" class="btn btn-link no-underline mr-3" (click)="reset()" ngbAutofocus >Cancel</button>
+      <button type="button" class="btn btn-primary" (click)="import()" [disabled]="!canImport()" >Import</button>
     </div>
   </ng-container>
   <ng-template #elseTemplate>
-    <p i18n>Please select the translation file to import below.</p>
+    <p >Please select the translation file to import below.</p>
     <div
       class="file-drop-area"
       appDropzone
@@ -88,9 +88,9 @@
       (hovered)="setHover($event)"
     >
       <label for="file" class="text-secondary d-flex flex-column flex-md-row justify-content-center align-items-center">
-        <p class="d-flex display-5 m-0"><i class="material-icons mr-1">create_new_folder</i><ng-container i18n>Drop file to import</ng-container></p>
+        <p class="d-flex display-5 m-0"><i class="material-icons mr-1">create_new_folder</i><ng-container >Drop file to import</ng-container></p>
         <p class="display-5 m-3">or</p>
-        <div class="btn btn-primary m-0" i18n>Choose file</div>
+        <div class="btn btn-primary m-0" >Choose file</div>
       </label>
       <input id="file" class="inputfile" type="file" (change)="dropFiles($event.target.files)" />
     </div>

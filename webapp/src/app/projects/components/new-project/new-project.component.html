@@ -1,7 +1,7 @@
 <ng-template #content let-modal>
   <div class="modal-header flex-column">
     <div class="d-flex flex-row w-100">
-        <h4 class="modal-title font-serif flex-1" i18n>Create a new project</h4>
+        <h4 class="modal-title font-serif flex-1" >Create a new project</h4>
         <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
           <i class="material-icons">close</i>
         </button>
@@ -11,7 +11,7 @@
   <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
     <div class="modal-body">
       <div class="form-group">
-        <label for="nameInput" i18n>Project Name</label>
+        <label for="nameInput" >Project Name</label>
         <input
           id="nameInput"
           class="form-control"
@@ -22,12 +22,12 @@
           autocomplete="off"
         />
         <div class="invalid-feedback">
-          <div *ngIf="name.getError('required')" i18n>Name is required.</div>
-          <div *ngIf="name.getError('pattern')" i18n>Cannot be only whitespace.</div>
+          <div *ngIf="name.getError('required')" >Name is required.</div>
+          <div *ngIf="name.getError('pattern')" >Cannot be only whitespace.</div>
         </div>
       </div>
       <div class="form-group">
-        <label for="descriptionInput" i18n>Project Description</label>
+        <label for="descriptionInput" >Project Description</label>
         <input
           id="descriptionInput"
           class="form-control"
@@ -41,13 +41,13 @@
     </div>
 
     <div class="modal-footer">
-      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
+      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus >Cancel</button>
       <button
         type="submit"
         [disabled]="!form.valid || (isLoading$ | async)"
         class="btn btn-sm btn-primary w-100"
         style="max-width: 120px;"
-        i18n
+        
       >
         Create
       </button>
@@ -61,5 +61,5 @@
   [ngClass]="btnClass"
 >
   <i class="material-icons mr-1" style="font-size: 18px">add</i>
-  <ng-container i18n>New Project</ng-container>
+  <ng-container >New Project</ng-container>
 </button>

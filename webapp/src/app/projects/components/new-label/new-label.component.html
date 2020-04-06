@@ -1,7 +1,7 @@
 <ng-template #content let-modal>
   <div class="modal-header flex-column">
     <div class="d-flex flex-row w-100">
-      <h4 class="modal-title font-serif flex-1" i18n>Create a new Label</h4>
+      <h4 class="modal-title font-serif flex-1" >Create a new Label</h4>
       <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
         <i class="material-icons">close</i>
       </button>
@@ -12,7 +12,7 @@
   <div class="modal-body">
     <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
       <div class="form-group">
-        <label for="valueInput" i18n>Label name</label>
+        <label for="valueInput" >Label name</label>
         <input
           id="valueInput"
           class="form-control"
@@ -25,13 +25,13 @@
           autocomplete="off"
         />
         <div class="invalid-feedback">
-          <div *ngIf="value.getError('required')" i18n>Value is required.</div>
-          <div *ngIf="value.getError('pattern')" i18n>Cannot be only whitespace.</div>
+          <div *ngIf="value.getError('required')" >Value is required.</div>
+          <div *ngIf="value.getError('pattern')" >Cannot be only whitespace.</div>
         </div>
       </div>
 
       <div class="form-group">
-        <label for="colorInput" i18n>Label color</label>
+        <label for="colorInput" >Label color</label>
         <div class="d-flex flex-row justify-content-start align-items-center">
           <input
             id="colorInput"
@@ -43,13 +43,13 @@
             [ngClass]="{ 'is-invalid': color.touched && color.invalid }"
             autocomplete="off"
           />
-          <button class="btn btn-secondary rounded-t-0 m-0 px-2 d-flex" style="height: 100%" (click)="randomColor()" type="button" i18n>
+          <button class="btn btn-secondary rounded-t-0 m-0 px-2 d-flex" style="height: 100%" (click)="randomColor()" type="button" >
             <i class="material-icons" style="font-size: 18px">autorenew</i>
           </button>
         </div>
         <div class="invalid-feedback">
-          <div *ngIf="color.getError('required')" i18n>Color value is required.</div>
-          <div *ngIf="color.getError('pattern')" i18n>Invalid HEX color.</div>
+          <div *ngIf="color.getError('required')" >Color value is required.</div>
+          <div *ngIf="color.getError('pattern')" >Invalid HEX color.</div>
         </div>
       </div>
 
@@ -59,8 +59,8 @@
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
-        <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-sm btn-primary w-100" style="max-width: 120px;" i18n>
+        <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus >Cancel</button>
+        <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-sm btn-primary w-100" style="max-width: 120px;" >
           Create
         </button>
       </div>
@@ -70,5 +70,5 @@
 
 <button class="btn btn-sm d-flex justify-content-center align-items-center" (click)="open(content)" [ngClass]="btnClass">
   <i class="material-icons mr-1" style="font-size: 18px">add</i>
-  <ng-container i18n>{{ buttonLabel }}</ng-container>
+  <ng-container >{{ buttonLabel }}</ng-container>
 </button>

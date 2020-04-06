@@ -2,7 +2,7 @@
 <div class="w-100 h-100">
   <div *ngIf="project$ | async as project" class="h-100">
     <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
-      <h5 class="font-serif m-0" i18n>Labels</h5>
+      <h5 class="font-serif m-0" >Labels</h5>
       <app-new-label *ngIf="true | can: 'AddLabel' | async" [project]="project"></app-new-label>
     </div>
 
@@ -31,8 +31,8 @@
       <div class="alert alert-secondary p-5 d-flex flex-row">
         <i class="material-icons mr-3">info</i>
         <div>
-          <h4 class="font-serif" i18n>Project labels are empty</h4>
-          <p i18n>You haven't yet created any labels for this project. Add a new label to get started!</p>
+          <h4 class="font-serif" >Project labels are empty</h4>
+          <p >You haven't yet created any labels for this project. Add a new label to get started!</p>
           <app-new-label *ngIf="true | can: 'AddLabel' | async" [project]="project" btnClass="btn-primary"></app-new-label>
         </div>
       </div>

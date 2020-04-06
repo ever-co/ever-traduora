@@ -23,12 +23,10 @@ export class SearchComponent implements OnInit {
   @Input()
   placeholder = 'Search...';
 
-  @ContentChild('searchResultsHeader', /* TODO: add static flag */ {})
-  @Input()
+  @ContentChild('searchResultsHeader')
   searchResultsHeader: TemplateRef<any>;
 
-  @ContentChild('searchResultsItem', /* TODO: add static flag */ {})
-  @Input()
+  @ContentChild('searchResultsItem')
   searchResultsItem: TemplateRef<any>;
 
   page = 0;
@@ -65,7 +63,7 @@ export class SearchComponent implements OnInit {
 
   searchResultsSize$ = this.searchResults$.pipe(map(results => (results ? results.length : 0)));
 
-  constructor() {}
+  constructor() { }
 
-  ngOnInit() {}
+  ngOnInit() { }
 }

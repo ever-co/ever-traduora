@@ -10,10 +10,10 @@
     <p class="text-muted">{{ project.description }}</p>
     <div class="card-text">
       <p class="text-muted mb-1">
-        <strong class="mr-1">{{ project.termsCount }}</strong> <ng-container i18n>{project.termsCount, plural, =0 {terms} =1 {term} other {terms} }</ng-container>
+        <strong class="mr-1">{{ project.termsCount }}</strong> <ng-container >{project.termsCount, plural, =0 {terms} =1 {term} other {terms} }</ng-container>
       </p>
       <p class="text-muted m-0">
-        <strong class="mr-1">{{ project.localesCount }}</strong> <ng-container i18n>{project.localesCount, plural, =0 {locales} =1 {locale} other {locales} }</ng-container>
+        <strong class="mr-1">{{ project.localesCount }}</strong> <ng-container >{project.localesCount, plural, =0 {locales} =1 {locale} other {locales} }</ng-container>
       </p>
     </div>
   </div>

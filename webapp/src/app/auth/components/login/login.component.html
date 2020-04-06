@@ -4,11 +4,11 @@
     <div class="card-body">
       <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
-      <h4 class="card-title font-serif" i18n>Sign in</h4>
+      <h4 class="card-title font-serif" >Sign in</h4>
 
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
         <div class="form-group">
-          <label for="emailInput" i18n>Email address</label>
+          <label for="emailInput" >Email address</label>
           <input
             id="emailInput"
             class="form-control"
@@ -20,13 +20,13 @@
           />
 
           <div class="invalid-feedback">
-            <div *ngIf="email.getError('required')" i18n>Email is required.</div>
-            <div *ngIf="email.getError('email')" i18n>Must be a valid email</div>
+            <div *ngIf="email.getError('required')" >Email is required.</div>
+            <div *ngIf="email.getError('email')" >Must be a valid email</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="passwordInput" i18n>Password</label>
+          <label for="passwordInput" >Password</label>
           <input
             id="passwordInput"
             class="form-control"
@@ -38,12 +38,12 @@
           />
 
           <div class="invalid-feedback">
-            <div *ngIf="password.getError('required')" i18n>Password is required.</div>
-            <div *ngIf="password.getError('minlength')" i18n>Password must be at least 8 characters.</div>
+            <div *ngIf="password.getError('required')" >Password is required.</div>
+            <div *ngIf="password.getError('minlength')" >Password must be at least 8 characters.</div>
           </div>
         </div>
 
-        <button class="btn btn-primary w-100" type="submit" [disabled]="!loginForm.valid || (isLoading$ | async)" i18n>Sign in</button>
+        <button class="btn btn-primary w-100" type="submit" [disabled]="!loginForm.valid || (isLoading$ | async)" >Sign in</button>
       </form>
 
       <div class="text-center border-top mt-5">
@@ -54,7 +54,7 @@
     </div>
   </div>
   <div class="text-center mt-3">
-    <p class="text-sm my-0">Don't have an account? <a class="text-sm btn btn-link p-0" routerLink="/signup" i18n>Sign up</a></p>
-    <a class="btn btn-link text-sm my-0" routerLink="/forgot-password" i18n>Forgot your password?</a>
+    <p class="text-sm my-0">Don't have an account? <a class="text-sm btn btn-link p-0" routerLink="/signup" >Sign up</a></p>
+    <a class="btn btn-link text-sm my-0" routerLink="/forgot-password" >Forgot your password?</a>
   </div>
 </div>

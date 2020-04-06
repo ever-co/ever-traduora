@@ -1,13 +1,13 @@
 <ng-template #content let-modal>
   <div class="modal-header">
-    <h4 class="modal-title font-serif" i18n>Assigned labels</h4>
+    <h4 class="modal-title font-serif" >Assigned labels</h4>
     <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
       <i class="material-icons">close</i>
     </button>
   </div>
   <div class="modal-body">
     <app-error-message *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
-    <p class="text-muted" i18n>
+    <p class="text-muted" >
       {{ hint }}
     </p>
     <app-select-label class="mb-5" [labels]="availableLabels" [exclude]="labels" [limit]="5" (selectLabel)="selectedLabel = $event">
@@ -21,8 +21,8 @@
       buttonLabel="Create a new label"
     ></app-new-label>
     <div class="flex-1"></div>
-    <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus i18n>Cancel</button>
-    <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()" i18n>Add selected</button>
+    <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus >Cancel</button>
+    <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()" >Add selected</button>
   </div>
 </ng-template>
 

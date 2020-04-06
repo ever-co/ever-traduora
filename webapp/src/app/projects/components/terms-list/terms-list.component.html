@@ -2,7 +2,7 @@
 <div class="w-100 h-100">
   <div *ngIf="project$ | async as project" class="h-100">
     <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
-      <h5 class="font-serif m-0" i18n>Terms</h5>
+      <h5 class="font-serif m-0" >Terms</h5>
       <app-new-term *ngIf="true | can: 'AddTerm' | async" [project]="project"></app-new-term>
     </div>
 
@@ -45,8 +45,8 @@
       <div class="alert alert-secondary p-5 d-flex flex-row">
         <i class="material-icons mr-3">info</i>
         <div>
-          <h4 class="font-serif" i18n>Project terms are empty</h4>
-          <p i18n>You haven't yet created any terms for this project. Add a new term to get started!</p>
+          <h4 class="font-serif" >Project terms are empty</h4>
+          <p >You haven't yet created any terms for this project. Add a new term to get started!</p>
           <app-new-term *ngIf="true | can: 'AddTerm' | async" [project]="project" btnClass="btn-primary"></app-new-term>
         </div>
       </div>
