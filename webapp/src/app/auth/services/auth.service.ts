@@ -50,7 +50,7 @@ export class AuthService {
 
   redirectWithProvider(provider: Provider) {
     window.open(
-      `${provider.url}?redirect_uri=${provider.redirectUrl}&client_id=${provider.clientId}&scope=email profile openid&access_type=offline&prompt=select_account&response_type=code`,
+      `${provider.url}?redirect_uri=${provider.redirectUrl}&client_id=${provider.clientId}&scope=email profile openid&access_type=offline&prompt=select_account&response_type=code`, // tslint:disable-line max-line-length
       '_self',
     );
   }
