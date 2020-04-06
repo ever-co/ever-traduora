@@ -23,11 +23,11 @@ export class SearchComponent implements OnInit {
   @Input()
   placeholder = 'Search...';
 
-  @ContentChild('searchResultsHeader')
+  @ContentChild('searchResultsHeader', /* TODO: add static flag */ {})
   @Input()
   searchResultsHeader: TemplateRef<any>;
 
-  @ContentChild('searchResultsItem')
+  @ContentChild('searchResultsItem', /* TODO: add static flag */ {})
   @Input()
   searchResultsItem: TemplateRef<any>;
 

@@ -44,12 +44,12 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
         },
         {
           path: 'projects',
-          loadChildren: './projects/projects.module#ProjectsModule',
+          loadChildren: () => import('./projects/projects.module').then(m => m.ProjectsModule),
           canActivate: [AuthGuard],
         },
         {
           path: '',
-          loadChildren: './auth/auth.module#AuthModule',
+          loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule),
         },
         {
           path: '404',
