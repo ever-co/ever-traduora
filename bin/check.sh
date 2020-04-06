@@ -22,8 +22,8 @@ function pprint() {
 pprint "Installing dependencies if needed"
 bin/install-deps.sh
 
-pprint "Applying code format"
-yarn fmt
+pprint "Check code format"
+yarn check-fmt
 
 if ! [[ -z $(git status -s) ]]; then
     echo "You have uncommited changes on git or you might need to apply formatting to your source code (yarn fmt)"
