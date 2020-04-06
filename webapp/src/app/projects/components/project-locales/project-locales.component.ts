@@ -1,15 +1,14 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Select, Store } from '@ngxs/store';
-import { Observable, Subscription, combineLatest } from 'rxjs';
+import { combineLatest, Observable, Subscription } from 'rxjs';
 import { filter, map, tap } from 'rxjs/operators';
 import { Locale } from '../../models/locale';
 import { Project } from '../../models/project';
 import { ProjectLocale } from '../../models/project-locale';
-import { ProjectsState, RefreshProjectStats } from '../../stores/projects.state';
+import { ProjectLocaleStats, ProjectStats } from '../../models/project-stats';
+import { ProjectsState } from '../../stores/projects.state';
 import { AddProjectLocale, ClearMessages, GetKnownLocales, GetProjectLocales, TranslationsState } from '../../stores/translations.state';
-import { ProjectStats, ProjectLocaleStats } from '../../models/project-stats';
-import { ProjectStatsService } from '../../services/project-stats.service';
 
 @Component({
   selector: 'app-project-locales',
