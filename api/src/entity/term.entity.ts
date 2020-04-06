@@ -17,11 +17,17 @@ export class Term {
   @JoinColumn()
   project: Project;
 
-  @OneToMany(() => Translation, translation => translation.term)
+  @OneToMany(
+    () => Translation,
+    translation => translation.term,
+  )
   @JoinColumn()
   translations: Translation[];
 
-  @ManyToMany(() => Label, label => label.terms)
+  @ManyToMany(
+    () => Label,
+    label => label.terms,
+  )
   labels: Label[];
 
   @Column(type => AccessTimestamps)

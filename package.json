@@ -5,7 +5,7 @@
   "description": "Traduora - translation management platform for teams",
   "repository": "https://github.com/traduora/traduora",
   "scripts": {
-    "fmt": "prettier --write \"**/*.ts\""
+    "fmt": "prettier --write \"**/*.ts\" --list-different"
   },
   "devDependencies": {
     "concurrently": "^4.1.0",

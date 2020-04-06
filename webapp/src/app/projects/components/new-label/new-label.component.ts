@@ -57,7 +57,10 @@ export class NewLabelComponent implements OnInit, OnDestroy {
     this.value.setValue(this.initialValue);
     this.randomColor();
     this.modal = this.modalService.open(content);
-    this.modal.result.then(() => this.reset(), () => this.reset());
+    this.modal.result.then(
+      () => this.reset(),
+      () => this.reset(),
+    );
   }
 
   async onSubmit() {
