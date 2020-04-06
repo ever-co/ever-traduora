@@ -20,11 +20,19 @@ export class Label {
   @JoinColumn()
   project: Project;
 
-  @ManyToMany(() => Term, term => term.labels, { cascade: true })
+  @ManyToMany(
+    () => Term,
+    term => term.labels,
+    { cascade: true },
+  )
   @JoinTable()
   terms: Term[];
 
-  @ManyToMany(() => Translation, translation => translation.labels, { cascade: true })
+  @ManyToMany(
+    () => Translation,
+    translation => translation.labels,
+    { cascade: true },
+  )
   @JoinTable()
   translations: Translation[];
 }

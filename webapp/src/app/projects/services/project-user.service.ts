@@ -20,11 +20,15 @@ export class ProjectUserService {
   }
 
   create(projectId: string, email: String, role: ProjectRole): Observable<ProjectUser> {
-    return this.http.post<Payload<ProjectUser>>(`${this.endpoint}/projects/${projectId}/users`, { email, role }).pipe(map(res => res.data));
+    return this.http
+      .post<Payload<ProjectUser>>(`${this.endpoint}/projects/${projectId}/users`, { email, role })
+      .pipe(map(res => res.data));
   }
 
   update(projectId: string, userId: String, role: ProjectRole): Observable<ProjectUser> {
-    return this.http.patch<Payload<ProjectUser>>(`${this.endpoint}/projects/${projectId}/users/${userId}`, { role }).pipe(map(res => res.data));
+    return this.http
+      .patch<Payload<ProjectUser>>(`${this.endpoint}/projects/${projectId}/users/${userId}`, { role })
+      .pipe(map(res => res.data));
   }
 
   remove(projectId: string, userId: string): Observable<void> {
