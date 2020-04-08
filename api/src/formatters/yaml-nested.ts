@@ -51,7 +51,7 @@ export const yamlNestedExporter: Exporter = async (data: IntermediateTranslation
         }
         if (typeof current[key] === 'string') {
           throw new Error(
-            `You have a flat key that have both a value and sub keys. This is not allowed on nested JSON. Sub key: ${translation.term}`,
+            `You have a flat key that have both a value and sub keys. This is not allowed on nested YAML. Sub key: ${translation.term}`,
           );
         }
         current = current[key];
