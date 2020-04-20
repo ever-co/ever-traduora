@@ -6,7 +6,8 @@
       "configuration"
     ],
     "Concepts": [
-      "concepts/formats"
+      "concepts/formats",
+      "tools/cli"
     ],
     "API reference": [
       "api/v1/overview",
@@ -14,6 +15,9 @@
       "api/v1/roles-permissions",
       "api/v1/endpoints",
       "api/v1/errors"
+    ],
+    "Tools": [
+      "tools/cli"
     ],
     "Misc": [
       "changelog",

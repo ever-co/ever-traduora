@@ -52,6 +52,10 @@
       "getting-started": {
         "title": "Getting started",
         "sidebar_label": "Getting started"
+      },
+      "tools/cli": {
+        "title": "Cli",
+        "sidebar_label": "Cli"
       }
     },
     "links": {
@@ -63,6 +67,7 @@
       "Quickstart": "Quickstart",
       "Concepts": "Concepts",
       "API reference": "API reference",
+      "Tools": "Tools",
       "Misc": "Misc"
     }
   },
