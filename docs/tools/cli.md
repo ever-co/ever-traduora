@@ -57,3 +57,4 @@ To list all avalible commands or get help you can use `help` or the `-h flag`
 tradoura help
 traduora term:add --help
 ```
+
