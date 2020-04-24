@@ -15,6 +15,9 @@
       "api/v1/endpoints",
       "api/v1/errors"
     ],
+    "Tools": [
+      "tools/cli"
+    ],
     "Misc": [
       "changelog",
       "contributing",
