@@ -1,0 +1,21 @@
+{
+    "term": {
+        "one": "data.VWAnalyticssaleorder.docdate.day",
+        "two": {
+            "hour": "data.VWAnalyticssaleorder.docdate"
+        },
+        "three": "UPDATE_SCHEDULER_SCREEN.EDIT_EVENT.HOURS"
+    },
+    "data": {
+        "VWAnalyticssaleorder": {
+            "docdate": {
+                "day": "foo"
+            }
+        }
+    },
+    "UPDATE_SCHEDULER_SCREEN": {
+        "EDIT_EVENT": {
+            "HOURS": "bar"
+        }
+    }
+}

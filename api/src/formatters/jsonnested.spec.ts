@@ -1,6 +1,76 @@
 import { config } from '../config';
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { jsonNestedExporter, jsonNestedParser } from './jsonnested';
+import { load } from 'js-yaml';
+
+test('should parse nested strings with matching function names', async () => {
+  const inputFlat = loadFixture('function-name-flat.json');
+
+  const inputNested = loadFixture('function-name-nested.json');
+
+  const expected = {
+    translations: [
+      {
+        term: 'term.one',
+        translation: 'data.VWAnalyticssaleorder.docdate.day',
+      },
+      {
+        term: 'term.two.hour',
+        translation: 'data.VWAnalyticssaleorder.docdate',
+      },
+      {
+        term: 'term.three',
+        translation: 'UPDATE_SCHEDULER_SCREEN.EDIT_EVENT.HOURS',
+      },
+      {
+        term: 'data.VWAnalyticssaleorder.docdate.day',
+        translation: 'foo',
+      },
+      {
+        term: 'UPDATE_SCHEDULER_SCREEN.EDIT_EVENT.HOURS',
+        translation: 'bar',
+      },
+    ],
+  };
+
+  const resultFlat = await jsonNestedParser(inputFlat);
+  expect(resultFlat).toEqual(expected);
+
+  const resultNested = await jsonNestedParser(inputNested);
+  expect(resultNested).toEqual(expected);
+});
+
+test('should export nested strings with matching function names', async () => {
+  const input = {
+    translations: [
+      {
+        term: 'term.one',
+        translation: 'data.VWAnalyticssaleorder.docdate.day',
+      },
+      {
+        term: 'term.two.hour',
+        translation: 'data.VWAnalyticssaleorder.docdate',
+      },
+      {
+        term: 'term.three',
+        translation: 'UPDATE_SCHEDULER_SCREEN.EDIT_EVENT.HOURS',
+      },
+      {
+        term: 'data.VWAnalyticssaleorder.docdate.day',
+        translation: 'foo',
+      },
+      {
+        term: 'UPDATE_SCHEDULER_SCREEN.EDIT_EVENT.HOURS',
+        translation: 'bar',
+      },
+    ],
+  };
+  const result = await jsonNestedExporter(input);
+
+  const expected = loadFixture('function-name-nested.json');
+
+  expect(result).toEqual(expected);
+});
 
 test('should parse nested json files', async () => {
   const input = `{
