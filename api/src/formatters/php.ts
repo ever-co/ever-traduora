@@ -16,21 +16,21 @@ export const phpExporter: Exporter = async (data: IntermediateTranslationFormat)
     const partsLen = parts.length;
     if (partsLen === 1) {
       jsonObject[parts[0]] = translation.translation;
-      result += "'" + parts[0] + "'=>'" + translation.translation + "',";
+      result += "'" + escape(parts[0]) + "'=>'" + escape(translation.translation) + "',";
     } else if (partsLen > 1) {
       let current = jsonObject;
       let depth = 0;
       for (const key of parts.slice(0, partsLen - 1)) {
         if (!current.hasOwnProperty(key)) {
           current[key] = {};
-          result += "'" + key + "'=>[";
+          result += "'" + escape(key) + "'=>[";
           depth++;
         }
         current = current[key];
       }
 
       current[parts[partsLen - 1]] = translation.translation;
-      result += "'" + parts[partsLen - 1] + "'=>'" + translation.translation + "',";
+      result += "'" + escape(parts[partsLen - 1]) + "'=>'" + escape(translation.translation) + "',";
 
       for (let i = 0; i < depth; i++) {
         result += '],';
@@ -41,3 +41,8 @@ export const phpExporter: Exporter = async (data: IntermediateTranslationFormat)
 
   return result;
 };
+
+function escape(str: string): string {
+  // Escape any "\" or "'" except "\n" (newline)
+  return str.replace(/((\\(?![n\']))|\')/g, '\\$1');
+}

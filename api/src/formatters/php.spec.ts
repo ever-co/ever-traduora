@@ -1,5 +1,6 @@
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { phpExporter, phpParser } from './php';
+import { IntermediateTranslationFormat } from '../domain/formatters';
 
 test('should parse php files', async () => {
   const input = `[
@@ -62,4 +63,41 @@ test('should export php files', async () => {
   const result = await phpExporter(simpleFormatFixture);
   const expected = loadFixture('simple.php');
   expect(result).toEqual(expected);
+});
+
+test('should espace on export of php files', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      {
+        term: 'this term has "double quotes"',
+        translation: `this translation also has "double quotes"`,
+      },
+    ],
+  };
+  const result = await phpExporter(input);
+  const expected = loadFixture('double-quotes-out.php');
+  expect(result).toEqual(expected);
+});
+
+test('should espace on import of php files', async () => {
+  const input = loadFixture('double-quotes-in.php');
+  const imported = await phpParser(input);
+  expect(imported).toEqual({
+    translations: [
+      {
+        term: 'this term has "double quotes"',
+        translation: `this translation also has "double quotes"`,
+      },
+    ],
+  });
+  const result = await phpExporter(imported);
+  const expected = loadFixture('double-quotes-out.php');
+  expect(result).toEqual(expected);
+});
+
+test('should espace on import of php files', async () => {
+  const input = loadFixture('double-and-single-quotes.php');
+  const imported = await phpParser(input);
+  const output = await phpExporter(imported);
+  expect(output).toEqual(input);
 });
