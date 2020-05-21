@@ -2,6 +2,7 @@ import { config } from '../config';
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { jsonNestedExporter, jsonNestedParser } from './jsonnested';
 import { load } from 'js-yaml';
+import { IntermediateTranslationFormat } from '../domain/formatters';
 
 test('should parse nested strings with matching function names', async () => {
   const inputFlat = loadFixture('function-name-flat.json');
@@ -131,7 +132,7 @@ test('should fail if file is malformed or empty', async () => {
   }
 });
 
-test('should fail if the nested JSON goes above 5 levels', async () => {
+test('should fail if the nested JSON goes above max levels', async () => {
   const ok = '{ "0": { "1": { "2": { "3": { "4": { "5": "" } } } } } }';
 
   const tooManyRoot = {};
@@ -152,4 +153,20 @@ test('should export json nested files', async () => {
   const result = await jsonNestedExporter(simpleFormatFixture);
   const expected = loadFixture('simple-nested.json');
   expect(result).toEqual(expected);
+});
+
+test('should fail with conflicting nested object on export', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      {
+        term: 'button',
+        translation: 'Botón',
+      },
+      {
+        term: 'button.test',
+        translation: 'Botón de prueba',
+      },
+    ],
+  };
+  await expect(jsonNestedExporter(input)).rejects.toBeDefined();
 });
