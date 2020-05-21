@@ -25,6 +25,7 @@ To download the source code for each release, check out [GitHub](https://github.
 - Automatically detect file import format.
 - Increase max size for file import (1MB).
 - Improve error message when importing files which are too large.
+- Support PHP format
 
 ## 0.14.0
 - Minor bug fixes and UI improvements.

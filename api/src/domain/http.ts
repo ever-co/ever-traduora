@@ -600,6 +600,7 @@ export enum ImportExportFormat {
   Properties = 'properties',
   Gettext = 'po',
   Strings = 'strings',
+  Php = 'php',
 }
 
 export class ExportQuery {

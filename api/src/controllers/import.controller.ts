@@ -35,6 +35,7 @@ import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
 import { ApiOAuth2Auth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { androidXmlParser } from '../formatters/android-xml';
+import { phpParser } from '../formatters/php';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiUseTags('Imports')
@@ -197,6 +198,8 @@ export class ImportController {
           return await gettextParser(contents);
         case 'strings':
           return await stringsParser(contents);
+        case 'php':
+          return await phpParser(contents);
         default:
           throw new Error('Export format not implemented');
       }
