@@ -119,9 +119,9 @@ export async function createAndMigrateApp(): Promise<INestApplication> {
   // Sleep between migrations, tests constantly fail in CI otherwise
   const connection = app.get(Connection);
   await connection.dropDatabase();
-  await sleep(500);
+  await sleep(100);
   await connection.runMigrations();
-  await sleep(500);
+  await sleep(100);
 
   return app;
 }
