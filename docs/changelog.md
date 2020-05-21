@@ -7,9 +7,10 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
-- Minor performance improvements and bug-fixes.
+- Add support for PHP import/export format.
 - Upgraded to Angular 9+.
 - Upgraded dependencies.
+- Minor performance improvements and bug-fixes.
 
 ## 0.16.0
 - Allow config of max nested levels on import formats (with new default of 100).
@@ -25,7 +26,6 @@ To download the source code for each release, check out [GitHub](https://github.
 - Automatically detect file import format.
 - Increase max size for file import (1MB).
 - Improve error message when importing files which are too large.
-- Support PHP format
 
 ## 0.14.0
 - Minor bug fixes and UI improvements.
