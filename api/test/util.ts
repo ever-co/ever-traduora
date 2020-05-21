@@ -103,6 +103,10 @@ export async function createTestProjectClient(
   return result;
 }
 
+const sleep = milliseconds => {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+};
+
 export async function createAndMigrateApp(): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
@@ -112,9 +116,12 @@ export async function createAndMigrateApp(): Promise<INestApplication> {
   addPipesAndFilters(app);
   app = await app.init();
 
+  // Sleep between migrations, tests constantly fail in CI otherwise
   const connection = app.get(Connection);
   await connection.dropDatabase();
+  await sleep(500);
   await connection.runMigrations();
+  await sleep(500);
 
   return app;
 }
