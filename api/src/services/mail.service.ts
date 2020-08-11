@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { createTransport, getTestMessageUrl, SendMailOptions, Transporter } from 'nodemailer';
+import { createTransport, SendMailOptions, Transporter } from 'nodemailer';
 import { config } from '../config';
 import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
@@ -7,6 +7,7 @@ import { Invite } from '../entity/invite.entity';
 import * as Handlebars from 'handlebars';
 import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
+import * as previewEmail from 'preview-email';
 
 @Injectable()
 export default class MailService {
@@ -105,10 +106,11 @@ export default class MailService {
 
   private async send(message: SendMailOptions): Promise<any> {
     if (this.transporter) {
-      const res = await this.transporter.sendMail(message);
-      if (config.mail.debug) {
-        console.log(`Mail sent. Preview url: ${getTestMessageUrl(res)}`);
-      }
+      await this.transporter.sendMail(message);
+    }
+    if (config.mail.debug) {
+      // createTransport({jsonTransport: true})
+      await previewEmail(message);
     }
   }
 
