@@ -39,6 +39,7 @@ export const config = {
     host: env.TR_MAIL_HOST,
     port: parseInt(env.TR_MAIL_PORT, 10) || 587,
     secure: getBoolOrDefault(env.TR_MAIL_SECURE, false),
+    rejectSelfSigned: getBoolOrDefault(env.TR_MAIL_REJECT_SELF_SIGNED, true),
     auth: {
       user: env.TR_MAIL_USER,
       pass: env.TR_MAIL_PASSWORD,
