@@ -42,6 +42,7 @@
     "passport": "^0.4.0",
     "passport-jwt": "^4.0.0",
     "php-array-parser": "^1.0.1",
+    "preview-email": "^2.0.2",
     "properties": "^1.2.1",
     "querystring": "^0.2.0",
     "reflect-metadata": "^0.1.12",
