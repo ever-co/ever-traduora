@@ -10,6 +10,7 @@ To download the source code for each release, check out [GitHub](https://github.
 - Add support for PHP import/export format.
 - Upgraded to Angular 9+.
 - Upgraded dependencies.
+- [PR-154](https://github.com/traduora/traduora/pull/154) Add option to reject self-signed certs from mail server.
 - Minor performance improvements and bug-fixes.
 
 ## 0.16.0
