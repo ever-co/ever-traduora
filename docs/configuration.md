@@ -31,6 +31,7 @@ The API server can be configured via the following environment variables:
 | TR_MAIL_HOST | The mail server host | not set |
 | TR_MAIL_PORT | The mail server port | 587 |
 | TR_MAIL_SECURE | If enabled, attempt to send mail securely | false |
+| TR_MAIL_REJECT_SELF_SIGNED | If enabled, reject self-signed or invalid certificates from the mail server | true |
 | TR_MAIL_USER | The auth user for the mail server | not set |
 | TR_MAIL_PASSWORD | The auth password for the mail server | not set |
 | TR_IMPORT_MAX_NESTED_LEVELS | Max number of nested levels in terms allowed for import formats | 100 |

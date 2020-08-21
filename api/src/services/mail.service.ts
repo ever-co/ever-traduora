@@ -31,6 +31,10 @@ export default class MailService {
         user: config.mail.auth.user,
         pass: config.mail.auth.pass,
       },
+      tls: {
+        // do not fail on invalid certs
+        rejectUnauthorized: config.mail.rejectSelfSigned,
+      },
     };
     this.transporter = options.host ? createTransport(options) : undefined;
     if (!this.transporter && !(config.env === 'e2e')) {
