@@ -7,6 +7,9 @@ sidebar_label: Changelog
 To download the source code for each release, check out [GitHub](https://github.com/traduora/traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/traduora/repository/docker/traduora/traduora).
 
 ## next
+-
+
+## 0.17.0
 - [PR-91:](https://github.com/traduora/traduora/pull/91) Add support for PHP import/export format.
 - [PR-153:](https://github.com/traduora/traduora/pull/153) Add option to debug emails locally
 - [PR-122:](https://github.com/traduora/traduora/pull/122) Upgraded to Angular 9+.
