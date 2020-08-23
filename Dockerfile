@@ -1,5 +1,5 @@
 # Build stage
-FROM node:10.13-alpine as builder
+FROM node:12.18-alpine as builder
 
 RUN apk --no-cache add g++ gcc libgcc libstdc++ linux-headers make python
 RUN npm install --quiet node-gyp -g
@@ -12,7 +12,7 @@ COPY webapp webapp
 RUN bin/build.sh
 
 # Runtime stage
-FROM node:10.13-alpine
+FROM node:12.18-alpine
 
 WORKDIR /opt/traduora
 

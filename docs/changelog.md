@@ -9,6 +9,9 @@ To download the source code for each release, check out [GitHub](https://github.
 ## next
 -
 
+## 0.17.1
+- Upgrade Docker images to Node 12.18.
+
 ## 0.17.0
 - [PR-91:](https://github.com/traduora/traduora/pull/91) Add support for PHP import/export format.
 - [PR-153:](https://github.com/traduora/traduora/pull/153) Add option to debug emails locally
