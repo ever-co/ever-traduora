@@ -9,14 +9,12 @@ To download the source code for each release, check out [GitHub](https://github.
 ## next
 -
 
-## 0.17.1
-- Upgrade Docker images to Node 12.18.
-
 ## 0.17.0
 - [PR-91:](https://github.com/traduora/traduora/pull/91) Add support for PHP import/export format.
 - [PR-153:](https://github.com/traduora/traduora/pull/153) Add option to debug emails locally
 - [PR-122:](https://github.com/traduora/traduora/pull/122) Upgraded to Angular 9+.
 - [PR-154:](https://github.com/traduora/traduora/pull/154) Add option to reject self-signed certs from mail server.
+- Upgrade Docker images to Node 12.18.
 - Upgraded dependencies.
 - Minor performance improvements and bug-fixes.
 
