@@ -181,7 +181,10 @@ export class UserService {
 
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
-    const user = await this.userRepo.findOneOrFail({ email: normalizedEmail });
+    const user = await this.userRepo.findOne({ email: normalizedEmail });
+    if (!user) {
+      throw new UnauthorizedException('invalid credentials');
+    }
 
     const timeThreshold = moment()
       .subtract(15, 'minutes')
