@@ -186,10 +186,6 @@ export class UserService {
       throw new UnauthorizedException('invalid credentials');
     }
 
-    const timeThreshold = moment()
-      .subtract(15, 'minutes')
-      .toDate();
-
     switch (grantType) {
       case GrantType.Password:
         if (!user.encryptedPassword) {
