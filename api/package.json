@@ -15,6 +15,7 @@
     "typeorm": "ts-node node_modules/.bin/typeorm"
   },
   "dependencies": {
+    "@google-cloud/translate": "^6.0.3",
     "@nest-middlewares/morgan": "^6.0.0",
     "@nestjs/common": "^6.5.3",
     "@nestjs/core": "^6.5.3",
