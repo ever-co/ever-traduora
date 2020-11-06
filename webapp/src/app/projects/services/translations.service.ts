@@ -34,6 +34,10 @@ export class ProjectTranslationsService {
     return this.http.delete<void>(`${this.endpoint}/projects/${projectId}/translations/${localeCode}`);
   }
 
+  autoTranslateProjectLocale(projectId: string, localeCode: string): Observable<void> {
+    return this.http.get<void>(`${this.endpoint}/projects/${projectId}/translations/autotranslate/${localeCode}`);
+  }
+
   findProjectTranslation(projectId: string, localeCode: string): Observable<Translation[]> {
     return this.http.get<Payload<Translation[]>>(`${this.endpoint}/projects/${projectId}/translations/${localeCode}`).pipe(map(res => res.data));
   }

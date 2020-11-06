@@ -26,6 +26,7 @@ The API server can be configured via the following environment variables:
 | TR_MAX_PROJECTS_PER_USER | The max number of projects that can be created per user | 100 |
 | TR_DEFAULT_PROJECT_PLAN | The default project plan, by default set to *open-source* and is limited to 100,000 strings (you are free to change it) | open-source |
 | TR_DB_AUTOMIGRATE | If enabled, on startup the server will ensure that all DB migrations have been applied | true |
+| TR_TRANSLATOR_GOOGLE_PROJECT_ID | The google cloud console project id for automatic translations | not set |
 | TR_MAIL_DEBUG | If enabled, it log a preview email link | false |
 | TR_MAIL_SENDER | The mail sender | not set |
 | TR_MAIL_HOST | The mail server host | not set |

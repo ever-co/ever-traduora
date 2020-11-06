@@ -36,6 +36,11 @@ export class DeleteProjectLocale {
   constructor(public projectId: string, public localeCode: string) {}
 }
 
+export class AutoTranslateLocale {
+  static readonly type = '[Translations] Auto translate untranslated';
+  constructor(public projectId: string, public localeCode: string) {}
+}
+
 export class GetTranslations {
   static readonly type = '[Translations] Get translation';
   constructor(public projectId: string, public localeCode: string) {}
@@ -147,6 +152,18 @@ export class TranslationsState implements NgxsOnInit {
         }),
       ),
       tap(() => ctx.dispatch(new RefreshProjectStats())),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error) });
+        return throwError(error);
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(AutoTranslateLocale)
+  autoTranslateLocale(ctx: StateContext<TranslationsStateModel>, action: AddProjectLocale) {
+    ctx.patchState({ isLoading: true });
+    return this.translationService.autoTranslateProjectLocale(action.projectId, action.localeCode).pipe(
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);

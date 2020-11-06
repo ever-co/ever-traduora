@@ -18,6 +18,9 @@
           <button (click)="deleteProjectLocale(project.id, currentLocale.code)" class="dropdown-item" >
             Delete language
           </button>
+          <button (click)="automaticallyTranslateUntranslated(project.id, currentLocale.code)" class="dropdown-item" >
+              Run automatic translation
+          </button>
         </div>
       </div>
     </div>

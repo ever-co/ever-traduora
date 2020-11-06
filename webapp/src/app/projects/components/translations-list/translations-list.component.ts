@@ -18,6 +18,7 @@ import { GetTerms, TermsState } from '../../stores/terms.state';
 import {
   ClearMessages,
   DeleteProjectLocale,
+  AutoTranslateLocale,
   GetKnownLocales,
   GetProjectLocales,
   GetTranslations,
@@ -137,6 +138,21 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
         .dispatch(new DeleteProjectLocale(projectId, localeCode))
         .toPromise()
         .then(() => this.router.navigate(['projects', projectId, 'translations']));
+    }
+  }
+
+  automaticallyTranslateUntranslated(projectId: string, localeCode: string){
+    if (confirm(`Are you sure you want to automatically translate locale with code '${localeCode}'?`)) {
+      this.store
+        .dispatch(new AutoTranslateLocale(projectId, localeCode))
+        .toPromise()
+        .then(() => {
+            alert('Done translating.');
+        })
+        .catch((e) => {
+            // @TODO: Make this prettier.
+            alert('Something went wrong when translating.');
+        });
     }
   }
 

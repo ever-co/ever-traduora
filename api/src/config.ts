@@ -23,6 +23,11 @@ export const config = {
   import: {
     maxNestedLevels: parseInt(env.TR_IMPORT_MAX_NESTED_LEVELS, 10) || 100,
   },
+  translators: {
+    google: {
+      projectId: env.TR_TRANSLATOR_GOOGLE_PROJECT_ID,
+    },
+  },
   providers: {
     google: {
       active: env.TR_AUTH_GOOGLE_ENABLED,
