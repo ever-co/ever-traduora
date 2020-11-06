@@ -35,7 +35,7 @@ import { User } from './entity/user.entity';
 import { CustomExceptionFilter } from './filters/exception.filter';
 import { AuthService } from './services/auth.service';
 import AuthorizationService from './services/authorization.service';
-import AutomaticTranslationService  from './services/automatic_translation.service';
+import AutomaticTranslationService from './services/automatic_translation.service';
 import { JwtStrategy } from './services/jwt.strategy';
 import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
@@ -72,14 +72,7 @@ import ProjectStatsController from './controllers/project-stats.controller';
     LocaleController,
     IndexController,
   ],
-  providers: [
-    UserService,
-    AuthService,
-    MailService,
-    JwtStrategy,
-    AuthorizationService,
-    AutomaticTranslationService
-  ],
+  providers: [UserService, AuthService, MailService, JwtStrategy, AuthorizationService, AutomaticTranslationService],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {

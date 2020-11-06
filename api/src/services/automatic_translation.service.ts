@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { config } from '../config';
-import {TranslationServiceClient} from '@google-cloud/translate';
+import { TranslationServiceClient } from '@google-cloud/translate';
 
 @Injectable()
 export default class AutomaticTranslationService {
@@ -17,12 +17,11 @@ export default class AutomaticTranslationService {
     const translationClient = new TranslationServiceClient();
 
     return new Promise<Array<Object>>((resolve, reject) => {
-
       // @TODO: The api is limited to 1024 strings. For a draft I just have
       // it cut off at 1024, you can do multiple requests if you have more
       // strings.
       let arrayToTranslate: Array<string> = [];
-      requestTranslations.slice(0, 1024).forEach((translation) => {
+      requestTranslations.slice(0, 1024).forEach(translation => {
         arrayToTranslate.push(translation.original);
       });
 
@@ -34,23 +33,24 @@ export default class AutomaticTranslationService {
         targetLanguageCode: targetLangCode,
       };
 
-      translationClient.translateText(request).then((googleResponse: any) => {
-        const translatedList: Array<object> = googleResponse[0].translations
+      translationClient
+        .translateText(request)
+        .then((googleResponse: any) => {
+          const translatedList: Array<object> = googleResponse[0].translations;
 
-        if (translatedList.length != arrayToTranslate.length) {
-          reject(Error('Response did not meet request amount.'));
-        }
+          if (translatedList.length != arrayToTranslate.length) {
+            reject(Error('Response did not meet request amount.'));
+          }
 
-        translatedList.forEach((translation: any, index: number) => {
-          requestTranslations[index].value = translation.translatedText;
+          translatedList.forEach((translation: any, index: number) => {
+            requestTranslations[index].value = translation.translatedText;
+          });
+
+          resolve(requestTranslations);
+        })
+        .catch(error => {
+          reject(error);
         });
-
-        resolve(requestTranslations);
-      })
-      .catch((error) => {
-        reject(error);
-      });
-
     });
   }
 }
