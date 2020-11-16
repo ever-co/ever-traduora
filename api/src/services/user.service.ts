@@ -186,18 +186,6 @@ export class UserService {
       throw new UnauthorizedException('invalid credentials');
     }
 
-    const timeThreshold = moment()
-      .subtract(15, 'minutes')
-      .toDate();
-
-    // If lockout time has passed, reset counter
-    if (user.lastLogin < timeThreshold) {
-      user.loginAttempts = 0;
-      // Otherwise abort request
-    } else if (user.loginAttempts >= 3) {
-      throw new TooManyRequestsException('too many login attempts');
-    }
-
     switch (grantType) {
       case GrantType.Password:
         if (!user.encryptedPassword) {
