@@ -42,7 +42,7 @@ Some questions come up over and over again. Be sure to check out our [FAQ](https
 
 
 ## Security Disclosure
-Security is very important to us. If you discover any issue regarding security, please disclose the information responsibly by sending an email to brf6yezlc@relay.firefox.com and not by creating a GitHub issue.
+Security is very important to us. If you discover any issue regarding security, please disclose the information responsibly by sending an email to yyaz5d1zm@relay.firefox.com and not by creating a GitHub issue.
 
 
 ## Contributing
