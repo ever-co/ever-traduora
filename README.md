@@ -4,7 +4,7 @@
 [![CircleCI](https://circleci.com/gh/traduora/traduora.svg?style=svg)](https://circleci.com/gh/traduora/traduora)
 [![Docker Pulls](https://img.shields.io/docker/pulls/traduora/traduora)](https://hub.docker.com/r/traduora/traduora)
 
-> Traduora is looking for new maintainers. Interested? [Read this](https://github.com/traduora/traduora/issues/197)
+> Traduora is being migrated to a new home at [https://github.com/ever-co/](https://github.com/ever-co/). More details soon in [this thread](https://github.com/traduora/traduora/issues/197).
 
 Traduora is a **translation management platform for teams**. Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
 
