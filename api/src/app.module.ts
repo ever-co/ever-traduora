@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { renderFile } from 'ejs';
+import * as rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { AuthController } from './controllers/auth.controller';
 import { ExportsController } from './controllers/exports.controller';
@@ -98,6 +99,14 @@ export const addPipesAndFilters = (app: NestExpressApplication) => {
       transform: false,
       disableErrorMessages: true,
       whitelist: true,
+    }),
+  );
+  
+    // rate-limiting middleware
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 20, // limit each IP to 20 requests per windowMs
     }),
   );
 

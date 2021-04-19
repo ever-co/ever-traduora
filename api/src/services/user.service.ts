@@ -181,18 +181,9 @@ export class UserService {
 
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
-    const user = await this.userRepo.findOneOrFail({ email: normalizedEmail });
-
-    const timeThreshold = moment()
-      .subtract(15, 'minutes')
-      .toDate();
-
-    // If lockout time has passed, reset counter
-    if (user.lastLogin < timeThreshold) {
-      user.loginAttempts = 0;
-      // Otherwise abort request
-    } else if (user.loginAttempts >= 3) {
-      throw new TooManyRequestsException('too many login attempts');
+    const user = await this.userRepo.findOne({ email: normalizedEmail });
+    if (!user) {
+      throw new UnauthorizedException('invalid credentials');
     }
 
     switch (grantType) {
