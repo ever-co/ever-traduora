@@ -1,6 +1,6 @@
 import { Controller, Get, HttpStatus, Param, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
@@ -15,8 +15,8 @@ import AuthorizationService from '../services/authorization.service';
 
 @Controller('api/v1/projects/:projectId/stats')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Project Stats')
+@ApiOAuth2([])
+@ApiTags('Project Stats')
 export default class ProjectStatsController {
   constructor(
     private auth: AuthorizationService,
@@ -28,7 +28,7 @@ export default class ProjectStatsController {
   ) {}
 
   @Get()
-  @ApiOperation({ title: 'Get stats for project' })
+  @ApiOperation({ summary: 'Get stats for project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectStatsResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

@@ -1,7 +1,7 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { resolve } from 'path';
 import { config } from '../config';
-import { ApiUseTags, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiExcludeEndpoint } from '@nestjs/swagger';
 
 @Controller()
 export default class IndexController {

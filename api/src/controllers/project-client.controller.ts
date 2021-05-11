@@ -15,12 +15,12 @@ import {
 import { ProjectClient } from '../entity/project-client.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ApiUseTags, ApiOperation, ApiResponse, ApiOAuth2Auth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiOAuth2 } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Project Clients')
+@ApiOAuth2([])
+@ApiTags('Project Clients')
 export default class ProjectClientController {
   constructor(
     private auth: AuthorizationService,
@@ -29,7 +29,7 @@ export default class ProjectClientController {
   ) {}
 
   @Get(':projectId/clients')
-  @ApiOperation({ title: `List a project's clients` })
+  @ApiOperation({ summary: `List a project's clients` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectClientsResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -52,7 +52,7 @@ export default class ProjectClientController {
 
   @Post(':projectId/clients')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: `Create a new project client` })
+  @ApiOperation({ summary: `Create a new project client` })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectClientWithSecretResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -83,7 +83,7 @@ export default class ProjectClientController {
   }
 
   @Patch(':projectId/clients/:clientId')
-  @ApiOperation({ title: `Update a project's client` })
+  @ApiOperation({ summary: `Update a project's client` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectClientResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or client not found' })
@@ -115,7 +115,7 @@ export default class ProjectClientController {
   }
 
   @Post(':projectId/clients/:clientId/rotate-secret')
-  @ApiOperation({ title: `Rotate a project's client secret key` })
+  @ApiOperation({ summary: `Rotate a project's client secret key` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectClientWithSecretResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or client not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -145,7 +145,7 @@ export default class ProjectClientController {
 
   @Delete(':projectId/clients/:clientId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: `Revoke access from a project's client` })
+  @ApiOperation({ summary: `Revoke access from a project's client` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or client not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

@@ -46,8 +46,11 @@ async function bootstrap() {
       )
       .setVersion(version)
       .setBasePath('/')
-      .addOAuth2('password', '/api/v1/auth/token', '/api/v1/auth/token')
-      .setSchemes('http', 'https')
+      .addOAuth2({
+        type: 'http',
+        scheme: 'basic'
+      })
+      .addServer('http://')
       .build();
 
     const document = SwaggerModule.createDocument(app, options);
