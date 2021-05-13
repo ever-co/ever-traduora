@@ -42,7 +42,7 @@ async function bootstrap() {
 			`<p>Documentation for the traduora REST API <p/>` +
 			`<p>Official website: <a target="_blank" href="https://traduora.com">https://traduora.com</a><br/>` +
 			`Additional documentation: <a target="_blank" href="https://docs.traduora.com">https://docs.traduora.com</a> <br/>` +
-			`Source code: <a target="_blank" href="https://github.com/traduora/traduora">https://github.com/traduora/traduora</a></p>`
+			`Source code: <a target="_blank" href="https://github.com/ever-co/ever-traduora">https://github.com/ever-co/ever-traduora</a></p>`
 		)
       	.setVersion(version)
       	.setBasePath('/')
