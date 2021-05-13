@@ -29,7 +29,7 @@
     "typeorm": "ts-node node_modules/.bin/typeorm"
   },
   "dependencies": {
-    "@nest-middlewares/morgan": "^6.0.0",
+    "morgan": "^1.10.0",    
     "@nestjs/common": "^7.6.15",
     "@nestjs/core": "^7.6.15",
     "@nestjs/jwt": "^7.2.0",
@@ -70,6 +70,7 @@
   "devDependencies": {
     "@nestjs/testing": "^7.6.15",
     "@types/bcrypt": "^5.0.0",
+    "@types/morgan": "^1.9.2",
     "@types/express": "^4.17.11",
     "@types/handlebars": "^4.1.0",
     "@types/iconv-lite": "^0.0.1",
