@@ -1,9 +1,22 @@
 {
-  "name": "traduora",
-  "version": "0.17.0",
+  "name": "ever-traduora",
+  "version": "0.18.0",
   "license": "AGPL-3.0-only",
-  "description": "Traduora - translation management platform for teams",
-  "repository": "https://github.com/traduora/traduora",
+  "description": "Traduora - translation management platform for teams",  
+  "homepage": "https://traduora.com",
+  "repository": {
+		"type": "git",
+		"url": "git+https://github.com/ever-co/ever-traduora.git"
+	},
+	"bugs": {
+		"url": "https://github.com/ever-co/ever-traduora/issues"
+	},
+  "private": true,
+  "author": {
+		"name": "Ever Co. LTD",
+		"email": "ever@ever.co",
+		"url": "https://ever.co"
+	},
   "scripts": {
     "fmt": "prettier --write --list-different \"**/*.ts\"",
     "check-fmt": "prettier --check \"**/*.ts\""
@@ -11,5 +24,10 @@
   "devDependencies": {
     "concurrently": "^6.1.0",
     "prettier": "^2.3.0"
-  }
+  },
+  "engines": {
+		"node": ">=14.0.0",
+		"yarn": ">=1.13.0"
+	},
+	"snyk": true
 }
