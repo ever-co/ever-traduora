@@ -46,10 +46,16 @@ async function bootstrap() {
       )
       .setVersion(version)
       .setBasePath('/')
-      .addOAuth2({
-        type: 'http',
-        scheme: 'basic'
-      })
+			.addOAuth2({
+				type: 'oauth2',
+				flows: {
+					password: {
+						authorizationUrl: '/api/v1/auth/token',
+						tokenUrl: '/api/v1/auth/token',
+						scopes: {}
+					}
+				}
+			})
       .addServer('http://')
       .build();
 
