@@ -37,26 +37,26 @@ async function bootstrap() {
   // Setup swagger
   {
     const options = new DocumentBuilder()
-		.setTitle('Traduora API')
-		.setDescription(
-			`<p>Documentation for the traduora REST API <p/>` +
-			`<p>Official website: <a target="_blank" href="https://traduora.com">https://traduora.com</a><br/>` +
-			`Additional documentation: <a target="_blank" href="https://docs.traduora.com">https://docs.traduora.com</a> <br/>` +
-			`Source code: <a target="_blank" href="https://github.com/ever-co/ever-traduora">https://github.com/ever-co/ever-traduora</a></p>`
-		)
-      	.setVersion(version)
-      	.setBasePath('/')
-		.addOAuth2({
-			type: 'oauth2',
-			flows: {
-				password: {
-					authorizationUrl: '/api/v1/auth/token',
-					tokenUrl: '/api/v1/auth/token',
-					scopes: []
-				}
-			}
-		})
-		.build();
+      .setTitle('Traduora API')
+      .setDescription(
+        `<p>Documentation for the traduora REST API <p/>` +
+          `<p>Official website: <a target="_blank" href="https://traduora.com">https://traduora.com</a><br/>` +
+          `Additional documentation: <a target="_blank" href="https://docs.traduora.com">https://docs.traduora.com</a> <br/>` +
+          `Source code: <a target="_blank" href="https://github.com/ever-co/ever-traduora">https://github.com/ever-co/ever-traduora</a></p>`,
+      )
+      .setVersion(version)
+      .setBasePath('/')
+      .addOAuth2({
+        type: 'oauth2',
+        flows: {
+          password: {
+            authorizationUrl: '/api/v1/auth/token',
+            tokenUrl: '/api/v1/auth/token',
+            scopes: [],
+          },
+        },
+      })
+      .build();
 
     const document = SwaggerModule.createDocument(app, options);
     SwaggerModule.setup('api/v1/swagger', app, document, { customSiteTitle: 'Traduora API v1 docs' });

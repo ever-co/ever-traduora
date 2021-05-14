@@ -17,13 +17,13 @@ import { ClearMessages, ProjectsState } from '../../stores/projects.state';
   styleUrls: ['./team-overview.component.css'],
 })
 export class TeamOverviewComponent implements OnInit, OnDestroy {
-  @Select(ProjectsState.currentProject) 
+  @Select(ProjectsState.currentProject)
   project$: Observable<Project | undefined>;
 
-  @Select(ProjectUsersState.isLoading) 
+  @Select(ProjectUsersState.isLoading)
   _areProjectsLoading$!: Observable<boolean>;
 
-  @Select(ProjectInviteState.isLoading) 
+  @Select(ProjectInviteState.isLoading)
   _areInvitesLoading$!: Observable<boolean>;
 
   isLoading: Observable<boolean> = combineLatest([this._areProjectsLoading$, this._areInvitesLoading$]).pipe(map(([a, b]) => a || b));

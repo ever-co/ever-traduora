@@ -51,10 +51,7 @@ describe('AuthController (e2e)', () => {
   });
 
   it('/api/v1/auth/signup (POST) should reject signup if missing params or malfomed request', async () => {
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
-      .send({})
-      .expect(400);
+    await request(app.getHttpServer()).post('/api/v1/auth/signup').send({}).expect(400);
 
     await request(app.getHttpServer())
       .post('/api/v1/auth/signup')

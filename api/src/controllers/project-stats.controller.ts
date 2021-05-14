@@ -64,9 +64,7 @@ export default class ProjectStatsController {
       };
     });
 
-    const statsByLocale = _.chain(stats)
-      .keyBy('localeCode')
-      .value();
+    const statsByLocale = _.chain(stats).keyBy('localeCode').value();
 
     const defaultStats = {
       progress: 0,
