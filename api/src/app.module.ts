@@ -1,4 +1,4 @@
-import { MorganMiddleware } from '@nest-middlewares/morgan';
+import { MorganMiddleware } from './middlewares/morgan-middleware';
 import { HttpModule, MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';

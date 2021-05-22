@@ -43,13 +43,13 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   project$: Observable<Project | undefined>;
 
   @Select(TermsState.terms)
-  terms$: Observable<Term[]>;
+  terms$!: Observable<Term[]>;
 
   @Select(TranslationsState.projectTranslations)
-  allTranslations$: Observable<{ [localeCode: string]: Translation[] }>;
+  allTranslations$!: Observable<{ [localeCode: string]: Translation[] }>;
 
   @Select(TranslationsState.knownLocales)
-  knownLocales$: Observable<Locale[]>;
+  knownLocales$!: Observable<Locale[]>;
 
   @Select(TranslationsState.projectLocales)
   projectLocales$: Observable<ProjectLocale[]>;

@@ -692,21 +692,13 @@ describe('ProjectLabelController (e2e)', () => {
       })
       .expect(404);
 
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/labels`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/labels`).expect(401);
 
-    await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/labels`)
-      .expect(401);
+    await request(app.getHttpServer()).post(`/api/v1/projects/${testProject.id}/labels`).expect(401);
 
-    await request(app.getHttpServer())
-      .patch(`/api/v1/projects/${testProject.id}/labels/${labelId}`)
-      .expect(401);
+    await request(app.getHttpServer()).patch(`/api/v1/projects/${testProject.id}/labels/${labelId}`).expect(401);
 
-    await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${testProject.id}/labels/${labelId}`)
-      .expect(401);
+    await request(app.getHttpServer()).delete(`/api/v1/projects/${testProject.id}/labels/${labelId}`).expect(401);
 
     await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject.id}/labels`)

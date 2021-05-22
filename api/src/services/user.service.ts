@@ -81,9 +81,7 @@ export class UserService {
 
     user.encryptedPasswordResetToken = Buffer.from(await bcrypt.hash(token, 10), 'utf-8');
 
-    user.passwordResetExpires = moment()
-      .add(4, 'hours')
-      .toDate();
+    user.passwordResetExpires = moment().add(4, 'hours').toDate();
 
     await this.userRepo.update(user.id, user);
 
@@ -181,11 +179,12 @@ export class UserService {
 
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
-    const user = await this.userRepo.findOneOrFail({ email: normalizedEmail });
+    const user = await this.userRepo.findOne({ email: normalizedEmail });
+    if (!user) {
+      throw new UnauthorizedException('invalid credentials');
+    }
 
-    const timeThreshold = moment()
-      .subtract(15, 'minutes')
-      .toDate();
+    const timeThreshold = moment().subtract(15, 'minutes').toDate();
 
     // If lockout time has passed, reset counter
     if (user.lastLogin < timeThreshold) {

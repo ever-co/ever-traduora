@@ -12,12 +12,12 @@ import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import AuthorizationService from '../services/authorization.service';
-import { ApiOAuth2Auth, ApiUseTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiOAuth2, ApiTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Projects')
+@ApiOAuth2([])
+@ApiTags('Projects')
 export default class ProjectController {
   constructor(
     private auth: AuthorizationService,
@@ -26,7 +26,7 @@ export default class ProjectController {
   ) {}
 
   @Get()
-  @ApiOperation({ title: 'List projects' })
+  @ApiOperation({ summary: 'List projects' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectsResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async find(@Req() req) {
@@ -45,7 +45,7 @@ export default class ProjectController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Create a new project', description: 'Creates a new project and assigns the requesting user as the admin' })
+  @ApiOperation({ summary: 'Create a new project', description: 'Creates a new project and assigns the requesting user as the admin' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async create(@Req() req, @Body() payload: CreateProjectRequest) {
@@ -78,7 +78,7 @@ export default class ProjectController {
   }
 
   @Get(':projectId')
-  @ApiOperation({ title: 'Get a project by id' })
+  @ApiOperation({ summary: 'Get a project by id' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -94,7 +94,7 @@ export default class ProjectController {
   }
 
   @Patch(':projectId')
-  @ApiOperation({ title: 'Update a project' })
+  @ApiOperation({ summary: 'Update a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
@@ -112,7 +112,7 @@ export default class ProjectController {
 
   @Delete(':projectId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: 'Delete a project' })
+  @ApiOperation({ summary: 'Delete a project' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

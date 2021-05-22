@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
@@ -42,7 +42,7 @@ import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
 
 @Controller('api/v1/auth')
-@ApiUseTags('Authentication')
+@ApiTags('Authentication')
 export class AuthController {
   constructor(
     private mailService: MailService,
@@ -55,7 +55,7 @@ export class AuthController {
   ) {}
 
   @Get('providers')
-  @ApiOperation({ title: 'List available external auth providers' })
+  @ApiOperation({ summary: 'List available external auth providers' })
   @ApiResponse({ status: HttpStatus.OK, type: ListAuthProvidersResponse, description: 'Success' })
   @HttpCode(HttpStatus.OK)
   async getProviders(): Promise<ServiceApiResponse<AuthProviderDTO[]>> {
@@ -69,7 +69,7 @@ export class AuthController {
 
   @Post('signup')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ title: 'Create a new user account' })
+  @ApiOperation({ summary: 'Create a new user account' })
   @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'A user with this email already exists' })
@@ -182,7 +182,7 @@ export class AuthController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    title: 'Request an authentication token for an existing user or project client',
+    summary: 'Request an authentication token for an existing user or project client',
     description:
       'The grant type must be one of **password** or **client_credentials**. ' +
       'When using a grant type of *password*, you must provide the fields *username* (email) and *password*. ' +
@@ -272,7 +272,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ title: 'Request reset password email' })
+  @ApiOperation({ summary: 'Request reset password email' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Email sent' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No user with such email found' })
   async forgotPassword(@Body() payload: ForgotPasswordRequest) {
@@ -282,7 +282,7 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ title: 'Reset password from token' })
+  @ApiOperation({ summary: 'Reset password from token' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Password changed' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })
@@ -294,9 +294,9 @@ export class AuthController {
 
   @Post('change-password')
   @UseGuards(AuthGuard())
-  @ApiOAuth2Auth()
+  @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: 'Change password using current one' })
+  @ApiOperation({ summary: 'Change password using current one' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Password changed' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })

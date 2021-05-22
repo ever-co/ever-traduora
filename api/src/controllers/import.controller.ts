@@ -33,12 +33,13 @@ import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
-import { ApiOAuth2Auth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiOAuth2, ApiConsumes, ApiResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { androidXmlParser } from '../formatters/android-xml';
 import { phpParser } from '../formatters/php';
+import { ApiFile } from './../decorators/api-file.decorator';
 
 @Controller('api/v1/projects/:projectId/imports')
-@ApiUseTags('Imports')
+@ApiTags('Imports')
 export class ImportController {
   constructor(
     private auth: AuthorizationService,
@@ -52,10 +53,10 @@ export class ImportController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard())
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 1024 * 1024 } })) // 1024 KB max size
-  @ApiOAuth2Auth()
-  @ApiOperation({ title: 'Import a translation file' })
+  @ApiOAuth2([])
+  @ApiOperation({ summary: 'Import a translation file' })
   @ApiConsumes('multipart/form-data')
-  @ApiImplicitFile({ name: 'file', required: true, description: 'The file to import' })
+  @ApiFile('file')
   @ApiResponse({ status: HttpStatus.OK, description: 'File imported', type: ImportResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No such resource found' })

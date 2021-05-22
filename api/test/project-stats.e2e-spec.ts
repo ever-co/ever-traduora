@@ -200,9 +200,7 @@ describe('ProjectStatsController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/translations should not access stats resource if not authenticated', async () => {
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/stats`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/stats`).expect(401);
   });
 
   it('/api/v1/projects/:projectId/translations should not access stats resource if not authorized', async () => {

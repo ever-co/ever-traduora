@@ -19,15 +19,11 @@ export class ProjectTermsService {
   }
 
   create(projectId: string, value: string): Observable<Term> {
-    return this.http
-      .post<Payload<Term>>(`${this.endpoint}/projects/${projectId}/terms`, { value })
-      .pipe(map(res => res.data));
+    return this.http.post<Payload<Term>>(`${this.endpoint}/projects/${projectId}/terms`, { value }).pipe(map(res => res.data));
   }
 
   update(projectId: string, termId: string, value: string): Observable<Term> {
-    return this.http
-      .patch<Payload<Term>>(`${this.endpoint}/projects/${projectId}/terms/${termId}`, { value })
-      .pipe(map(res => res.data));
+    return this.http.patch<Payload<Term>>(`${this.endpoint}/projects/${projectId}/terms/${termId}`, { value }).pipe(map(res => res.data));
   }
 
   delete(projectId: string, termId: string): Observable<void> {

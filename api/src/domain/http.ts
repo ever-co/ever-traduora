@@ -1,4 +1,4 @@
-import { ApiModelProperty, ApiModelPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
 import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
@@ -18,233 +18,233 @@ export enum GrantType {
 }
 
 export class NewUserDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
 
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
 
-  @ApiModelProperty()
+  @ApiProperty()
   email: string;
 
-  @ApiModelProperty()
+  @ApiProperty()
   accessToken: string;
 }
 
 export class UserInfoDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
 
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
 
-  @ApiModelProperty()
+  @ApiProperty()
   email: string;
 }
 
 export class AccessTokenDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   access_token: string;
-  @ApiModelProperty()
+  @ApiProperty()
   expires_in: string;
-  @ApiModelProperty()
+  @ApiProperty()
   token_type: string;
 }
 
 export class ImportTermsDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   added: number;
-  @ApiModelProperty()
+  @ApiProperty()
   skipped: number;
 }
 
 export class ImportTranslationsDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   upserted: number;
 }
 
 export class ImportFileDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   terms: ImportTermsDTO;
 
-  @ApiModelProperty()
+  @ApiProperty()
   translations: ImportTranslationsDTO;
 }
 
 export class LocaleDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   code: string;
-  @ApiModelProperty()
+  @ApiProperty()
   language: string;
-  @ApiModelProperty()
+  @ApiProperty()
   region: string;
 }
 
 export class AccessDatesDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   created: string;
-  @ApiModelProperty()
+  @ApiProperty()
   modified: string;
 }
 
 export class ProjectDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
-  @ApiModelProperty()
+  @ApiProperty()
   description: string;
-  @ApiModelProperty()
+  @ApiProperty()
   localesCount: number;
-  @ApiModelProperty()
+  @ApiProperty()
   termsCount: number;
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   role: ProjectRole;
-  @ApiModelProperty()
+  @ApiProperty()
   date: AccessDatesDTO;
 }
 
 export class ProjectPlanDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   code: string;
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
-  @ApiModelProperty()
+  @ApiProperty()
   maxStrings: number;
-  @ApiModelProperty()
+  @ApiProperty()
   date: AccessDatesDTO;
 }
 
 export class ProjectUserDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
-  @ApiModelProperty()
+  @ApiProperty()
   email: string;
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   role: ProjectRole;
 }
 
 export class ProjectInviteDto {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty({ enum: InviteStatus })
+  @ApiProperty({ enum: InviteStatus })
   status: InviteStatus;
-  @ApiModelProperty()
+  @ApiProperty()
   email: string;
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   role: ProjectRole;
 }
 
 export class ProjectInviteAddedUserDto {
-  @ApiModelProperty()
+  @ApiProperty()
   userId: string;
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
-  @ApiModelProperty()
+  @ApiProperty()
   email: string;
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   role: ProjectRole;
 }
 
 export class ProjectTermDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty()
+  @ApiProperty()
   value: string;
-  @ApiModelProperty()
+  @ApiProperty()
   labels: ProjectLabelDTO[];
-  @ApiModelProperty()
+  @ApiProperty()
   date: AccessDatesDTO;
 }
 
 export class ProjectLabelDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty()
+  @ApiProperty()
   value: string;
-  @ApiModelProperty()
+  @ApiProperty()
   color: string;
 }
 
 export class ProjectStatsDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   progress: number;
-  @ApiModelProperty()
+  @ApiProperty()
   translated: number;
-  @ApiModelProperty()
+  @ApiProperty()
   total: number;
-  @ApiModelProperty()
+  @ApiProperty()
   terms: number;
-  @ApiModelProperty()
+  @ApiProperty()
   locales: number;
 }
 
 export class ProjectLocaleStatsDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   progress: number;
-  @ApiModelProperty()
+  @ApiProperty()
   translated: number;
-  @ApiModelProperty()
+  @ApiProperty()
   total: number;
 }
 
 export class GetProjectStatsDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   projectStats: ProjectStatsDTO;
-  @ApiModelProperty()
+  @ApiProperty()
   localeStats: { [localeCode: string]: ProjectLocaleStatsDTO };
 }
 
 export class ProjectLocaleDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty()
+  @ApiProperty()
   locale: LocaleDTO;
-  @ApiModelProperty()
+  @ApiProperty()
   date: AccessDatesDTO;
 }
 
 export class TermTranslationDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   termId: string;
-  @ApiModelProperty()
+  @ApiProperty()
   value: string;
-  @ApiModelProperty()
+  @ApiProperty()
   labels: ProjectLabelDTO[];
-  @ApiModelProperty()
+  @ApiProperty()
   date: AccessDatesDTO;
 }
 
 export class ProjectClientDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   role: ProjectRole;
 }
 
 export class AuthProviderDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   slug: string;
-  @ApiModelProperty()
+  @ApiProperty()
   clientId: string;
-  @ApiModelProperty()
+  @ApiProperty()
   url: string;
-  @ApiModelProperty()
+  @ApiProperty()
   redirectUrl: string;
 }
 
 export class ProjectClientWithSecretDTO {
-  @ApiModelProperty()
+  @ApiProperty()
   id: string;
-  @ApiModelProperty()
+  @ApiProperty()
   name: string;
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   role: ProjectRole;
-  @ApiModelProperty()
+  @ApiProperty()
   secret: string;
 }
 
@@ -253,169 +253,169 @@ export abstract class ServiceApiResponse<A> {
 }
 
 export class ListProjectClientsResponse extends ServiceApiResponse<ProjectClientDTO[]> {
-  @ApiModelProperty({ type: ProjectClientDTO, isArray: true })
+  @ApiProperty({ type: ProjectClientDTO, isArray: true })
   data: ProjectClientDTO[];
 }
 
 export class ProjectClientResponse extends ServiceApiResponse<ProjectClientDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectClientDTO;
 }
 
 export class ProjectClientWithSecretResponse extends ServiceApiResponse<ProjectClientWithSecretDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectClientWithSecretDTO;
 }
 
 export class ProjectStatsResponse extends ServiceApiResponse<GetProjectStatsDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: GetProjectStatsDTO;
 }
 
 export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: NewUserDTO;
 }
 
 export class ListAuthProvidersResponse extends ServiceApiResponse<AuthProviderDTO[]> {
-  @ApiModelProperty({ type: AuthProviderDTO, isArray: true })
+  @ApiProperty({ type: AuthProviderDTO, isArray: true })
   data: AuthProviderDTO[];
 }
 
 export class ImportResponse extends ServiceApiResponse<ImportFileDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ImportFileDTO;
 }
 
 export class UserInfoResponse extends ServiceApiResponse<UserInfoDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: UserInfoDTO;
 }
 
 export class ProjectResponse extends ServiceApiResponse<ProjectDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectDTO;
 }
 
 export class ProjectPlanResponse extends ServiceApiResponse<ProjectPlanDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectPlanDTO;
 }
 
 export class ListTermTranslatonsResponse extends ServiceApiResponse<TermTranslationDTO[]> {
-  @ApiModelProperty({ type: TermTranslationDTO, isArray: true })
+  @ApiProperty({ type: TermTranslationDTO, isArray: true })
   data: TermTranslationDTO[];
 }
 
 export class TermTranslatonResponse extends ServiceApiResponse<TermTranslationDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: TermTranslationDTO;
 }
 
 export class ListProjectsResponse extends ServiceApiResponse<ProjectDTO[]> {
-  @ApiModelProperty({ type: ProjectDTO, isArray: true })
+  @ApiProperty({ type: ProjectDTO, isArray: true })
   data: ProjectDTO[];
 }
 
 export class ListProjectLocalesResponse extends ServiceApiResponse<ProjectLocaleDTO[]> {
-  @ApiModelProperty({ type: ProjectLocaleDTO, isArray: true })
+  @ApiProperty({ type: ProjectLocaleDTO, isArray: true })
   data: ProjectLocaleDTO[];
 }
 
 export class ProjectLocaleResponse extends ServiceApiResponse<ProjectLocaleDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectLocaleDTO;
 }
 
 export class ProjectTermResponse extends ServiceApiResponse<ProjectTermDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectTermDTO;
 }
 
 export class ListProjectLabelsResponse extends ServiceApiResponse<ProjectLabelDTO[]> {
-  @ApiModelProperty({ type: ProjectLabelDTO, isArray: true })
+  @ApiProperty({ type: ProjectLabelDTO, isArray: true })
   data: ProjectLabelDTO[];
 }
 
 export class ProjectLabelResponse extends ServiceApiResponse<ProjectLabelDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectLabelDTO;
 }
 
 export class ListProjectTermsResponse extends ServiceApiResponse<ProjectTermDTO[]> {
-  @ApiModelProperty({ type: ProjectTermDTO, isArray: true })
+  @ApiProperty({ type: ProjectTermDTO, isArray: true })
   data: ProjectTermDTO[];
 }
 
 export class ListLocalesResponse extends ServiceApiResponse<LocaleDTO[]> {
-  @ApiModelProperty({ type: LocaleDTO, isArray: true })
+  @ApiProperty({ type: LocaleDTO, isArray: true })
   data: LocaleDTO[];
 }
 
 export class ListProjectUsersResponse extends ServiceApiResponse<ProjectUserDTO[]> {
-  @ApiModelProperty({ type: ProjectUserDTO, isArray: true })
+  @ApiProperty({ type: ProjectUserDTO, isArray: true })
   data: ProjectUserDTO[];
 }
 
 export class ProjectUserResponse extends ServiceApiResponse<ProjectUserDTO> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectUserDTO;
 }
 
 export class ListInviteUsersResponse extends ServiceApiResponse<ProjectInviteDto[]> {
-  @ApiModelProperty({ type: ProjectInviteDto, isArray: true })
+  @ApiProperty({ type: ProjectInviteDto, isArray: true })
   data: ProjectInviteDto[];
 }
 
 export class ProjectInviteResponse extends ServiceApiResponse<ProjectInviteDto> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectInviteDto;
 }
 
 export class ProjectInviteCreatedResponse extends ServiceApiResponse<ProjectInviteDto | ProjectInviteAddedUserDto> {
-  @ApiModelProperty()
+  @ApiProperty()
   data: ProjectInviteDto | ProjectInviteAddedUserDto;
 }
 
 export class SignupRequest {
-  @ApiModelProperty({ minLength: 8, maxLength: 255 })
+  @ApiProperty({ minLength: 8, maxLength: 255 })
   @Length(2, 255)
   @Validate(IsNotOnlyWhitespace)
   name: string;
 
-  @ApiModelProperty()
+  @ApiProperty()
   @IsEmail()
   email: string;
 
-  @ApiModelProperty({ minLength: 8, maxLength: 255 })
+  @ApiProperty({ minLength: 8, maxLength: 255 })
   @Length(8, 255)
   password: string;
 }
 
 export class AuthenticateRequest {
-  @ApiModelProperty({ enum: GrantType })
+  @ApiProperty({ enum: GrantType })
   @IsEnum(GrantType)
   grant_type: GrantType;
 
   // username & password
-  @ApiModelPropertyOptional()
+  @ApiPropertyOptional()
   @IsEmail()
   @IsOptional()
   username: string;
 
-  @ApiModelPropertyOptional({ minLength: 8, maxLength: 255 })
+  @ApiPropertyOptional({ minLength: 8, maxLength: 255 })
   @Length(8, 255)
   @IsOptional()
   password: string;
 
   // client credentials
-  @ApiModelPropertyOptional()
+  @ApiPropertyOptional()
   @IsString()
   @IsOptional()
   client_id: string;
 
   @Length(8, 255)
-  @ApiModelPropertyOptional({ minLength: 8, maxLength: 255 })
+  @ApiPropertyOptional({ minLength: 8, maxLength: 255 })
   @IsOptional()
   client_secret: string;
 
@@ -434,7 +434,7 @@ export class InviteUserRequest {
 }
 
 export class UpdateProjectUserRequest {
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   @IsEnum(ProjectRole)
   role: ProjectRole;
 }
@@ -447,28 +447,28 @@ export class UpdateProjectInviteRequest {
 export class AddProjectClientRequest {
   @IsString()
   @Length(1, 255)
-  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @ApiProperty({ minLength: 1, maxLength: 255 })
   name: string;
 
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   @IsEnum(ProjectRole)
   role: ProjectRole;
 }
 
 export class UpdateProjectClientRequest {
-  @ApiModelProperty({ enum: ProjectRole })
+  @ApiProperty({ enum: ProjectRole })
   @IsEnum(ProjectRole)
   role: ProjectRole;
 }
 
 export class UpdateUserDataRequest {
   @Length(2, 255)
-  @ApiModelPropertyOptional({ minLength: 2, maxLength: 255 })
+  @ApiPropertyOptional({ minLength: 2, maxLength: 255 })
   @Validate(IsNotOnlyWhitespace)
   @IsOptional()
   name?: string;
 
-  @ApiModelPropertyOptional()
+  @ApiPropertyOptional()
   @IsEmail()
   @IsOptional()
   email?: string;
@@ -476,116 +476,116 @@ export class UpdateUserDataRequest {
 
 export class ForgotPasswordRequest {
   @IsEmail()
-  @ApiModelProperty()
+  @ApiProperty()
   email: string;
 }
 
 export class ChangePasswordRequest {
   @Length(8, 255)
-  @ApiModelProperty({ minLength: 8, maxLength: 255 })
+  @ApiProperty({ minLength: 8, maxLength: 255 })
   oldPassword: string;
 
   @Length(8, 255)
-  @ApiModelProperty({ minLength: 8, maxLength: 255 })
+  @ApiProperty({ minLength: 8, maxLength: 255 })
   newPassword: string;
 }
 
 export class ResetPasswordRequest {
   @IsEmail()
-  @ApiModelProperty()
+  @ApiProperty()
   email: string;
 
   @IsNotEmpty()
-  @ApiModelProperty()
+  @ApiProperty()
   token: string;
 
   @Length(8, 255)
-  @ApiModelProperty({ minLength: 8, maxLength: 255 })
+  @ApiProperty({ minLength: 8, maxLength: 255 })
   newPassword: string;
 }
 
 export class CreateProjectRequest {
   @Length(1, 255)
-  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @ApiProperty({ minLength: 1, maxLength: 255 })
   @Validate(IsNotOnlyWhitespace)
   name: string;
 
   @IsOptional()
   @Length(0, 255)
-  @ApiModelPropertyOptional({ minLength: 0, maxLength: 255 })
+  @ApiPropertyOptional({ minLength: 0, maxLength: 255 })
   description: string;
 }
 
 export class UpdateProjectRequest {
-  @ApiModelPropertyOptional({ minLength: 1, maxLength: 255 })
+  @ApiPropertyOptional({ minLength: 1, maxLength: 255 })
   @IsOptional()
   @Length(1, 255)
   @Validate(IsNotOnlyWhitespace)
   name: string | undefined;
 
-  @ApiModelPropertyOptional({ minLength: 0, maxLength: 255 })
+  @ApiPropertyOptional({ minLength: 0, maxLength: 255 })
   @IsOptional()
   @Length(0, 255)
   description: string | undefined;
 }
 
 export class AddLabelRequest {
-  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @ApiProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
   @Validate(IsValidLabel)
   value: string;
 
-  @ApiModelProperty({ minLength: 7, maxLength: 7 })
+  @ApiProperty({ minLength: 7, maxLength: 7 })
   @Length(7, 7)
   @Validate(IsHexColor)
   color: string;
 }
 
 export class UpdateLabelRequest {
-  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @ApiProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
   @Validate(IsValidLabel)
   value: string;
 
-  @ApiModelProperty({ minLength: 7, maxLength: 7 })
+  @ApiProperty({ minLength: 7, maxLength: 7 })
   @Length(7, 7)
   @Validate(IsHexColor)
   color: string;
 }
 
 export class AddTermRequest {
-  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @ApiProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
   @Validate(IsNotOnlyWhitespace)
   value: string;
 }
 
 export class UpdateTermRequest {
-  @ApiModelProperty({ minLength: 1, maxLength: 255 })
+  @ApiProperty({ minLength: 1, maxLength: 255 })
   @Length(1, 255)
   @Validate(IsNotOnlyWhitespace)
   value: string;
 }
 
 export class AddLocaleRequest {
-  @ApiModelProperty({ minLength: 2, maxLength: 16 })
+  @ApiProperty({ minLength: 2, maxLength: 16 })
   @Length(2, 16)
   code: string;
 }
 
 export class UpdateProjectPlanRequest {
   @IsNotEmpty()
-  @ApiModelProperty()
+  @ApiProperty()
   planId: string;
 }
 
 export class UpdateTranslationRequest {
   @IsNotEmpty()
-  @ApiModelProperty()
+  @ApiProperty()
   termId: string;
 
   @Length(0, 8192)
-  @ApiModelProperty({ minLength: 0, maxLength: 8192 })
+  @ApiProperty({ minLength: 0, maxLength: 8192 })
   value: string;
 }
 
@@ -605,20 +605,20 @@ export enum ImportExportFormat {
 
 export class ExportQuery {
   @Length(2, 16)
-  @ApiModelProperty({ minLength: 2, maxLength: 16 })
+  @ApiProperty({ minLength: 2, maxLength: 16 })
   locale: string;
 
   @IsEnum(ImportExportFormat)
-  @ApiModelProperty({ enum: ImportExportFormat })
+  @ApiProperty({ enum: ImportExportFormat })
   format: ImportExportFormat;
 }
 
 export class ImportQuery {
   @Length(2, 16)
-  @ApiModelProperty({ minLength: 2, maxLength: 16 })
+  @ApiProperty({ minLength: 2, maxLength: 16 })
   locale: string;
 
   @IsEnum(ImportExportFormat)
-  @ApiModelProperty({ enum: ImportExportFormat })
+  @ApiProperty({ enum: ImportExportFormat })
   format: ImportExportFormat;
 }

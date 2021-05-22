@@ -6,29 +6,33 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/ever-co/ever-traduora)](https://hub.docker.com/r/everco/ever-traduora)
 [![Get help on Codementor](https://cdn.codementor.io/badges/get_help_github.svg)](https://www.codementor.io/evereq?utm_source=github&utm_medium=button&utm_term=evereq&utm_campaign=github)
 
-Ever® Traduora - **Open-Source Translation Management Platform** for teams. Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
+Ever® Traduora - **Open-Source Translation Management Platform** for teams. 
+
+Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
 
 ![Traduora Product Screenshot](docs-website/static/img/traduora-preview.png)
 
-We want traduora to become the home for managing your translation workflow, that's why we have made all of the core product **open-source** with the intention to grow a **community** and enable developers to build on top of it as a platform. We are going to also use Traduora from our other open-source platforms (currently https://github.com/ever-co/ever-gauzy and https://github.com/ever-co/ever-demand). You are welcome to check more information about the platforms at our official website - https://ever.co.
+We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core product **open-source** with the intention to grow a **community** and enable developers to build on top of it as a platform. 
+
+We are going to also use Traduora from our other open-source platforms (currently https://github.com/ever-co/ever-gauzy and https://github.com/ever-co/ever-demand). You are welcome to check more information about the platforms at our official website - https://ever.co.
 
 ## Features
 
-- 5 minute setup with Docker, Kubernetes or from source
+- 5-minute setup with Docker, Kubernetes or from source
 - Find what you are looking for with instant search
 - Invite your team, everyone can work together on the same project
 - Automate your translation workflow via our REST API
-- Import and export to your favourite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
+- Import and export to your favorite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
 
-For more information check out [traduora.com](https://traduora.com), or our docs at [docs.traduora.com](https://docs.traduora.com)
+For more information check out [Traduora.com](https://traduora.com), or our docs at [docs.traduora.com](https://docs.traduora.com)
 
 Any missing feature you'd like to see? File an [issue](https://github.com/ever-co/feature-requests/issues) with the feature request to let us know.
 
 ## Try it out
 
-Traduora can be run just about anywhere, check out our [quickstart](https://docs.traduora.com/docs/getting-started) for more info.
+Traduora can be run just about anywhere, check out our [Quickstart](https://docs.traduora.com/docs/getting-started) for more info.
 
-Also check out traduora's [Docker Hub page](https://hub.docker.com/r/traduora/traduora) for pre-built images.
+Also check out Traduora's [Docker Hub page](https://hub.docker.com/r/everco/ever-traduora) for pre-built images.
 
 ## Adopters
 
@@ -38,7 +42,7 @@ Submit a pull-request to include your company/project into the list.
 
 ### Configuration and Deployment
 
-Please check out the [configuration](https://docs.traduora.com/docs/configuration) and [deployment](https://docs.traduora.com/docs/deployment) documents for more information on deploying traduora.
+Please check out the [configuration](https://docs.traduora.com/docs/configuration) and [deployment](https://docs.traduora.com/docs/deployment) documents for more information on deploying Traduora.
 
 ## Frequently Asked Questions
 
@@ -56,11 +60,12 @@ Some questions come up over and over again. Be sure to check out our [FAQ](https
 Security is very important to us. 
 Ever® Traduora Platform follows good security practices, but 100% security cannot be guaranteed in any software!
 Ever® Traduora Platform is provided AS IS without any warranty. Use at your own risk!
-See more details in the [LICENSE](https://github.com/traduora/traduora/blob/master/LICENSE).
+See more details in the [LICENSE](https://github.com/ever-co/ever-traduora/blob/master/LICENSE).
 
 In a production setup, all client-side to server-side (backend, APIs) communications should be encrypted using HTTPS/SSL (REST APIs).
 
-If you discover any issue regarding security, please disclose the information responsibly by sending an email to <mailto:security@ever.co> and not by creating a GitHub issue.
+If you discover any issue regarding security, please disclose the information responsibly by sending an email to <mailto:security@ever.co> or on  [![huntr](https://cdn.huntr.dev/huntr_security_badge_mono.svg)](https://huntr.dev) and not by creating a GitHub issue.
+
 
 ## Contribute
 
@@ -76,7 +81,7 @@ View full list of our [contributors](https://github.com/ever-co/ever-traduora/gr
  
 ## Internationalization
 
-Of course we'd like traduora to be available in as many languages as possible. We're setting up a traduora server for translating traduora itself, check back soon for more details on how to contribute.
+Of course we'd like Traduora to be available in as many languages as possible. We're setting up a Traduora server for translating Traduora itself, check back soon for more details on how to contribute.
 
 ## Changelog
 
@@ -84,11 +89,11 @@ You can check our [changelog](https://docs.traduora.com/docs/changelog) for info
 
 ## License
 
-See [LICENSE](https://github.com/traduora/traduora/blob/master/LICENSE).
+See [LICENSE](https://github.com/ever-co/ever-traduora/blob/master/LICENSE).
 
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora?ref=badge_large)
 
-Traduora was created by https://github.com/anthonynsimon (https://anthonynsimon.com) and [contributors](https://github.com/ever-co/ever-traduora/graphs/contributors). In April 2021 it was moved to Ever company for the future development.
+Traduora was created by https://github.com/anthonynsimon (https://anthonynsimon.com) and [contributors](https://github.com/ever-co/ever-traduora/graphs/contributors). In April 2021 it was moved to Ever company for future development.
 
 ## Trademarks
 
@@ -99,6 +104,7 @@ The trademarks may only be used with the written permission of Ever Co. LTD. and
 All other brand and product names are trademarks, registered trademarks or service marks of their respective holders.
 
 ![visitors](https://visitor-badge.laobi.icu/badge?page_id=ever-co.traduora-platform)
+[![huntr](https://cdn.huntr.dev/huntr_security_badge_mono.svg)](https://huntr.dev)
 [![Circle CI](https://circleci.com/gh/ever-co/ever-traduora.svg?style=svg)](https://circleci.com/gh/ever-co/ever-traduora)
 [![codecov](https://codecov.io/gh/ever-co/ever-traduora/branch/master/graph/badge.svg)](https://codecov.io/gh/ever-co/ever-traduora)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/8e0f1c13c3d94f18b1523b896d4500aa)](https://www.codacy.com/manual/Ever/ever-traduora?utm_source=github.com&utm_medium=referral&utm_content=ever-co/ever-traduora&utm_campaign=Badge_Grade)

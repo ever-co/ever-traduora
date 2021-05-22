@@ -35,12 +35,7 @@ export class SearchComponent implements OnInit {
   searchResults$: Observable<any[]> = this.searchText.pipe(
     debounceTime(50),
     distinctUntilChanged(),
-    map(search =>
-      search
-        .trim()
-        .toLowerCase()
-        .split(' '),
-    ),
+    map(search => search.trim().toLowerCase().split(' ')),
     flatMap(searchTerms =>
       this.items.pipe(
         map(items => {

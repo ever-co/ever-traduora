@@ -7,14 +7,14 @@ import { AddTermRequest, UpdateTermRequest, ListProjectTermsResponse, ProjectTer
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Translation } from '../entity/translation.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 
 @Controller('api/v1/projects/:projectId/terms')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Terms')
+@ApiOAuth2([])
+@ApiTags('Terms')
 export default class TermController {
   constructor(
     private auth: AuthorizationService,
@@ -24,7 +24,7 @@ export default class TermController {
   ) {}
 
   @Get()
-  @ApiOperation({ title: `List a project's terms` })
+  @ApiOperation({ summary: `List a project's terms` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectTermsResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -53,7 +53,7 @@ export default class TermController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Add a new project term' })
+  @ApiOperation({ summary: 'Add a new project term' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectTermResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -101,7 +101,7 @@ export default class TermController {
   }
 
   @Patch(':termId')
-  @ApiOperation({ title: `Update a project's term` })
+  @ApiOperation({ summary: `Update a project's term` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectTermResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -129,7 +129,7 @@ export default class TermController {
 
   @Delete(':termId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: `Remove a project's term`, description: `Removes a project's term and all related translations` })
+  @ApiOperation({ summary: `Remove a project's term`, description: `Removes a project's term and all related translations` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })

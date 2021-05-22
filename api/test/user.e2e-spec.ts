@@ -54,10 +54,7 @@ describe('UserController (e2e)', () => {
   });
 
   it('/api/v1/users/me (GET) should return requesting user info', async () => {
-    await request(app.getHttpServer())
-      .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser.accessToken}`)
-      .expect(200);
+    await request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${testingUser.accessToken}`).expect(200);
   });
 
   it('/api/v1/users/me (PATCH) should update a users name or email', async () => {
@@ -177,16 +174,10 @@ describe('UserController (e2e)', () => {
       .expect(201);
 
     // Try to delete account
-    await request(app.getHttpServer())
-      .delete('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(422);
+    await request(app.getHttpServer()).delete('/api/v1/users/me').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(422);
 
     // Account still exists
-    await request(app.getHttpServer())
-      .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(200);
+    await request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(200);
 
     // Other user still has access
     await request(app.getHttpServer())
@@ -204,16 +195,10 @@ describe('UserController (e2e)', () => {
       .expect(200);
 
     // Now try to delete account
-    await request(app.getHttpServer())
-      .delete('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(204);
+    await request(app.getHttpServer()).delete('/api/v1/users/me').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(204);
 
     // Account no longer exists exists
-    await request(app.getHttpServer())
-      .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(401);
+    await request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(401);
 
     // Other user still has access
     await request(app.getHttpServer())
@@ -223,10 +208,7 @@ describe('UserController (e2e)', () => {
   });
 
   it('/api/v1/users/me (DELETE) should delete a users account, but keep the projects and related resources unaffected', async () => {
-    await request(app.getHttpServer())
-      .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(200);
+    await request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(200);
 
     await request(app.getHttpServer())
       .get('/api/v1/projects')
@@ -236,20 +218,11 @@ describe('UserController (e2e)', () => {
         expect(res.body.data).toHaveLength(1);
       });
 
-    await request(app.getHttpServer())
-      .delete('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(204);
+    await request(app.getHttpServer()).delete('/api/v1/users/me').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(204);
 
-    await request(app.getHttpServer())
-      .get('/api/v1/users/me')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(401);
+    await request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(401);
 
-    await request(app.getHttpServer())
-      .get('/api/v1/projects')
-      .set('Authorization', `Bearer ${testingUser3.accessToken}`)
-      .expect(401);
+    await request(app.getHttpServer()).get('/api/v1/projects').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(401);
 
     const project = await getRepository(Project).findOne(testProject.id);
     expect(project).toBeDefined();

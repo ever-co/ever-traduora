@@ -17,7 +17,7 @@ export class ProjectContainerComponent implements OnInit, OnDestroy {
   project$: Observable<Project | undefined>;
 
   @Select(ProjectsState.currentProjectStats)
-  projectStats$: Observable<ProjectStats | undefined>;
+  projectStats$!: Observable<ProjectStats | undefined>;
 
   projectProgress$ = this.projectStats$.pipe(
     map(v => {
