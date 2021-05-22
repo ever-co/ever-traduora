@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import * as decode from 'jwt-decode';
+import jwtDecode from 'jwt-decode';
 
 @Injectable({
   providedIn: 'root',
@@ -26,7 +26,7 @@ export class TokenService {
     if (!token) {
       return false;
     }
-    const claims = decode(token) as { iat: number; exp: number; sub: string };
+    const claims = jwtDecode(token) as { iat: number; exp: number; sub: string };
     const now = Math.round(new Date().getTime() / 1000);
     const expired = claims.exp <= now;
     return !expired;

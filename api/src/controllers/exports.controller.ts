@@ -19,7 +19,7 @@ import AuthorizationService from '../services/authorization.service';
 import { gettextExporter } from '../formatters/gettext';
 import { stringsExporter } from '../formatters/strings';
 import { phpExporter } from '../formatters/php';
-import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiConsumes, ApiProduces, ApiResponse } from '@nestjs/swagger';
+import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nestjs/swagger';
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from 'formatters/resx';
 
@@ -34,9 +34,9 @@ export class ExportsController {
 
   @Get()
   @UseGuards(AuthGuard())
-  @ApiUseTags('Exports')
-  @ApiOAuth2Auth()
-  @ApiOperation({ title: `Export all translated terms for a project's locale` })
+  @ApiTags('Exports')
+  @ApiOAuth2([])
+  @ApiOperation({ summary: `Export all translated terms for a project's locale` })
   @ApiProduces('application/octet-stream')
   @ApiResponse({ status: HttpStatus.OK, description: 'File exported' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })

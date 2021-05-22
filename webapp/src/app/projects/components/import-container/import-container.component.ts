@@ -19,7 +19,7 @@ export class ImportContainerComponent implements OnInit, OnDestroy {
   project$: Observable<Project | undefined>;
 
   @Select(TranslationsState.projectLocales)
-  projectLocales$: Observable<ProjectLocale[]>;
+  projectLocales$!: Observable<ProjectLocale[]>;
 
   @Select(TranslationsState.knownLocales)
   knownLocales$: Observable<Locale[]>;

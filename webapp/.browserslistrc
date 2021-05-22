@@ -4,7 +4,7 @@
 #
 # For IE 9-11 support, please remove 'not' from the last line of the file and adjust as needed
 
-> 0.5%
+> 1%
 last 2 versions
 Firefox ESR
 not dead

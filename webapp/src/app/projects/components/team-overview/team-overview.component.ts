@@ -21,10 +21,10 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
   project$: Observable<Project | undefined>;
 
   @Select(ProjectUsersState.isLoading)
-  _areProjectsLoading$: Observable<boolean>;
+  _areProjectsLoading$!: Observable<boolean>;
 
   @Select(ProjectInviteState.isLoading)
-  _areInvitesLoading$: Observable<boolean>;
+  _areInvitesLoading$!: Observable<boolean>;
 
   isLoading: Observable<boolean> = combineLatest([this._areProjectsLoading$, this._areInvitesLoading$]).pipe(map(([a, b]) => a || b));
 
@@ -32,10 +32,10 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
   errorMessage$: Observable<string | undefined>;
 
   @Select(ProjectUsersState.users)
-  _projectUsers$: Observable<ProjectUser[]>;
+  _projectUsers$!: Observable<ProjectUser[]>;
 
   @Select(ProjectInviteState.invites)
-  _projectInvites$: Observable<ProjectInvite[]>;
+  _projectInvites$!: Observable<ProjectInvite[]>;
 
   projectUsers$: Observable<ProjectUser[]> = this._projectUsers$.pipe(map(users => sortBy(users, ['isSelf', 'email'])));
 

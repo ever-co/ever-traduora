@@ -306,10 +306,7 @@ describe('ProjectClientController (e2e)', () => {
   });
 
   it('a project client should not be able to access non-project specific endpoints', async () => {
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects`)
-      .set('Authorization', `Bearer ${testProjectClient1.accessToken}`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects`).set('Authorization', `Bearer ${testProjectClient1.accessToken}`).expect(401);
 
     await request(app.getHttpServer())
       .post(`/api/v1/projects`)
@@ -319,10 +316,7 @@ describe('ProjectClientController (e2e)', () => {
       })
       .expect(401);
 
-    await request(app.getHttpServer())
-      .get(`/api/v1/users/me`)
-      .set('Authorization', `Bearer ${testProjectClient1.accessToken}`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/users/me`).set('Authorization', `Bearer ${testProjectClient1.accessToken}`).expect(401);
   });
 
   it('a project client should not be able to access a project which is not his own', async () => {
@@ -340,9 +334,7 @@ describe('ProjectClientController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/clients should not access project clients resource if not authenticated', async () => {
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject1.id}/clients`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject1.id}/clients`).expect(401);
   });
 
   it('/api/v1/projects/:projectId/clients should not access project clients resource if not authorized', async () => {

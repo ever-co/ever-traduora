@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiUseTags, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { version } from '../../package.json';
 
 @Controller()

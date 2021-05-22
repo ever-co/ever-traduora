@@ -41,12 +41,7 @@ export class LabelsListComponent implements OnInit, OnDestroy {
   searchResults$: Observable<Label[]> = this.searchText.pipe(
     debounceTime(50),
     distinctUntilChanged(),
-    map(search =>
-      search
-        .trim()
-        .toLowerCase()
-        .split(' '),
-    ),
+    map(search => search.trim().toLowerCase().split(' ')),
     switchMap(searchTerms =>
       this.projectLabels$.pipe(
         map(results => {

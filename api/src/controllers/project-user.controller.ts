@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
@@ -10,13 +10,13 @@ import AuthorizationService from '../services/authorization.service';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Project Users')
+@ApiOAuth2([])
+@ApiTags('Project Users')
 export default class ProjectUserController {
   constructor(private auth: AuthorizationService, @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>) {}
 
   @Get(':projectId/users')
-  @ApiOperation({ title: 'List all users with access to a project' })
+  @ApiOperation({ summary: 'List all users with access to a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectUsersResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -40,7 +40,7 @@ export default class ProjectUserController {
   }
 
   @Patch(':projectId/users/:userId')
-  @ApiOperation({ title: `Update a project user's role` })
+  @ApiOperation({ summary: `Update a project user's role` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectUserResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request params or attempting to edit own role' })
@@ -80,7 +80,7 @@ export default class ProjectUserController {
 
   @Delete(':projectId/users/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: `Revoke a user's access to a project` })
+  @ApiOperation({ summary: `Revoke a user's access to a project` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: `Bad request, can't edit your own role` })

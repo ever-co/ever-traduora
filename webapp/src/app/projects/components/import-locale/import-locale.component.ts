@@ -108,12 +108,7 @@ export class ImportLocaleComponent implements OnInit {
       return extension;
     });
 
-    const mostFrequentExtension = _.head(
-      _(extensions)
-        .countBy()
-        .entries()
-        .maxBy(_.last),
-    );
+    const mostFrequentExtension = _.head(_(extensions).countBy().entries().maxBy(_.last));
 
     if (mostFrequentExtension) {
       const format = IMPORT_FORMATS.find(v => v.extension === mostFrequentExtension);

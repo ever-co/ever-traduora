@@ -245,9 +245,7 @@ describe('ExportController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/exports should not access exports resource if not authenticated', async () => {
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat`).expect(401);
   });
 
   it('/api/v1/projects/:projectId/exports should not access exports resource if not authorized', async () => {
