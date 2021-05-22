@@ -1,19 +1,19 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateUserDataRequest, UserInfoResponse } from '../domain/http';
 import AuthorizationService from '../services/authorization.service';
 import { UserService } from '../services/user.service';
 
 @Controller('api/v1/users')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Users')
+@ApiOAuth2([])
+@ApiTags('Users')
 export default class UserController {
   constructor(private auth: AuthorizationService, private userService: UserService) {}
 
   @Get('me')
-  @ApiOperation({ title: `Get the current user's profile` })
+  @ApiOperation({ summary: `Get the current user's profile` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: UserInfoResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async me(@Req() req) {
@@ -22,7 +22,7 @@ export default class UserController {
   }
 
   @Patch('me')
-  @ApiOperation({ title: `Update the current user's profile` })
+  @ApiOperation({ summary: `Update the current user's profile` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: UserInfoResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(@Req() req, @Body() payload: UpdateUserDataRequest) {
@@ -39,7 +39,7 @@ export default class UserController {
 
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: `Delete the current user's account` })
+  @ApiOperation({ summary: `Delete the current user's account` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Cannot delete account' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

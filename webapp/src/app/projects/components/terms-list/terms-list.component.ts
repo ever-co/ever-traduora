@@ -39,12 +39,7 @@ export class TermsListComponent implements OnInit, OnDestroy {
   searchResults$: Observable<Term[]> = this.searchText.pipe(
     debounceTime(50),
     distinctUntilChanged(),
-    map(search =>
-      search
-        .trim()
-        .toLowerCase()
-        .split(' '),
-    ),
+    map(search => search.trim().toLowerCase().split(' ')),
     switchMap(searchTerms =>
       this.projectTerms$.pipe(
         map(results => {

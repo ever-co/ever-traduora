@@ -411,10 +411,7 @@ describe('ImportController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/imports should not access imports resource if not authenticated', async () => {
-    await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/imports`)
-      .attach('file', Buffer.from('<xml />'), 'file')
-      .expect(401);
+    await request(app.getHttpServer()).post(`/api/v1/projects/${testProject.id}/imports`).attach('file', Buffer.from('<xml />'), 'file').expect(401);
   });
 
   it('/api/v1/projects/:projectId/imports should not access imports resource if not authorized', async () => {

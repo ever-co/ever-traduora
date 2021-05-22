@@ -222,9 +222,7 @@ describe('ProjectUserController (e2e)', () => {
   });
 
   it('/api/v1/projects/:projectId/users should not access project users resource if not authenticated', async () => {
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject1.id}/users`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject1.id}/users`).expect(401);
   });
 
   it('/api/v1/projects/:projectId/users should not access project users resource if not authorized', async () => {

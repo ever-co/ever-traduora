@@ -3,7 +3,7 @@ import { config } from '../config';
 import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 export const yamlNestedParser: Parser = async (data: string) => {
-  const parsed = yaml.safeLoad(data);
+  const parsed = yaml.load(data);
   const translations = [];
 
   if (Array.isArray(parsed) || typeof parsed !== 'object') {
@@ -59,5 +59,5 @@ export const yamlNestedExporter: Exporter = async (data: IntermediateTranslation
       current[parts[partsLen - 1]] = translation.translation;
     }
   }
-  return yaml.safeDump(result);
+  return yaml.dump(result);
 };

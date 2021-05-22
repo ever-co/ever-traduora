@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
@@ -22,8 +22,8 @@ import AuthorizationService from '../services/authorization.service';
 
 @Controller('api/v1/projects/:projectId/translations')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Translations')
+@ApiOAuth2([])
+@ApiTags('Translations')
 export default class TranslationController {
   constructor(
     private auth: AuthorizationService,
@@ -35,7 +35,7 @@ export default class TranslationController {
   ) {}
 
   @Get()
-  @ApiOperation({ title: 'List all translation locales for a project' })
+  @ApiOperation({ summary: 'List all translation locales for a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectLocalesResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -58,7 +58,7 @@ export default class TranslationController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Add a new translation locale for a project' })
+  @ApiOperation({ summary: 'Add a new translation locale for a project' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectLocaleResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -113,7 +113,7 @@ export default class TranslationController {
   }
 
   @Get(':localeCode')
-  @ApiOperation({ title: `List translated terms for a locale` })
+  @ApiOperation({ summary: `List translated terms for a locale` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListTermTranslatonsResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -145,7 +145,7 @@ export default class TranslationController {
   }
 
   @Patch(':localeCode')
-  @ApiOperation({ title: `Update a term's translation` })
+  @ApiOperation({ summary: `Update a term's translation` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: TermTranslatonResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
@@ -202,7 +202,7 @@ export default class TranslationController {
 
   @Delete(':localeCode')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: `Delete a project's locale`, description: `Deletes a project's locale and all related translations` })
+  @ApiOperation({ summary: `Delete a project's locale`, description: `Deletes a project's locale and all related translations` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })

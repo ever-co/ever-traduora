@@ -17,10 +17,7 @@ export class ProjectLocale {
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 
-  @OneToMany(
-    () => Translation,
-    translation => translation.projectLocale,
-  )
+  @OneToMany(() => Translation, translation => translation.projectLocale)
   translations: Translation[];
 
   @Column(type => AccessTimestamps)

@@ -341,25 +341,15 @@ describe('TranslationController (e2e)', () => {
       })
       .expect(201);
 
-    await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/translations`)
-      .expect(401);
+    await request(app.getHttpServer()).post(`/api/v1/projects/${testProject.id}/translations`).expect(401);
 
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/translations`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/translations`).expect(401);
 
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/translations/de_DE`).expect(401);
 
-    await request(app.getHttpServer())
-      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
-      .expect(401);
+    await request(app.getHttpServer()).patch(`/api/v1/projects/${testProject.id}/translations/de_DE`).expect(401);
 
-    await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${testProject.id}/translations/de_DE`)
-      .expect(401);
+    await request(app.getHttpServer()).delete(`/api/v1/projects/${testProject.id}/translations/de_DE`).expect(401);
   });
 
   it('/api/v1/projects/:projectId/translations should not access translations resource if not authorized', async () => {

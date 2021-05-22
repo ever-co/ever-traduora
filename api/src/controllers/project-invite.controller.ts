@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
@@ -20,7 +20,7 @@ import MailService from '../services/mail.service';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
-@ApiUseTags('Project Invites')
+@ApiTags('Project Invites')
 export default class ProjectInviteController {
   constructor(
     private auth: AuthorizationService,
@@ -31,7 +31,7 @@ export default class ProjectInviteController {
   ) {}
 
   @Get(':projectId/invites')
-  @ApiOperation({ title: 'List all invites with access to a project' })
+  @ApiOperation({ summary: 'List all invites with access to a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListInviteUsersResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -55,7 +55,7 @@ export default class ProjectInviteController {
 
   @Post(':projectId/invites')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Add a new project invite' })
+  @ApiOperation({ summary: 'Add a new project invite' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectInviteCreatedResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -115,7 +115,7 @@ export default class ProjectInviteController {
   }
 
   @Patch(':projectId/invites/:inviteId')
-  @ApiOperation({ title: `Update a project invite's role` })
+  @ApiOperation({ summary: `Update a project invite's role` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectInviteResponse })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request params or attempting to edit own role' })
@@ -150,7 +150,7 @@ export default class ProjectInviteController {
 
   @Delete(':projectId/invites/:inviteId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: `Remove a project invite` })
+  @ApiOperation({ summary: `Remove a project invite` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: `Bad request, can't edit your own role` })

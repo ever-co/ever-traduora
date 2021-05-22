@@ -53,11 +53,7 @@ describe('ProjectController (e2e)', () => {
   });
 
   it('/api/v1/projects (POST) should not create a project if missing params or malformed request', async () => {
-    await request(app.getHttpServer())
-      .post('/api/v1/projects')
-      .set('Authorization', `Bearer ${testingUser.accessToken}`)
-      .send({})
-      .expect(400);
+    await request(app.getHttpServer()).post('/api/v1/projects').set('Authorization', `Bearer ${testingUser.accessToken}`).send({}).expect(400);
 
     await request(app.getHttpServer())
       .post('/api/v1/projects')
@@ -172,10 +168,7 @@ describe('ProjectController (e2e)', () => {
         projectId = res.body.data.id;
       });
 
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${projectId}`)
-      .set('Authorization', `Bearer ${anotherUser.accessToken}`)
-      .expect(404);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${projectId}`).set('Authorization', `Bearer ${anotherUser.accessToken}`).expect(404);
   });
 
   it('/api/v1/projects (POST) should not create a project if the user has created too many', async () => {
@@ -323,10 +316,7 @@ describe('ProjectController (e2e)', () => {
         projectId = res.body.data.id;
       });
 
-    await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${projectId}`)
-      .set('Authorization', `Bearer ${anotherUser.accessToken}`)
-      .expect(404);
+    await request(app.getHttpServer()).delete(`/api/v1/projects/${projectId}`).set('Authorization', `Bearer ${anotherUser.accessToken}`).expect(404);
   });
 
   it('/api/v1/projects/:projectId (DELETE) should delete a project by id', async () => {
@@ -343,10 +333,7 @@ describe('ProjectController (e2e)', () => {
         projectId = res.body.data.id;
       });
 
-    await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${projectId}`)
-      .set('Authorization', `Bearer ${testingUser.accessToken}`)
-      .expect(204);
+    await request(app.getHttpServer()).delete(`/api/v1/projects/${projectId}`).set('Authorization', `Bearer ${testingUser.accessToken}`).expect(204);
   });
 
   it('/api/v1/projects should not access projects resource if not authenticated', async () => {
@@ -363,25 +350,15 @@ describe('ProjectController (e2e)', () => {
         projectId = res.body.data.id;
       });
 
-    await request(app.getHttpServer())
-      .post('/api/v1/projects')
-      .expect(401);
+    await request(app.getHttpServer()).post('/api/v1/projects').expect(401);
 
-    await request(app.getHttpServer())
-      .get('/api/v1/projects')
-      .expect(401);
+    await request(app.getHttpServer()).get('/api/v1/projects').expect(401);
 
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${projectId}`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${projectId}`).expect(401);
 
-    await request(app.getHttpServer())
-      .patch(`/api/v1/projects/${projectId}`)
-      .expect(401);
+    await request(app.getHttpServer()).patch(`/api/v1/projects/${projectId}`).expect(401);
 
-    await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${projectId}`)
-      .expect(401);
+    await request(app.getHttpServer()).delete(`/api/v1/projects/${projectId}`).expect(401);
   });
 
   afterEach(async () => {
