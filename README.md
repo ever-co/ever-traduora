@@ -6,11 +6,15 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/ever-co/ever-traduora)](https://hub.docker.com/r/everco/ever-traduora)
 [![Get help on Codementor](https://cdn.codementor.io/badges/get_help_github.svg)](https://www.codementor.io/evereq?utm_source=github&utm_medium=button&utm_term=evereq&utm_campaign=github)
 
-Ever® Traduora - **Open-Source Translation Management Platform** for teams. Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
+Ever® Traduora - **Open-Source Translation Management Platform** for teams. 
+
+Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
 
 ![Traduora Product Screenshot](docs-website/static/img/traduora-preview.png)
 
-We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core product **open-source** with the intention to grow a **community** and enable developers to build on top of it as a platform. We are going to also use Traduora from our other open-source platforms (currently https://github.com/ever-co/ever-gauzy and https://github.com/ever-co/ever-demand). You are welcome to check more information about the platforms at our official website - https://ever.co.
+We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core product **open-source** with the intention to grow a **community** and enable developers to build on top of it as a platform. 
+
+We are going to also use Traduora from our other open-source platforms (currently https://github.com/ever-co/ever-gauzy and https://github.com/ever-co/ever-demand). You are welcome to check more information about the platforms at our official website - https://ever.co.
 
 ## Features
 
