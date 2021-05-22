@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: traduora/traduora:latest
+          image: everco/ever-traduora:latest
           imagePullPolicy: Always
           ports:
             - name: http

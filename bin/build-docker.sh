@@ -2,7 +2,7 @@
 
 set -e
 
-DOCKER_REPO=traduora/traduora
+DOCKER_REPO=everco/ever-traduora
 
 docker build -t "$DOCKER_REPO:latest" .
 
