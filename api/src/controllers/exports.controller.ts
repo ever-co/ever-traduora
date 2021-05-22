@@ -21,6 +21,7 @@ import { stringsExporter } from '../formatters/strings';
 import { phpExporter } from '../formatters/php';
 import { ApiOAuth2Auth, ApiUseTags, ApiOperation, ApiConsumes, ApiProduces, ApiResponse } from '@nestjs/swagger';
 import { androidXmlExporter } from '../formatters/android-xml';
+import { resXExporter } from 'formatters/resx';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -111,6 +112,8 @@ export class ExportsController {
         return await stringsExporter(data);
       case 'php':
         return await phpExporter(data);
+      case 'resx':
+        return await resXExporter(data);
       default:
         throw new Error('Export format not implemented');
     }

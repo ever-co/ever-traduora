@@ -51,7 +51,7 @@ export const config = {
       host: env.TR_DB_HOST || '127.0.0.1',
       port: parseInt(env.TR_DB_PORT, 10) || 3306,
       username: env.TR_DB_USER || 'root',
-      password: env.TR_DB_PASSWORD || '',
+      password: env.TR_DB_PASSWORD || 'Root2021!',
       database: env.TR_DB_DATABASE || 'tr_dev',
       charset: 'utf8mb4',
       synchronize: false,

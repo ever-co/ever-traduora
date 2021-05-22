@@ -601,6 +601,7 @@ export enum ImportExportFormat {
   Gettext = 'po',
   Strings = 'strings',
   Php = 'php',
+  ResX = 'resx',
 }
 
 export class ExportQuery {

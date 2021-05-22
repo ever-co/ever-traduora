@@ -36,6 +36,7 @@ import { stringsParser } from '../formatters/strings';
 import { ApiOAuth2Auth, ApiUseTags, ApiConsumes, ApiImplicitFile, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { androidXmlParser } from '../formatters/android-xml';
 import { phpParser } from '../formatters/php';
+import { resXParser } from 'formatters/resx';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiUseTags('Imports')
@@ -200,6 +201,8 @@ export class ImportController {
           return await stringsParser(contents);
         case 'php':
           return await phpParser(contents);
+        case 'resx':
+          return await resXParser(contents);
         default:
           throw new Error('Export format not implemented');
       }
