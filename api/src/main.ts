@@ -39,15 +39,23 @@ async function bootstrap() {
     const options = new DocumentBuilder()
       .setTitle('Traduora API')
       .setDescription(
-        'Documentation for the traduora REST API\n\n' +
-          'Official website: https://traduora.com\n' +
-          'Additional documentation: https://docs.traduora.com\n' +
-          'Source code: https://github.com/traduora/traduora',
+        `<p>Documentation for the traduora REST API <p/>` +
+          `<p>Official website: <a target="_blank" href="https://traduora.com">https://traduora.com</a><br/>` +
+          `Additional documentation: <a target="_blank" href="https://docs.traduora.com">https://docs.traduora.com</a> <br/>` +
+          `Source code: <a target="_blank" href="https://github.com/ever-co/ever-traduora">https://github.com/ever-co/ever-traduora</a></p>`,
       )
       .setVersion(version)
       .setBasePath('/')
-      .addOAuth2('password', '/api/v1/auth/token', '/api/v1/auth/token')
-      .setSchemes('http', 'https')
+      .addOAuth2({
+        type: 'oauth2',
+        flows: {
+          password: {
+            authorizationUrl: '/api/v1/auth/token',
+            tokenUrl: '/api/v1/auth/token',
+            scopes: [],
+          },
+        },
+      })
       .build();
 
     const document = SwaggerModule.createDocument(app, options);

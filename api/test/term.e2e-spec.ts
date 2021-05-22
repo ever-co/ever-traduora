@@ -174,21 +174,13 @@ describe('TermController (e2e)', () => {
         termId = res.body.data.id;
       });
 
-    await request(app.getHttpServer())
-      .post(`/api/v1/projects/${testProject.id}/terms`)
-      .expect(401);
+    await request(app.getHttpServer()).post(`/api/v1/projects/${testProject.id}/terms`).expect(401);
 
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/terms/`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/terms/`).expect(401);
 
-    await request(app.getHttpServer())
-      .patch(`/api/v1/projects/${testProject.id}/terms/${termId}`)
-      .expect(401);
+    await request(app.getHttpServer()).patch(`/api/v1/projects/${testProject.id}/terms/${termId}`).expect(401);
 
-    await request(app.getHttpServer())
-      .delete(`/api/v1/projects/${testProject.id}/terms/${termId}`)
-      .expect(401);
+    await request(app.getHttpServer()).delete(`/api/v1/projects/${testProject.id}/terms/${termId}`).expect(401);
   });
 
   it('/api/v1/projects/:projectId/terms should not access terms resource if not authorized', async () => {

@@ -20,10 +20,10 @@ export class ProjectLocalesComponent implements OnInit, OnDestroy {
   project$: Observable<Project | undefined>;
 
   @Select(TranslationsState.projectLocales)
-  projectLocales$: Observable<ProjectLocale[]>;
+  projectLocales$!: Observable<ProjectLocale[]>;
 
   @Select(ProjectsState.currentProjectStats)
-  projectStats$: Observable<ProjectStats>;
+  projectStats$!: Observable<ProjectStats>;
 
   projectLocalesWithStats$: Observable<(ProjectLocale & { stats: ProjectLocaleStats })[]> = combineLatest([
     this.projectStats$,

@@ -9,6 +9,11 @@ To download the source code for each release, check out [GitHub](https://github.
 ## next
 -
 
+## 0.18.0
+
+- [PR-216:](https://github.com/ever-co/ever-traduora/pull/216) Update Angular / NestJs and other packages to latest
+- [PR-173:](https://github.com/ever-co/ever-traduora/pull/173) Security Fix for Username Enumeration (thanks @JamieSlome / @huntr-helper)
+
 ## 0.17.0
 - [PR-91:](https://github.com/traduora/traduora/pull/91) Add support for PHP import/export format.
 - [PR-153:](https://github.com/traduora/traduora/pull/153) Add option to debug emails locally

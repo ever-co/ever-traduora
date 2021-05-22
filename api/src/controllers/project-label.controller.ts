@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2Auth, ApiOperation, ApiResponse, ApiUseTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
@@ -13,8 +13,8 @@ import AuthorizationService from '../services/authorization.service';
 
 @Controller('api/v1/projects/:projectId/labels')
 @UseGuards(AuthGuard())
-@ApiOAuth2Auth()
-@ApiUseTags('Project Labels')
+@ApiOAuth2([])
+@ApiTags('Project Labels')
 export default class ProjectLabelController {
   constructor(
     private auth: AuthorizationService,
@@ -25,7 +25,7 @@ export default class ProjectLabelController {
   ) {}
 
   @Get()
-  @ApiOperation({ title: `List a project's labels` })
+  @ApiOperation({ summary: `List a project's labels` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectLabelResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -48,7 +48,7 @@ export default class ProjectLabelController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Add a new project label' })
+  @ApiOperation({ summary: 'Add a new project label' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectLabelResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -76,7 +76,7 @@ export default class ProjectLabelController {
   }
 
   @Patch(':labelId')
-  @ApiOperation({ title: `Update a project's label` })
+  @ApiOperation({ summary: `Update a project's label` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectLabelResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -99,7 +99,7 @@ export default class ProjectLabelController {
 
   @Delete(':labelId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: `Remove a project's label`, description: `Removes a project's label and removes it from all attached translations too` })
+  @ApiOperation({ summary: `Remove a project's label`, description: `Removes a project's label and removes it from all attached translations too` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
@@ -113,7 +113,7 @@ export default class ProjectLabelController {
 
   @Post(':labelId/terms/:termId')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Label a project term' })
+  @ApiOperation({ summary: 'Label a project term' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or label not found' })
@@ -140,7 +140,7 @@ export default class ProjectLabelController {
 
   @Delete(':labelId/terms/:termId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: 'Unlabel a project term' })
+  @ApiOperation({ summary: 'Unlabel a project term' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Label removed' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or label not found' })
@@ -159,7 +159,7 @@ export default class ProjectLabelController {
 
   @Post(':labelId/terms/:termId/translations/:localeCode')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ title: 'Label a project term translation' })
+  @ApiOperation({ summary: 'Label a project term translation' })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or label not found' })
@@ -197,7 +197,7 @@ export default class ProjectLabelController {
 
   @Delete(':labelId/terms/:termId/translations/:localeCode')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ title: 'Unlabel a project term translation' })
+  @ApiOperation({ summary: 'Unlabel a project term translation' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Label removed' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or label not found' })

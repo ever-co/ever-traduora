@@ -221,9 +221,7 @@ describe('PlansController (e2e)', () => {
   });
 
   it('/v1/projects/:projectId/plan should not access plan resource if not authenticated', async () => {
-    await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/plan`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/plan`).expect(401);
   });
 
   it('/v1/projects/:projectId/plan should not access plan resource if not authorized', async () => {

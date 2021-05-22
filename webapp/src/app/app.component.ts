@@ -19,22 +19,22 @@ export class AppComponent {
   isAuthenticated$: Observable<boolean>;
 
   @Select(AuthState.isLoading)
-  authLoading$: Observable<boolean>;
+  authLoading$!: Observable<boolean>;
 
   @Select(TermsState.isLoading)
-  termLoading$: Observable<boolean>;
+  termLoading$!: Observable<boolean>;
 
   @Select(ProjectsState.isLoading)
-  projectLoading$: Observable<boolean>;
+  projectLoading$!: Observable<boolean>;
 
   @Select(TranslationsState.isLoading)
-  translationLoading$: Observable<boolean>;
+  translationLoading$!: Observable<boolean>;
 
   @Select(ProjectUserState.isLoading)
-  projectUserLoading$: Observable<boolean>;
+  projectUserLoading$!: Observable<boolean>;
 
   @Select(ProjectClientState.isLoading)
-  projectClientLoading$: Observable<boolean>;
+  projectClientLoading$!: Observable<boolean>;
 
   isLoading$ = combineLatest([
     this.authLoading$,

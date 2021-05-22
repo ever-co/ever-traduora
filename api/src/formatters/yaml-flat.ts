@@ -2,7 +2,7 @@ import * as yaml from 'js-yaml';
 import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 export const yamlFlatParser: Parser = async (data: string) => {
-  const parsed = yaml.safeLoad(data);
+  const parsed = yaml.load(data);
   const translations = [];
   if (Array.isArray(parsed) || typeof parsed !== 'object') {
     throw new Error('YAML contents are not of key:value format');
@@ -23,4 +23,4 @@ export const yamlFlatParser: Parser = async (data: string) => {
 };
 
 export const yamlFlatExporter: Exporter = async (data: IntermediateTranslationFormat) =>
-  yaml.safeDump(data.translations.reduce((acc, x) => ({ ...acc, [x.term]: x.translation }), {}));
+  yaml.dump(data.translations.reduce((acc, x) => ({ ...acc, [x.term]: x.translation }), {}));
