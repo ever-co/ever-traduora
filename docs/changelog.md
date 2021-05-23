@@ -9,6 +9,12 @@ To download the source code for each release, check out [GitHub](https://github.
 ## next
 -
 
+## 0.19.0
+
+- [Commit](https://github.com/ever-co/ever-traduora/commit/7173276f9c049f4a8db7e7bf47fa27667421ab2c) Docker / Docker Compose improvements
+- [PR-222:](https://github.com/ever-co/ever-traduora/pull/222) Support for Resource ResX files added (thanks @rai69)
+- [PR-202:](https://github.com/ever-co/ever-traduora/pull/202) Add support for Docker Secrets (thanks @ynuyasha)
+
 ## 0.18.0
 
 - [PR-216:](https://github.com/ever-co/ever-traduora/pull/216) Update Angular / NestJs and other packages to latest
