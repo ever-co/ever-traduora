@@ -23,6 +23,7 @@ We are going to also use Traduora from our other open-source platforms (currentl
 - Invite your team, everyone can work together on the same project
 - Automate your translation workflow via our REST API
 - Import and export to your favorite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
+- community contributed CLI available at https://github.com/iilei/traduora-cli (not official CLI)
 
 For more information check out [Traduora.com](https://traduora.com), or our docs at [docs.traduora.com](https://docs.traduora.com)
 
