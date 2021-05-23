@@ -1,6 +1,5 @@
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { resXExporter, resXParser } from './resx';
-import * as _ from 'lodash';
 
 test('should parse resx resources files', async () => {
   const input = loadFixture('resx-in.resx');
