@@ -37,6 +37,7 @@ import { ApiOAuth2, ApiConsumes, ApiResponse, ApiOperation, ApiTags } from '@nes
 import { androidXmlParser } from '../formatters/android-xml';
 import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
+import { resXParser } from 'formatters/resx';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiTags('Imports')
@@ -201,6 +202,8 @@ export class ImportController {
           return await stringsParser(contents);
         case 'php':
           return await phpParser(contents);
+        case 'resx':
+          return await resXParser(contents);
         default:
           throw new Error('Export format not implemented');
       }
