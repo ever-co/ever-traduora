@@ -16,7 +16,7 @@ export const IMPORT_FORMATS: ImportFormat[] = [
   { displayName: 'Gettext (po)', extension: 'po', code: 'po' },
   { displayName: 'Strings', extension: 'strings', code: 'strings' },
   { displayName: 'PHP', extension: 'php', code: 'php' },
-  { displayName: 'Resource RESX', extension: 'resx', code: 'resx'}
+  { displayName: 'Resource RESX', extension: 'resx', code: 'resx' },
 ];
 
 export interface ImportResult {
