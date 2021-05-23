@@ -1,8 +1,11 @@
 #!/bin/sh
+set -ex
 
-set -e
+# Parts of the code in this file adapted from https://github.com/docker-library/rabbitmq/blob/master/docker-entrypoint.sh
+# MIT License https://github.com/docker-library/rabbitmq/blob/master/LICENSE
+# Copyright (c) 2014 Docker, Inc.
 
-#Use docker secrets
+# Use docker secrets
 : ${ENV_SECRETS_DIR:=/run/secrets}
 
 env_secret_debug() {
