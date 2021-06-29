@@ -50,7 +50,7 @@
     "moment": "^2.29.1",
     "mysql": "^2.18.1",
     "node-native2ascii": "^0.2.0",
-    "nodemailer": "^6.6.0",
+    "nodemailer": "^6.6.1",
     "passport": "^0.4.1",
     "passport-jwt": "^4.0.0",
     "php-array-parser": "^1.0.1",

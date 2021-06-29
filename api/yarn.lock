@@ -4544,10 +4544,15 @@ nodemailer@6.5.0:
   resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-6.5.0.tgz#d12c28d8d48778918e25f1999d97910231b175d9"
   integrity sha512-Tm4RPrrIZbnqDKAvX+/4M+zovEReiKlEXWDzG4iwtpL9X34MJY+D5LnQPH/+eghe8DLlAVshHAJZAZWBGhkguw==
 
-nodemailer@^6.5.0, nodemailer@^6.6.0:
+nodemailer@^6.5.0:
   version "6.6.0"
   resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-6.6.0.tgz#ed47bb572b48d9d0dca3913fdc156203f438f427"
   integrity sha512-ikSMDU1nZqpo2WUPE0wTTw/NGGImTkwpJKDIFPZT+YvvR9Sj+ze5wzu95JHkBMglQLoG2ITxU21WukCC/XsFkg==
+
+nodemailer@^6.6.1:
+  version "6.6.2"
+  resolved "https://registry.yarnpkg.com/nodemailer/-/nodemailer-6.6.2.tgz#e184c9ed5bee245a3e0bcabc7255866385757114"
+  integrity sha512-YSzu7TLbI+bsjCis/TZlAXBoM4y93HhlIgo0P5oiA2ua9Z4k+E2Fod//ybIzdJxOlXGRcHIh/WaeCBehvxZb/Q==
 
 nodemon@^2.0.7:
   version "2.0.7"
