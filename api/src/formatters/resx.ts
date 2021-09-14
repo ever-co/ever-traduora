@@ -9,7 +9,7 @@ export const resXParser: Parser = async (data: string) => {
   for (const element of xml.elements) {
     if (element.type === 'element' && element.name === 'root') {
       for (const resource of element.elements) {
-        if (resource.type === 'element' && resource.name == 'data' && resource.attributes && resource.attributes.name) {
+        if (resource.type === 'element' && resource.name === 'data' && resource.attributes && resource.attributes.name) {
           const term = resource.attributes.name;
           if (typeof term === 'string') {
             if (resource.elements && resource.elements.length > 0) {
@@ -38,7 +38,7 @@ export const resXExporter: Exporter = async (data: IntermediateTranslationFormat
     _attributes: { name: translation.term, 'xml:space': 'preserve' },
     value: escape(translation.translation),
   }));
-  var xml = xmlJs.js2xml(
+  const xml = xmlJs.js2xml(
     {
       _declaration: { _attributes: { version: '1.0', encoding: 'utf-8' } },
       root: {

@@ -3,7 +3,7 @@
 [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/ever-co/ever-traduora)
 [![Latest Release](https://img.shields.io/github/release/ever-co/ever-traduora.svg?label=latest%20release)](https://github.com/ever-co/ever-traduora/releases)
 [![GitHub License](https://img.shields.io/badge/license-AGPL-v3.svg)](https://raw.githubusercontent.com/ever-co/ever-traduora/master/LICENSE)
-[![Docker Pulls](https://img.shields.io/docker/pulls/ever-co/ever-traduora)](https://hub.docker.com/r/everco/ever-traduora)
+[![Docker Pulls](https://img.shields.io/docker/pulls/traduora/traduora)](https://hub.docker.com/r/traduora/traduora)
 [![Get help on Codementor](https://cdn.codementor.io/badges/get_help_github.svg)](https://www.codementor.io/evereq?utm_source=github&utm_medium=button&utm_term=evereq&utm_campaign=github)
 
 Ever® Traduora - **Open-Source Translation Management Platform** for teams. 
@@ -23,6 +23,7 @@ We are going to also use Traduora from our other open-source platforms (currentl
 - Invite your team, everyone can work together on the same project
 - Automate your translation workflow via our REST API
 - Import and export to your favorite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
+- community contributed CLI available at https://github.com/iilei/traduora-cli (not official CLI)
 
 For more information check out [Traduora.com](https://traduora.com), or our docs at [docs.traduora.com](https://docs.traduora.com)
 
