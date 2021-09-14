@@ -41,7 +41,7 @@
     "@ngxs/devtools-plugin": "^3.7.2",
     "@ngxs/router-plugin": "^3.7.2",
     "@ngxs/store": "^3.7.2",
-    "bootstrap": "^5.1.1",
+    "bootstrap": "^4.4.1",
     "core-js": "^3.17.3",
     "file-saver": "^2.0.5",
     "flag-icon-css": "^3.5.0",
