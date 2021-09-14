@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 -
+## 0.19.1
+- [PR-216:](https://github.com/ever-co/ever-traduora/pull/253) Update Angular / NestJs and other packages to latest
 
 ## 0.19.0
 
