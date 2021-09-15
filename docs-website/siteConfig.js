@@ -1,12 +1,12 @@
-const repo = 'https://github.com/traduora/traduora';
+const repo = 'https://github.com/ever-co/ever-traduora';
 
 const siteConfig = {
   title: 'traduora',
-  tagline: 'Translation management platform for teams',
-  url: 'https://docs.traduora.com/',
+  tagline: 'Ever® Traduora - Open-Source Translation Management Platform',
+  url: 'https://docs.traduora.co/',
   baseUrl: '/',
   projectName: 'traduora',
-  editUrl: 'https://github.com/traduora/traduora/edit/master/docs/',
+  editUrl: 'https://github.com/ever-co/ever-traduora/edit/master/docs/',
   headerLinks: [
     { doc: 'getting-started', label: 'Getting started' },
     { doc: 'changelog', label: 'Changelog' },
@@ -28,7 +28,7 @@ const siteConfig = {
   twitterImage: 'img/traduora-preview.png',
   cleanUrl: true,
   scrollToTop: true,
-  copyright: 'Copyright © ' + new Date().getFullYear() + ' traduora',
+  copyright: 'Copyright © 2020-present <a href="https://ever.co">Ever Co. LTD</a> and <a href="https://github.com/ever-co/ever-traduora/graphs/contributors">contributors</a>. All Rights Reserved',
   repoUrl: repo,
   scripts: ['https://buttons.github.io/buttons.js'],
   stylesheets: ['https://fonts.googleapis.com/css?family=Varela+Round:400', 'https://fonts.googleapis.com/css?family=Ubuntu:400,500,700'],
