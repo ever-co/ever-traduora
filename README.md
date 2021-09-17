@@ -114,3 +114,26 @@ All other brand and product names are trademarks, registered trademarks or servi
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/ever-co/ever-traduora.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/ever-co/ever-traduora/alerts/)
 [![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/ever-co/ever-traduora.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/ever-co/ever-traduora/context:javascript)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora?ref=badge_shield)
+
+## Screenshots
+
+![Term Screenshot](docs-website/static/img/screenshots/terms.png)
+*Term*
+
+![Translations Screenshot](docs-website/static/img/screenshots/translations.png)
+*Translations*
+
+![Labels Screenshot](docs-website/static/img/screenshots/labels.png)
+*Labels*
+
+![Project Team Screenshot](docs-website/static/img/screenshots/project-team.png)
+*Project Team*
+
+![Import Screenshot](docs-website/static/img/screenshots/import.png)
+*Import*
+
+![Export Screenshot](docs-website/static/img/screenshots/export.png)
+*Export*
+
+![API Keys Screenshot](docs-website/static/img/screenshots/api-keys.png)
+*API Keys*
