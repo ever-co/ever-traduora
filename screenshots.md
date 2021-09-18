@@ -1,18 +1,18 @@
 ## Screenshots
 
-![Term Screenshot](./docs-website/static/img/screenshots/terms.png)
+![Term Screenshot](terms.png)
 *Term*
 
-![Translations Screenshot](./docs-website/static/img/screenshots/translations.png)
+![Translations Screenshot](/docs-website/static/img/screenshots/translations.png)
 *Translations*
 
-![Labels Screenshot](./docs-website/static/img/screenshots/labels.png)
+![Labels Screenshot](../docs-website/static/img/screenshots/labels.png)
 *Labels*
 
 ![Project Team Screenshot](./docs-website/static/img/screenshots/project-team.png)
 *Project Team*
 
-![Import Screenshot](./docs-website/static/img/screenshots/import.png)
+![Import Screenshot](./import.png)
 *Import*
 
 ![Export Screenshot](./docs-website/static/img/screenshots/export.png)
