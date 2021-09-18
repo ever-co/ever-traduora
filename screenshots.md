@@ -1,6 +1,6 @@
 ## Screenshots
 
-![Term Screenshot](terms.png)
+![Term Screenshot](../terms.png)
 *Term*
 
 ![Translations Screenshot](/docs-website/static/img/screenshots/translations.png)
