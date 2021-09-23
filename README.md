@@ -18,6 +18,9 @@ We are going to also use Traduora from our other open-source platforms (currentl
 
 ## Features
 
+For quick features review, please see our official docs [screenshots](https://docs.traduora.co/docs/screenshots) page.
+
+Short list of platform features:
 - 5-minute setup with Docker, Kubernetes or from source
 - Find what you are looking for with instant search
 - Invite your team, everyone can work together on the same project
@@ -25,7 +28,7 @@ We are going to also use Traduora from our other open-source platforms (currentl
 - Import and export to your favorite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
 - community contributed CLI available at https://github.com/iilei/traduora-cli (not official CLI)
 
-For more information check out [Traduora.co](https://traduora.co), or our docs at [docs.traduora.co](https://docs.traduora.co)
+For more information check out our official website [traduora.co](https://traduora.co), or our docs at [docs.traduora.co](https://docs.traduora.co).
 
 Any missing feature you'd like to see? File an [issue](https://github.com/ever-co/feature-requests/issues) with the feature request to let us know.
 
