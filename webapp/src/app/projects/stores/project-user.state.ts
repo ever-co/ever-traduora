@@ -1,6 +1,6 @@
 import { Action, NgxsOnInit, Selector, State, StateContext, Store } from '@ngxs/store';
 import { throwError } from 'rxjs';
-import { catchError, finalize, flatMap, map, take, tap } from 'rxjs/operators';
+import { catchError, finalize, mergeMap, map, take, tap } from 'rxjs/operators';
 import { AuthState, Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
 import { ProjectRole } from '../models/project-role';
@@ -80,7 +80,7 @@ export class ProjectUserState implements NgxsOnInit {
   getProjectUsers(ctx: StateContext<ProjectUserStateModel>, action: GetProjectUsers) {
     ctx.patchState({ isLoading: true });
     return this.projectUserService.find(action.projectId).pipe(
-      flatMap(users => {
+      mergeMap(users => {
         const currentUser = this.store.select(AuthState.user);
         return currentUser.pipe(
           take(1),

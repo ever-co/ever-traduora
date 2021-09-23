@@ -2,7 +2,7 @@ const repo = 'https://github.com/ever-co/ever-traduora';
 
 const siteConfig = {
   title: 'traduora',
-  tagline: 'Ever® Traduora - Open-Source Translation Management Platform',
+  tagline: 'Ever® Traduora - Open Translation Management Platform',
   url: 'https://docs.traduora.co/',
   baseUrl: '/',
   projectName: 'traduora',

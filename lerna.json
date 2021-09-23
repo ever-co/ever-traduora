@@ -1,0 +1,20 @@
+{
+	"lerna": "3.13.0",
+	"npmClient": "yarn",
+	"version": "0.1.0",
+	"changelog": {
+		"repo": "ever-co/ever-traduora",
+		"cacheDir": ".changelog",
+		"labels": {}
+	},
+	"packages": ["api", "webapp", "docs-website"],
+	"useWorkspaces": true,
+	"command": {
+		"exec": {			
+		},
+		"clean": {
+			"yes": true
+		}
+	},
+	"npmClientArgs": ["--no-package-lock"]
+}

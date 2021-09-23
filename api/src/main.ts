@@ -40,8 +40,8 @@ async function bootstrap() {
       .setTitle('Traduora API')
       .setDescription(
         `<p>Documentation for the traduora REST API <p/>` +
-          `<p>Official website: <a target="_blank" href="https://traduora.com">https://traduora.com</a><br/>` +
-          `Additional documentation: <a target="_blank" href="https://docs.traduora.com">https://docs.traduora.com</a> <br/>` +
+          `<p>Official website: <a target="_blank" href="https://traduora.co">https://traduora.co</a><br/>` +
+          `Additional documentation: <a target="_blank" href="https://docs.traduora.co">https://docs.traduora.co</a> <br/>` +
           `Source code: <a target="_blank" href="https://github.com/ever-co/ever-traduora">https://github.com/ever-co/ever-traduora</a></p>`,
       )
       .setVersion(version)

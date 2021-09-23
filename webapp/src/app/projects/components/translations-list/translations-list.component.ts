@@ -4,7 +4,7 @@ import { Navigate } from '@ngxs/router-plugin';
 import { Select, Store } from '@ngxs/store';
 import { keyBy } from 'lodash';
 import { BehaviorSubject, combineLatest, Observable, Subject, Subscription } from 'rxjs';
-import { distinctUntilChanged, filter, flatMap, map, tap } from 'rxjs/operators';
+import { distinctUntilChanged, filter, mergeMap, map, tap } from 'rxjs/operators';
 import { Label } from '../../models/label';
 import { Locale } from '../../models/locale';
 import { Project } from '../../models/project';
@@ -96,7 +96,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
             this.store.dispatch([new GetProjectLocales(project.id), new GetKnownLocales(), new GetTerms(project.id)]);
             this.store.dispatch(new GetProjectLabels(project.id));
           }),
-          flatMap(project => {
+          mergeMap(project => {
             return this.localeCode$.pipe(map(localeCode => this.store.dispatch(new GetTranslations(project.id, localeCode))));
           }),
         )
