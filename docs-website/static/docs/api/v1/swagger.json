@@ -1,9 +1,9 @@
 {
   "swagger": "2.0",
   "info": {
-    "description": "Documentation for the traduora REST API\n\nOfficial website: https://traduora.com\nAdditional documentation: https://docs.traduora.com\nSource code: https://github.com/traduora/traduora",
+    "description": "Documentation for the traduora REST API\n\nOfficial website: https://traduora.co\nAdditional documentation: https://docs.traduora.co\nSource code: https://github.com/ever-co/ever-traduora",
     "version": "0.14.0",
-    "title": "Traduora API"
+    "title": "Ever Traduora API"
   },
   "basePath": "/",
   "tags": [],

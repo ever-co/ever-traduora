@@ -41,7 +41,7 @@ export default class MailService {
       console.log(
         'No email transport configured. ' +
           'Please check the documentation on how to configure ' +
-          'the mail service at: https://docs.traduora.com/docs/configuration',
+          'the mail service at: https://docs.traduora.co/docs/configuration',
       );
     }
     this.from = config.mail.sender;

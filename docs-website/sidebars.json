@@ -2,6 +2,7 @@
   "docs": {
     "Quickstart": [
       "getting-started",
+      "screenshots",
       "deployment",
       "configuration"
     ],

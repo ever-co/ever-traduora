@@ -1,0 +1,12 @@
+{
+	"name": "ever-traduora",
+	"version": "0.1.0",
+	"repository": "https://github.com/ever-co/ever-traduora.git",
+	"private": true,
+	"resolutions": {},
+	"workspaces": [
+		"webapp",
+		"api",
+		"docs-website"
+	]
+}
