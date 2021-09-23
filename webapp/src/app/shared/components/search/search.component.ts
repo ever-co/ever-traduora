@@ -1,6 +1,6 @@
 import { Component, ContentChild, Input, OnInit, TemplateRef } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { debounceTime, distinctUntilChanged, flatMap, map } from 'rxjs/operators';
+import { debounceTime, distinctUntilChanged, mergeMap, map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-search',
@@ -36,7 +36,7 @@ export class SearchComponent implements OnInit {
     debounceTime(50),
     distinctUntilChanged(),
     map(search => search.trim().toLowerCase().split(' ')),
-    flatMap(searchTerms =>
+    mergeMap(searchTerms =>
       this.items.pipe(
         map(items => {
           if (searchTerms.length === 0) {
