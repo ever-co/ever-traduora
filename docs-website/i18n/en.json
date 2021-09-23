@@ -3,7 +3,7 @@
   "localized-strings": {
     "next": "Next",
     "previous": "Previous",
-    "tagline": "Translation management platform for teams",
+    "tagline": "Ever® Traduora - Open Translation Management Platform",
     "docs": {
       "api/v1/authentication": {
         "title": "Authentication",
@@ -52,6 +52,10 @@
       "getting-started": {
         "title": "Getting started",
         "sidebar_label": "Getting started"
+      },
+      "screenshots": {
+        "title": "Screenshots",
+        "sidebar_label": "Screenshots"
       },
       "tools/cli": {
         "title": "Cli",

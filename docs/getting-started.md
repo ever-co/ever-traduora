@@ -4,11 +4,15 @@ title: Getting started
 sidebar_label: Getting started
 ---
 
+Ever® Traduora is an Open-Source **Translation Management Platform**. 
 
-Traduora is a **translation management platform for teams**. Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
+Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
 
 We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core product **open-source** with the intention to grow a **community** and enable developers to build on top of it as a platform.
 
+## Screenshots
+
+Please see [screenshots](screenshots.md) from Traduora UI.
 
 ## Try it out
 
