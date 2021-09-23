@@ -54,7 +54,8 @@
         "sidebar_label": "Getting started"
       },
       "screenshots": {
-        "title": "screenshots"
+        "title": "Screenshots",
+        "sidebar_label": "Screenshots"
       },
       "tools/cli": {
         "title": "Cli",

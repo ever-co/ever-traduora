@@ -1,4 +1,8 @@
-## Screenshots
+---
+id: screenshots
+title: Screenshots
+sidebar_label: Screenshots
+---
 
 Manage multiple projects here, so add projects here and select project which you want add locale.
 

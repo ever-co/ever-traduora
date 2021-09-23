@@ -4,7 +4,6 @@ title: Getting started
 sidebar_label: Getting started
 ---
 
-
 Ever® Traduora is an Open-Source **Translation Management Platform**. 
 
 Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
