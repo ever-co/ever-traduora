@@ -36,7 +36,7 @@ const csvInjectionProtector = (str: string) => {
 
   riskyChars.map(risk => {
     if(str.includes(risk)){
-      str = str.replace(risk, "");
+      return str = str.replace(risk, "");
     }
   });
 
