@@ -30,31 +30,32 @@ export const csvParser: Parser = async (data: string) => {
 };
 
 const csvInjectionProtector = (str: string) => {
-  const riskyChars = ["=", "+", "-", "@", ",", ";", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
+  const riskyChars = ["=", "+", "-", "@", ",", ";", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0x0d"];
   if(!str) return "";
 
-  const firstChar = str.charAt(0);
-  const isInjected = riskyChars.includes(firstChar);
-  if(!isInjected) return str;
+  riskyChars.map(risk => {
+    if(str.includes(risk)){
+      str = str.replace(risk, "");
+    }
+  });
 
-  const sliceStr = str.slice(1);
-  return csvInjectionProtector(sliceStr);
+  return str;
 }
 
 export const csvExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-  
-  // clear some characters
-  const protectedTerm = csvInjectionProtector(data.translations[0].term);
-  const protectedTranslation = csvInjectionProtector(data.translations[0].translation);
 
-  const payload = [{
-    term: protectedTerm.replace('0x0d', ''), 
-    translation: protectedTranslation.replace('0x0d', '')
-  }];
+  const clearedTranslations = [];
+  data.translations.map(trans => {
+    const protectedTranslation = {
+      term: csvInjectionProtector(trans.term),
+      translation: csvInjectionProtector(trans.translation)
+    }
+    clearedTranslations.push(protectedTranslation);
+  });
 
   const rows = await streamAsPromise(
-    stringify((payload), {
+    stringify((clearedTranslations), {
       header: false,
     }),
   );
