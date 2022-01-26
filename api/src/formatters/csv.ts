@@ -53,9 +53,6 @@ export const csvExporter: Exporter = async (data: IntermediateTranslationFormat)
     }
     clearedTranslations.push(protectedTranslation);
   });
-
-  console.log('clearedTranslations >>> ', clearedTranslations);
-  
   const rows = await streamAsPromise(
     stringify((clearedTranslations), {
       header: false,
