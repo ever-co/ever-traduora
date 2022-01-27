@@ -1,3 +1,9 @@
+// Copyright (c) 2021-2022 Ever Co. LTD
+// Modified code from https://github.com/destromas1/csv-injection-protector 
+// Originally MIT Licensed
+// - see https://github.com/destromas1/csv-injection-protector/blob/master/LICENSE
+// - original code `Copyright (c) 2019 Shahjada Talukdar`;
+
 import * as parse from 'csv-parse';
 import * as stringify from 'csv-stringify';
 import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
