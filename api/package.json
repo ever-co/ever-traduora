@@ -61,7 +61,7 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.3.0",
     "strings-file": "^0.0.5",
-    "swagger-ui-express": "^4.1.6",
+    "swagger-ui-express": "^4.2.0",
     "typeorm": "^0.2.37",    
     "xliff": "^5.6.2",
     "xml-js": "^1.6.11"
