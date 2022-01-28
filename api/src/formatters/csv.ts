@@ -1,5 +1,5 @@
 // Copyright (c) 2021-2022 Ever Co. LTD
-// Modified code from https://github.com/destromas1/csv-injection-protector 
+// Modified code from https://github.com/destromas1/csv-injection-protector
 // Originally MIT Licensed
 // - see https://github.com/destromas1/csv-injection-protector/blob/master/LICENSE
 // - original code `Copyright (c) 2019 Shahjada Talukdar`;
@@ -36,31 +36,29 @@ export const csvParser: Parser = async (data: string) => {
 };
 
 const csvInjectionProtector = (str: string) => {
-
-  const riskyChars = ["=", "+", "-", "@", ",", ";", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0x0d", "/C", ".exe", "\\", "/", ".dll"];
-  if(!str) return "";
+  const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll'];
+  if (!str) return '';
 
   riskyChars.map(risk => {
-    if(str.includes(risk)){
-      return str = str.replace(risk, "");
+    if (str.includes(risk)) {
+      return (str = str.replace(risk, ''));
     }
   });
 
   return str;
-}
+};
 
 export const csvExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-
   const clearedTranslations = [];
   data.translations.map(trans => {
     const protectedTranslation = {
       term: csvInjectionProtector(trans.term),
-      translation: csvInjectionProtector(trans.translation)
-    }
+      translation: csvInjectionProtector(trans.translation),
+    };
     clearedTranslations.push(protectedTranslation);
   });
   const rows = await streamAsPromise(
-    stringify((clearedTranslations), {
+    stringify(clearedTranslations, {
       header: false,
     }),
   );
