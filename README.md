@@ -18,6 +18,9 @@ We are going to also use Traduora from our other open-source platforms (currentl
 
 ## Features
 
+For quick features review, please see our official docs [screenshots](https://docs.traduora.co/docs/screenshots) page.
+
+Short list of platform features:
 - 5-minute setup with Docker, Kubernetes or from source
 - Find what you are looking for with instant search
 - Invite your team, everyone can work together on the same project
@@ -25,7 +28,7 @@ We are going to also use Traduora from our other open-source platforms (currentl
 - Import and export to your favorite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
 - community contributed CLI available at https://github.com/iilei/traduora-cli (not official CLI)
 
-For more information check out [Traduora.co](https://traduora.co), or our docs at [docs.traduora.co](https://docs.traduora.co)
+For more information check out our official website [traduora.co](https://traduora.co), or our docs at [docs.traduora.co](https://docs.traduora.co).
 
 Any missing feature you'd like to see? File an [issue](https://github.com/ever-co/feature-requests/issues) with the feature request to let us know.
 
@@ -34,12 +37,6 @@ Any missing feature you'd like to see? File an [issue](https://github.com/ever-c
 Traduora can be run just about anywhere, check out our [Quickstart](https://docs.traduora.co/docs/getting-started) for more info.
 
 Also check out Traduora's [Docker Hub page](https://hub.docker.com/r/everco/ever-traduora) for pre-built images.
-
-## Adopters
-
-- Your company/project.
-
-Submit a pull-request to include your company/project into the list.
 
 ### Configuration and Deployment
 
@@ -94,7 +91,7 @@ See [LICENSE](https://github.com/ever-co/ever-traduora/blob/master/LICENSE).
 
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora?ref=badge_large)
 
-Traduora was created by https://github.com/anthonynsimon (https://anthonynsimon.com) and [contributors](https://github.com/ever-co/ever-traduora/graphs/contributors). In April 2021 it was moved to Ever company for future development.
+Traduora was created by https://github.com/anthonynsimon (https://anthonynsimon.com) and [contributors](https://github.com/ever-co/ever-traduora/graphs/contributors). In April 2021 it was moved to [Ever](https://ever.co) company for future development.
 
 ## Trademarks
 

