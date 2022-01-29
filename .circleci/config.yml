@@ -122,30 +122,17 @@ jobs:
 
 workflows:
   version: 2
+
   test:
     jobs:
-      - check_lint:
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^([0-9.]+)$/
+      - check_lint
       - test_unit:
           requires:
             - check_lint
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^([0-9.]+)$/
       - test_e2e:
           requires:
             - check_lint
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^([0-9.]+)$/
+
   release:
     jobs:
       - check_lint:
