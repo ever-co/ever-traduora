@@ -1,5 +1,5 @@
 import { csvExporter, csvParser } from './csv';
-import { loadFixture, simpleFormatFixture } from './fixtures';
+import { loadFixture, riskyPayloads, simpleFormatFixture } from './fixtures';
 
 test('should parse csv files', async () => {
   const input = loadFixture('simple.csv');
@@ -26,5 +26,11 @@ test('should fail if file is malformed, invalid or empty', async () => {
 test('should export csv files', async () => {
   const result = await csvExporter(simpleFormatFixture);
   const expected = loadFixture('simple.csv');
+  expect(result).toEqual(expected);
+});
+
+test('should remove risky characters from risky payloads and export csv files', async () => {
+  const result = await csvExporter(riskyPayloads);
+  const expected = loadFixture('cleaned.csv');
   expect(result).toEqual(expected);
 });
