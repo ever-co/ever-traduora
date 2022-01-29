@@ -37,35 +37,35 @@ export const csvParser: Parser = async (data: string) => {
 
 /**
  * CSV Injection – A Guide To Protecting Your CSV Files
- * 
- * @param str 
- * @returns 
+ *
+ * @param str
+ * @returns
  */
 const csvInjectionProtector = (str: string) => {
-	const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll'];
-	if (!str) return '';
+  const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll'];
+  if (!str) return '';
 
-	/**
-	 * Check first character of string
-	 */
-	if (riskyChars.includes(str.charAt(0))) {
-		return (str = str.replace(str.charAt(0), ''));
-	}
-	return str;
+  /**
+   * Check first character of string
+   */
+  if (riskyChars.includes(str.charAt(0))) {
+    return (str = str.replace(str.charAt(0), ''));
+  }
+  return str;
 };
 
 export const csvExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-	const clearedTranslations = data.translations.map((trans: IntermediateTranslation) => {
-		return {
-			term: csvInjectionProtector(trans.term),
-			translation: csvInjectionProtector(trans.translation),
-		};
-	});
-	
-	const rows = await streamAsPromise(
-		stringify(clearedTranslations, {
-			header: false,
-		}),
-	);
-	return rows.join('');
+  const clearedTranslations = data.translations.map((trans: IntermediateTranslation) => {
+    return {
+      term: csvInjectionProtector(trans.term),
+      translation: csvInjectionProtector(trans.translation),
+    };
+  });
+
+  const rows = await streamAsPromise(
+    stringify(clearedTranslations, {
+      header: false,
+    }),
+  );
+  return rows.join('');
 };
