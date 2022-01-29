@@ -1,7 +1,32 @@
 version: 2
 
 jobs:
-  test:
+  check_lint:
+    working_directory: ~/workspace
+    docker:
+      - image: circleci/node:14.16
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - api-deps-{{ checksum "api/yarn.lock" }}
+            - webapp-deps-{{ checksum "webapp/yarn.lock" }}
+      - run:
+          name: Install deps
+          command: bin/install-deps.sh
+      - save_cache:
+          paths:
+            - ~/workspace/api/node_modules
+          key: api-deps-{{ checksum "api/yarn.lock" }}
+      - save_cache:
+          paths:
+            - ~/workspace/webapp/node_modules
+          key: webapp-deps-{{ checksum "webapp/yarn.lock" }}
+      - run:
+          name: Run Lint checks
+          command: bin/check_lint.sh
+
+  test_unit:
     working_directory: ~/workspace
     docker:
       - image: circleci/node:14.16
@@ -31,7 +56,39 @@ jobs:
           command: dockerize -wait tcp://127.0.0.1:3306 -timeout 120s
       - run:
           name: Run tests and checks
-          command: bin/check.sh
+          command: bin/test_unit.sh
+
+  test_e2e:
+    working_directory: ~/workspace
+    docker:
+      - image: circleci/node:14.16
+      - image: mysql:5.7
+        environment:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: "tr_e2e"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - api-deps-{{ checksum "api/yarn.lock" }}
+            - webapp-deps-{{ checksum "webapp/yarn.lock" }}
+      - run:
+          name: Install deps
+          command: bin/install-deps.sh
+      - save_cache:
+          paths:
+            - ~/workspace/api/node_modules
+          key: api-deps-{{ checksum "api/yarn.lock" }}
+      - save_cache:
+          paths:
+            - ~/workspace/webapp/node_modules
+          key: webapp-deps-{{ checksum "webapp/yarn.lock" }}
+      - run:
+          name: Wait for DB
+          command: dockerize -wait tcp://127.0.0.1:3306 -timeout 120s
+      - run:
+          name: Run tests and checks
+          command: bin/test_e2e.sh
 
   build:
     docker:
@@ -51,7 +108,23 @@ workflows:
       - test
   release:
     jobs:
-      - test:
+      - check_lint:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^([0-9.]+)$/
+      - test_unit:
+          requires:
+            - check_lint
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^([0-9.]+)$/
+      - test_e2e:
+          requires:
+            - check_lint
           filters:
             branches:
               ignore: /.*/
@@ -60,7 +133,9 @@ workflows:
       - build:
           context: traduora
           requires:
-            - test
+            - check_lint
+            - test_unit
+            - test_e2e
           filters:
             branches:
               ignore: /.*/
