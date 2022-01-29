@@ -6,7 +6,7 @@
 
 import * as parse from 'csv-parse';
 import * as stringify from 'csv-stringify';
-import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
+import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 const streamAsPromise = stream => {
   const result = [];
@@ -35,32 +35,37 @@ export const csvParser: Parser = async (data: string) => {
   };
 };
 
+/**
+ * CSV Injection – A Guide To Protecting Your CSV Files
+ * 
+ * @param str 
+ * @returns 
+ */
 const csvInjectionProtector = (str: string) => {
-  const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll'];
-  if (!str) return '';
+	const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll'];
+	if (!str) return '';
 
-  riskyChars.map(risk => {
-    if (str.includes(risk)) {
-      return (str = str.replace(risk, ''));
-    }
-  });
-
-  return str;
+	/**
+	 * Check first character of string
+	 */
+	if (riskyChars.includes(str.charAt(0))) {
+		return (str = str.replace(str.charAt(0), ''));
+	}
+	return str;
 };
 
 export const csvExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-  const clearedTranslations = [];
-  data.translations.map(trans => {
-    const protectedTranslation = {
-      term: csvInjectionProtector(trans.term),
-      translation: csvInjectionProtector(trans.translation),
-    };
-    clearedTranslations.push(protectedTranslation);
-  });
-  const rows = await streamAsPromise(
-    stringify(clearedTranslations, {
-      header: false,
-    }),
-  );
-  return rows.join('');
+	const clearedTranslations = data.translations.map((trans: IntermediateTranslation) => {
+		return {
+			term: csvInjectionProtector(trans.term),
+			translation: csvInjectionProtector(trans.translation),
+		};
+	});
+	
+	const rows = await streamAsPromise(
+		stringify(clearedTranslations, {
+			header: false,
+		}),
+	);
+	return rows.join('');
 };
