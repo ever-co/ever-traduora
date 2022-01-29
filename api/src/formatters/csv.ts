@@ -49,7 +49,7 @@ const csvInjectionProtector = (str: string) => {
    * Check first character of string
    */
   if (riskyChars.includes(str.charAt(0))) {
-    return (str = str.replace(str.charAt(0), ''));
+    return str.replace(str.charAt(0), '');
   }
   return str;
 };
