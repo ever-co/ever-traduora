@@ -5,7 +5,7 @@
 // - original code `Copyright (c) 2019 Shahjada Talukdar`;
 
 import * as parse from 'csv-parse';
-import * as stringify from 'csv-stringify';
+import { stringify } from 'csv-stringify';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 const streamAsPromise = stream => {
