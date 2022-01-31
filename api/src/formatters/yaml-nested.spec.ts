@@ -49,7 +49,7 @@ test('should fail if file is malformed, invalid or empty', async () => {
 });
 
 test('should export yaml nested files', async () => {
-  const result = await yamlNestedExporter(simpleFormatFixture);
-  const expected = loadFixture('simple-nested.yaml');
+  const result = (await yamlNestedExporter(simpleFormatFixture)).toString().split(/\r?\n/).filter(Boolean);
+  const expected = loadFixture('simple-nested.yaml').split(/\r?\n/).filter(Boolean);
   expect(result).toEqual(expected);
 });
