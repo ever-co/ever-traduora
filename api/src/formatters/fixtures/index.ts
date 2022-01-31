@@ -38,7 +38,7 @@ export const riskyPayloads: IntermediateTranslationFormat = {
     },
     {
       term: `=cmd|' /C notepad'!'A1'`,
-      translation: 'to open the notepad application on excel/csv on the target machine (notepad automatic open command)'
-    }
+      translation: 'to open the notepad application on excel/csv on the target machine (notepad automatic open command)',
+    },
   ],
 };
