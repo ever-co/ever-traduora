@@ -25,7 +25,7 @@ test('should fail if file is malformed, invalid or empty', async () => {
 
 test('should export csv files', async () => {
   const result = (await csvExporter(simpleFormatFixture)).toString().split(/\r?\n/).filter(Boolean);
-  const expected = loadFixture('simple.csv').split(/\r?\n/);
+  const expected = loadFixture('simple.csv').split(/\r?\n/).filter(Boolean);
   expect(result).toEqual(expected);
 });
 
