@@ -40,6 +40,7 @@
     "class-transformer": "^0.4.0",
     "class-validator": "^0.13.1",
     "csv": "^5.5.3",
+    "csv-stringify": "^6.0.5",
     "ejs": "^3.1.6",
     "generate-password": "^1.6.1",
     "gettext-parser": "^4.0.4",
@@ -69,6 +70,7 @@
   "devDependencies": {
     "@nestjs/testing": "^8.0.6",
     "@types/bcrypt": "^5.0.0",
+    "@types/csv-stringify": "^3.1.0",
     "@types/express": "^4.17.13",
     "@types/handlebars": "^4.1.0",
     "@types/iconv-lite": "^0.0.1",

