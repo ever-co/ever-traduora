@@ -224,7 +224,7 @@ export default class ProjectLabelController {
     });
 
     const translation = await this.translationsRepo.findOneOrFail({
-      where: { termId: termId, projectLocale: projectLocale, project: membership.project },
+      where: { termId: termId, projectLocale: projectLocale },
       relations: ['labels'],
     });
 
