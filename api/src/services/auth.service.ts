@@ -1,4 +1,5 @@
-import { BadRequestException, HttpService, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
 import { stringify, unescape } from 'querystring';
 import { config } from '../config';
 
