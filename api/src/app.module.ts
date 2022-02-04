@@ -1,5 +1,6 @@
 import { MorganMiddleware } from './middlewares/morgan-middleware';
-import { HttpModule, MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
+import { MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { NestExpressApplication } from '@nestjs/platform-express';

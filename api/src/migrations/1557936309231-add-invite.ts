@@ -3,7 +3,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class addInvite1557936309231 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
     await queryRunner.query(
-      "CREATE TABLE `invite` ( \
+      "CREATE TABLE IF NOT EXISTS `invite` ( \
           `id` varchar(255) NOT NULL, \
           `email` varchar(255) NOT NULL, \
           `status` enum ('sent', 'accepted') NOT NULL DEFAULT 'sent', \
@@ -22,6 +22,6 @@ export class addInvite1557936309231 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<any> {
     await queryRunner.query('ALTER TABLE `invite` DROP FOREIGN KEY `FK_invite_project`');
-    await queryRunner.query('DROP TABLE `invite`');
+    await queryRunner.query('DROP TABLE IF EXISTS `invite`');
   }
 }
