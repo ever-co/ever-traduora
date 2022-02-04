@@ -122,26 +122,31 @@ export default class TranslationController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
 
-    // Ensure locale is requested project locale
-    const projectLocale = await this.projectLocaleRepo.findOneOrFail({
-      where: {
-        project: membership.project,
-        locale: {
-          code: localeCode,
+    try {
+      // Ensure locale is requested project locale
+      const projectLocale = await this.projectLocaleRepo.findOneOrFail({
+        where: {
+          project: membership.project,
+          locale: {
+            code: localeCode,
+          },
         },
-      },
-    });
-
-    const translations = await this.translationRepo.find({
-      where: {
-        projectLocale,
-      },
-      relations: ['term', 'labels'],
-    });
-
-    const result = translations.map(t => ({ termId: t.term.id, value: t.value, labels: t.labels, date: t.date }));
-
-    return { data: result };
+      });
+      try {
+        const translations = await this.translationRepo.find({
+          where: {
+            projectLocale,
+          },
+          relations: ['term', 'labels'],
+        });
+        const result = translations.map(t => ({ termId: t.term.id, value: t.value, labels: t.labels, date: t.date }));
+        return { data: result };
+      } catch (error) {
+        throw new NotFoundException('project translation not found');
+      }
+    } catch (error) {
+      throw new NotFoundException('project locale not found');
+    }
   }
 
   @Patch(':localeCode')
