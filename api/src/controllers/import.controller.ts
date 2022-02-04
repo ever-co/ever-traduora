@@ -39,6 +39,7 @@ import { androidXmlParser } from '../formatters/android-xml';
 import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
+import { PaymentRequiredException } from './../errors';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiTags('Imports')
@@ -133,7 +134,11 @@ export class ImportController {
         };
       });
     } catch (error) {
-      throw new NotFoundException();
+      if (error instanceof PaymentRequiredException) {
+        throw new PaymentRequiredException('request would exceed plan limit');
+      } else {
+        throw new NotFoundException();
+      }
     }
   }
 
