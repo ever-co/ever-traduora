@@ -3,6 +3,7 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -73,63 +74,67 @@ export class ImportController {
     // Authorize user for import
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, 0, 0);
 
-    const locale = await this.localeRepo.findOneOrFail({ where: { code: query.locale } });
+    try {
+      const locale = await this.localeRepo.findOneOrFail({ where: { code: query.locale } });
 
-    const contents = file.buffer.toString('utf-8') as string;
+      const contents = file.buffer.toString('utf-8') as string;
 
-    const incoming = await this.parse(query.format, contents);
+      const incoming = await this.parse(query.format, contents);
 
-    return await this.termRepo.manager.transaction(async entityManager => {
-      let projectLocale: ProjectLocale | undefined = await entityManager.findOne(ProjectLocale, {
-        where: { project: { id: membership.project.id }, locale: { code: locale.code } },
-      });
-
-      if (!projectLocale) {
-        // Authorize if has access to project import and can add 1 locale
-        await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, 0, 1);
-
-        // Extract into service for creating project locales
-        projectLocale = this.projectLocaleRepo.create({
-          locale: locale,
-          project: membership.project,
+      return await this.termRepo.manager.transaction(async entityManager => {
+        let projectLocale: ProjectLocale | undefined = await entityManager.findOne(ProjectLocale, {
+          where: { project: { id: membership.project.id }, locale: { code: locale.code } },
         });
-        projectLocale = await entityManager.save(ProjectLocale, projectLocale);
-        await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);
-      }
 
-      // Find existing terms and determine which terms to create
-      const existingTerms = await entityManager.find(Term, {
-        where: { project: { id: membership.project.id } },
-        relations: ['labels'],
+        if (!projectLocale) {
+          // Authorize if has access to project import and can add 1 locale
+          await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, 0, 1);
+
+          // Extract into service for creating project locales
+          projectLocale = this.projectLocaleRepo.create({
+            locale: locale,
+            project: membership.project,
+          });
+          projectLocale = await entityManager.save(ProjectLocale, projectLocale);
+          await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);
+        }
+
+        // Find existing terms and determine which terms to create
+        const existingTerms = await entityManager.find(Term, {
+          where: { project: { id: membership.project.id } },
+          relations: ['labels'],
+        });
+
+        // Resolve which terms / translations to add or update
+        const termsToAdd = this.determineTermsToAdd(existingTerms, incoming.translations, membership.project);
+
+        // Authorize if user would have enough terms left in plan for import
+        await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, termsToAdd.length, 1);
+
+        const addedTerms = await entityManager.save(Term, termsToAdd);
+        const allTerms = [...addedTerms, ...existingTerms];
+
+        const translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale);
+
+        await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', termsToAdd.length);
+
+        await entityManager.save(Translation, translationsToAdd);
+
+        return {
+          data: {
+            terms: {
+              added: termsToAdd.length,
+              skipped: incoming.translations.length - termsToAdd.length,
+            },
+            translations: {
+              upserted: translationsToAdd.length,
+            },
+          },
+        };
       });
-
-      // Resolve which terms / translations to add or update
-      const termsToAdd = this.determineTermsToAdd(existingTerms, incoming.translations, membership.project);
-
-      // Authorize if user would have enough terms left in plan for import
-      await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, termsToAdd.length, 1);
-
-      const addedTerms = await entityManager.save(Term, termsToAdd);
-      const allTerms = [...addedTerms, ...existingTerms];
-
-      const translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale);
-
-      await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', termsToAdd.length);
-
-      await entityManager.save(Translation, translationsToAdd);
-
-      return {
-        data: {
-          terms: {
-            added: termsToAdd.length,
-            skipped: incoming.translations.length - termsToAdd.length,
-          },
-          translations: {
-            upserted: translationsToAdd.length,
-          },
-        },
-      };
-    });
+    } catch (error) {
+      throw new NotFoundException();
+    }
   }
 
   private determineTermsToAdd(existing: Term[], incomingItems: IntermediateTranslation[], project: Project): Term[] {
