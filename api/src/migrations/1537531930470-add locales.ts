@@ -3,7 +3,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class addLocales1537531930470 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
     await queryRunner.query(
-      'CREATE TABLE `locale` (`code` varchar(255) NOT NULL, `language` varchar(255) NOT NULL, `region` varchar(255) NOT NULL, `dateCreated` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), `dateModified` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), PRIMARY KEY (`code`)) ENGINE=InnoDB',
+      'CREATE TABLE IF NOT EXISTS `locale` (`code` varchar(255) NOT NULL, `language` varchar(255) NOT NULL, `region` varchar(255) NOT NULL, `dateCreated` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), `dateModified` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), PRIMARY KEY (`code`)) ENGINE=InnoDB',
     );
 
     await queryRunner.query(`
@@ -576,6 +576,6 @@ export class addLocales1537531930470 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<any> {
-    await queryRunner.query('DROP TABLE `locale`');
+    await queryRunner.query('DROP TABLE IF EXISTS `locale`');
   }
 }

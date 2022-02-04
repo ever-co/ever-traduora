@@ -49,7 +49,7 @@ test('should fail if file is malformed, invalid or empty', async () => {
 });
 
 test('should export yaml files', async () => {
-  const result = await yamlFlatExporter(simpleFormatFixture);
-  const expected = loadFixture('simple-flat.yaml');
+  const result = (await yamlFlatExporter(simpleFormatFixture)).toString().split(/\r?\n/).filter(Boolean);
+  const expected = loadFixture('simple-flat.yaml').split(/\r?\n/).filter(Boolean);
   expect(result).toEqual(expected);
 });
