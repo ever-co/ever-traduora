@@ -159,45 +159,58 @@ export default class TranslationController {
     const user = this.auth.getRequestUserOrClient(req);
     await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTranslation);
 
-    const projectLocale = await this.projectLocaleRepo.findOneOrFail({
-      where: {
-        locale: {
-          code: localeCode,
+    try {
+      const projectLocale = await this.projectLocaleRepo.findOneOrFail({
+        where: {
+          locale: {
+            code: localeCode,
+          },
+          project: {
+            id: projectId,
+          },
         },
-        project: {
-          id: projectId,
-        },
-      },
-    });
-
-    const term = await this.termRepo.findOneOrFail({ where: { project: { id: projectId }, id: payload.termId }, relations: ['labels'] });
-
-    if (!term) {
-      throw new NotFoundException('term not found');
-    }
-
-    let translation = await this.translationRepo.findOne({ where: { termId: term.id, projectLocale: projectLocale }, relations: ['labels'] });
-    if (translation) {
-      translation.value = payload.value;
-    } else {
-      translation = this.translationRepo.create({
-        value: payload.value,
-        projectLocale,
-        term,
-        labels: term.labels, // Copy term labels on creation
       });
+      try {
+        const term = await this.termRepo.findOneOrFail({
+          where: {
+            project: { id: projectId },
+            id: payload.termId,
+          },
+          relations: ['labels'],
+        });
+        let translation = await this.translationRepo.findOne({
+          where: {
+            termId: term.id,
+            projectLocale: projectLocale,
+          },
+          relations: ['labels'],
+        });
+        if (translation) {
+          translation.value = payload.value;
+        } else {
+          translation = this.translationRepo.create({
+            value: payload.value,
+            projectLocale,
+            term,
+            labels: term.labels, // Copy term labels on creation
+          });
+        }
+
+        await this.translationRepo.save(translation);
+        return {
+          data: {
+            termId: term.id,
+            value: translation.value,
+            labels: translation.labels,
+            date: translation.date,
+          },
+        };
+      } catch (error) {
+        throw new NotFoundException('project term not found');
+      }
+    } catch (error) {
+      throw new NotFoundException('project locale not found');
     }
-
-    await this.translationRepo.save(translation);
-
-    return {
-      data: {
-        termId: term.id,
-        value: translation.value,
-        labels: translation.labels,
-        date: translation.date,
-      },
-    };
   }
 
   @Delete(':localeCode')
