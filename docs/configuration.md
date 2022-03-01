@@ -12,11 +12,12 @@ The API server can be configured via the following environment variables:
 | TR_PORT | The port on which the server will listen on | 8080 |
 | TR_SECRET | The application secret, used i.e. for signing and verifying the auth tokens, it is **strongly** recommended that you do not use the default one | secret |
 | TR_VIRTUAL_HOST | The virtual host tells the server under which domain you are hosting the webapp, used i.e. to correctly format URLs and links in emails | http://localhost:8080 |
-| TR_DB_HOST | The MySQL DB host | 127.0.0.1 |
-| TR_DB_PORT | The MySQL DB port | 3306 |
-| TR_DB_DATABASE | The MySQL database name to connect to | tr_dev |
-| TR_DB_USER | The MySQL user to connect with | root |
-| TR_DB_PASSWORD | The MySQL password to connect with | (empty) |
+| TR_DB_TYPE | The type of database to use | mysql |
+| TR_DB_HOST | The DB host | 127.0.0.1 |
+| TR_DB_PORT | The DB port | 3306 |
+| TR_DB_DATABASE | The database name to connect to | tr_dev |
+| TR_DB_USER | The user to connect with | root |
+| TR_DB_PASSWORD | The password to connect with | (empty) |
 | TR_PUBLIC_DIR | The path at which the public server files are located | ./public |
 | TR_TEMPLATES_DIR | The path at which the server templates are located | ./templates |
 | TR_CORS_ENABLED | If enabled, the server will allow CORS requests | false |
