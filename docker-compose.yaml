@@ -13,6 +13,7 @@ services:
     ports:
      - "8080:8080"
     environment:
+      TR_DB_TYPE: mysql
       TR_DB_USER: tr
       TR_DB_PASSWORD: change_me
       TR_DB_DATABASE: tr_dev
