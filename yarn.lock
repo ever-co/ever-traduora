@@ -16292,9 +16292,9 @@ semver-regex@^3.1.2:
   integrity sha512-Aqi54Mk9uYTjVexLnR67rTyBusmwd04cLkHy9hNvk3+G3nT2Oyg7E0l4XVbOaNwIvQ3hHeYxGcyEy+mKreyBFQ==
 
 semver-regex@^4.0.0:
-  version "4.0.1"
-  resolved "https://registry.yarnpkg.com/semver-regex/-/semver-regex-4.0.1.tgz#b13d2ea2f7f2328f838edd99542796304a8e2dc6"
-  integrity sha512-cByCq+HYEpHMMx5oys/YqkUnUfVf4HHnG3a65rXZQgSVpnUSE68dD3FFowDL7q2KqUjxBTc3iDEJ7/qPsRXe1Q==
+  version "4.0.3"
+  resolved "https://registry.yarnpkg.com/semver-regex/-/semver-regex-4.0.3.tgz#c684b88b3c4423fe9c891b9316676b46743d2db1"
+  integrity sha512-9AE4cbwU4OgYk0DRCOSXtNsHHKdFSNbV8/dauCejRvL2kSfr+PT3/4z4xAnGxCgEJHvLjGebQYr2+FGgGMgOFQ==
 
 semver-truncate@^1.1.2:
   version "1.1.2"
