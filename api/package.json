@@ -64,7 +64,7 @@
     "rxjs": "^7.3.0",
     "strings-file": "^0.0.5",
     "swagger-ui-express": "^4.2.0",
-    "typeorm": "^0.2.37",
+    "typeorm": "^0.3.0",
     "xliff": "^5.6.2",
     "xml-js": "^1.6.11"
   },
