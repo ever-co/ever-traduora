@@ -42,6 +42,7 @@ export default class TermController {
     const data = terms.map(t => ({
       id: t.id,
       value: t.value,
+      context: t.context,
       labels: t.labels,
       date: t.date,
     }));
@@ -65,6 +66,7 @@ export default class TermController {
 
     const term = this.termRepo.create({
       value: payload.value,
+      context: payload.context,
       project: membership.project,
     });
 
@@ -94,6 +96,7 @@ export default class TermController {
       data: {
         id: term.id,
         value: term.value,
+        context: term.context,
         labels: [],
         date: term.date,
       },
@@ -108,12 +111,13 @@ export default class TermController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(@Req() req, @Param('projectId') projectId: string, @Param('termId') termId: string, @Body() payload: UpdateTermRequest) {
     const user = this.auth.getRequestUserOrClient(req);
+
     await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTerm);
 
     // Ensure is project term
     await this.termRepo.findOneOrFail({ where: { id: termId, project: { id: projectId } } });
 
-    await this.termRepo.update({ id: termId }, { value: payload.value });
+    await this.termRepo.update({ id: termId }, { value: payload.value, context: payload.context });
 
     const term = await this.termRepo.findOneOrFail({ id: termId }, { relations: ['labels'] });
 
@@ -121,6 +125,7 @@ export default class TermController {
       data: {
         id: term.id,
         value: term.value,
+        context: term.context,
         labels: term.labels,
         date: term.date,
       },

@@ -20,6 +20,7 @@ export class NewTermComponent implements OnInit, OnDestroy {
 
   form = this.fb.group({
     term: ['', Validators.compose([Validators.required, Validators.pattern('.*[^ ].*')])],
+    context: [''],
   });
 
   @Select(state => state.terms.isLoading)
@@ -50,12 +51,18 @@ export class NewTermComponent implements OnInit, OnDestroy {
     if (!this.form.valid) {
       return;
     }
-    await this.store.dispatch(new CreateTerm(this.project.id, this.term.value as string)).toPromise();
+
+    await this.store.dispatch(new CreateTerm(this.project.id, this.term.value as string, this.context.value as string | undefined)).toPromise();
+
     this.modal.close();
   }
 
   get term() {
     return this.form.get('term');
+  }
+
+  get context() {
+    return this.form.get('context');
   }
 
   reset() {

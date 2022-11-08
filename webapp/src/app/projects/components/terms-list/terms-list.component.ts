@@ -46,13 +46,24 @@ export class TermsListComponent implements OnInit, OnDestroy {
           if (searchTerms.length === 0) {
             return results;
           }
+
           return results.filter(r => {
             const value = r.value;
+
             for (const term of searchTerms) {
               if (value.indexOf(term) === -1) {
                 return false;
               }
             }
+
+            const context = r.context;
+
+            for (const term of searchTerms) {
+              if (context.indexOf(term) === -1) {
+                return false;
+              }
+            }
+
             return true;
           });
         }),
@@ -92,8 +103,8 @@ export class TermsListComponent implements OnInit, OnDestroy {
     this.store.dispatch(new CreateTerm(projectId, value));
   }
 
-  updateTerm(projectId, termId, newValue) {
-    this.store.dispatch(new UpdateTerm(projectId, termId, newValue));
+  updateTerm(projectId, termId, newValue, newContext) {
+    this.store.dispatch(new UpdateTerm(projectId, termId, newValue, newContext));
   }
 
   deleteTerm(projectId, termId) {
