@@ -22,6 +22,7 @@ import { phpExporter } from '../formatters/php';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nestjs/swagger';
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
+import { merge } from 'lodash';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -73,15 +74,58 @@ export class ExportsController {
       .orderBy('term.value', 'ASC')
       .getMany();
 
+    let termsWithTranslationsMapped = termsWithTranslations.map(t => ({
+      term: t.value,
+      translation: t.translations.length === 1 ? t.translations[0].value : '',
+    }));
+
+    if (query.fallbackLocale) {
+      termsWithTranslationsMapped = termsWithTranslationsMapped.filter(t => t.translation !== '');
+    }
+
     const data: IntermediateTranslationFormat = {
       iso: query.locale,
-      translations: termsWithTranslations.map(t => ({
-        term: t.value,
-        translation: t.translations.length === 1 ? t.translations[0].value : '',
-      })),
+      translations: termsWithTranslationsMapped,
     };
 
-    const serialized = await this.dump(query.format, data);
+    let serialized = await this.dump(query.format, data);
+
+    if (query.fallbackLocale) {
+      const fallbackProjectLocale = await this.projectLocaleRepo.findOne({
+        where: {
+          project: membership.project,
+          locale: {
+            code: query.fallbackLocale,
+          },
+        },
+      });
+
+      if (fallbackProjectLocale) {
+        const fallbackTermsWithTranslations = await this.termRepo
+          .createQueryBuilder('term')
+          .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', {
+            projectLocaleId: fallbackProjectLocale.id,
+          })
+          .where('term.projectId = :projectId', { projectId })
+          .orderBy('term.value', 'ASC')
+          .getMany();
+
+        const fallbackTermsWithTranslationsMapped = fallbackTermsWithTranslations.map(t => ({
+          term: t.value,
+          translation: t.translations.length === 1 ? t.translations[0].value : '',
+        }))
+
+        const dataWithFallback: IntermediateTranslationFormat = {
+          iso: query.locale,
+          translations: merge(
+            fallbackTermsWithTranslationsMapped,
+            data.translations,
+          )
+        };
+
+        serialized = await this.dump(query.format, dataWithFallback);
+      }
+    }
 
     res.status(HttpStatus.OK);
     res.contentType('application/octet-stream');
