@@ -113,14 +113,11 @@ export class ExportsController {
         const fallbackTermsWithTranslationsMapped = fallbackTermsWithTranslations.map(t => ({
           term: t.value,
           translation: t.translations.length === 1 ? t.translations[0].value : '',
-        }))
+        }));
 
         const dataWithFallback: IntermediateTranslationFormat = {
           iso: query.locale,
-          translations: merge(
-            fallbackTermsWithTranslationsMapped,
-            data.translations,
-          )
+          translations: merge(fallbackTermsWithTranslationsMapped, data.translations),
         };
 
         serialized = await this.dump(query.format, dataWithFallback);

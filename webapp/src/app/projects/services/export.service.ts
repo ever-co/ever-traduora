@@ -21,12 +21,9 @@ export class ExportService {
       url.searchParams.append('fallbackLocale', fallbackLocale);
     }
 
-    return this.http.get(
-      url.toString(),
-      {
-        responseType: 'blob',
-      }
-    );
+    return this.http.get(url.toString(), {
+      responseType: 'blob',
+    });
   }
 
   exportAndDownload(projectId: string, localeCode: string, format: ExportFormat, fallbackLocaleCode?: string): Observable<any> {
