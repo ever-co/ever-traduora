@@ -54,7 +54,7 @@
     "node-native2ascii": "^0.2.0",
     "nodemailer": "^6.6.3",
     "passport": "^0.4.1",
-    "passport-jwt": "^4.0.0",
+    "passport-jwt": "^4.0.1",
     "php-array-parser": "^1.0.1",
     "preview-email": "^3.0.5",
     "properties": "^1.2.1",
