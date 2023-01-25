@@ -20,12 +20,12 @@ export class GetTerms {
 
 export class CreateTerm {
   static readonly type = '[Terms] Create term';
-  constructor(public projectId: string, public value: string) {}
+  constructor(public projectId: string, public value: string, public context?: string) {}
 }
 
 export class UpdateTerm {
   static readonly type = '[Terms] Update term';
-  constructor(public projectId: string, public termId: string, public value: string) {}
+  constructor(public projectId: string, public termId: string, public value: string, public context?: string) {}
 }
 
 export class DeleteTerm {
@@ -86,7 +86,7 @@ export class TermsState implements NgxsOnInit {
   @Action(CreateTerm)
   createTerms(ctx: StateContext<TermsStateModel>, action: CreateTerm) {
     ctx.patchState({ isLoading: true });
-    return this.termService.create(action.projectId, action.value).pipe(
+    return this.termService.create(action.projectId, action.value, action.context).pipe(
       tap(term => ctx.patchState({ terms: [term, ...ctx.getState().terms] })),
       tap(() => ctx.dispatch(new RefreshProjectStats())),
       catchError(error => {
@@ -100,7 +100,7 @@ export class TermsState implements NgxsOnInit {
   @Action(UpdateTerm)
   updateTerms(ctx: StateContext<TermsStateModel>, action: UpdateTerm) {
     ctx.patchState({ isLoading: true });
-    return this.termService.update(action.projectId, action.termId, action.value).pipe(
+    return this.termService.update(action.projectId, action.termId, action.value, action.context).pipe(
       tap(term => {
         const terms = ctx.getState().terms.map(t => {
           if (t.id === term.id) {

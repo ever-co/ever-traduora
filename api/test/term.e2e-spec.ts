@@ -28,7 +28,23 @@ describe('TermController (e2e)', () => {
       })
       .expect(201)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'value', 'labels', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'context', 'labels', 'date']);
+        expect(res.body.data.labels).toEqual([]);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/terms (POST) should create terms with context for project', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+        context: 'Context one',
+      })
+      .expect(201)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'context', 'labels', 'date']);
+        expect(res.body.data.context).toEqual('Context one');
         expect(res.body.data.labels).toEqual([]);
       });
   });
@@ -48,7 +64,7 @@ describe('TermController (e2e)', () => {
       .expect(200)
       .expect(res => {
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'labels', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'context', 'labels', 'date']);
       });
   });
 
@@ -84,6 +100,7 @@ describe('TermController (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'term.one',
+        context: 'Context one',
       })
       .expect(201)
       .expect(res => {
@@ -95,12 +112,14 @@ describe('TermController (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'term.two',
+        context: 'Context two',
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'value', 'labels', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'context', 'labels', 'date']);
         expect(res.body.data.id).toEqual(termId);
         expect(res.body.data.value).toEqual('term.two');
+        expect(res.body.data.context).toEqual('Context two');
       });
   });
 
@@ -123,12 +142,14 @@ describe('TermController (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .send({
         value: 'term.two őúüöá 😀👍🍉你好',
+        context: 'Context őúüöá 😀👍🍉你好',
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'value', 'labels', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'value', 'context', 'labels', 'date']);
         expect(res.body.data.id).toEqual(termId);
         expect(res.body.data.value).toEqual('term.two őúüöá 😀👍🍉你好');
+        expect(res.body.data.context).toEqual('Context őúüöá 😀👍🍉你好');
       });
   });
 

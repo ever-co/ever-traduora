@@ -30,6 +30,19 @@
           <div *ngIf="term.getError('pattern')" >Cannot be only whitespace.</div>
         </div>
       </div>
+
+      <div class="form-group">
+        <label for="contextInput" >Context</label>
+
+        <textarea
+          id="contextInput"
+          class="form-control"
+          type="text"
+          formControlName="context"
+          placeholder="The term's context, i.e. 'Text for the pause button on menu' (optional)"
+          autocomplete="off"
+        ></textarea>
+      </div>
     </div>
 
     <div class="modal-footer">
