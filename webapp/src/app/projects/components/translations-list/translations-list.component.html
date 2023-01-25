@@ -30,6 +30,7 @@
               <div class="d-flex flex-column w-100 align-items-start justify-content-center">
                 <div class="d-flex flex-column mb-3 w-100">
                   <p class="m-0 mb-1 mr-3 truncate text-sm"><span class="text-muted">Term:</span> {{ translationView.term.value }}</p>
+                  <p class="m-0 mb-1 mr-3 truncate text-sm"><span class="text-muted">Context:</span> {{ translationView.term.context || '' }}</p>
                   <app-assigned-labels
                     hint="Hint: You can use term labels if you'd like to assign a label to all related translations."
                     [labels]="translationView.labels"

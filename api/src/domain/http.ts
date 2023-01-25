@@ -153,6 +153,10 @@ export class ProjectTermDTO {
   id: string;
   @ApiProperty()
   value: string;
+  @ApiProperty({
+    nullable: true,
+  })
+  context: string | null;
   @ApiProperty()
   labels: ProjectLabelDTO[];
   @ApiProperty()
@@ -558,6 +562,11 @@ export class AddTermRequest {
   @Length(1, 255)
   @Validate(IsNotOnlyWhitespace)
   value: string;
+
+  @ApiPropertyOptional({ minLength: 0, maxLength: 1000 })
+  @IsOptional()
+  @Length(0, 1000)
+  context: string | undefined;
 }
 
 export class UpdateTermRequest {
@@ -565,6 +574,11 @@ export class UpdateTermRequest {
   @Length(1, 255)
   @Validate(IsNotOnlyWhitespace)
   value: string;
+
+  @ApiPropertyOptional({ minLength: 0, maxLength: 1000 })
+  @IsOptional()
+  @Length(0, 1000)
+  context: string | undefined;
 }
 
 export class AddLocaleRequest {
@@ -608,6 +622,11 @@ export class ExportQuery {
   @Length(2, 16)
   @ApiProperty({ minLength: 2, maxLength: 16 })
   locale: string;
+
+  @Length(2, 16)
+  @ApiProperty({ minLength: 2, maxLength: 16 })
+  @IsOptional()
+  fallbackLocale: string;
 
   @IsEnum(ImportExportFormat)
   @ApiProperty({ enum: ImportExportFormat })

@@ -1,6 +1,6 @@
 {
   "name": "ever-traduora",
-  "version": "0.19.3",
+  "version": "0.19.4",
   "description": "Ever® Traduora - Open Translation Management Platform",
   "license": "AGPL-3.0-only",
   "homepage": "https://traduora.co",
@@ -55,7 +55,7 @@
     "prettier-tslint": "^0.4.2",
     "pretty-quick": "^3.1.0",
     "rimraf": "^3.0.2",
-    "semantic-release": "^17.4.2",
+    "semantic-release": "^19.0.3",
     "snyk": "^1.573.0"
   },
   "config": {

@@ -16,7 +16,8 @@ In particular you might want to override the folllowing environment variables:
 NODE_ENV  # set it to production
 TR_SECRET  # generate a strong secret (used for signing JWT auth tokens)
 TR_VIRTUAL_HOST  # i.e. traduora.example.com
-TR_DB_HOST  # depends on your MySQL config
+TR_DB_TYPE  # All supported by https://typeorm.io/#/connection-options/common-connection-options (mysql/postgres/sqlite...)
+TR_DB_HOST  # depends on your DataBase config
 TR_DB_PORT
 TR_DB_DATABASE
 TR_DB_USER

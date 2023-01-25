@@ -17,6 +17,17 @@
 </div>
 
 <div class="form-group">
+  <label >Select the fallback locale (optional)</label>
+  <app-select-locale
+    class="mb-5"
+    [locales]="locales"
+    [limit]="5"
+    [loading]="loading"
+    (selectLocale)="selectFallbackLocale($event)"
+  ></app-select-locale>
+</div>
+
+<div class="form-group">
   <label for="exportFormat" >Select an export format</label>
   <div class="input-group">
     <select id="exportFormat" class="custom-select" [(ngModel)]="selectedFormat">

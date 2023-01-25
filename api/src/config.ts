@@ -47,7 +47,7 @@ export const config = {
   },
   db: {
     default: {
-      type: 'mysql',
+      type: env.TR_DB_TYPE || 'mysql',
       host: env.TR_DB_HOST || '127.0.0.1',
       port: parseInt(env.TR_DB_PORT, 10) || 3306,
       username: env.TR_DB_USER || 'root',

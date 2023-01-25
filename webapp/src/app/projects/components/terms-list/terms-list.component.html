@@ -18,8 +18,18 @@
                 placeholder="Terms cannot be empty"
                 [allowEmpty]="false"
                 showLength="true"
-                (save)="updateTerm(project.id, term.id, $event)"
+                (save)="updateTerm(project.id, term.id, $event, term.context)"
               ></app-editable-text>
+
+              <app-editable-text
+                class="flex-1"
+                [readOnly]="!(true | can: 'EditTerm' | async)"
+                [value]="term.context"
+                [allowEmpty]="true"
+                showLength="true"
+                (save)="updateTerm(project.id, term.id, term.value, $event)"
+              ></app-editable-text>
+
               <button
                 *ngIf="true | can: 'DeleteTerm' | async"
                 class="ml-3 btn bg-transparent text-dark btn-sm"

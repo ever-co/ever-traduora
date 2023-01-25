@@ -13,6 +13,11 @@ export class Term {
   @Column()
   value: string;
 
+  @Column({
+    nullable: true,
+  })
+  context: string | null;
+
   @ManyToOne(() => Project, { onDelete: 'CASCADE', nullable: false })
   @JoinColumn()
   project: Project;
