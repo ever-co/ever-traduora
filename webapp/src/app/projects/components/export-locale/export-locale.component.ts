@@ -23,6 +23,7 @@ export class ExportLocaleComponent implements OnInit {
   loading = false;
 
   selectedLocale: Locale;
+  selectedFallbackLocale?: Locale;
   selectedFormat: ExportFormat;
   availableFormats = EXPORT_FORMATS;
 
@@ -40,6 +41,10 @@ export class ExportLocaleComponent implements OnInit {
     this.selectedLocale = locale;
   }
 
+  selectFallbackLocale(locale: Locale) {
+    this.selectedFallbackLocale = locale;
+  }
+
   async export() {
     if (!this.validInputs()) {
       return;
@@ -49,7 +54,7 @@ export class ExportLocaleComponent implements OnInit {
     this.loading = true;
 
     await this.exportService
-      .exportAndDownload(this.project.id, this.selectedLocale.code, this.selectedFormat)
+      .exportAndDownload(this.project.id, this.selectedLocale.code, this.selectedFormat, this.selectedFallbackLocale?.code)
       .pipe(
         catchError(error => {
           console.error(error);

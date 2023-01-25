@@ -609,6 +609,11 @@ export class ExportQuery {
   @ApiProperty({ minLength: 2, maxLength: 16 })
   locale: string;
 
+  @Length(2, 16)
+  @ApiProperty({ minLength: 2, maxLength: 16 })
+  @IsOptional()
+  fallbackLocale: string;
+
   @IsEnum(ImportExportFormat)
   @ApiProperty({ enum: ImportExportFormat })
   format: ImportExportFormat;
