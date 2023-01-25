@@ -10,6 +10,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - TODO
 
+## 0.19.4
+
+- Multiple packages updates and tiny fixes
+- [PR-339:](https://github.com/ever-co/ever-traduora/pull/339) Add fallback locale on export (thanks @kidoncio)
+- [PR-340:](https://github.com/ever-co/ever-traduora/pull/340) Add Context on Term (thanks @kidoncio)
+- [PR-310:](https://github.com/ever-co/ever-traduora/pull/310) Make the DB type as variable (thanks @azlux)
+
 ## 0.19.3
 
 - We fixed all e2e and Unit tests in this release :rocket:
