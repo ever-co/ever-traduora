@@ -1,0 +1,13 @@
+{
+  "projectName": "ever-traduora",
+  "projectOwner": "ever-co",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    ".github/CONTRIBUTORS.md"
+  ],
+  "commitConvention": "angular",
+  "contributorsPerLine": 7,
+  "contributors": [    
+  ]
+}
