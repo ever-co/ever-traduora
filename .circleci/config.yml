@@ -138,7 +138,7 @@ workflows:
       - check_lint:
           filters:
             branches:
-              ignore: /.*/
+              only: master
             tags:
               only: /^([0-9.]+)$/
       - test_unit:
@@ -146,7 +146,7 @@ workflows:
             - check_lint
           filters:
             branches:
-              ignore: /.*/
+              only: master
             tags:
               only: /^([0-9.]+)$/
       - test_e2e:
@@ -154,7 +154,7 @@ workflows:
             - check_lint
           filters:
             branches:
-              ignore: /.*/
+              only: master
             tags:
               only: /^([0-9.]+)$/
       - build:
@@ -165,7 +165,7 @@ workflows:
             - test_e2e
           filters:
             branches:
-              ignore: /.*/
+              only: master
             tags:
               only: /^([0-9.]+)$/
 
