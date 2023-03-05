@@ -125,13 +125,22 @@ workflows:
 
   test:
     jobs:
-      - check_lint
+      - check_lint:
+           filters:
+              branches:
+                ignore: master
       - test_unit:
           requires:
             - check_lint
+          filters:
+              branches:
+                ignore: master  
       - test_e2e:
           requires:
             - check_lint
+          filters:
+              branches:
+                ignore: master  
 
   release:
     jobs:
@@ -140,7 +149,7 @@ workflows:
             branches:
               only: master
             tags:
-              only: /^([0-9.]+)$/
+              only: /^v.*/
       - test_unit:
           requires:
             - check_lint
@@ -148,7 +157,7 @@ workflows:
             branches:
               only: master
             tags:
-              only: /^([0-9.]+)$/
+              only: /^v.*/
       - test_e2e:
           requires:
             - check_lint
@@ -156,7 +165,7 @@ workflows:
             branches:
               only: master
             tags:
-              only: /^([0-9.]+)$/
+              only: /^v.*/
       - build:
           context: traduora
           requires:
@@ -167,5 +176,5 @@ workflows:
             branches:
               only: master
             tags:
-              only: /^([0-9.]+)$/
+              only: /^v.*/
 
