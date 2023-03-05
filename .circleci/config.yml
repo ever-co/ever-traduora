@@ -119,6 +119,19 @@ jobs:
           name: Build
           command: RELEASE=$CIRCLE_TAG bin/build-docker.sh
 
+  build_old:
+    docker:
+      - image: 'cimg/base:stable'
+    steps:
+      - checkout
+      - node/install:
+          install-yarn: true
+          node-version: '16.13'
+      - run: node --version
+      - setup_remote_docker
+      - run:
+          name: Build
+          command: RELEASE=$CIRCLE_TAG bin/build-docker-old.sh
 
 workflows:
   version: 2
@@ -177,4 +190,14 @@ workflows:
               only: master
             tags:
               only: /^v.*/
-
+      - build_old:
+          context: traduora
+          requires:
+            - check_lint
+            - test_unit
+            - test_e2e
+          filters:
+            branches:
+              only: master
+            tags:
+              only: /^v.*/
