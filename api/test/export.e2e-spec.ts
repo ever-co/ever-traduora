@@ -163,7 +163,7 @@ describe('ExportController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/exports (GET) should export translation with utf-8 characters in various formats', async () => {
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=jsonflat&unstranslated=false`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -197,7 +197,7 @@ describe('ExportController (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=es_CR&format=jsonflat&unstranslated=false`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=es_CR&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
