@@ -66,14 +66,14 @@ export class ExportsController {
     }
 
     const queryBuilder = this.termRepo
-    .createQueryBuilder('term')
-    .leftJoinAndSelect('term.translations', 'translation', 'translation.project_locale_id = :projectLocaleId', {
-      projectLocaleId: projectLocale.id,
-    })
-    .where('term.project_id = :projectId', { projectId })
-    .orderBy('term.value', 'ASC');
+      .createQueryBuilder('term')
+      .leftJoinAndSelect('term.translations', 'translation', 'translation.project_locale_id = :projectLocaleId', {
+        projectLocaleId: projectLocale.id,
+      })
+      .where('term.project_id = :projectId', { projectId })
+      .orderBy('term.value', 'ASC');
 
-    if(query.untranslated) {
+    if (query.untranslated) {
       queryBuilder.andWhere("translation.value = ''");
     }
 

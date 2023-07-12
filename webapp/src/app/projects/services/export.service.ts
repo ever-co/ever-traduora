@@ -26,7 +26,15 @@ export class ExportService {
     });
   }
 
-  exportAndDownload(projectId: string, localeCode: string, format: ExportFormat, untranslated:boolean, fallbackLocaleCode?: string): Observable<any> {
-    return this.export(projectId, localeCode, format.code, untranslated,fallbackLocaleCode).pipe(tap(data => saveAs(data, `${localeCode}.${format.extension}`)));
+  exportAndDownload(
+    projectId: string,
+    localeCode: string,
+    format: ExportFormat,
+    untranslated: boolean,
+    fallbackLocaleCode?: string,
+  ): Observable<any> {
+    return this.export(projectId, localeCode, format.code, untranslated, fallbackLocaleCode).pipe(
+      tap(data => saveAs(data, `${localeCode}.${format.extension}`)),
+    );
   }
 }
