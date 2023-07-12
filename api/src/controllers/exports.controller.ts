@@ -65,14 +65,19 @@ export class ExportsController {
       throw new NotFoundException('unknown locale code');
     }
 
-    const termsWithTranslations = await this.termRepo
-      .createQueryBuilder('term')
-      .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', {
-        projectLocaleId: projectLocale.id,
-      })
-      .where('term.projectId = :projectId', { projectId })
-      .orderBy('term.value', 'ASC')
-      .getMany();
+    const queryBuilder = this.termRepo
+    .createQueryBuilder('term')
+    .leftJoinAndSelect('term.translations', 'translation', 'translation.project_locale_id = :projectLocaleId', {
+      projectLocaleId: projectLocale.id,
+    })
+    .where('term.project_id = :projectId', { projectId })
+    .orderBy('term.value', 'ASC');
+
+    if(query.untranslated) {
+      queryBuilder.andWhere("translation.value = ''");
+    }
+
+    const termsWithTranslations = await queryBuilder.getMany();
 
     let termsWithTranslationsMapped = termsWithTranslations.map(t => ({
       term: t.value,

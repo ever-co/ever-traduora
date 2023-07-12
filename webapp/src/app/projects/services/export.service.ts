@@ -14,8 +14,8 @@ export class ExportService {
 
   constructor(private http: HttpClient) {}
 
-  export(projectId: string, localeCode: string, format: string, fallbackLocale?: string): Observable<any> {
-    const url = new URL(`${this.endpoint}/projects/${projectId}/exports?locale=${localeCode}&format=${format}`);
+  export(projectId: string, localeCode: string, format: string, untranslated: boolean, fallbackLocale?: string): Observable<any> {
+    const url = new URL(`${this.endpoint}/projects/${projectId}/exports?locale=${localeCode}&format=${format}&untranslated=${untranslated}`);
 
     if (fallbackLocale) {
       url.searchParams.append('fallbackLocale', fallbackLocale);
@@ -26,7 +26,7 @@ export class ExportService {
     });
   }
 
-  exportAndDownload(projectId: string, localeCode: string, format: ExportFormat, fallbackLocaleCode?: string): Observable<any> {
-    return this.export(projectId, localeCode, format.code, fallbackLocaleCode).pipe(tap(data => saveAs(data, `${localeCode}.${format.extension}`)));
+  exportAndDownload(projectId: string, localeCode: string, format: ExportFormat, untranslated:boolean, fallbackLocaleCode?: string): Observable<any> {
+    return this.export(projectId, localeCode, format.code, untranslated,fallbackLocaleCode).pipe(tap(data => saveAs(data, `${localeCode}.${format.extension}`)));
   }
 }
