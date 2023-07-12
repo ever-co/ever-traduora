@@ -26,7 +26,7 @@ export class ExportLocaleComponent implements OnInit {
   selectedFallbackLocale?: Locale;
   selectedFormat: ExportFormat;
   availableFormats = EXPORT_FORMATS;
-  untranslated: boolean = false;
+  untranslated = false;
 
   errorMessage: string;
 
