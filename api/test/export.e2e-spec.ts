@@ -150,7 +150,7 @@ describe('ExportController (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=properties`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=properties&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(async res => {
@@ -174,7 +174,7 @@ describe('ExportController (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=properties`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=properties&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(async res => {
