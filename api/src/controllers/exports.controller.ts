@@ -67,7 +67,7 @@ export class ExportsController {
 
     const queryBuilder = this.termRepo
       .createQueryBuilder('term')
-      .leftJoinAndSelect('term.translations', 'translation', 'translation.project_locale_id = :projectLocaleId', {
+      .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', {
         projectLocaleId: projectLocale.id,
       })
       .where('term.project_id = :projectId', { projectId })
