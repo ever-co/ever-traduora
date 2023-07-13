@@ -70,7 +70,7 @@ export class ExportsController {
       .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', {
         projectLocaleId: projectLocale.id,
       })
-      .where('term.project_id = :projectId', { projectId })
+      .where('term.projectId = :projectId', { projectId })
       .orderBy('term.value', 'ASC');
 
     if (query.untranslated) {
