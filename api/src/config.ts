@@ -2,6 +2,8 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { join } from 'path';
 import * as process from 'process';
 
+import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
+
 const env = process.env;
 
 const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? value === 'true' : defaultValue);
@@ -47,18 +49,18 @@ export const config = {
   },
   db: {
     default: {
-      type: env.TR_DB_TYPE || 'mysql',
+      type: env.TR_DB_TYPE || 'postgres',
       host: env.TR_DB_HOST || '127.0.0.1',
-      port: parseInt(env.TR_DB_PORT, 10) || 3306,
+      port: parseInt(env.TR_DB_PORT, 10) || 5432,
       username: env.TR_DB_USER || 'root',
       password: env.TR_DB_PASSWORD || '',
       database: env.TR_DB_DATABASE || 'tr_dev',
-      charset: 'utf8mb4',
       synchronize: false,
-      logging: false,
+      logging: getBoolOrDefault(env.TR_DB_LOGGING, false),
       keepConnectionAlive: true,
       entities: ['src/entity/*.entity*'],
       migrations: ['src/migrations/*'],
+      namingStrategy: new SnakeNamingStrategy(),
     } as TypeOrmModuleOptions,
   },
 };

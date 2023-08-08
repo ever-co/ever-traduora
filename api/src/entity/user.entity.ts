@@ -12,10 +12,10 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ type: 'binary', length: 60, nullable: true })
+  @Column({ type: 'bytea', nullable: true })
   encryptedPassword: Buffer;
 
-  @Column({ nullable: true })
+  @Column({ type: 'bytea', nullable: true })
   encryptedPasswordResetToken: Buffer;
 
   @Column({
