@@ -20,21 +20,22 @@ Once you setup your project you can import and export your translations to vario
 
 ![Traduora Product Screenshot](docs-website/static/img/traduora-preview.png)
 
-We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core product **open-source** with the intention to grow a **community** and enable developers to build on top of it as a platform. 
+We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core products **open-source** with the intention of growing a **community** and enabling developers to build on top of it as a platform. 
 
 We are going to also use Traduora from our other open-source platforms (currently https://github.com/ever-co/ever-gauzy and https://github.com/ever-co/ever-demand). You are welcome to check more information about the platforms at our official website - https://ever.co.
 
 ## ✨ Features
 
-For quick features review, please see our official docs [screenshots](https://docs.traduora.co/docs/screenshots) page.
+For a quick features review, please see our official docs [screenshots](https://docs.traduora.co/docs/screenshots) page.
 
-Short list of platform features:
-- 5-minute setup with Docker, Kubernetes or from source
-- Find what you are looking for with instant search
+A short list of platform features:
+
+- 5-minute setup with Docker, Kubernetes, or from source
+- Find what you are looking for with an instant search
 - Invite your team, everyone can work together on the same project
 - Automate your translation workflow via our REST API
 - Import and export to your favorite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
-- community contributed CLI available at https://github.com/iilei/traduora-cli (not official CLI)
+- Community-contributed CLI available at https://github.com/iilei/traduora-cli (not official CLI)
 
 For more information check out our official website [traduora.co](https://traduora.co), or our docs at [docs.traduora.co](https://docs.traduora.co).
 
@@ -44,11 +45,15 @@ Any missing feature you'd like to see? File an [issue](https://github.com/ever-c
 
 Please refer to our official [Platform Documentation](https://docs.traduora.co).
 
+## 📊 Activity
+
+![Alt](https://repobeats.axiom.co/api/embed/8ed434d797f3fafdb41858386930efa788949773.svg "Repobeats analytics image")
+
 ## 🚀 Try it out
 
 Traduora can be run just about anywhere, check out our [Quickstart](https://docs.traduora.co/docs/getting-started) for more info.
 
-Also check out Traduora's [Docker Hub page](https://hub.docker.com/r/everco/ever-traduora) for pre-built images.
+Also, check out Traduora's [Docker Hub page](https://hub.docker.com/r/everco/ever-traduora) for pre-built images.
 
 ### Configuration and Deployment
 
@@ -78,7 +83,7 @@ If you discover any issue regarding security, please disclose the information re
  
 ## Internationalization
 
-Of course we'd like Traduora to be available in as many languages as possible. We're setting up a Traduora server for translating Traduora itself, check back soon for more details on how to contribute.
+Of course, we'd like Traduora to be available in as many languages as possible. We're setting up a Traduora server for translating Traduora itself, check back soon for more details on how to contribute.
 
 ## Changelog
 
@@ -98,7 +103,7 @@ Traduora was created by https://github.com/anthonynsimon (https://anthonynsimon.
 **Ever® Demand™**, **Ever® Gauzy™** and **Ever® OpenSaaS™**  are all trademarks of [Ever Co. LTD](https://ever.co).
 The trademarks may only be used with the written permission of Ever Co. LTD. and may not be used to promote or otherwise market competitive products or services.
 
-All other brand and product names are trademarks, registered trademarks or service marks of their respective holders.
+All other brand and product names are trademarks, registered trademarks, or service marks of their respective holders.
 
 ## 🍺 Contribute
 
@@ -111,7 +116,7 @@ We think it's great that you'd like to contribute to Traduora.
 ## 💪 Thanks to our Contributors
 
 See our contributors list in [CONTRIBUTORS.md](https://github.com/ever-co/ever-traduora/blob/develop/.github/CONTRIBUTORS.md).  
-You can also view full list of our [contributors tracked by Github](https://github.com/ever-co/ever-traduora/graphs/contributors).
+You can also view a full list of our [contributors tracked by Github](https://github.com/ever-co/ever-traduora/graphs/contributors).
 
 <img src="https://contributors-img.web.app/image?repo=ever-co/ever-traduora" />
 
