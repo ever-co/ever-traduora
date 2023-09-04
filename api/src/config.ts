@@ -1,4 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { DefaultNamingStrategy } from 'typeorm';
+
 import { join } from 'path';
 import * as process from 'process';
 
@@ -52,15 +54,15 @@ export const config = {
       type: env.TR_DB_TYPE || 'postgres',
       host: env.TR_DB_HOST || '127.0.0.1',
       port: parseInt(env.TR_DB_PORT, 10) || 5432,
-      username: env.TR_DB_USER || 'root',
-      password: env.TR_DB_PASSWORD || '',
-      database: env.TR_DB_DATABASE || 'tr_dev',
+      username: env.TR_DB_USER || 'postgres',
+      password: env.TR_DB_PASSWORD || 'postgres',
+      database: env.TR_DB_DATABASE || 'test',
       synchronize: false,
       logging: getBoolOrDefault(env.TR_DB_LOGGING, false),
       keepConnectionAlive: true,
       entities: ['src/entity/*.entity*'],
       migrations: ['src/migrations/*'],
-      namingStrategy: new SnakeNamingStrategy(),
+      namingStrategy: env.TR_DB_TYPE === 'postgres' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
     } as TypeOrmModuleOptions,
   },
 };
