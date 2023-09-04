@@ -99,6 +99,7 @@ export class init1537535282567 implements MigrationInterface {
         await queryRunner.query(
           'ALTER TABLE `translation` ADD CONSTRAINT `FK_52b10ad0b87f2f52ed24b7dc451` FOREIGN KEY (`projectLocaleId`) REFERENCES `project_locale`(`id`) ON DELETE CASCADE',
         );
+        break;
       default:
         console.log('Unknown DB type');
     }
