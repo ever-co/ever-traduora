@@ -34,6 +34,9 @@ async function bootstrap() {
     console.log('DB migrations up to date');
   }
 
+  const port = config.port;
+  const host = '0.0.0.0';
+
   // Setup swagger
   {
     const options = new DocumentBuilder()
@@ -60,9 +63,12 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, options);
     SwaggerModule.setup('api/v1/swagger', app, document, { customSiteTitle: 'Traduora API v1 docs' });
+    console.log(`Swagger UI available at http://${host == "0.0.0.0" ? "localhost" : host }:${port}/api/v1/swagger`);
   }
 
-  await app.listenAsync(config.port, '0.0.0.0');
+  await app.listen(port, host, () => {
+    console.log(`Listening at http://${host}:${port}`);
+  });
 }
 
 bootstrap();
