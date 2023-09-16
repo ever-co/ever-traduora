@@ -1,0 +1,47 @@
+version: '3.7'
+
+services:
+
+  traduora:
+    image: everco/ever-traduora:latest
+    container_name: traduora
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+          NODE_ENV: ${NODE_ENV:-development}
+    ports:
+     - "8080:8080"
+    environment:
+      TR_DB_TYPE: postgres
+      TR_DB_USER: tr
+      TR_DB_PASSWORD: change_me
+      TR_DB_DATABASE: tr_dev
+      TR_DB_HOST: postgresdb
+      TR_DB_PORT: 5432
+      NODE_ENV: ${NODE_ENV:-development}
+    entrypoint: './docker-entrypoint.compose.sh'
+    restart: on-failure
+    depends_on:
+      - postgresdb
+    links:
+      - postgresdb:${TR_DB_HOST:-postgresdb}
+    networks:
+      - overlay
+
+  postgresdb:
+    image: postgres:15-alpine
+    container_name: postgresdb
+    restart: always
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: tr_dev
+      POSTGRES_USER: tr
+      POSTGRES_PASSWORD: change_me
+    networks:
+      - overlay
+
+networks:
+  overlay:
+      driver: bridge
