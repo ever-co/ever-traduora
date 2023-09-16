@@ -1,5 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
+import { config } from '../config';
 
 @Entity()
 export class User {
@@ -12,10 +13,10 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column({ type: 'binary', length: 60, nullable: true })
+  @Column(config.db.default.type === 'postgres' ? { type: 'bytea', nullable: true } : { type: 'binary', length: 60, nullable: true })
   encryptedPassword: Buffer;
 
-  @Column({ nullable: true })
+  @Column(config.db.default.type === 'postgres' ? { type: 'bytea', nullable: true } : { nullable: true })
   encryptedPasswordResetToken: Buffer;
 
   @Column({
