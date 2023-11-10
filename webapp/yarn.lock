@@ -1199,21 +1199,6 @@
     "@babel/parser" "^7.15.4"
     "@babel/types" "^7.15.4"
 
-"@babel/traverse@^7.13.0", "@babel/traverse@^7.14.8", "@babel/traverse@^7.15.4", "@babel/traverse@^7.8.3":
-  version "7.15.4"
-  resolved "https://registry.yarnpkg.com/@babel/traverse/-/traverse-7.15.4.tgz#ff8510367a144bfbff552d9e18e28f3e2889c22d"
-  integrity sha512-W6lQD8l4rUbQR/vYgSuCAE75ADyyQvOpFVsvPPdkhf6lATXAsQIG9YdtOcu8BB1dZ0LKu+Zo3c1wEcbKeuhdlA==
-  dependencies:
-    "@babel/code-frame" "^7.14.5"
-    "@babel/generator" "^7.15.4"
-    "@babel/helper-function-name" "^7.15.4"
-    "@babel/helper-hoist-variables" "^7.15.4"
-    "@babel/helper-split-export-declaration" "^7.15.4"
-    "@babel/parser" "^7.15.4"
-    "@babel/types" "^7.15.4"
-    debug "^4.1.0"
-    globals "^11.1.0"
-
 "@babel/types@^7.14.5", "@babel/types@^7.14.8", "@babel/types@^7.15.4", "@babel/types@^7.4.4", "@babel/types@^7.8.3", "@babel/types@^7.8.6":
   version "7.15.6"
   resolved "https://registry.yarnpkg.com/@babel/types/-/types-7.15.6.tgz#99abdc48218b2881c058dd0a7ab05b99c9be758f"
