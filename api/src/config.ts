@@ -1,6 +1,10 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { DefaultNamingStrategy } from 'typeorm';
+
 import { join } from 'path';
 import * as process from 'process';
+
+import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
 
 const env = process.env;
 
@@ -59,6 +63,7 @@ export const config = {
       keepConnectionAlive: true,
       entities: ['src/entity/*.entity*'],
       migrations: ['src/migrations/*'],
+      namingStrategy: env.TR_DB_TYPE === 'postgres' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
     } as TypeOrmModuleOptions,
   },
 };
