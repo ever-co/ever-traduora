@@ -15,7 +15,7 @@ export class UserService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
-  ) { }
+  ) {}
 
   async userExists(email: string): Promise<boolean> {
     const normalizedEmail = normalizeEmail(email);

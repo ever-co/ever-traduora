@@ -23,7 +23,7 @@ export default class ProjectController {
     private auth: AuthorizationService,
     @InjectRepository(Project) private projectRepo: Repository<Project>,
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
-  ) { }
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List projects' })
