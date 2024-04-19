@@ -224,11 +224,11 @@ describe('UserController (e2e)', () => {
 
     await request(app.getHttpServer()).get('/api/v1/projects').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(401);
 
-    const project = await getRepository(Project).findOne(testProject.id);
+    const project = await getRepository(Project).findOneBy({ id: testProject.id });
     expect(project).toBeDefined();
     expect(project.id).toEqual(testProject.id);
 
-    const term = await getRepository(Term).findOne(termId);
+    const term = await getRepository(Term).findOneBy({ id: termId });
     expect(term).toBeDefined();
     expect(term.id).toEqual(termId);
 
