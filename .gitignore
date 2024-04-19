@@ -11,3 +11,6 @@ i18n/*
 .DS_STORE
 
 .vscode/
+
+# Cache File
+/.cache
