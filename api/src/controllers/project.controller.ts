@@ -23,7 +23,7 @@ export default class ProjectController {
     private auth: AuthorizationService,
     @InjectRepository(Project) private projectRepo: Repository<Project>,
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
-  ) {}
+  ) { }
 
   @Get()
   @ApiOperation({ summary: 'List projects' })
@@ -105,7 +105,7 @@ export default class ProjectController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditProject);
 
     await this.projectRepo.update(projectId, payload);
-    const project = await this.projectRepo.findOneOrFail(projectId);
+    const project = await this.projectRepo.findOneByOrFail({ id: projectId });
 
     return { data: { ...project, role: membership.role } };
   }
