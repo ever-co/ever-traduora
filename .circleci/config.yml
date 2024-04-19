@@ -12,7 +12,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '16.20.2'
       - run: node --version
       - restore_cache:
           keys:
@@ -45,7 +45,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '16.20.2'
       - run: node --version
       - restore_cache:
           keys:
@@ -81,7 +81,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '16.20.2'
       - run: node --version
       - restore_cache:
           keys:
@@ -112,7 +112,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '16.20.2'
       - run: node --version
       - setup_remote_docker
       - run:
@@ -126,7 +126,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '16.20.2'
       - run: node --version
       - setup_remote_docker
       - run:
@@ -147,13 +147,13 @@ workflows:
             - check_lint
           filters:
               branches:
-                ignore: master  
+                ignore: master
       - test_e2e:
           requires:
             - check_lint
           filters:
               branches:
-                ignore: master  
+                ignore: master
 
   release:
     jobs:
