@@ -22,7 +22,7 @@ export default class ProjectLabelController {
     @InjectRepository(Term) private termsRepo: Repository<Term>,
     @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
     @InjectRepository(Translation) private translationsRepo: Repository<Translation>,
-  ) {}
+  ) { }
 
   @Get()
   @ApiOperation({ summary: `List a project's labels` })
@@ -107,7 +107,7 @@ export default class ProjectLabelController {
   async delete(@Req() req, @Param('projectId') projectId: string, @Param('labelId') labelId: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteLabel);
-    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: membership.project } });
+    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
     await this.labelRepo.remove(label);
   }
 
@@ -122,8 +122,8 @@ export default class ProjectLabelController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
-    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: membership.project } });
-    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: membership.project }, relations: ['labels'] });
+    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
+    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
 
     term.labels.push(label);
 
@@ -149,8 +149,8 @@ export default class ProjectLabelController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
-    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: membership.project } });
-    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: membership.project }, relations: ['labels'] });
+    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
+    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
 
     term.labels = term.labels.filter(t => t.id !== label.id);
 
@@ -174,19 +174,21 @@ export default class ProjectLabelController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
-    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: membership.project } });
+    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
 
     const projectLocale = await this.projectLocaleRepo.findOneOrFail({
       where: {
-        project: membership.project,
-        locale: {
-          code: localeCode,
+        project: {
+          id: membership.project.id
         },
+        locale: {
+          code: localeCode
+        }
       },
     });
 
     const translation = await this.translationsRepo.findOneOrFail({
-      where: { termId: termId, projectLocale: projectLocale },
+      where: { termId: termId, projectLocale: { id: projectLocale.id } },
       relations: ['labels'],
     });
 
@@ -212,11 +214,11 @@ export default class ProjectLabelController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
-    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: membership.project } });
+    const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
 
     const projectLocale = await this.projectLocaleRepo.findOneOrFail({
       where: {
-        project: membership.project,
+        project: { id: membership.project.id },
         locale: {
           code: localeCode,
         },
@@ -224,7 +226,7 @@ export default class ProjectLabelController {
     });
 
     const translation = await this.translationsRepo.findOneOrFail({
-      where: { termId: termId, projectLocale: projectLocale },
+      where: { termId: termId, projectLocale: { id: projectLocale.id } },
       relations: ['labels'],
     });
 

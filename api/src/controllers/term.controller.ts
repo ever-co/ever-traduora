@@ -21,7 +21,7 @@ export default class TermController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(Translation) private translationRepo: Repository<Translation>,
     @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
-  ) {}
+  ) { }
 
   @Get()
   @ApiOperation({ summary: `List a project's terms` })
@@ -75,7 +75,9 @@ export default class TermController {
 
       const projectLocales = await this.projectLocaleRepo.find({
         where: {
-          project: membership.project,
+          project: {
+            id: membership.project.id
+          }
         },
       });
 
@@ -143,7 +145,7 @@ export default class TermController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTerm);
     await this.termRepo.manager.transaction(async entityManager => {
-      const term = await entityManager.findOneOrFail(Term, { where: { id: termId, project: membership.project } });
+      const term = await entityManager.findOneOrFail(Term, { where: { id: termId, project: { id: membership.project.id } } });
       await entityManager.remove(term);
       await entityManager.decrement(Project, { id: membership.project.id }, 'termsCount', 1);
     });
