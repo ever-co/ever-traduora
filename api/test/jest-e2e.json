@@ -8,7 +8,6 @@
 	"testEnvironment": "node",
 	"testTimeout": 120000,
 	"testRegex": ".e2e-spec.ts$",
-	"maxWorkers": 4,
 	"transform": {
 		"^.+\\.(t|j)s$": "ts-jest"
 	}
