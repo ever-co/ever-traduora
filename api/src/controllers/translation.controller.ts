@@ -32,7 +32,7 @@ export default class TranslationController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
     @InjectRepository(Project) private projectRepo: Repository<Project>,
-  ) {}
+  ) { }
 
   @Get()
   @ApiOperation({ summary: 'List all translation locales for a project' })
@@ -95,7 +95,9 @@ export default class TranslationController {
     });
 
     const result = await this.projectLocaleRepo.findOneByOrFail({
-      locale,
+      locale: {
+        code: locale.code
+      },
       project: { id: membership.project.id },
     });
 
