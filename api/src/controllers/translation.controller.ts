@@ -32,7 +32,7 @@ export default class TranslationController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
     @InjectRepository(Project) private projectRepo: Repository<Project>,
-  ) { }
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List all translation locales for a project' })
@@ -44,7 +44,7 @@ export default class TranslationController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
     const locales = await this.projectLocaleRepo.find({
       where: {
-        project: { id: membership.project.id }
+        project: { id: membership.project.id },
       },
       relations: ['locale'],
     });
@@ -96,7 +96,7 @@ export default class TranslationController {
 
     const result = await this.projectLocaleRepo.findOneByOrFail({
       locale,
-      project: { id: membership.project.id }
+      project: { id: membership.project.id },
     });
 
     return {
@@ -128,15 +128,15 @@ export default class TranslationController {
         where: {
           project: { id: membership.project.id },
           locale: {
-            code: localeCode
-          }
+            code: localeCode,
+          },
         },
       });
       try {
         const translations = await this.translationRepo.find({
           where: {
             projectLocale: {
-              id: projectLocale.id
+              id: projectLocale.id,
             },
           },
           relations: ['term', 'labels'],
@@ -189,7 +189,7 @@ export default class TranslationController {
           where: {
             termId: term.id,
             projectLocale: {
-              id: projectLocale.id
+              id: projectLocale.id,
             },
           },
           relations: ['labels'],
@@ -237,8 +237,8 @@ export default class TranslationController {
         where: {
           project: { id: membership.project.id },
           locale: {
-            code: localeCode
-          }
+            code: localeCode,
+          },
         },
       });
       await entityManager.remove(projectLocale);

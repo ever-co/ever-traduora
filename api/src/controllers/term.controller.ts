@@ -21,7 +21,7 @@ export default class TermController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(Translation) private translationRepo: Repository<Translation>,
     @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
-  ) { }
+  ) {}
 
   @Get()
   @ApiOperation({ summary: `List a project's terms` })
@@ -76,8 +76,8 @@ export default class TermController {
       const projectLocales = await this.projectLocaleRepo.find({
         where: {
           project: {
-            id: membership.project.id
-          }
+            id: membership.project.id,
+          },
         },
       });
 

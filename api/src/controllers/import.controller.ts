@@ -50,7 +50,7 @@ export class ImportController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
-  ) { }
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.OK)
@@ -95,8 +95,8 @@ export class ImportController {
           projectLocale = this.projectLocaleRepo.create({
             locale: locale,
             project: {
-              id: membership.project.id
-            }
+              id: membership.project.id,
+            },
           });
           projectLocale = await entityManager.save(ProjectLocale, projectLocale);
           await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);

@@ -13,7 +13,10 @@ import AuthorizationService from '../services/authorization.service';
 @ApiOAuth2([])
 @ApiTags('Project Users')
 export default class ProjectUserController {
-  constructor(private auth: AuthorizationService, @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>) {}
+  constructor(
+    private auth: AuthorizationService,
+    @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
+  ) {}
 
   @Get(':projectId/users')
   @ApiOperation({ summary: 'List all users with access to a project' })

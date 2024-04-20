@@ -22,7 +22,7 @@ export default class ProjectLabelController {
     @InjectRepository(Term) private termsRepo: Repository<Term>,
     @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
     @InjectRepository(Translation) private translationsRepo: Repository<Translation>,
-  ) { }
+  ) {}
 
   @Get()
   @ApiOperation({ summary: `List a project's labels` })
@@ -179,11 +179,11 @@ export default class ProjectLabelController {
     const projectLocale = await this.projectLocaleRepo.findOneOrFail({
       where: {
         project: {
-          id: membership.project.id
+          id: membership.project.id,
         },
         locale: {
-          code: localeCode
-        }
+          code: localeCode,
+        },
       },
     });
 

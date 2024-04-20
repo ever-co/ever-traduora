@@ -25,7 +25,7 @@ export default class ProjectStatsController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
     @InjectRepository(Project) private projectRepo: Repository<Project>,
-  ) { }
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Get stats for project' })
@@ -37,7 +37,7 @@ export default class ProjectStatsController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
     const locales = await this.projectLocaleRepo.find({
       where: {
-        project: { id: membership.project.id }
+        project: { id: membership.project.id },
       },
       relations: ['locale'],
     });
