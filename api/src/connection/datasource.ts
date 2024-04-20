@@ -14,7 +14,7 @@ export const dataSourceOptions = (): DataSourceOptions => {
     host: env.TR_DB_HOST || 'localhost',
     port: parseInt(env.TR_DB_PORT, 10) || 3306,
     username: env.TR_DB_USER || 'root',
-    password: env.TR_DB_PASSWORD || 'root',
+    password: env.TR_DB_PASSWORD || '',
     database: env.TR_DB_DATABASE || 'tr_dev',
     charset: 'utf8mb4',
     synchronize: false,

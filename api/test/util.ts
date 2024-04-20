@@ -109,7 +109,7 @@ export async function createAndMigrateApp(): Promise<INestApplication> {
   const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
   // Create a Nest application instance using the ExpressAdapter
-  let app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
+  const app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
 
   // Apply any middleware, pipes, and filters to the application
   addPipesAndFilters(app);
