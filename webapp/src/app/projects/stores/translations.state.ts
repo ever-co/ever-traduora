@@ -28,22 +28,36 @@ export class GetProjectLocales {
 
 export class AddProjectLocale {
   static readonly type = '[Translations] Add project locale';
-  constructor(public projectId: string, public localeCode: string) {}
+  constructor(
+    public projectId: string,
+    public localeCode: string,
+  ) {}
 }
 
 export class DeleteProjectLocale {
   static readonly type = '[Translations] Delete project locale';
-  constructor(public projectId: string, public localeCode: string) {}
+  constructor(
+    public projectId: string,
+    public localeCode: string,
+  ) {}
 }
 
 export class GetTranslations {
   static readonly type = '[Translations] Get translation';
-  constructor(public projectId: string, public localeCode: string) {}
+  constructor(
+    public projectId: string,
+    public localeCode: string,
+  ) {}
 }
 
 export class UpdateTranslation {
   static readonly type = '[Translations] Update translation';
-  constructor(public projectId: string, public localeCode: string, public termId: string, public value: string) {}
+  constructor(
+    public projectId: string,
+    public localeCode: string,
+    public termId: string,
+    public value: string,
+  ) {}
 }
 
 export interface TranslationsStateModel {

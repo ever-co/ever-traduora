@@ -85,7 +85,12 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
 
   private subs: Subscription[] = [];
 
-  constructor(private store: Store, private route: ActivatedRoute, private router: Router, private preferencesService: PreferencesService) {}
+  constructor(
+    private store: Store,
+    private route: ActivatedRoute,
+    private router: Router,
+    private preferencesService: PreferencesService,
+  ) {}
 
   ngOnInit() {
     this.subs.push(

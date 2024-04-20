@@ -29,7 +29,11 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
 
   tokenIsInvalid = false;
 
-  constructor(private fb: FormBuilder, private store: Store, private route: ActivatedRoute) {}
+  constructor(
+    private fb: FormBuilder,
+    private store: Store,
+    private route: ActivatedRoute,
+  ) {}
 
   ngOnInit() {}
 

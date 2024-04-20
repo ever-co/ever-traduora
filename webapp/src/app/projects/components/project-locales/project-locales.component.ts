@@ -51,7 +51,10 @@ export class ProjectLocalesComponent implements OnInit, OnDestroy {
 
   private sub: Subscription;
 
-  constructor(private store: Store, private router: Router) {}
+  constructor(
+    private store: Store,
+    private router: Router,
+  ) {}
 
   ngOnInit() {
     this.store.dispatch(new GetKnownLocales());

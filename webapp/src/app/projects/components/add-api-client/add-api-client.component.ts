@@ -38,7 +38,11 @@ export class AddApiClientComponent implements OnInit, OnDestroy {
     role: [this.defaultRole, [Validators.required]],
   });
 
-  constructor(private modalService: NgbModal, private fb: FormBuilder, private store: Store) {}
+  constructor(
+    private modalService: NgbModal,
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnInit() {}
 

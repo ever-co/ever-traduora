@@ -31,7 +31,10 @@ export class ImportContainerComponent implements OnInit, OnDestroy {
 
   sub: Subscription;
 
-  constructor(private store: Store, private router: Router) {}
+  constructor(
+    private store: Store,
+    private router: Router,
+  ) {}
 
   async ngOnInit() {
     this.store.dispatch(new GetKnownLocales());
