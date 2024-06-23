@@ -1,13 +1,33 @@
-dist/
-node_modules
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+
+# compiled output
+/dist
+/tmp
+/out-tsc
+
+# dependencies
+node_modules/
 
 lib/core/metadata.js
 lib/core/MetadataBlog.js
 
+#
 translated_docs
 build/
 i18n/*
 
-.DS_STORE
+# System Files
+.DS_Store
+Thumbs.db
 
+# IDE - VSCode
 .vscode/
+
+# misc
+/**/.angular/cache
+npm-debug.log
+yarn-error.log
+
+# Cache File
+/.cache
+/**/.cache
