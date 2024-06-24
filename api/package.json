@@ -43,7 +43,7 @@
 		"class-validator": "^0.13.1",
 		"csv": "^5.5.3",
 		"csv-stringify": "^6.0.5",
-		"ejs": "^3.1.7",
+		"ejs": "^3.1.10",
 		"generate-password": "^1.6.1",
 		"gettext-parser": "^4.0.4",
 		"handlebars": "^4.7.7",
