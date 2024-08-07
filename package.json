@@ -27,6 +27,8 @@
     "build:api": "cross-env yarn --cwd ./api build",
     "build:webapp": "cross-env yarn --cwd ./webapp build",
     "build:docs": "cross-env yarn --cwd ./docs-website build",
+    "start:web": "cross-env yarn --cwd ./webapp start",
+    "start:api": "cross-env yarn --cwd ./api start",
     "commit": "git-cz",
     "commit:lint": "commitlint -E HUSKY_GIT_PARAMS",
     "semantic-release": "semantic-release"
