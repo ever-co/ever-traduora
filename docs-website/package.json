@@ -1,6 +1,6 @@
 {
   "name": "ever-traduora-docs",
-  "version": "0.19.4",
+  "version": "0.19.5",
   "license": "AGPL-3.0-only",
   "homepage": "https://traduora.co",
   "repository": {
@@ -28,10 +28,11 @@
     "docusaurus": "^1.14.7"
   },
   "dependencies": {
-    "bootstrap": "^5.1.1"
+    "bootstrap": "^5.1.1",
+    "jpegtran-bin": "^7.0.0"
   },
   "engines": {
-    "node": ">=14.0.0",
+    "node": ">=18.0.0",
     "yarn": ">=1.13.0"
   },
   "snyk": true

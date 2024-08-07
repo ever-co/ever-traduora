@@ -6,6 +6,7 @@ lib/core/MetadataBlog.js
 
 translated_docs
 build/
+.cache/
 i18n/*
 
 .DS_STORE
