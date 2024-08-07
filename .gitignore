@@ -28,6 +28,8 @@ Thumbs.db
 npm-debug.log
 yarn-error.log
 
-# Cache File
-/.cache
+# Cache Files
+.cache/
 /**/.cache
+
+.vscode/
