@@ -20,10 +20,10 @@ export const dataSourceOptions = (): DataSourceOptions => {
   // Base options object using the more generic DataSourceOptions
   const options: DataSourceOptions = {
     type: dbType,
-    host: env.TR_DB_HOST || 'localhost',
+    host: env.TR_DB_HOST || '127.0.0.1',
     port,
     username: env.TR_DB_USER || 'root',
-    password: env.TR_DB_PASSWORD || 'root',
+    password: env.TR_DB_PASSWORD || '',
     database: env.TR_DB_DATABASE || 'tr_dev',
     charset: 'utf8mb4',
     synchronize: false,
