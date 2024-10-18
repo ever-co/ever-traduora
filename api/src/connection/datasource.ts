@@ -48,10 +48,8 @@ export const getDataSourceConnection = async (): Promise<DataSource> => {
 	}
 
 	try {
-    	console.log('Initializing database connection...');
 		if (!dataSource.isInitialized) {
 			await dataSource.initialize();
-			console.log('Database connection initialized successfully!', dataSource.isInitialized);
 		}
 	} catch (error) {
 		console.error(`Error initializing database connection: ${error?.message}`);
