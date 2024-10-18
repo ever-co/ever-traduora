@@ -22,7 +22,7 @@
 		"build": "tsc && copyfiles src/templates/**/* ../dist",
 		"clean": "rimraf ../dist/src ../dist/test",
 		"lint": "tslint -p tsconfig.json -c tslint.json",
-		"test": "cross-env NODE_ENV=test jest",
+		"test": "cross-env NODE_OPTIONS=--max-old-space-size=3000 NODE_ENV=test jest --watchAll=false --maxWorkers=2",
 		"test:watch": "cross-env NODE_ENV=test TR_ACCESS_LOGS_ENABLED=false jest --watch",
 		"test:e2e": "cross-env NODE_ENV=e2e TR_DEFAULT_PROJECT_PLAN=default TR_ACCESS_LOGS_ENABLED=false TR_DB_DATABASE=tr_e2e jest --config ./test/jest-e2e.json --runInBand --verbose",
 		"test:ci": "yarn test && yarn test:e2e",
