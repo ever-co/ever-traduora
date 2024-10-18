@@ -14,7 +14,8 @@ export const dataSourceOptions = (): DataSourceOptions => {
     const dbType = (env.TR_DB_TYPE as any) || 'mysql';
 
     // Parse the port safely with fallback to 3306 if parsing fails
-    const port = isNaN(parseInt(env.TR_DB_PORT, 10)) ? 3306 : parseInt(env.TR_DB_PORT, 10);
+    const parsedPort = parseInt(env.TR_DB_PORT, 10);
+    const port = Number.isNaN(parsedPort) ? 3306 : parsedPort;
 
     // Base options object using the more generic DataSourceOptions
     const options: DataSourceOptions = {
