@@ -1,6 +1,5 @@
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { propertiesExporter, propertiesParser } from './properties';
-import * as iconv from 'iconv-lite';
 
 test('should parse properties files', async () => {
   const input = loadFixture('simple.properties');

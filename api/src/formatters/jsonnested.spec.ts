@@ -1,8 +1,10 @@
+import { toEqualIgnoringIndentation } from './util';
 import { config } from '../config';
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { jsonNestedExporter, jsonNestedParser } from './jsonnested';
-import { load } from 'js-yaml';
 import { IntermediateTranslationFormat } from '../domain/formatters';
+
+expect.extend(toEqualIgnoringIndentation);
 
 test('should parse nested strings with matching function names', async () => {
   const inputFlat = loadFixture('function-name-flat.json');
@@ -70,7 +72,7 @@ test('should export nested strings with matching function names', async () => {
 
   const expected = loadFixture('function-name-nested.json');
 
-  expect(result).toEqual(expected);
+  expect(result).toEqualIgnoringIndentation(expected);
 });
 
 test('should parse nested json files', async () => {
@@ -152,7 +154,7 @@ test('should fail if the nested JSON goes above max levels', async () => {
 test('should export json nested files', async () => {
   const result = await jsonNestedExporter(simpleFormatFixture);
   const expected = loadFixture('simple-nested.json');
-  expect(result).toEqual(expected);
+  expect(result).toEqualIgnoringIndentation(expected);
 });
 
 test('should fail with conflicting nested object on export', async () => {

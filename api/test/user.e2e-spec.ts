@@ -1,7 +1,7 @@
-import { Connection } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { getRepository } from 'typeorm';
+import { getDataSourceConnection } from '../src/connection/datasource';
 import { ProjectLocale } from '../src/entity/project-locale.entity';
 import { Project } from '../src/entity/project.entity';
 import { Term } from '../src/entity/term.entity';
@@ -10,6 +10,7 @@ import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject,
 
 describe('UserController (e2e)', () => {
   let app: INestApplication;
+  let connection: DataSource;
   let testingUser: TestingUser;
   let testingUser2: TestingUser;
   let testingUser3: TestingUser;
@@ -18,6 +19,7 @@ describe('UserController (e2e)', () => {
 
   beforeEach(async () => {
     app = await createAndMigrateApp();
+    connection = await getDataSourceConnection();
     testingUser = await signupTestUser(app);
     testingUser2 = await signupTestUser(app, 'e2e-user2@test.com');
     testingUser3 = await signupTestUser(app, 'e2e-user3@test.com');
@@ -224,15 +226,15 @@ describe('UserController (e2e)', () => {
 
     await request(app.getHttpServer()).get('/api/v1/projects').set('Authorization', `Bearer ${testingUser3.accessToken}`).expect(401);
 
-    const project = await getRepository(Project).findOne(testProject.id);
+    const project = await connection.getRepository(Project).findOneBy({ id: testProject.id });
     expect(project).toBeDefined();
     expect(project.id).toEqual(testProject.id);
 
-    const term = await getRepository(Term).findOne(termId);
+    const term = await connection.getRepository(Term).findOneBy({ id: termId });
     expect(term).toBeDefined();
     expect(term.id).toEqual(termId);
 
-    const projectLocales = await getRepository(ProjectLocale).find({
+    const projectLocales = await connection.getRepository(ProjectLocale).find({
       where: { project: { id: testProject.id } },
       relations: ['locale'],
     });
@@ -242,7 +244,7 @@ describe('UserController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.get(Connection).close();
+    await connection.destroy();
     await app.close();
   });
 });

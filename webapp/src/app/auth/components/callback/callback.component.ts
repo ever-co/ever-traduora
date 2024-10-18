@@ -9,7 +9,11 @@ import { ReceiveAuthProviderCode } from '../../stores/auth.state';
   styleUrls: ['./callback.component.css'],
 })
 export class AuthCallbackComponent implements OnInit {
-  constructor(private activatedRoute: ActivatedRoute, private store: Store, private router: Router) {}
+  constructor(
+    private activatedRoute: ActivatedRoute,
+    private store: Store,
+    private router: Router,
+  ) {}
   ngOnInit(): void {
     this.activatedRoute.queryParams.subscribe(params => {
       if (!params.code) {

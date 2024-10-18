@@ -27,7 +27,11 @@ export class NewProjectComponent implements OnInit, OnDestroy {
 
   modal: NgbModalRef | undefined;
 
-  constructor(private modalService: NgbModal, private fb: FormBuilder, private store: Store) {}
+  constructor(
+    private modalService: NgbModal,
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnInit() {}
 

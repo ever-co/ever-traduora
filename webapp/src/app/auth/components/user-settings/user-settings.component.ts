@@ -36,7 +36,10 @@ export class UserSettingsComponent implements OnInit, OnDestroy {
 
   private sub: Subscription;
 
-  constructor(private fb: FormBuilder, private store: Store) {}
+  constructor(
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnInit() {
     this.sub = this.user$

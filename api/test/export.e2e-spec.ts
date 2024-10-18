@@ -100,7 +100,7 @@ describe('ExportController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/exports?format=jsonflat (GET) should export project translation in JSON flat format', async () => {
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -139,7 +139,7 @@ describe('ExportController (e2e)', () => {
     }
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -150,7 +150,7 @@ describe('ExportController (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=properties`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=properties&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(async res => {
@@ -163,7 +163,7 @@ describe('ExportController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/exports (GET) should export translation with utf-8 characters in various formats', async () => {
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -174,7 +174,7 @@ describe('ExportController (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=properties`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=properties&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(async res => {
@@ -197,7 +197,7 @@ describe('ExportController (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=es_CR&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=es_CR&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
@@ -226,20 +226,20 @@ describe('ExportController (e2e)', () => {
 
     // unknown locale
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=dd_DD&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=dd_DD&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(404);
 
     // unknown format
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=flatjson`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=flatjson&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(400);
   });
 
   it('/api/v1/projects/:projectId/exports?format=jsonflat (GET) should not export if locale does not exist for project', async () => {
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=es&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=es&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(404);
   });
@@ -250,7 +250,7 @@ describe('ExportController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/exports should not access exports resource if not authorized', async () => {
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${anotherUser.accessToken}`)
       .expect(404);
   });

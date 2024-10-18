@@ -29,7 +29,11 @@ export class ProjectSettingsComponent implements OnInit, OnDestroy {
 
   sub: Subscription;
 
-  constructor(private fb: FormBuilder, private store: Store, private route: ActivatedRoute) {}
+  constructor(
+    private fb: FormBuilder,
+    private store: Store,
+    private route: ActivatedRoute,
+  ) {}
 
   ngOnInit() {
     this.store.dispatch(new ReloadCurrentProject());

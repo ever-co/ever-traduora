@@ -40,7 +40,10 @@ export class ImportLocaleComponent implements OnInit {
   files: File[] = [];
   result: ImportResult | undefined = undefined;
 
-  constructor(private importService: ImportService, private store: Store) {}
+  constructor(
+    private importService: ImportService,
+    private store: Store,
+  ) {}
 
   ngOnInit() {}
 

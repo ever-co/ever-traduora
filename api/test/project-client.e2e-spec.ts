@@ -300,7 +300,7 @@ describe('ProjectClientController (e2e)', () => {
 
     // try to export project translations
     await request(app.getHttpServer())
-      .get(`/api/v1/projects/${testProject1.id}/exports?locale=de_DE&format=jsonflat`)
+      .get(`/api/v1/projects/${testProject1.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`)
       .set('Authorization', `Bearer ${testProjectClient1.accessToken}`)
       .expect(200);
   });

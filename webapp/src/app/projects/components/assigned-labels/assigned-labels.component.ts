@@ -44,7 +44,10 @@ export class AssignedLabelsComponent implements OnInit {
 
   selectedLabel: Label | undefined;
 
-  constructor(private modalService: NgbModal, private store: Store) {}
+  constructor(
+    private modalService: NgbModal,
+    private store: Store,
+  ) {}
 
   ngOnInit() {}
 
