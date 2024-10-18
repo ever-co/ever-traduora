@@ -37,7 +37,7 @@ export default class ProjectStatsController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
     const locales = await this.projectLocaleRepo.find({
       where: {
-        project: membership.project,
+        project: { id: membership.project.id },
       },
       relations: ['locale'],
     });

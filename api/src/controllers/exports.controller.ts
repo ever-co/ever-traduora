@@ -54,7 +54,9 @@ export class ExportsController {
     // Ensure locale is requested project locale
     const projectLocale = await this.projectLocaleRepo.findOne({
       where: {
-        project: membership.project,
+        project: {
+          id: membership.project.id,
+        },
         locale: {
           code: query.locale,
         },
@@ -98,7 +100,9 @@ export class ExportsController {
     if (query.fallbackLocale) {
       const fallbackProjectLocale = await this.projectLocaleRepo.findOne({
         where: {
-          project: membership.project,
+          project: {
+            id: membership.project.id,
+          },
           locale: {
             code: query.fallbackLocale,
           },

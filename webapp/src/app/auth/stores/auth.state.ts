@@ -27,7 +27,11 @@ export class GetProviders {
 
 export class Signup {
   static readonly type = '[Auth] Signup';
-  constructor(public name: string, public email: string, public password: string) {}
+  constructor(
+    public name: string,
+    public email: string,
+    public password: string,
+  ) {}
 }
 
 export class UpdateUserSelf {
@@ -37,7 +41,10 @@ export class UpdateUserSelf {
 
 export class Login {
   static readonly type = '[Auth] Login';
-  constructor(public email: string, public password: string) {}
+  constructor(
+    public email: string,
+    public password: string,
+  ) {}
 }
 
 export class ReceiveAuthProviderCode {
@@ -62,12 +69,19 @@ export class ForgotPassword {
 
 export class ResetPassword {
   static readonly type = '[Auth] Reset password';
-  constructor(public email: string, public newPassword: string, public token: string) {}
+  constructor(
+    public email: string,
+    public newPassword: string,
+    public token: string,
+  ) {}
 }
 
 export class ChangePassword {
   static readonly type = '[Auth] Change password';
-  constructor(public oldPassword: string, public newPassword: string) {}
+  constructor(
+    public oldPassword: string,
+    public newPassword: string,
+  ) {}
 }
 
 export class ClearMessages {
@@ -86,7 +100,10 @@ export class MustLogin {
 
 export class AuthError {
   static readonly type = '[Auth] Auth Error';
-  constructor(public type: string, public error: any) {}
+  constructor(
+    public type: string,
+    public error: any,
+  ) {}
 }
 
 export interface AuthStateModel {
@@ -113,7 +130,10 @@ export interface AuthStateModel {
 })
 @Injectable({ providedIn: 'root' })
 export class AuthState implements NgxsOnInit {
-  constructor(private authService: AuthService, private tokenService: TokenService) {}
+  constructor(
+    private authService: AuthService,
+    private tokenService: TokenService,
+  ) {}
 
   @Selector()
   static isLoading(state: AuthStateModel) {

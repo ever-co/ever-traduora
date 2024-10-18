@@ -20,17 +20,28 @@ export class GetProjectInvites {
 
 export class AddProjectInvite {
   static readonly type = '[ProjectInvite] Add project invite';
-  constructor(public projectId: string, public email: string, public role: ProjectRole) {}
+  constructor(
+    public projectId: string,
+    public email: string,
+    public role: ProjectRole,
+  ) {}
 }
 
 export class UpdateProjectInvite {
   static readonly type = '[ProjectInvite] Update project invite';
-  constructor(public projectId: string, public inviteId: string, public role: ProjectRole) {}
+  constructor(
+    public projectId: string,
+    public inviteId: string,
+    public role: ProjectRole,
+  ) {}
 }
 
 export class RemoveProjectInvite {
   static readonly type = '[ProjectInvite] Remove project invite';
-  constructor(public projectId: string, public inviteId: string) {}
+  constructor(
+    public projectId: string,
+    public inviteId: string,
+  ) {}
 }
 
 export interface ProjectInviteStateModel {
@@ -51,7 +62,10 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class ProjectInviteState implements NgxsOnInit {
-  constructor(private projectInviteService: ProjectInviteService, private store: Store) {}
+  constructor(
+    private projectInviteService: ProjectInviteService,
+    private store: Store,
+  ) {}
 
   @Selector()
   static isLoading(state: ProjectInviteStateModel) {

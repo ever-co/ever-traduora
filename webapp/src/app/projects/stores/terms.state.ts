@@ -20,17 +20,29 @@ export class GetTerms {
 
 export class CreateTerm {
   static readonly type = '[Terms] Create term';
-  constructor(public projectId: string, public value: string, public context?: string) {}
+  constructor(
+    public projectId: string,
+    public value: string,
+    public context?: string,
+  ) {}
 }
 
 export class UpdateTerm {
   static readonly type = '[Terms] Update term';
-  constructor(public projectId: string, public termId: string, public value: string, public context?: string) {}
+  constructor(
+    public projectId: string,
+    public termId: string,
+    public value: string,
+    public context?: string,
+  ) {}
 }
 
 export class DeleteTerm {
   static readonly type = '[Terms] Delete term';
-  constructor(public projectId: string, public termId: string) {}
+  constructor(
+    public projectId: string,
+    public termId: string,
+  ) {}
 }
 
 export interface TermsStateModel {

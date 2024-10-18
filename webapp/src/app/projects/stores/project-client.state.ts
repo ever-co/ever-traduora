@@ -20,17 +20,28 @@ export class GetProjectClients {
 
 export class AddProjectClient {
   static readonly type = '[ProjectClient] Add project client';
-  constructor(public projectId: string, public name: string, public role: ProjectRole) {}
+  constructor(
+    public projectId: string,
+    public name: string,
+    public role: ProjectRole,
+  ) {}
 }
 
 export class UpdateProjectClient {
   static readonly type = '[ProjectClient] Update project client';
-  constructor(public projectId: string, public clientId: string, public role: ProjectRole) {}
+  constructor(
+    public projectId: string,
+    public clientId: string,
+    public role: ProjectRole,
+  ) {}
 }
 
 export class RemoveProjectClient {
   static readonly type = '[ProjectClient] Remove project client';
-  constructor(public projectId: string, public clientId: string) {}
+  constructor(
+    public projectId: string,
+    public clientId: string,
+  ) {}
 }
 
 export interface ProjectClientStateModel {
@@ -51,7 +62,10 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class ProjectClientState implements NgxsOnInit {
-  constructor(private projectClientService: ProjectClientService, private store: Store) {}
+  constructor(
+    private projectClientService: ProjectClientService,
+    private store: Store,
+  ) {}
 
   @Selector()
   static isLoading(state: ProjectClientStateModel) {

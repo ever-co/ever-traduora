@@ -94,7 +94,9 @@ export class ImportController {
           // Extract into service for creating project locales
           projectLocale = this.projectLocaleRepo.create({
             locale: locale,
-            project: membership.project,
+            project: {
+              id: membership.project.id,
+            },
           });
           projectLocale = await entityManager.save(ProjectLocale, projectLocale);
           await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);

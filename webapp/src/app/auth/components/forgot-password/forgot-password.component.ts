@@ -14,7 +14,10 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
     email: ['', [Validators.required, Validators.email]],
   });
 
-  constructor(private fb: FormBuilder, private store: Store) {}
+  constructor(
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   @Select(state => state.auth.statusMessage)
   statusMessage$: Observable<string | undefined>;
