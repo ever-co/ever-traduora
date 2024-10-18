@@ -1,18 +1,20 @@
 // utils.ts
 export const toEqualIgnoringIndentation = {
   toEqualIgnoringIndentation(received, expected) {
-    const normalizeString = (str: string) => {
-      return str
-        .split('\n') // Split into lines
-        .map(line => line.trim()) // Trim each line
-        .join(' ') // Join all lines with a single space
-        .replace(/\s+/g, ' '); // Replace multiple spaces with a single space
-    };
+    let parsedReceived;
+    let parsedExpected;
 
-    const normalizedReceived = normalizeString(received);
-    const normalizedExpected = normalizeString(expected);
+    try {
+      parsedReceived = JSON.parse(received);
+      parsedExpected = JSON.parse(expected);
+    } catch (error) {
+      return {
+        message: () => `One or both of the values are not valid JSON strings.`,
+        pass: false,
+      };
+    }
 
-    const pass = normalizedReceived === normalizedExpected;
+    const pass = this.equals(parsedReceived, parsedExpected);
 
     if (pass) {
       return {
