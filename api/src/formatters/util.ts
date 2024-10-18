@@ -1,6 +1,6 @@
 export const toEqualIgnoringIndentation = {
   toEqualIgnoringIndentation(received, expected) {
-    const normalizeObject = (obj) => {
+    const normalizeObject = obj => {
       if (typeof obj === 'string') {
         return obj.trim();
       }
@@ -8,12 +8,7 @@ export const toEqualIgnoringIndentation = {
         return obj.map(normalizeObject);
       }
       if (typeof obj === 'object' && obj !== null) {
-        return Object.fromEntries(
-          Object.entries(obj).map(([key, value]) => [
-            key.trim(),
-            normalizeObject(value),
-          ])
-        );
+        return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key.trim(), normalizeObject(value)]));
       }
       return obj;
     };
@@ -25,14 +20,12 @@ export const toEqualIgnoringIndentation = {
 
     if (pass) {
       return {
-        message: () =>
-          `expected ${this.utils.printReceived(received)} not to equal (ignoring indentation) ${this.utils.printExpected(expected)}`,
+        message: () => `expected ${this.utils.printReceived(received)} not to equal (ignoring indentation) ${this.utils.printExpected(expected)}`,
         pass: true,
       };
     } else {
       return {
-        message: () =>
-          `expected ${this.utils.printReceived(received)} to equal (ignoring indentation) ${this.utils.printExpected(expected)}`,
+        message: () => `expected ${this.utils.printReceived(received)} to equal (ignoring indentation) ${this.utils.printExpected(expected)}`,
         pass: false,
       };
     }
