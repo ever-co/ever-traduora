@@ -57,6 +57,8 @@ export const config = {
       username: env.TR_DB_USER || 'root',
       password: env.TR_DB_PASSWORD || '',
       database: env.TR_DB_DATABASE || 'tr_dev',
+      // forcing typeorm to use (mysql2) if both (mysql/mysql2) packages found, it prioritize to load (mysql)
+      connectorPackage: 'mysql2',
       charset: 'utf8mb4',
       synchronize: false,
       logging: false,
