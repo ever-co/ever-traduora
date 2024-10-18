@@ -19,18 +19,18 @@ export const dataSourceOptions = (): DataSourceOptions => {
 
     // Base options object using the more generic DataSourceOptions
     const options: DataSourceOptions = {
-      type: dbType,
-      host: env.TR_DB_HOST || 'localhost',
-      port,
-      username: env.TR_DB_USER || 'root',
-      password: env.TR_DB_PASSWORD || 'root',
-      database: env.TR_DB_DATABASE || 'tr_dev',
-      charset: 'utf8mb4',
-      synchronize: false,
-      logging: false,
-      entities: [__dirname + '/../entity/*.entity.{js,ts}'],
-      migrations: [__dirname + '/../migrations/*.{js,ts}'],
-      namingStrategy: dbType === 'postgres' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
+		type: dbType,
+		host: env.TR_DB_HOST || 'localhost',
+		port,
+		username: env.TR_DB_USER || 'root',
+		password: env.TR_DB_PASSWORD || 'root',
+		database: env.TR_DB_DATABASE || 'tr_dev',
+		charset: 'utf8mb4',
+		synchronize: false,
+		logging: false,
+		entities: [__dirname + '/../entity/*.entity.{js,ts}'],
+		migrations: [__dirname + '/../migrations/*.{js,ts}'],
+		namingStrategy: dbType === 'postgres' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
     };
 
     return options;
@@ -48,8 +48,10 @@ export const getDataSourceConnection = async (): Promise<DataSource> => {
 	}
 
 	try {
+    	console.log('Initializing database connection...');
 		if (!dataSource.isInitialized) {
 			await dataSource.initialize();
+			console.log('Database connection initialized successfully!', dataSource.isInitialized);
 		}
 	} catch (error) {
 		console.error(`Error initializing database connection: ${error?.message}`);
