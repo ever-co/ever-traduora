@@ -28,7 +28,7 @@
     "docusaurus": "^1.14.7"
   },
   "dependencies": {
-    "bootstrap": "^5.1.1",
+    "bootstrap": "^4.6.2",
     "jpegtran-bin": "^7.0.0"
   },
   "engines": {
