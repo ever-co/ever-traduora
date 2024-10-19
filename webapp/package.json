@@ -18,7 +18,7 @@
   },
   "scripts": {
     "ng": "cross-env NODE_OPTIONS=--openssl-legacy-provider ng",
-    "start": "yarn ng serve",
+    "start": "yarn ng serve --open",
     "postinstall": "ngcc",
     "clean": "rimraf ../dist/public",
     "build": "yarn ng build",
