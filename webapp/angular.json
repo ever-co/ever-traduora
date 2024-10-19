@@ -22,7 +22,10 @@
             "assets": ["src/favicon.ico", "src/assets"],
             "styles": ["src/styles.scss"],
             "scripts": [],
-            "allowedCommonJsDependencies": ["lodash"]
+            "allowedCommonJsDependencies": [
+              "lodash",
+              "file-saver"
+            ]
           },
           "configurations": {
             "production": {
@@ -112,6 +115,5 @@
         }
       }
     }
-  },
-  "defaultProject": "traduora-webapp"
+  }
 }
