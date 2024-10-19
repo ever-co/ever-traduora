@@ -11,3 +11,7 @@ $theme-colors: (
   light: #f5f7f9,
 );
 $light-gray: #e9ecef;
+
+ngb-modal-window:last-of-type {
+  z-index: 1056 !important;
+}
