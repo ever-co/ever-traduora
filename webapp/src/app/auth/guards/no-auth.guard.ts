@@ -9,7 +9,7 @@ import { AuthState } from '../stores/auth.state';
 @Injectable({
   providedIn: 'root',
 })
-export class NoAuthGuard  {
+export class NoAuthGuard {
   constructor(private store: Store) {}
 
   canActivate(next: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> | Promise<boolean> | boolean {

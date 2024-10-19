@@ -9,7 +9,7 @@ import { ProjectUserState } from '../../projects/stores/project-user.state';
 @Injectable({
   providedIn: 'root',
 })
-export class CanGuard  {
+export class CanGuard {
   user$: Observable<ProjectUser>;
 
   constructor(private store: Store) {

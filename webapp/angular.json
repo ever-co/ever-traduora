@@ -22,10 +22,7 @@
             "assets": ["src/favicon.ico", "src/assets"],
             "styles": ["src/styles.scss"],
             "scripts": [],
-            "allowedCommonJsDependencies": [
-              "lodash",
-              "file-saver"
-            ]
+            "allowedCommonJsDependencies": ["lodash", "file-saver"]
           },
           "configurations": {
             "production": {

@@ -1,5 +1,5 @@
 .list-group-item.active * {
-    color: white !important;
+  color: white !important;
 }
 
 .list-group-item:hover:not(.active) {
