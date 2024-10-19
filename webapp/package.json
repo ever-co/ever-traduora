@@ -43,7 +43,7 @@
     "@ngxs/store": "3.8.2",
     "@popperjs/core": "^2.11.8",
     "bcrypt": "^5.1.1",
-    "bootstrap": "^4.6.2",
+    "bootstrap": "^5.1.1",
     "core-js": "^3.17.3",
     "crypto": "^1.0.1",
     "file-saver": "^2.0.5",
