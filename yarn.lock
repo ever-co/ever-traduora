@@ -3937,26 +3937,26 @@
   resolved "https://registry.yarnpkg.com/@ngtools/webpack/-/webpack-16.2.16.tgz#512da8f3459faafd0cc1f7f7cbec96b678377be6"
   integrity sha512-4gm2allK0Pjy/Lxb9IGRnhEZNEOJSOTWwy09VOdHouV2ODRK7Tto2LgteaFJUUSLkuvWRsI7pfuA6yrz8KDfHw==
 
-"@ngxs/devtools-plugin@^3.7.2":
-  version "3.7.2"
-  resolved "https://registry.yarnpkg.com/@ngxs/devtools-plugin/-/devtools-plugin-3.7.2.tgz#995424e5faf48df55a1b54b9e1b36ce9c47c1d52"
-  integrity sha512-kRuOx1GPXHHZZAeQMm1J1msTZxjgiAUY4NR7bzaQPn+UwSY2OgGEsd8driMM5YSTF1hOjcFHinaLCM1vmu8FmQ==
+"@ngxs/devtools-plugin@3.8.2":
+  version "3.8.2"
+  resolved "https://registry.yarnpkg.com/@ngxs/devtools-plugin/-/devtools-plugin-3.8.2.tgz#0deb8aac228483ede44c20ed3a6488e824c4f3fc"
+  integrity sha512-4FWZWJTtgrlTUsiprIBGHaQqvvFKiTesYK9+dg03NGv7z74Z5pNtPVbO1hMeuMmqaJ8r18fDZ3wIfXlXC6noNA==
   dependencies:
-    tslib "^1.9.0"
+    tslib "^2.2.0"
 
-"@ngxs/router-plugin@^3.7.2":
-  version "3.7.2"
-  resolved "https://registry.yarnpkg.com/@ngxs/router-plugin/-/router-plugin-3.7.2.tgz#7ad0e371966a184e53ece1cb37b06b2012e1ddee"
-  integrity sha512-PWhRJahd4G94JCfNSgsn6M0HNshMI7W+UpCYILkh5DQTlyxeUGtMA7QR0kIHA5h58y8lYNecA33loL84wGPkNQ==
+"@ngxs/router-plugin@3.8.2":
+  version "3.8.2"
+  resolved "https://registry.yarnpkg.com/@ngxs/router-plugin/-/router-plugin-3.8.2.tgz#829429d0a4c9252a7c60f3efabf81b1bb4982536"
+  integrity sha512-hD2mLF7X9S7ZtPezVtGfnQ+ZP/lbL5+3TmtoGaG+Fz2yN4YyJxfODUIt6djtC4nHnQNFpTfKdaFqJ8aBYCgdDw==
   dependencies:
-    tslib "^1.9.0"
+    tslib "^2.2.0"
 
-"@ngxs/store@^3.7.2":
-  version "3.7.2"
-  resolved "https://registry.yarnpkg.com/@ngxs/store/-/store-3.7.2.tgz#1088b0669adc382d36ca7ae8438c603e55879b42"
-  integrity sha512-1cnAjHOGCovfvhjtcAWBajrMXos97Un3c8ekKoS8FIHnq3aQOzY/ePspDRNi9kTcuBJ/r/xl097JC1ssEuNbyg==
+"@ngxs/store@3.8.2":
+  version "3.8.2"
+  resolved "https://registry.yarnpkg.com/@ngxs/store/-/store-3.8.2.tgz#f6c8553e03db95baea7684f0f227c0e9a8095983"
+  integrity sha512-IovxuGQDEpB9VefmbTaV1k4hms4iZ4aS9gPVZOC+qzyfvpi7zrUEsjo+yT6FfVBmBg/RLUmPCtqArzbKU5XrLQ==
   dependencies:
-    tslib "^1.9.0"
+    tslib "^2.2.0"
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
