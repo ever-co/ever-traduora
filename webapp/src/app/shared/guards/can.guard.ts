@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ActivatedRouteSnapshot, CanActivate, RouterStateSnapshot } from '@angular/router';
+import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -9,7 +9,7 @@ import { ProjectUserState } from '../../projects/stores/project-user.state';
 @Injectable({
   providedIn: 'root',
 })
-export class CanGuard implements CanActivate {
+export class CanGuard  {
   user$: Observable<ProjectUser>;
 
   constructor(private store: Store) {

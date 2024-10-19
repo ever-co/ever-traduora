@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ActivatedRouteSnapshot, CanActivate, RouterStateSnapshot } from '@angular/router';
+import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { Navigate } from '@ngxs/router-plugin';
 import { Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
@@ -9,7 +9,7 @@ import { AuthState } from '../stores/auth.state';
 @Injectable({
   providedIn: 'root',
 })
-export class NoAuthGuard implements CanActivate {
+export class NoAuthGuard  {
   constructor(private store: Store) {}
 
   canActivate(next: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> | Promise<boolean> | boolean {
