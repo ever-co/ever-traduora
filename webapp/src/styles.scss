@@ -1,6 +1,5 @@
 @import './custom_bootstrap.scss';
 
-
 html,
 body {
   background-color: map-get($theme-colors, 'light');
@@ -9,7 +8,13 @@ body {
 }
 
 * {
-  font-family: Ubuntu, -apple-system, BlinkMacSystemFont, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    Ubuntu,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Open Sans',
+    'Helvetica Neue',
+    sans-serif;
 }
 
 * {
@@ -53,7 +58,13 @@ body {
 }
 
 .font-serif {
-  font-family: 'Varela Round', -apple-system, BlinkMacSystemFont, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    'Varela Round',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Open Sans',
+    'Helvetica Neue',
+    sans-serif;
 }
 
 .font-mono {

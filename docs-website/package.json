@@ -1,5 +1,5 @@
-{  
-  "name": "ever-traduora-docs",
+{
+  "name": "@ever-traduora/docs",
   "version": "0.19.5",
   "license": "AGPL-3.0-only",
   "homepage": "https://traduora.co",
@@ -28,7 +28,7 @@
     "docusaurus": "^1.14.7"
   },
   "dependencies": {
-    "bootstrap": "^5.1.1",
+    "bootstrap": "^4.6.2",
     "jpegtran-bin": "^7.0.0"
   },
   "engines": {
