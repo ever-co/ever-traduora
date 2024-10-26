@@ -41,7 +41,6 @@
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
-    "crypto": "^1.0.1",
     "csv": "^5.5.3",
     "csv-stringify": "^6.0.5",
     "ejs": "^3.1.10",
