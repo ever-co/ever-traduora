@@ -45,7 +45,6 @@
     "bcrypt": "^5.1.1",
     "bootstrap": "^4.6.2",
     "core-js": "^3.17.3",
-    "crypto": "^1.0.1",
     "file-saver": "^2.0.5",
     "flag-icon-css": "^3.5.0",
     "jwt-decode": "^3.1.2",
