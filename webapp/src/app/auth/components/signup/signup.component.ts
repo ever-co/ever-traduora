@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { UntypedFormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, Validators } from '@angular/forms';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
@@ -32,7 +32,7 @@ export class SignupComponent implements OnInit, OnDestroy {
   providers$: Observable<Provider[]>;
 
   constructor(
-    private fb: UntypedFormBuilder,
+    private fb: FormBuilder,
     private store: Store,
   ) {}
 
