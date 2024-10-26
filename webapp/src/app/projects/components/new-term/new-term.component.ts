@@ -1,5 +1,5 @@
 import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { UntypedFormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, Validators } from '@angular/forms';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
@@ -33,7 +33,7 @@ export class NewTermComponent implements OnInit, OnDestroy {
 
   constructor(
     private modalService: NgbModal,
-    private fb: UntypedFormBuilder,
+    private fb: FormBuilder,
     private store: Store,
   ) {}
 

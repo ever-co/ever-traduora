@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { UntypedFormBuilder, Validators } from '@angular/forms';
+import { FormBuilder, Validators } from '@angular/forms';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { ClearMessages, ForgotPassword } from '../../stores/auth.state';
@@ -15,7 +15,7 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   });
 
   constructor(
-    private fb: UntypedFormBuilder,
+    private fb: FormBuilder,
     private store: Store,
   ) {}
 
