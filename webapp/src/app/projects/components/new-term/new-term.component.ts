@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
@@ -11,7 +11,7 @@ import { ClearMessages, CreateTerm } from '../../stores/terms.state';
   templateUrl: './new-term.component.html',
   styleUrls: ['./new-term.component.css'],
 })
-export class NewTermComponent implements OnInit, OnDestroy {
+export class NewTermComponent implements OnDestroy {
   @Input()
   btnClass = 'btn-light';
 
@@ -31,9 +31,11 @@ export class NewTermComponent implements OnInit, OnDestroy {
 
   modal: NgbModalRef | undefined;
 
-  constructor(private modalService: NgbModal, private fb: FormBuilder, private store: Store) {}
-
-  ngOnInit() {}
+  constructor(
+    private modalService: NgbModal,
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnDestroy() {
     this.reset();

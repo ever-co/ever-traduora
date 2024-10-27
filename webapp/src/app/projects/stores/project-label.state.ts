@@ -18,37 +18,67 @@ export class GetProjectLabels {
 
 export class CreateProjectLabel {
   static readonly type = '[ProjectLabel] Create project label';
-  constructor(public projectId: string, public value: string, public color: string) {}
+  constructor(
+    public projectId: string,
+    public value: string,
+    public color: string,
+  ) {}
 }
 
 export class UpdateProjectLabel {
   static readonly type = '[ProjectLabel] Update project label';
-  constructor(public projectId: string, public labelId: string, public value: string, public color: string) {}
+  constructor(
+    public projectId: string,
+    public labelId: string,
+    public value: string,
+    public color: string,
+  ) {}
 }
 
 export class RemoveProjectLabel {
   static readonly type = '[ProjectLabel] Remove project label';
-  constructor(public projectId: string, public labelId: string) {}
+  constructor(
+    public projectId: string,
+    public labelId: string,
+  ) {}
 }
 
 export class LabelTerm {
   static readonly type = '[ProjectLabel] Label term';
-  constructor(public projectId: string, public label: Label, public termId: string) {}
+  constructor(
+    public projectId: string,
+    public label: Label,
+    public termId: string,
+  ) {}
 }
 
 export class UnlabelTerm {
   static readonly type = '[ProjectLabel] Unlabel term';
-  constructor(public projectId: string, public label: Label, public termId: string) {}
+  constructor(
+    public projectId: string,
+    public label: Label,
+    public termId: string,
+  ) {}
 }
 
 export class LabelTranslation {
   static readonly type = '[ProjectLabel] Label translation';
-  constructor(public projectId: string, public label: Label, public termId: string, public localeCode: string) {}
+  constructor(
+    public projectId: string,
+    public label: Label,
+    public termId: string,
+    public localeCode: string,
+  ) {}
 }
 
 export class UnlabelTranslation {
   static readonly type = '[ProjectLabel] Unlabel translation';
-  constructor(public projectId: string, public label: Label, public termId: string, public localeCode: string) {}
+  constructor(
+    public projectId: string,
+    public label: Label,
+    public termId: string,
+    public localeCode: string,
+  ) {}
 }
 
 export interface ProjectLabelStateModel {
@@ -69,7 +99,10 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class ProjectLabelState implements NgxsOnInit {
-  constructor(private projectLabelsService: ProjectLabelService, private store: Store) {}
+  constructor(
+    private projectLabelsService: ProjectLabelService,
+    private store: Store,
+  ) {}
 
   @Selector()
   static labels(state: ProjectLabelStateModel) {
@@ -86,7 +119,10 @@ export class ProjectLabelState implements NgxsOnInit {
     return state.errorMessage;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectLabelStateModel>) {}
+  ngxsOnInit(_ctx: StateContext<ProjectLabelStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
 
   @Action(GetProjectLabels)
   getProjectLabels(ctx: StateContext<ProjectLabelStateModel>, action: GetProjectLabels) {

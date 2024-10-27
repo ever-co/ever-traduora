@@ -1,14 +1,10 @@
-<div class="w-100 h-100" *ngIf="(project$ | async) as project">
+<div class="w-100 h-100" *ngIf="project$ | async as project">
   <div class="mb-4 d-flex justify-content-between align-items-center section-title-row">
-    <h5 class="font-serif m-0" >Export Project Translation</h5>
+    <h5 class="font-serif m-0">Export Project Translation</h5>
   </div>
   <div class="card">
     <div class="card-body">
-      <app-export-locale
-        [project]="project"
-        [locales]="existingLocales$ | async"
-        [loading]="isLoading$ | async"
-      ></app-export-locale>      
+      <app-export-locale [project]="project" [locales]="existingLocales$ | async" [loading]="isLoading$ | async"></app-export-locale>
     </div>
   </div>
 </div>

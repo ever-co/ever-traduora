@@ -37,7 +37,7 @@ export default class ProjectStatsController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
     const locales = await this.projectLocaleRepo.find({
       where: {
-        project: membership.project,
+        project: { id: membership.project.id },
       },
       relations: ['locale'],
     });
@@ -58,7 +58,7 @@ export default class ProjectStatsController {
       const translatedCount = parseInt(s.translated, 10);
       return {
         localeCode: s.localeCode,
-        progress: _.round(translatedCount / termCount, 2),
+        progress: Math.floor((translatedCount / termCount) * 100) / 100,
         translated: translatedCount,
         total: termCount,
       };
@@ -86,7 +86,7 @@ export default class ProjectStatsController {
     const totalTranslated = _.sumBy(withDefaults, 'translated');
     const localeCount = locales.length;
     const totalTerms = localeCount > 0 ? termCount * localeCount : termCount;
-    const totalProgress = totalTerms > 0 ? _.round(totalTranslated / totalTerms, 10) : 0;
+    const totalProgress = totalTerms > 0 ? Math.floor((totalTranslated / totalTerms) * 100) / 100 : 0;
 
     const projectStats = {
       progress: totalProgress,

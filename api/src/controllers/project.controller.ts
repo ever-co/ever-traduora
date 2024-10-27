@@ -105,7 +105,7 @@ export default class ProjectController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditProject);
 
     await this.projectRepo.update(projectId, payload);
-    const project = await this.projectRepo.findOneOrFail(projectId);
+    const project = await this.projectRepo.findOneByOrFail({ id: projectId });
 
     return { data: { ...project, role: membership.role } };
   }

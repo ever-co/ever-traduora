@@ -1,7 +1,7 @@
 <div class="card mb-3">
   <div class="card-body">
     <div class="d-flex flex-row w-100 justify-content-between align-items-center">
-      <div class="d-flex flex-row align-items-center justify-content-start flex-1" >
+      <div class="d-flex flex-row align-items-center justify-content-start flex-1">
         <i class="material-icons m-0 mr-3">vpn_key</i>
         <p class="font-serif m-0">
           {{ projectClient.name }}
@@ -14,11 +14,7 @@
             {{ projectClient.role | titlecase }}
           </button>
           <div ngbDropdownMenu>
-            <button
-              *ngFor="let role of projectRoles"
-              class="dropdown-item"
-              (click)="edit.emit(withRole(projectClient, role))"
-            >
+            <button *ngFor="let role of projectRoles" class="dropdown-item" (click)="edit.emit(withRole(projectClient, role))">
               {{ role | titlecase }}
             </button>
           </div>
@@ -28,17 +24,12 @@
         <span class="badge badge-secondary">{{ projectClient.role | titlecase }}</span>
       </ng-template>
 
-      <button
-        *ngIf="canDelete"
-        class="ml-3 btn bg-transparent text-dark btn-sm"
-        style="max-height: 2rem"
-        (click)="remove.emit(projectClient)"
-      >
+      <button *ngIf="canDelete" class="ml-3 btn bg-transparent text-dark btn-sm" style="max-height: 2rem" (click)="remove.emit(projectClient)">
         <i class="material-icons" style="font-size: 1.25rem">close</i>
       </button>
     </div>
 
-    <div class="d-flex flex-row h-100 w-100 justify-content-start align-items-center py-3 " >
+    <div class="d-flex flex-row h-100 w-100 justify-content-start align-items-center py-3">
       <p class="text-dark m-0 mr-3">Client ID:</p>
       <span class="bg-light text-dark rounded p-1 mr-3">{{ projectClient.id }}</span>
       <button class="btn btn-dark btn-sm" (click)="copyToClipboard(projectClient.id)">Copy</button>

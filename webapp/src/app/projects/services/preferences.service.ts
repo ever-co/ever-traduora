@@ -4,7 +4,7 @@ import { Injectable } from '@angular/core';
   providedIn: 'root',
 })
 export class PreferencesService {
-  forProject = (projectId: String) => ({
+  forProject = (projectId: string) => ({
     referenceLanguage: {
       get: () => window.localStorage.getItem(`${projectId}.preferredReferenceLanguageCode`),
       set: localeCode => window.localStorage.setItem(`${projectId}.preferredReferenceLanguageCode`, localeCode),

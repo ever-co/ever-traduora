@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
@@ -13,7 +13,7 @@ import { ClearMessages, UpdateProjectLabel } from '../../stores/project-label.st
   templateUrl: './edit-label.component.html',
   styleUrls: ['./edit-label.component.css'],
 })
-export class EditLabelComponent implements OnInit, OnDestroy {
+export class EditLabelComponent implements OnDestroy {
   @Input()
   project: Project;
 
@@ -33,9 +33,11 @@ export class EditLabelComponent implements OnInit, OnDestroy {
 
   modal: NgbModalRef | undefined;
 
-  constructor(private modalService: NgbModal, private fb: FormBuilder, private store: Store) {}
-
-  ngOnInit() {}
+  constructor(
+    private modalService: NgbModal,
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnDestroy() {
     this.reset();

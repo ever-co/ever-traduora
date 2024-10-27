@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Locale } from '../../../projects/models/locale';
 
@@ -7,7 +7,7 @@ import { Locale } from '../../../projects/models/locale';
   templateUrl: './new-locale.component.html',
   styleUrls: ['./new-locale.component.css'],
 })
-export class NewLocaleComponent implements OnInit {
+export class NewLocaleComponent {
   @Input()
   btnClass = 'btn-light';
 
@@ -25,8 +25,6 @@ export class NewLocaleComponent implements OnInit {
   modal: NgbModalRef | undefined;
 
   constructor(private modalService: NgbModal) {}
-
-  ngOnInit() {}
 
   open(content) {
     this.modal = this.modalService.open(content);

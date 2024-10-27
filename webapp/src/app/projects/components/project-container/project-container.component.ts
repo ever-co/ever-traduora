@@ -33,7 +33,10 @@ export class ProjectContainerComponent implements OnInit, OnDestroy {
 
   shouldCollapse = true;
 
-  constructor(private store: Store, private route: ActivatedRoute) {}
+  constructor(
+    private store: Store,
+    private route: ActivatedRoute,
+  ) {}
 
   toggleMenu() {
     this.shouldCollapse = !this.shouldCollapse;

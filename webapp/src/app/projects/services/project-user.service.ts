@@ -19,11 +19,11 @@ export class ProjectUserService {
     return this.http.get<Payload<ProjectUser[]>>(`${this.endpoint}/projects/${projectId}/users`).pipe(map(res => res.data));
   }
 
-  create(projectId: string, email: String, role: ProjectRole): Observable<ProjectUser> {
+  create(projectId: string, email: string, role: ProjectRole): Observable<ProjectUser> {
     return this.http.post<Payload<ProjectUser>>(`${this.endpoint}/projects/${projectId}/users`, { email, role }).pipe(map(res => res.data));
   }
 
-  update(projectId: string, userId: String, role: ProjectRole): Observable<ProjectUser> {
+  update(projectId: string, userId: string, role: ProjectRole): Observable<ProjectUser> {
     return this.http.patch<Payload<ProjectUser>>(`${this.endpoint}/projects/${projectId}/users/${userId}`, { role }).pipe(map(res => res.data));
   }
 

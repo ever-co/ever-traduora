@@ -75,4 +75,3 @@ From API keys module, you can create API key with project role, after add the na
 From project settings module, update the basic details of projects, delete project and displaying plan usages.
 
 ![Terms Listing Screenshot](./assets/images/screenshots/project-settings.png)
-

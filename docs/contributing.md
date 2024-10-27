@@ -4,7 +4,6 @@ title: Contributing
 sidebar_label: Contributing
 ---
 
-
 First of all, thank you for your interest in contributing! Any kind of contribution to Traduora is more than welcome. Below you'll find some guidance on how to help with the project.
 
 ## Running Traduora locally with hot code reload
@@ -59,9 +58,9 @@ General requirements for merging:
 
 1. Run checks with `bin/check.sh` (it will also auto format files).
 1. The PR must be approved by a core committer before merging.
-2. If there are any API changes, the documentation must be also updated.
-3. Anyone wishing to contribute to the <https://github.com/ever-co/ever-traduora> project must read & sign our [Contributor License Agreement](https://cla-assistant.io/traduora/traduora).
-4. Any relevant changes should have an entry in the [changelog](changelog.md) (you can add an entry under the `next` section).
+1. If there are any API changes, the documentation must be also updated.
+1. Anyone wishing to contribute to the <https://github.com/ever-co/ever-traduora> project must read & sign our [Contributor License Agreement](https://cla-assistant.io/traduora/traduora).
+1. Any relevant changes should have an entry in the [changelog](changelog.md) (you can add an entry under the `next` section).
 
 Once your PR is merged into `master`, it will eventually land on the next release of Traduora.  
 Once again, thank you for contributing, we really appreciate it!

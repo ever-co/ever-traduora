@@ -10,7 +10,10 @@ import { UserService } from '../services/user.service';
 @ApiOAuth2([])
 @ApiTags('Users')
 export default class UserController {
-  constructor(private auth: AuthorizationService, private userService: UserService) {}
+  constructor(
+    private auth: AuthorizationService,
+    private userService: UserService,
+  ) {}
 
   @Get('me')
   @ApiOperation({ summary: `Get the current user's profile` })

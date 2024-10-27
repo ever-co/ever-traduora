@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
@@ -13,7 +13,7 @@ import { AddProjectInvite } from '../../stores/project-invite.state';
   templateUrl: './add-team-member.component.html',
   styleUrls: ['./add-team-member.component.css'],
 })
-export class AddTeamMemberComponent implements OnInit, OnDestroy {
+export class AddTeamMemberComponent implements OnDestroy {
   @Input()
   btnClass = 'btn-light';
 
@@ -36,9 +36,11 @@ export class AddTeamMemberComponent implements OnInit, OnDestroy {
     role: [this.defaultRole, [Validators.required]],
   });
 
-  constructor(private modalService: NgbModal, private fb: FormBuilder, private store: Store) {}
-
-  ngOnInit() {}
+  constructor(
+    private modalService: NgbModal,
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnDestroy() {
     this.store.dispatch(new ClearMessages());

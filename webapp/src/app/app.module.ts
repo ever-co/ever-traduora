@@ -62,7 +62,7 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
           redirectTo: '404',
         },
       ],
-      { scrollPositionRestoration: 'enabled', relativeLinkResolution: 'legacy' },
+      { scrollPositionRestoration: 'enabled' },
     ),
   ],
   providers: [

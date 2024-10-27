@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ProjectClient } from '../../models/project-client';
 import { ProjectRole } from '../../models/project-role';
 
@@ -7,7 +7,7 @@ import { ProjectRole } from '../../models/project-role';
   templateUrl: './api-client.component.html',
   styleUrls: ['./api-client.component.css'],
 })
-export class ApiClientComponent implements OnInit {
+export class ApiClientComponent {
   @Input()
   projectClient: ProjectClient;
 
@@ -24,10 +24,6 @@ export class ApiClientComponent implements OnInit {
   remove = new EventEmitter<ProjectClient>();
 
   projectRoles = [ProjectRole.Admin, ProjectRole.Editor, ProjectRole.Viewer];
-
-  constructor() {}
-
-  ngOnInit() {}
 
   withRole(user: ProjectClient, role: ProjectRole): ProjectClient {
     return { ...user, role: role };

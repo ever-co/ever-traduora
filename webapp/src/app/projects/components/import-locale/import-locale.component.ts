@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { Navigate } from '@ngxs/router-plugin';
 import { Store } from '@ngxs/store';
 import * as _ from 'lodash';
@@ -14,7 +14,7 @@ import { RefreshProjectStats } from '../../stores/projects.state';
   templateUrl: './import-locale.component.html',
   styleUrls: ['./import-locale.component.css'],
 })
-export class ImportLocaleComponent implements OnInit {
+export class ImportLocaleComponent {
   @Input()
   project: Project;
 
@@ -40,9 +40,10 @@ export class ImportLocaleComponent implements OnInit {
   files: File[] = [];
   result: ImportResult | undefined = undefined;
 
-  constructor(private importService: ImportService, private store: Store) {}
-
-  ngOnInit() {}
+  constructor(
+    private importService: ImportService,
+    private store: Store,
+  ) {}
 
   navigateToImportedLocale() {
     this.store.dispatch(new Navigate(['/projects', this.project.id, 'translations', this.selectedLocale.code]));

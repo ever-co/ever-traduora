@@ -11,8 +11,8 @@ import { User } from '../entity/user.entity';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
-    @InjectRepository(ProjectClient) private readonly projectClientRepo: Repository<ProjectClient>,
-    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(ProjectClient) private readonly projectClientRepository: Repository<ProjectClient>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -20,16 +20,23 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
+  /**
+   *
+   * @param payload
+   * @returns
+   */
   async validate(payload: JwtPayload) {
     let user: User | ProjectClient;
     switch (payload.type) {
       case 'user':
-        user = await this.userRepo.findOne(payload.sub, {
+        user = await this.userRepository.findOne({
+          where: { id: payload.sub },
           select: ['id', 'name', 'email', 'numProjectsCreated'],
         });
         break;
       case 'client':
-        user = await this.projectClientRepo.findOne(payload.sub, {
+        user = await this.projectClientRepository.findOne({
+          where: { id: payload.sub },
           select: ['id'],
         });
         break;

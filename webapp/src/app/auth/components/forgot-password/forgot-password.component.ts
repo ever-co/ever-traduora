@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
@@ -9,12 +9,15 @@ import { ClearMessages, ForgotPassword } from '../../stores/auth.state';
   templateUrl: './forgot-password.component.html',
   styleUrls: ['./forgot-password.component.css'],
 })
-export class ForgotPasswordComponent implements OnInit, OnDestroy {
+export class ForgotPasswordComponent implements OnDestroy {
   forgotPasswordForm = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
   });
 
-  constructor(private fb: FormBuilder, private store: Store) {}
+  constructor(
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   @Select(state => state.auth.statusMessage)
   statusMessage$: Observable<string | undefined>;
@@ -26,8 +29,6 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   isLoading$: Observable<boolean>;
 
   message: string | undefined;
-
-  ngOnInit() {}
 
   ngOnDestroy() {
     this.store.dispatch(new ClearMessages());

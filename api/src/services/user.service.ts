@@ -19,7 +19,7 @@ export class UserService {
 
   async userExists(email: string): Promise<boolean> {
     const normalizedEmail = normalizeEmail(email);
-    const user = await this.userRepo.findOne({ email: normalizedEmail });
+    const user = await this.userRepo.findOneBy({ email: normalizedEmail });
     return user != null;
   }
 
@@ -35,7 +35,7 @@ export class UserService {
     password?: string;
   }): Promise<{ user: User; isNewUser: boolean }> {
     const normalizedEmail = normalizeEmail(email);
-    const exists = await this.userRepo.findOne({ email: normalizedEmail });
+    const exists = await this.userRepo.findOneBy({ email: normalizedEmail });
 
     if (exists) {
       // Attempting to create an account via provider is idempotent
@@ -93,7 +93,7 @@ export class UserService {
       updates.email = normalizeEmail(updates.email);
     }
     await this.userRepo.update(userId, updates);
-    return await this.userRepo.findOneOrFail(userId);
+    return await this.userRepo.findOneByOrFail({ id: userId });
   }
 
   async deleteAccount(user: User) {
@@ -126,7 +126,7 @@ export class UserService {
   }
 
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<User> {
-    const user = await this.userRepo.findOneOrFail({ id: userId });
+    const user = await this.userRepo.findOneByOrFail({ id: userId });
 
     const valid = await new Promise((resolve, reject) => {
       bcrypt.compare(oldPassword, user.encryptedPassword.toString('utf8'), (err, same) => {
@@ -149,7 +149,7 @@ export class UserService {
 
   async resetPassword(email: string, token: string, newPassword: string): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
-    const user = await this.userRepo.findOneOrFail({ email: normalizedEmail });
+    const user = await this.userRepo.findOneByOrFail({ email: normalizedEmail });
 
     const valid = await new Promise((resolve, reject) => {
       bcrypt.compare(token, user.encryptedPasswordResetToken.toString('utf8'), (err, same) => {
@@ -179,7 +179,7 @@ export class UserService {
 
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
-    const user = await this.userRepo.findOne({ email: normalizedEmail });
+    const user = await this.userRepo.findOneBy({ email: normalizedEmail });
     if (!user) {
       throw new UnauthorizedException('invalid credentials');
     }

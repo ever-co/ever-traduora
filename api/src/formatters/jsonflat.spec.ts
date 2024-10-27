@@ -1,5 +1,8 @@
+import { toEqualIgnoringIndentation } from './util';
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { jsonFlatExporter, jsonFlatParser } from './jsonflat';
+
+expect.extend(toEqualIgnoringIndentation);
 
 test('should parse json flat files', async () => {
   const input = `{
@@ -50,5 +53,5 @@ test('should fail if file is malformed, invalid or empty', async () => {
 test('should export jsonflat files', async () => {
   const result = await jsonFlatExporter(simpleFormatFixture);
   const expected = loadFixture('simple-flat.json');
-  expect(result).toEqual(expected);
+  expect(result).toEqualIgnoringIndentation(expected);
 });

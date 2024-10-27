@@ -9,6 +9,7 @@ The Traduora REST API is available under the `/api/v1/` path. All requests shoul
 The API endpoint reference is available **[here](/docs/api/v1/swagger)**.
 
 ## API resources
+
 - **User:** an entity used to identify for whom the requests are made.
 - **Project:** a workspace for the translations.
 - **Project Plan:** the feature plan for which a project is signed up for (default to open-source).

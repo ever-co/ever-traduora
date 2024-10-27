@@ -19,11 +19,11 @@ export class ProjectInviteService {
     return this.http.get<Payload<ProjectInvite[]>>(`${this.endpoint}/projects/${projectId}/invites`).pipe(map(res => res.data));
   }
 
-  create(projectId: string, email: String, role: ProjectRole): Observable<ProjectInvite> {
+  create(projectId: string, email: string, role: ProjectRole): Observable<ProjectInvite> {
     return this.http.post<Payload<ProjectInvite>>(`${this.endpoint}/projects/${projectId}/invites`, { email, role }).pipe(map(res => res.data));
   }
 
-  update(projectId: string, inviteId: String, role: ProjectRole): Observable<ProjectInvite> {
+  update(projectId: string, inviteId: string, role: ProjectRole): Observable<ProjectInvite> {
     return this.http.patch<Payload<ProjectInvite>>(`${this.endpoint}/projects/${projectId}/invites/${inviteId}`, { role }).pipe(map(res => res.data));
   }
 

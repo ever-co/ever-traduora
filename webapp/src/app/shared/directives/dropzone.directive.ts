@@ -9,8 +9,6 @@ export class DropzoneDirective {
   @Output()
   hovered = new EventEmitter<boolean>();
 
-  constructor() {}
-
   @HostListener('drop', ['$event'])
   onDrop($event) {
     $event.preventDefault();

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Locale } from '../../../projects/models/locale';
 
@@ -7,7 +7,7 @@ import { Locale } from '../../../projects/models/locale';
   templateUrl: './select-locale-modal.component.html',
   styleUrls: ['./select-locale-modal.component.css'],
 })
-export class SelectLocaleModalComponent implements OnInit {
+export class SelectLocaleModalComponent {
   @Input()
   btnClass = 'btn-light';
 
@@ -18,7 +18,7 @@ export class SelectLocaleModalComponent implements OnInit {
   readonly = false;
 
   @Input()
-  noSelectionLabel: String;
+  noSelectionLabel: string;
 
   @Input()
   locales: Locale[] = [];
@@ -34,8 +34,6 @@ export class SelectLocaleModalComponent implements OnInit {
   modal: NgbModalRef | undefined;
 
   constructor(private modalService: NgbModal) {}
-
-  ngOnInit() {}
 
   open(content) {
     this.modal = this.modalService.open(content);

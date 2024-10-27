@@ -1,18 +1,18 @@
-<app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
-<div class="w-100 h-100" *ngIf="(project$ | async) as project">
+<app-error-message *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
+<div class="w-100 h-100" *ngIf="project$ | async as project">
   <div class="mb-4 d-flex justify-content-between align-items-center section-title-row">
-    <h5 class="font-serif m-0" >Project Settings</h5>
+    <h5 class="font-serif m-0">Project Settings</h5>
   </div>
   <div class="card">
     <div class="card-body">
-      <h5 class="font-serif" >Details</h5>
+      <h5 class="font-serif">Details</h5>
       <form [formGroup]="detailsForm" (ngSubmit)="onSubmit(project.id)" novalidate>
         <div class="form-group">
-          <label for="nameInput" >Project Name</label>
+          <label for="nameInput">Project Name</label>
           <input
             [readOnly]="!(true | can: 'EditProject' | async)"
             id="nameInput"
-            class="form-control "
+            class="form-control"
             type="name"
             autocomplete="off"
             formControlName="name"
@@ -20,13 +20,13 @@
             [ngClass]="{ 'is-invalid': name.touched && name.invalid }"
           />
           <div class="invalid-feedback">
-            <div *ngIf="name.getError('required')" >Name is required.</div>
-            <div *ngIf="name.getError('pattern')" >Cannot be only whitespace.</div>
+            <div *ngIf="name.getError('required')">Name is required.</div>
+            <div *ngIf="name.getError('pattern')">Cannot be only whitespace.</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="descriptionInput" >Project Description</label>
+          <label for="descriptionInput">Project Description</label>
           <input
             [readOnly]="!(true | can: 'EditProject' | async)"
             id="descriptionInput"
@@ -39,52 +39,39 @@
           />
         </div>
 
-        <div class="d-flex justify-content-end" *ngIf="(true | can: 'EditProject' | async)">
-          <button
-            type="button"
-            class="btn btn-sm btn-link-secondary mr-3"
-            [routerLink]="['/projects', project.id]"
-            
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            [disabled]="!detailsForm.valid || (isLoading$ | async)"
-            class="btn btn-sm btn-primary w-100"
-            style="max-width: 120px;"
-            
-          >
+        <div class="d-flex justify-content-end" *ngIf="true | can: 'EditProject' | async">
+          <button type="button" class="btn btn-sm btn-link-secondary mr-3" [routerLink]="['/projects', project.id]">Cancel</button>
+          <button type="submit" [disabled]="!detailsForm.valid || (isLoading$ | async)" class="btn btn-sm btn-primary w-100" style="max-width: 120px">
             Save changes
           </button>
         </div>
       </form>
       <hr />
       <div *ngIf="project.plan">
-        <h5 class="font-serif" >Plan</h5>
-        
-        <p class="mb-0" >
+        <h5 class="font-serif">Plan</h5>
+
+        <p class="mb-0">
           Plan name: <span class="text-secondary font-weight-bold">{{ project.plan.name }}</span>
         </p>
-        <p class="mb-0" >
-          Current usage: <span class="text-secondary font-weight-bold">{{ currentUsage(project) | number }} / {{ project.plan.maxStrings | number }}</span>
+        <p class="mb-0">
+          Current usage:
+          <span class="text-secondary font-weight-bold">{{ currentUsage(project) | number }} / {{ project.plan.maxStrings | number }}</span>
         </p>
         <p class="mb-0">
-          <ng-container >Reference code: </ng-container>
+          <ng-container>Reference code: </ng-container>
           <span class="text-secondary font-weight-bold">{{ project.plan.code }}</span>
         </p>
         <p class="mb-0">
-          <ng-container >Current usage is calculated as </ng-container>
-          <span class="text-secondary font-weight-bold" >terms * locales</span>
+          <ng-container>Current usage is calculated as </ng-container>
+          <span class="text-secondary font-weight-bold">terms * locales</span>
         </p>
       </div>
       <hr />
       <button
-        *ngIf="(true | can: 'EditProject' | async)"
+        *ngIf="true | can: 'EditProject' | async"
         [disabled]="isLoading$ | async"
         (click)="onDelete(project)"
         class="btn btn-danger btn-sm float-right"
-        
       >
         Delete project
       </button>

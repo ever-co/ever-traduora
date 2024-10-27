@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import { IsBoolean, IsEmail, IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
@@ -627,6 +628,10 @@ export class ExportQuery {
   @ApiProperty({ minLength: 2, maxLength: 16 })
   @IsOptional()
   fallbackLocale: string;
+
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true' || value === true)
+  untranslated: boolean;
 
   @IsEnum(ImportExportFormat)
   @ApiProperty({ enum: ImportExportFormat })

@@ -1,15 +1,15 @@
 <ng-template #content let-modal>
   <form [formGroup]="form" (submit)="addTeamMember()" novalidate>
     <div class="modal-header">
-      <h4 class="modal-title font-serif" >Add Team Member</h4>
+      <h4 class="modal-title font-serif">Add Team Member</h4>
       <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
         <i class="material-icons">close</i>
       </button>
     </div>
     <div class="modal-body">
-      <app-error-message *ngIf="(errorMessage$ | async) as errorMessage" [message]="errorMessage"></app-error-message>
+      <app-error-message *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
       <div class="form-group">
-        <label for="emailInput" >Email address</label>
+        <label for="emailInput">Email address</label>
         <input
           id="emailInput"
           class="form-control"
@@ -21,13 +21,13 @@
         />
 
         <div class="invalid-feedback">
-          <div *ngIf="email.getError('required')" >Email is required.</div>
-          <div *ngIf="email.getError('email')" >Must be a valid email</div>
+          <div *ngIf="email.getError('required')">Email is required.</div>
+          <div *ngIf="email.getError('email')">Must be a valid email</div>
         </div>
       </div>
 
       <div class="form-group">
-        <label for="projectRole" >Project role</label>
+        <label for="projectRole">Project role</label>
         <div class="input-group">
           <select id="projectRole" class="custom-select" formControlName="role">
             <option *ngFor="let role of projectRoles" [ngValue]="role">{{ role | titlecase }}</option>
@@ -36,19 +36,13 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus >Cancel</button>
-      <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-primary" >
-        Save
-      </button>
+      <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus>Cancel</button>
+      <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-primary">Save</button>
     </div>
   </form>
 </ng-template>
 
-<button
-  class="btn btn-sm d-flex justify-content-center align-items-center"
-  (click)="open(content)"
-  [ngClass]="btnClass"
->
+<button class="btn btn-sm d-flex justify-content-center align-items-center" (click)="open(content)" [ngClass]="btnClass">
   <i class="material-icons mr-1" style="font-size: 18px">add</i>
-  <ng-container >Add team member</ng-container>
+  <ng-container>Add team member</ng-container>
 </button>

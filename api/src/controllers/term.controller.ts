@@ -75,7 +75,9 @@ export default class TermController {
 
       const projectLocales = await this.projectLocaleRepo.find({
         where: {
-          project: membership.project,
+          project: {
+            id: membership.project.id,
+          },
         },
       });
 
@@ -119,7 +121,7 @@ export default class TermController {
 
     await this.termRepo.update({ id: termId }, { value: payload.value, context: payload.context });
 
-    const term = await this.termRepo.findOneOrFail({ id: termId }, { relations: ['labels'] });
+    const term = await this.termRepo.findOneOrFail({ where: { id: termId }, relations: ['labels'] });
 
     return {
       data: {
@@ -143,7 +145,7 @@ export default class TermController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTerm);
     await this.termRepo.manager.transaction(async entityManager => {
-      const term = await entityManager.findOneOrFail(Term, termId, { where: { project: membership.project } });
+      const term = await entityManager.findOneOrFail(Term, { where: { id: termId, project: { id: membership.project.id } } });
       await entityManager.remove(term);
       await entityManager.decrement(Project, { id: membership.project.id }, 'termsCount', 1);
     });

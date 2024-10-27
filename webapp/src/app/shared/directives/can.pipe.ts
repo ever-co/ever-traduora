@@ -15,7 +15,7 @@ export class CanPipe implements PipeTransform {
     this.user$ = this.store.select(ProjectUserState.userSelf);
   }
 
-  transform(conditional: any, action: string): Observable<Boolean> {
+  transform(conditional: any, action: string): Observable<boolean> {
     return this.user$.pipe(
       map(user => {
         if (!conditional) {

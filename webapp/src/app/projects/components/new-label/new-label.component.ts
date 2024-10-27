@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
@@ -13,7 +13,7 @@ import { ClearMessages, CreateProjectLabel } from '../../stores/project-label.st
   templateUrl: './new-label.component.html',
   styleUrls: ['./new-label.component.css'],
 })
-export class NewLabelComponent implements OnInit, OnDestroy {
+export class NewLabelComponent implements OnDestroy {
   @Input()
   btnClass = 'btn-light';
 
@@ -38,9 +38,11 @@ export class NewLabelComponent implements OnInit, OnDestroy {
 
   modal: NgbModalRef | undefined;
 
-  constructor(private modalService: NgbModal, private fb: FormBuilder, private store: Store) {}
-
-  ngOnInit() {}
+  constructor(
+    private modalService: NgbModal,
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnDestroy() {
     this.reset();

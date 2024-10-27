@@ -1,5 +1,5 @@
 {
-	"rules": {
-		"selector-type-no-unknown": false
-	}
+  "rules": {
+    "selector-type-no-unknown": false
+  }
 }

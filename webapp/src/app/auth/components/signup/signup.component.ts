@@ -31,7 +31,10 @@ export class SignupComponent implements OnInit, OnDestroy {
   @Select(state => state.auth.providers)
   providers$: Observable<Provider[]>;
 
-  constructor(private fb: FormBuilder, private store: Store) {}
+  constructor(
+    private fb: FormBuilder,
+    private store: Store,
+  ) {}
 
   ngOnInit() {
     this.store.dispatch(new GetProviders());

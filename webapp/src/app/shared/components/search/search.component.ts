@@ -1,4 +1,4 @@
-import { Component, ContentChild, Input, OnInit, TemplateRef } from '@angular/core';
+import { Component, ContentChild, Input, TemplateRef } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { debounceTime, distinctUntilChanged, mergeMap, map } from 'rxjs/operators';
 
@@ -7,7 +7,7 @@ import { debounceTime, distinctUntilChanged, mergeMap, map } from 'rxjs/operator
   templateUrl: './search.component.html',
   styleUrls: ['./search.component.css'],
 })
-export class SearchComponent implements OnInit {
+export class SearchComponent {
   @Input()
   items: Observable<any[]>;
 
@@ -57,8 +57,4 @@ export class SearchComponent implements OnInit {
   );
 
   searchResultsSize$ = this.searchResults$.pipe(map(results => (results ? results.length : 0)));
-
-  constructor() {}
-
-  ngOnInit() {}
 }

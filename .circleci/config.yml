@@ -1,18 +1,23 @@
 version: 2.1
 
 orbs:
-    node: circleci/node@5.0.0
+  node: circleci/node@5.2.0
+
+defaults: &defaults
+  # put here anything which is common between all jobs
+  # we define default work dir, however almost every job redefine it
+  working_directory: ~/workspace
 
 jobs:
   check_lint:
-    working_directory: ~/workspace
+    <<: *defaults
     docker:
       - image: 'cimg/base:stable'
     steps:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '20.11.1'
       - run: node --version
       - restore_cache:
           keys:
@@ -34,18 +39,18 @@ jobs:
           command: bin/check_lint.sh
 
   test_unit:
-    working_directory: ~/workspace
+    <<: *defaults
     docker:
       - image: 'cimg/base:stable'
       - image: mysql:5.7
         environment:
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-          MYSQL_DATABASE: "tr_e2e"
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: 'tr_e2e'
     steps:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '20.11.1'
       - run: node --version
       - restore_cache:
           keys:
@@ -70,18 +75,18 @@ jobs:
           command: bin/test_unit.sh
 
   test_e2e:
-    working_directory: ~/workspace
+    <<: *defaults
     docker:
       - image: 'cimg/base:stable'
       - image: mysql:5.7
         environment:
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-          MYSQL_DATABASE: "tr_e2e"
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: 'tr_e2e'
     steps:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '20.11.1'
       - run: node --version
       - restore_cache:
           keys:
@@ -106,13 +111,14 @@ jobs:
           command: bin/test_e2e.sh
 
   build:
+    <<: *defaults
     docker:
       - image: 'cimg/base:stable'
     steps:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '20.11.1'
       - run: node --version
       - setup_remote_docker
       - run:
@@ -120,13 +126,14 @@ jobs:
           command: RELEASE=$CIRCLE_TAG bin/build-docker.sh
 
   build_old:
+    <<: *defaults
     docker:
       - image: 'cimg/base:stable'
     steps:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '16.13'
+          node-version: '20.11.1'
       - run: node --version
       - setup_remote_docker
       - run:
@@ -139,21 +146,21 @@ workflows:
   test:
     jobs:
       - check_lint:
-           filters:
-              branches:
-                ignore: master
+          filters:
+            branches:
+              ignore: master
       - test_unit:
           requires:
             - check_lint
           filters:
-              branches:
-                ignore: master  
+            branches:
+              ignore: master
       - test_e2e:
           requires:
             - check_lint
           filters:
-              branches:
-                ignore: master  
+            branches:
+              ignore: master
 
   release:
     jobs:

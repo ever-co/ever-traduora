@@ -1,6 +1,6 @@
 import { get } from 'lodash';
 
-export function errorToMessage(error: any, action: string = ''): string {
+export function errorToMessage(error: any, action = ''): string {
   const domainCode = get(error, 'error.error.code');
 
   if (error.status === 429) {

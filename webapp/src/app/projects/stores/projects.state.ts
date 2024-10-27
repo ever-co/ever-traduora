@@ -29,12 +29,14 @@ export class SetCurrentProject {
 
 export class RefreshProjectStats {
   static readonly type = '[Projects] Refresh current project stats';
-  constructor() {}
 }
 
 export class UpdateProject {
   static readonly type = '[Projects] Update project';
-  constructor(public id: string, public data: { name?: string; description?: string }) {}
+  constructor(
+    public id: string,
+    public data: { name?: string; description?: string },
+  ) {}
 }
 
 export class DeleteProject {
@@ -44,7 +46,10 @@ export class DeleteProject {
 
 export class CreateProject {
   static readonly type = '[Projects] Create project';
-  constructor(public name: string, public description: string) {}
+  constructor(
+    public name: string,
+    public description: string,
+  ) {}
 }
 
 export class ReloadCurrentProject {
@@ -73,7 +78,10 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class ProjectsState implements NgxsOnInit {
-  constructor(private projectsService: ProjectsService, private projectStatsService: ProjectStatsService) {}
+  constructor(
+    private projectsService: ProjectsService,
+    private projectStatsService: ProjectStatsService,
+  ) {}
 
   @Selector()
   static projects(state: ProjectsStateModel) {
@@ -95,7 +103,10 @@ export class ProjectsState implements NgxsOnInit {
     return state.currentProjectStats;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectsStateModel>) {}
+  ngxsOnInit(_ctx: StateContext<ProjectsStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
 
   @Action(Logout)
   logout(ctx: StateContext<ProjectsStateModel>, action: Logout) {

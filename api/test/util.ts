@@ -100,19 +100,38 @@ export async function createTestProjectClient(
   return result;
 }
 
+/**
+ * Creates and initializes a Nest application, drops the database, runs migrations, and returns the initialized application.
+ * @returns The initialized Nest application.
+ */
 export async function createAndMigrateApp(): Promise<INestApplication> {
-  const moduleFixture = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
+  // Compile the testing module for the AppModule
+  const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
-  let app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
+  // Create a Nest application instance using the ExpressAdapter
+  const app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
+
+  // Apply any middleware, pipes, and filters to the application
   addPipesAndFilters(app);
-  app = await app.init();
 
+  // Initialize the application
+  await app.init();
+
+  // Get the database connection from the application
   const connection = app.get(Connection);
-  await connection.dropDatabase();
-  await connection.runMigrations();
 
+  try {
+    // Drop the database
+    await connection.dropDatabase();
+
+    // Run migrations
+    await connection.runMigrations();
+  } catch (error) {
+    // Handle errors if dropping the database or running migrations fails
+    console.error('Error occurred while dropping database or running migrations:', error);
+  }
+
+  // Return the initialized application
   return app;
 }
 

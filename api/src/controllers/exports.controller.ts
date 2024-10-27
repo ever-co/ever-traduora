@@ -54,7 +54,9 @@ export class ExportsController {
     // Ensure locale is requested project locale
     const projectLocale = await this.projectLocaleRepo.findOne({
       where: {
-        project: membership.project,
+        project: {
+          id: membership.project.id,
+        },
         locale: {
           code: query.locale,
         },
@@ -65,14 +67,19 @@ export class ExportsController {
       throw new NotFoundException('unknown locale code');
     }
 
-    const termsWithTranslations = await this.termRepo
+    const queryBuilder = this.termRepo
       .createQueryBuilder('term')
       .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', {
         projectLocaleId: projectLocale.id,
       })
       .where('term.projectId = :projectId', { projectId })
-      .orderBy('term.value', 'ASC')
-      .getMany();
+      .orderBy('term.value', 'ASC');
+
+    if (query.untranslated) {
+      queryBuilder.andWhere("translation.value = ''");
+    }
+
+    const termsWithTranslations = await queryBuilder.getMany();
 
     let termsWithTranslationsMapped = termsWithTranslations.map(t => ({
       term: t.value,
@@ -93,7 +100,9 @@ export class ExportsController {
     if (query.fallbackLocale) {
       const fallbackProjectLocale = await this.projectLocaleRepo.findOne({
         where: {
-          project: membership.project,
+          project: {
+            id: membership.project.id,
+          },
           locale: {
             code: query.fallbackLocale,
           },
