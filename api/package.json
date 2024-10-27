@@ -20,6 +20,7 @@
     "fmt": "prettier --write \"src/**/*.ts\"",
     "start": "cross-env TR_MAIL_DEBUG=true TR_CORS_ENABLED=true nodemon",
     "build": "tsc && copyfiles src/templates/**/* ../dist",
+    "build:prod": "tsc && copyfiles src/templates/**/* ../dist",
     "clean": "rimraf ../dist/src ../dist/test",
     "lint": "tslint -p tsconfig.json -c tslint.json",
     "test": "cross-env NODE_OPTIONS=--max-old-space-size=3000 NODE_ENV=test jest --watchAll=false --maxWorkers=2",

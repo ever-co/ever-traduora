@@ -21,6 +21,7 @@
     "start": "yarn ng serve --open",
     "clean": "rimraf ../dist/public",
     "build": "yarn ng build",
+    "build:prod": "yarn ng build --configuration=production",
     "fmt": "prettier --write \"src/**/*.ts\"",
     "test": "yarn ng test",
     "lint": "yarn ng lint",
