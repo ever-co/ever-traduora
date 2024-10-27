@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { Provider } from '../../models/provider';
 import { RedirectToAuthProvider } from '../../stores/auth.state';
 import { Store } from '@ngxs/store';
@@ -8,13 +8,11 @@ import { Store } from '@ngxs/store';
   templateUrl: './sign-in-with.component.html',
   styleUrls: ['./sign-in-with.component.css'],
 })
-export class SignInWithComponent implements OnInit {
+export class SignInWithComponent {
   @Input()
   provider: Provider;
 
   constructor(private store: Store) {}
-
-  ngOnInit() {}
 
   signInWithProvider(provider: Provider) {
     this.store.dispatch(new RedirectToAuthProvider(provider));

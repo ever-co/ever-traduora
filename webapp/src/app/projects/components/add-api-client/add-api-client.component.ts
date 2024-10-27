@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Select, Store } from '@ngxs/store';
@@ -13,7 +13,7 @@ import { AddProjectClient, ClearMessages } from '../../stores/project-client.sta
   templateUrl: './add-api-client.component.html',
   styleUrls: ['./add-api-client.component.css'],
 })
-export class AddApiClientComponent implements OnInit, OnDestroy {
+export class AddApiClientComponent implements OnDestroy {
   @Input()
   btnClass = 'btn-light';
 
@@ -43,8 +43,6 @@ export class AddApiClientComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private store: Store,
   ) {}
-
-  ngOnInit() {}
 
   ngOnDestroy() {
     this.store.dispatch(new ClearMessages());

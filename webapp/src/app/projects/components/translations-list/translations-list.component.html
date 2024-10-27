@@ -101,7 +101,7 @@
     </app-search>
 
     <div
-      *ngIf="!(filterTranslated$ | async) && !(isLoading$ | async) && (translations$ | async).length === 0"
+      *ngIf="(filterTranslated$ | async) === false && (isLoading$ | async) === false && (translations$ | async).length === 0"
       class="alert alert-secondary p-5 d-flex flex-row"
     >
       <i class="material-icons mr-3">info</i>
@@ -115,7 +115,7 @@
     </div>
 
     <div
-      *ngIf="(filterTranslated$ | async) && !(isLoading$ | async) && (translations$ | async).length === 0"
+      *ngIf="(filterTranslated$ | async) === true && (isLoading$ | async) === false && (translations$ | async).length === 0"
       class="alert alert-secondary p-5 d-flex flex-row"
     >
       <i class="material-icons mr-3">info</i>

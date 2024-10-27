@@ -18,11 +18,11 @@ export class ProjectLabelService {
     return this.http.get<Payload<Label[]>>(`${this.endpoint}/projects/${projectId}/labels`).pipe(map(res => res.data));
   }
 
-  create(projectId: string, value: String, color: string): Observable<Label> {
+  create(projectId: string, value: string, color: string): Observable<Label> {
     return this.http.post<Payload<Label>>(`${this.endpoint}/projects/${projectId}/labels`, { value, color }).pipe(map(res => res.data));
   }
 
-  update(projectId: string, labelId: string, value: String, color: string): Observable<Label> {
+  update(projectId: string, labelId: string, value: string, color: string): Observable<Label> {
     return this.http.patch<Payload<Label>>(`${this.endpoint}/projects/${projectId}/labels/${labelId}`, { value, color }).pipe(map(res => res.data));
   }
 
@@ -30,19 +30,19 @@ export class ProjectLabelService {
     return this.http.delete<void>(`${this.endpoint}/projects/${projectId}/labels/${labelId}`);
   }
 
-  labelTerm(projectId: string, labelId: String, termId: string): Observable<void> {
+  labelTerm(projectId: string, labelId: string, termId: string): Observable<void> {
     return this.http.post<void>(`${this.endpoint}/projects/${projectId}/labels/${labelId}/terms/${termId}`, {});
   }
 
-  unlabelTerm(projectId: string, labelId: String, termId: string): Observable<void> {
+  unlabelTerm(projectId: string, labelId: string, termId: string): Observable<void> {
     return this.http.delete<void>(`${this.endpoint}/projects/${projectId}/labels/${labelId}/terms/${termId}`);
   }
 
-  labelTranslation(projectId: string, labelId: String, termId: string, localeCode: string): Observable<void> {
+  labelTranslation(projectId: string, labelId: string, termId: string, localeCode: string): Observable<void> {
     return this.http.post<void>(`${this.endpoint}/projects/${projectId}/labels/${labelId}/terms/${termId}/translations/${localeCode}`, {});
   }
 
-  unlabelTranslation(projectId: string, labelId: String, termId: string, localeCode: string): Observable<void> {
+  unlabelTranslation(projectId: string, labelId: string, termId: string, localeCode: string): Observable<void> {
     return this.http.delete<void>(`${this.endpoint}/projects/${projectId}/labels/${labelId}/terms/${termId}/translations/${localeCode}`);
   }
 }

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Select, Store } from '@ngxs/store';
@@ -10,7 +10,7 @@ import { ClearMessages, ResetPassword } from '../../stores/auth.state';
   templateUrl: './reset-password.component.html',
   styleUrls: ['./reset-password.component.css'],
 })
-export class ResetPasswordComponent implements OnInit, OnDestroy {
+export class ResetPasswordComponent implements OnDestroy {
   passwordMinLength = 8;
 
   resetPasswordForm = this.fb.group({
@@ -34,8 +34,6 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
     private store: Store,
     private route: ActivatedRoute,
   ) {}
-
-  ngOnInit() {}
 
   ngOnDestroy() {
     this.store.dispatch(new ClearMessages());

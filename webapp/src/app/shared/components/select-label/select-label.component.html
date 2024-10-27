@@ -22,7 +22,7 @@
   <div class="d-flex flex-column">
     <ul class="list-group w-100 mb-2" [ngStyle]="{ 'min-height': preserveHeight ? limit * 50 + 'px' : 0 }">
       <li
-        *ngIf="!loading && ((results$ | async) || defaultLabels()).length == 0"
+        *ngIf="!loading && ((results$ | async) || defaultLabels()).length === 0"
         class="m-0 alert alert-secondary d-flex justify-content-start align-items-center"
       >
         No labels available

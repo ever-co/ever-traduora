@@ -77,7 +77,7 @@ export class LabelsListComponent implements OnInit, OnDestroy {
     this.store.dispatch(new ClearMessages());
   }
 
-  onCreate(projectId: string, value: string, color: string = '#404040') {
+  onCreate(projectId: string, value: string, color = '#404040') {
     if (!value) {
       return;
     }

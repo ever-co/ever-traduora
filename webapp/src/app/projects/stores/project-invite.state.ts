@@ -77,7 +77,10 @@ export class ProjectInviteState implements NgxsOnInit {
     return state.invites;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectInviteStateModel>) {}
+  ngxsOnInit(_ctx: StateContext<ProjectInviteStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
 
   @Action(Logout)
   logout(ctx: StateContext<ProjectInviteStateModel>, action: Logout) {

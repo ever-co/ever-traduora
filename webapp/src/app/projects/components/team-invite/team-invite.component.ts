@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ProjectRole } from '../../models/project-role';
 import { ProjectInvite } from '../../models/project-invite';
 
@@ -7,7 +7,7 @@ import { ProjectInvite } from '../../models/project-invite';
   templateUrl: './team-invite.component.html',
   styleUrls: ['./team-invite.component.css'],
 })
-export class TeamInviteComponent implements OnInit {
+export class TeamInviteComponent {
   @Input()
   invite: ProjectInvite;
 
@@ -24,10 +24,6 @@ export class TeamInviteComponent implements OnInit {
   remove = new EventEmitter<ProjectInvite>();
 
   projectRoles = [ProjectRole.Admin, ProjectRole.Editor, ProjectRole.Viewer];
-
-  constructor() {}
-
-  ngOnInit() {}
 
   withRole(invite: ProjectInvite, role: ProjectRole): ProjectInvite {
     return { ...invite, role: role };

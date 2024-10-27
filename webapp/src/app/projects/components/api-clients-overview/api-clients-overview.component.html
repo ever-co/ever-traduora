@@ -10,7 +10,7 @@
     </div>
 
     <div
-      *ngIf="!(isLoading$ | async) && (projectClients$ | async).length === 0"
+      *ngIf="(isLoading$ | async) === false && (projectClients$ | async).length === 0"
       class="alert alert-secondary p-5 d-flex flex-row"
     >
       <i class="material-icons mr-3">info</i>

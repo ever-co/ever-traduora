@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { throwError } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
 import { errorToMessage } from '../../../shared/util/api-error';
@@ -12,7 +12,7 @@ import { ExportService } from '../../services/export.service';
   templateUrl: './export-locale.component.html',
   styleUrls: ['./export-locale.component.css'],
 })
-export class ExportLocaleComponent implements OnInit {
+export class ExportLocaleComponent {
   @Input()
   project: Project;
 
@@ -31,8 +31,6 @@ export class ExportLocaleComponent implements OnInit {
   errorMessage: string;
 
   constructor(private exportService: ExportService) {}
-
-  ngOnInit() {}
 
   validInputs() {
     return !!this.selectedFormat && !!this.selectedLocale;

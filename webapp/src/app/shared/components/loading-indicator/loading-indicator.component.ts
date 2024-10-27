@@ -1,5 +1,5 @@
 import { animate, state, style, transition, trigger } from '@angular/animations';
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input } from '@angular/core';
 
 @Component({
   selector: 'app-loading-indicator',
@@ -13,11 +13,7 @@ import { Component, Input, OnInit } from '@angular/core';
     ]),
   ],
 })
-export class LoadingIndicatorComponent implements OnInit {
+export class LoadingIndicatorComponent {
   @Input()
   enabled = true;
-
-  constructor() {}
-
-  ngOnInit() {}
 }

@@ -19,11 +19,11 @@ export class ProjectClientService {
     return this.http.get<Payload<ProjectClient[]>>(`${this.endpoint}/projects/${projectId}/clients`).pipe(map(res => res.data));
   }
 
-  create(projectId: string, name: String, role: ProjectRole): Observable<ProjectClient> {
+  create(projectId: string, name: string, role: ProjectRole): Observable<ProjectClient> {
     return this.http.post<Payload<ProjectClient>>(`${this.endpoint}/projects/${projectId}/clients`, { name, role }).pipe(map(res => res.data));
   }
 
-  update(projectId: string, userId: String, role: ProjectRole): Observable<ProjectClient> {
+  update(projectId: string, userId: string, role: ProjectRole): Observable<ProjectClient> {
     return this.http.patch<Payload<ProjectClient>>(`${this.endpoint}/projects/${projectId}/clients/${userId}`, { role }).pipe(map(res => res.data));
   }
 

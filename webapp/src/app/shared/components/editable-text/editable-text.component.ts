@@ -1,11 +1,11 @@
-import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, ViewChild } from '@angular/core';
 
 @Component({
   selector: 'app-editable-text',
   templateUrl: './editable-text.component.html',
   styleUrls: ['./editable-text.component.css'],
 })
-export class EditableTextComponent implements OnInit, OnChanges {
+export class EditableTextComponent implements OnChanges {
   @Input()
   readOnly = false;
 
@@ -30,10 +30,6 @@ export class EditableTextComponent implements OnInit, OnChanges {
   isEditing = false;
 
   current = '';
-
-  constructor() {}
-
-  ngOnInit() {}
 
   ngOnChanges() {
     if (!this.isEditing) {

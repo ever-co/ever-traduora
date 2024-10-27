@@ -73,7 +73,10 @@ export class ProjectUserState implements NgxsOnInit {
     return state.users;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectUserStateModel>) {}
+  ngxsOnInit(_ctx: StateContext<ProjectUserStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
 
   @Action(SetCurrentProject)
   setCurrentProject(ctx: StateContext<ProjectUserStateModel>, action: SetCurrentProject) {

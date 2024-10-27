@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { Locale } from '../../../projects/models/locale';
 
 @Component({
@@ -6,13 +6,9 @@ import { Locale } from '../../../projects/models/locale';
   templateUrl: './country-flag.component.html',
   styleUrls: ['./country-flag.component.css'],
 })
-export class CountryFlagComponent implements OnInit {
+export class CountryFlagComponent  {
   @Input()
   locale: Locale;
-
-  constructor() {}
-
-  ngOnInit() {}
 
   localeIconCode(code: string): string | undefined {
     const match = code.match('.*_([A-Z]{2})$');

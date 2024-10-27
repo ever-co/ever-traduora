@@ -16,5 +16,9 @@
     "lib": ["es2017", "dom"],
     "useDefineForClassFields": false
   },
+  "angularCompilerOptions": {
+    "fullTemplateTypeCheck": true,
+    "strictInjectionParameters": true
+  },
   "exclude": ["node_modules"]
 }

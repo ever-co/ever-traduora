@@ -50,5 +50,5 @@ export class AppComponent {
     delay(0), // Required to avoid change within render lifecycle
   );
 
-  constructor() {}
+
 }

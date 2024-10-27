@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { BehaviorSubject, merge, Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { Label } from '../../../projects/models/label';
@@ -8,7 +8,7 @@ import { Label } from '../../../projects/models/label';
   templateUrl: './select-label.component.html',
   styleUrls: ['./select-label.component.css'],
 })
-export class SelectLabelComponent implements OnInit, OnChanges {
+export class SelectLabelComponent implements OnChanges {
   @Input()
   labels: Label[] = [];
 
@@ -59,10 +59,6 @@ export class SelectLabelComponent implements OnInit, OnChanges {
         .slice(0, this.limit);
     }),
   );
-
-  constructor() {}
-
-  ngOnInit() {}
 
   ngOnChanges() {
     this.ngChanged$.next(this.text$.getValue());

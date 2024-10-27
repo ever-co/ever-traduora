@@ -77,7 +77,10 @@ export class ProjectClientState implements NgxsOnInit {
     return state.clients;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectClientStateModel>) {}
+  ngxsOnInit(_ctx: StateContext<ProjectClientStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
 
   @Action(Logout)
   logout(ctx: StateContext<ProjectClientStateModel>, action: Logout) {

@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { Label } from '../../models/label';
 import { Select, Store } from '@ngxs/store';
 import { ProjectLabelState, ClearMessages } from '../../stores/project-label.state';
@@ -12,7 +12,7 @@ import { ProjectsState } from '../../stores/projects.state';
   templateUrl: './assigned-labels.component.html',
   styleUrls: ['./assigned-labels.component.css'],
 })
-export class AssignedLabelsComponent implements OnInit {
+export class AssignedLabelsComponent {
   @Select(ProjectsState.currentProject)
   project$: Observable<Project | undefined>;
 
@@ -48,8 +48,6 @@ export class AssignedLabelsComponent implements OnInit {
     private modalService: NgbModal,
     private store: Store,
   ) {}
-
-  ngOnInit() {}
 
   open(content) {
     this.modal = this.modalService.open(content);

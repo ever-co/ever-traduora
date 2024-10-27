@@ -84,6 +84,11 @@ const stateDefaults = {
 export class TranslationsState implements NgxsOnInit {
   constructor(private translationService: ProjectTranslationsService) {}
 
+  ngxsOnInit(_ctx: StateContext<TranslationsStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
+
   @Selector()
   static isLoading(state: TranslationsStateModel) {
     return state.isLoading;
@@ -103,8 +108,6 @@ export class TranslationsState implements NgxsOnInit {
   static knownLocales(state: TranslationsStateModel) {
     return state.knownLocales;
   }
-
-  ngxsOnInit(ctx: StateContext<TranslationsStateModel>) {}
 
   @Action(Logout)
   logout(ctx: StateContext<TranslationsStateModel>, action: Logout) {

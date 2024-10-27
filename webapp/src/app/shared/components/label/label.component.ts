@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { Label } from '../../../projects/models/label';
 import { hexToHSL } from '../../util/color-utils';
 
@@ -7,7 +7,7 @@ import { hexToHSL } from '../../util/color-utils';
   templateUrl: './label.component.html',
   styleUrls: ['./label.component.css'],
 })
-export class LabelComponent implements OnInit {
+export class LabelComponent {
   @Input()
   label: Label;
 
@@ -30,10 +30,6 @@ export class LabelComponent implements OnInit {
 
   @Output()
   remove = new EventEmitter<Label>();
-
-  constructor() {}
-
-  ngOnInit() {}
 
   onRemove() {
     this.remove.emit(this.label);

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { BehaviorSubject, merge, Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { Locale } from '../../../projects/models/locale';
@@ -8,7 +8,7 @@ import { Locale } from '../../../projects/models/locale';
   templateUrl: './select-locale.component.html',
   styleUrls: ['./select-locale.component.css'],
 })
-export class SelectLocaleComponent implements OnInit, OnChanges {
+export class SelectLocaleComponent implements OnChanges {
   @Input()
   locales: Locale[] = [];
 
@@ -59,10 +59,6 @@ export class SelectLocaleComponent implements OnInit, OnChanges {
         .slice(0, this.limit);
     }),
   );
-
-  constructor() {}
-
-  ngOnInit() {}
 
   ngOnChanges() {
     this.ngChanged$.next(this.text$.getValue());

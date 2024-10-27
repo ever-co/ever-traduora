@@ -29,7 +29,7 @@ export class SetCurrentProject {
 
 export class RefreshProjectStats {
   static readonly type = '[Projects] Refresh current project stats';
-  constructor() {}
+
 }
 
 export class UpdateProject {
@@ -104,7 +104,10 @@ export class ProjectsState implements NgxsOnInit {
     return state.currentProjectStats;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectsStateModel>) {}
+  ngxsOnInit(_ctx: StateContext<ProjectsStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
 
   @Action(Logout)
   logout(ctx: StateContext<ProjectsStateModel>, action: Logout) {

@@ -119,7 +119,10 @@ export class ProjectLabelState implements NgxsOnInit {
     return state.errorMessage;
   }
 
-  ngxsOnInit(ctx: StateContext<ProjectLabelStateModel>) {}
+  ngxsOnInit(_ctx: StateContext<ProjectLabelStateModel>) {
+    // Intentionally left empty
+    // TODO: Implement initialization logic if needed
+  }
 
   @Action(GetProjectLabels)
   getProjectLabels(ctx: StateContext<ProjectLabelStateModel>, action: GetProjectLabels) {
