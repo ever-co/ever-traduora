@@ -25,7 +25,6 @@ export class ApiClientComponent {
 
   projectRoles = [ProjectRole.Admin, ProjectRole.Editor, ProjectRole.Viewer];
 
-
   withRole(user: ProjectClient, role: ProjectRole): ProjectClient {
     return { ...user, role: role };
   }

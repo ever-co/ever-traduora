@@ -5,5 +5,4 @@ import { Component } from '@angular/core';
   templateUrl: './logo.component.html',
   styleUrls: ['./logo.component.css'],
 })
-export class TrLogoComponent {
-}
+export class TrLogoComponent {}

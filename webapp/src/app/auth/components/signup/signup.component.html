@@ -2,15 +2,15 @@
   <app-logo class="mb-4"></app-logo>
   <div class="card" style="width: 380px">
     <div class="card-body">
-      <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+      <div *ngIf="errorMessage$ | async as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
       <div *ngIf="inviteOnly" class="alert alert-warning">Traduora is currently invite-only.</div>
 
-      <h4 class="card-title font-serif" >Create an account</h4>
+      <h4 class="card-title font-serif">Create an account</h4>
 
       <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" novalidate>
         <div class="form-group">
-          <label for="nameInput" >Name</label>
+          <label for="nameInput">Name</label>
           <input
             [disabled]="inviteOnly"
             id="nameInput"
@@ -22,12 +22,12 @@
             autocomplete="name"
           />
           <div class="invalid-feedback">
-            <div *ngIf="name.hasError('required')" >Name is required.</div>
+            <div *ngIf="name.hasError('required')">Name is required.</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="emailInput" >Email Address</label>
+          <label for="emailInput">Email Address</label>
           <input
             [disabled]="inviteOnly"
             id="emailInput"
@@ -39,13 +39,13 @@
             autocomplete="email"
           />
           <div class="invalid-feedback">
-            <div *ngIf="email.hasError('required')" >Email is required.</div>
-            <div *ngIf="email.hasError('email')" >Must be a valid email</div>
+            <div *ngIf="email.hasError('required')">Email is required.</div>
+            <div *ngIf="email.hasError('email')">Must be a valid email</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="newPasswordInput" >Password</label>
+          <label for="newPasswordInput">Password</label>
           <input
             [disabled]="inviteOnly"
             id="newPasswordInput"
@@ -57,22 +57,22 @@
             autocomplete="off"
           />
           <div class="invalid-feedback">
-            <div *ngIf="password.hasError('required')" >Password is required.</div>
-            <div *ngIf="password.hasError('minlength')" >Password must be at least {{ passwordMinLength }} characters long.</div>
+            <div *ngIf="password.hasError('required')">Password is required.</div>
+            <div *ngIf="password.hasError('minlength')">Password must be at least {{ passwordMinLength }} characters long.</div>
           </div>
         </div>
 
-        <button type="submit" [disabled]="!signupForm.valid || (isLoading$ | async)" class="btn btn-primary w-100" >Get started</button>
+        <button type="submit" [disabled]="!signupForm.valid || (isLoading$ | async)" class="btn btn-primary w-100">Get started</button>
       </form>
 
       <div class="text-center border-top mt-5">
-        <div class="mt-3" *ngFor="let provider of (providers$ | async)">
+        <div class="mt-3" *ngFor="let provider of providers$ | async">
           <app-sign-in-with [provider]="provider"></app-sign-in-with>
         </div>
       </div>
     </div>
   </div>
   <div class="text-center mt-3">
-    <p class="text-sm">Already have an account? <a class="btn btn-link text-sm p-0" routerLink="/login" >Sign in </a></p>
+    <p class="text-sm">Already have an account? <a class="btn btn-link text-sm p-0" routerLink="/login">Sign in </a></p>
   </div>
 </div>

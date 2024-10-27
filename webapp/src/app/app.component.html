@@ -1,5 +1,5 @@
 <div class="full-screen-sm d-flex flex-column overflow-sm-hidden">
-  <app-loading-indicator [enabled]="isLoading$ | async" style="z-index: 600;"></app-loading-indicator>
-  <app-bar *ngIf="(isAuthenticated$ | async)" style="z-index: 500;"></app-bar>
+  <app-loading-indicator [enabled]="isLoading$ | async" style="z-index: 600"></app-loading-indicator>
+  <app-bar *ngIf="isAuthenticated$ | async" style="z-index: 500"></app-bar>
   <div class="flex-1 h-100"><router-outlet></router-outlet></div>
 </div>

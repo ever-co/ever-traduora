@@ -7,8 +7,6 @@ import jwtDecode from 'jwt-decode';
 export class TokenService {
   private readonly tokenKey = 'accessToken';
 
-
-
   getToken(): string | undefined {
     return localStorage.getItem(this.tokenKey);
   }

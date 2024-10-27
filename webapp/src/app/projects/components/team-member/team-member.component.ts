@@ -25,7 +25,6 @@ export class TeamMemberComponent {
 
   projectRoles = [ProjectRole.Admin, ProjectRole.Editor, ProjectRole.Viewer];
 
-
   withRole(user: ProjectUser, role: ProjectRole): ProjectUser {
     user.role = role;
     return user;

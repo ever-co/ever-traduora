@@ -6,7 +6,7 @@ import { Locale } from '../../../projects/models/locale';
   templateUrl: './country-flag.component.html',
   styleUrls: ['./country-flag.component.css'],
 })
-export class CountryFlagComponent  {
+export class CountryFlagComponent {
   @Input()
   locale: Locale;
 

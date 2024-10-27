@@ -4,12 +4,7 @@
     <div class="input-group-prepend">
       <span class="input-group-text"><i class="material-icons search-icon">search</i></span>
     </div>
-    <input
-      type="text"
-      class="form-control"
-      [placeholder]="placeholder"
-      (input)="searchText.next($event.target.value)"
-    />
+    <input type="text" class="form-control" [placeholder]="placeholder" (input)="searchText.next($event.target.value)" />
   </div>
   <!-- Pagination -->
   <ngb-pagination
@@ -26,18 +21,13 @@
 <ng-container *ngTemplateOutlet="searchResultsHeader"></ng-container>
 
 <!-- Results -->
-<ng-container
-  *ngFor="
-    let result of (searchResults$ | async | slice: (page - 1) * pageSize:(page - 1) * pageSize + pageSize);
-    trackBy: trackBy
-  "
->
+<ng-container *ngFor="let result of searchResults$ | async | slice: (page - 1) * pageSize : (page - 1) * pageSize + pageSize; trackBy: trackBy">
   <ng-container *ngTemplateOutlet="searchResultsItem; context: { result: result }"> </ng-container>
 </ng-container>
 
-<div *ngIf="(((searchResultsSize$ | async) || 0) === 0 && searchText | async)">
+<div *ngIf="((searchResultsSize$ | async) || 0) === 0 && searchText | async">
   <div class="alert alert-secondary p-5 d-flex flex-row">
     <i class="material-icons mr-3">info</i>
-    <p class="font-serif m-0" >Your search yielded no results...</p>
+    <p class="font-serif m-0">Your search yielded no results...</p>
   </div>
 </div>

@@ -2,13 +2,13 @@
   <app-logo class="mb-4"></app-logo>
   <div class="card" style="width: 380px">
     <div class="card-body">
-      <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+      <div *ngIf="errorMessage$ | async as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
-      <h4 class="card-title font-serif" >Sign in</h4>
+      <h4 class="card-title font-serif">Sign in</h4>
 
       <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" novalidate>
         <div class="form-group">
-          <label for="emailInput" >Email address</label>
+          <label for="emailInput">Email address</label>
           <input
             id="emailInput"
             class="form-control"
@@ -20,13 +20,13 @@
           />
 
           <div class="invalid-feedback">
-            <div *ngIf="email.getError('required')" >Email is required.</div>
-            <div *ngIf="email.getError('email')" >Must be a valid email</div>
+            <div *ngIf="email.getError('required')">Email is required.</div>
+            <div *ngIf="email.getError('email')">Must be a valid email</div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="passwordInput" >Password</label>
+          <label for="passwordInput">Password</label>
           <input
             id="passwordInput"
             class="form-control"
@@ -38,23 +38,23 @@
           />
 
           <div class="invalid-feedback">
-            <div *ngIf="password.getError('required')" >Password is required.</div>
-            <div *ngIf="password.getError('minlength')" >Password must be at least 8 characters.</div>
+            <div *ngIf="password.getError('required')">Password is required.</div>
+            <div *ngIf="password.getError('minlength')">Password must be at least 8 characters.</div>
           </div>
         </div>
 
-        <button class="btn btn-primary w-100" type="submit" [disabled]="!loginForm.valid || (isLoading$ | async)" >Sign in</button>
+        <button class="btn btn-primary w-100" type="submit" [disabled]="!loginForm.valid || (isLoading$ | async)">Sign in</button>
       </form>
 
       <div class="text-center border-top mt-5">
-        <div class="mt-3" *ngFor="let provider of (providers$ | async)">
+        <div class="mt-3" *ngFor="let provider of providers$ | async">
           <app-sign-in-with [provider]="provider"></app-sign-in-with>
         </div>
       </div>
     </div>
   </div>
   <div class="text-center mt-3">
-    <p class="text-sm my-0">Don't have an account? <a class="text-sm btn btn-link p-0" routerLink="/signup" >Sign up</a></p>
-    <a class="btn btn-link text-sm my-0" routerLink="/forgot-password" >Forgot your password?</a>
+    <p class="text-sm my-0">Don't have an account? <a class="text-sm btn btn-link p-0" routerLink="/signup">Sign up</a></p>
+    <a class="btn btn-link text-sm my-0" routerLink="/forgot-password">Forgot your password?</a>
   </div>
 </div>

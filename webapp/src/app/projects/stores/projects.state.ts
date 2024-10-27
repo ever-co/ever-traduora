@@ -29,7 +29,6 @@ export class SetCurrentProject {
 
 export class RefreshProjectStats {
   static readonly type = '[Projects] Refresh current project stats';
-
 }
 
 export class UpdateProject {

@@ -2,17 +2,17 @@
   <div class="d-flex flex-1 flex-column justify-content-start align-items-center py-5 mb-5">
     <div class="card w-100" style="max-width: 480px">
       <div class="card-body">
-        <div *ngIf="(user$ | async) as user">
+        <div *ngIf="user$ | async as user">
           <h4 class="card-title font-serif">Account Settings</h4>
 
-          <div *ngIf="(errorMessage$ | async) as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
-          <div *ngIf="(statsMessage$ | async) as statusMessage" class="alert alert-success">{{ statusMessage }}</div>
-          
+          <div *ngIf="errorMessage$ | async as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+          <div *ngIf="statsMessage$ | async as statusMessage" class="alert alert-success">{{ statusMessage }}</div>
+
           <h5 class="font-serif">Your Profile</h5>
 
           <form [formGroup]="userDataForm" (ngSubmit)="updateUserData()" novalidate>
             <div class="form-group">
-              <label for="nameInput" >Name</label>
+              <label for="nameInput">Name</label>
               <input
                 id="nameInput"
                 class="form-control"
@@ -23,12 +23,12 @@
                 autocomplete="name"
               />
               <div class="invalid-feedback">
-                <div *ngIf="name.hasError('required')" >Name is required.</div>
+                <div *ngIf="name.hasError('required')">Name is required.</div>
               </div>
             </div>
 
             <div class="form-group">
-              <label for="emailInput" >Email address</label>
+              <label for="emailInput">Email address</label>
               <input
                 id="emailInput"
                 class="form-control"
@@ -40,17 +40,12 @@
               />
 
               <div class="invalid-feedback">
-                <div *ngIf="email.getError('required')" >Email is required.</div>
-                <div *ngIf="email.getError('email')" >Must be a valid email</div>
+                <div *ngIf="email.getError('required')">Email is required.</div>
+                <div *ngIf="email.getError('email')">Must be a valid email</div>
               </div>
             </div>
 
-            <button
-              class="btn btn-primary w-100"
-              [disabled]="!userDataForm.dirty || !userDataForm.valid || (isLoading$ | async)"
-              type="submit"
-              
-            >
+            <button class="btn btn-primary w-100" [disabled]="!userDataForm.dirty || !userDataForm.valid || (isLoading$ | async)" type="submit">
               Save changes
             </button>
           </form>
@@ -62,7 +57,7 @@
 
           <form [formGroup]="userPasswordForm" (ngSubmit)="changePassword()" novalidate>
             <div class="form-group">
-              <label for="oldPasswordInput" >Current Password</label>
+              <label for="oldPasswordInput">Current Password</label>
               <input
                 id="oldPasswordInput"
                 class="form-control"
@@ -74,13 +69,13 @@
               />
 
               <div class="invalid-feedback">
-                <div *ngIf="oldPassword.getError('required')" >Password is required.</div>
-                <div *ngIf="oldPassword.getError('minlength')" >Password must be at least 8 characters.</div>
+                <div *ngIf="oldPassword.getError('required')">Password is required.</div>
+                <div *ngIf="oldPassword.getError('minlength')">Password must be at least 8 characters.</div>
               </div>
             </div>
 
             <div class="form-group">
-              <label for="newPasswordInput" >New Password</label>
+              <label for="newPasswordInput">New Password</label>
               <input
                 id="newPasswordInput"
                 class="form-control"
@@ -92,15 +87,14 @@
               />
 
               <div class="invalid-feedback">
-                <div *ngIf="newPassword.getError('required')" >Password is required.</div>
-                <div *ngIf="newPassword.getError('minlength')" >Password must be at least 8 characters.</div>
+                <div *ngIf="newPassword.getError('required')">Password is required.</div>
+                <div *ngIf="newPassword.getError('minlength')">Password must be at least 8 characters.</div>
               </div>
             </div>
 
             <button
               class="btn btn-primary w-100"
               [disabled]="!userPasswordForm.dirty || !userPasswordForm.valid || (isLoading$ | async)"
-              
               type="submit"
             >
               Change password
@@ -111,12 +105,7 @@
 
           <hr />
 
-          <button
-            class="btn btn-danger btn-sm float-right"
-            [disabled]="isLoading$ | async"
-            (click)="deleteAccount(user)"
-            
-          >
+          <button class="btn btn-danger btn-sm float-right" [disabled]="isLoading$ | async" (click)="deleteAccount(user)">
             Permanently delete my account
           </button>
         </div>

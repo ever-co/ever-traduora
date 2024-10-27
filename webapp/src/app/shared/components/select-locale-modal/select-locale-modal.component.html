@@ -1,6 +1,6 @@
 <ng-template #content let-modal>
   <div class="modal-header">
-    <h4 class="modal-title font-serif" >Select locale</h4>
+    <h4 class="modal-title font-serif">Select locale</h4>
     <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
       <i class="material-icons">close</i>
     </button>
@@ -9,8 +9,8 @@
     <app-select-locale class="mb-5" [locales]="locales" [exclude]="exclude" [limit]="5" (selectLocale)="selectedLocale = $event"> </app-select-locale>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus >Cancel</button>
-    <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()" >Confirm</button>
+    <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus>Cancel</button>
+    <button type="button" class="btn btn-primary" (click)="confirmSelection()" [disabled]="!isValid()">Confirm</button>
   </div>
 </ng-template>
 
@@ -21,7 +21,7 @@
     (click)="open(content)"
     [ngClass]="btnClass"
   >
-    <p class="m-0 font-serif ">
+    <p class="m-0 font-serif">
       {{ currentLocale.language }}
       <app-country-flag class="ml-1 text-sm" [locale]="currentLocale"></app-country-flag>
     </p>
