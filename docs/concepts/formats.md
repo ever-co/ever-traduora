@@ -7,6 +7,7 @@ sidebar_label: Formats
 Traduora currently supports the following import and export formats:
 
 ## JSON (flat)
+
 ```json
 {
   "term.one": "Hello there, this is a translation string",
@@ -15,6 +16,7 @@ Traduora currently supports the following import and export formats:
 ```
 
 ## JSON (nested)
+
 ```json
 {
   "term": {
@@ -25,12 +27,14 @@ Traduora currently supports the following import and export formats:
 ```
 
 ## YAML (flat)
+
 ```yaml
 term.one: Hello there, this is a translation string
 term.two: 'Check out {{ project.name }}'
 ```
 
 ## YAML (nested)
+
 ```yaml
 term:
   one: Hello there, this is a translation string
@@ -38,18 +42,21 @@ term:
 ```
 
 ## Java properties
+
 ```properties
 term.one = Hello there, this is a translation string
 term.two = Check out {{ project.name }}
 ```
 
 ## CSV
+
 ```text
 term.one,Hello there, this is a translation string
 term.two,Check out {{ project.name }}
 ```
 
 ## Gettext (po)
+
 ```text
 msgid ""
 msgstr ""
@@ -66,6 +73,7 @@ msgstr "Check out {{ project.name }}"
 ```
 
 ## XLIFF (1.2)
+
 ```xml
 <?xml version="1.0" encoding="UTF-8" ?>
 <xliff xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:oasis:names:tc:xliff:document:1.2 http://docs.oasis-open.org/xliff/v1.2/os/xliff-core-1.2-strict.xsd" xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
@@ -85,18 +93,21 @@ msgstr "Check out {{ project.name }}"
 ```
 
 ## Strings
+
 ```text
 "term.one" = "Hello there, this is a translation string";
 "term.two" = "Check out {{ project.name }}";
 ```
 
 ## Strings
+
 ```text
 "term.one" = "Hello there, this is a translation string";
 "term.two" = "Check out {{ project.name }}";
 ```
 
 ## Android Resources (xml)
+
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -106,6 +117,7 @@ msgstr "Check out {{ project.name }}"
 ```
 
 ## PHP Arrays
+
 ```php
 <?php
 
@@ -118,5 +130,5 @@ return [
 ```
 
 ## New formats on the way
-The roadmap includes: Microsoft Resources.
 
+The roadmap includes: Microsoft Resources.

@@ -1,25 +1,24 @@
 version: '3.7'
 
 services:
-
   traduora:
     image: everco/ever-traduora:latest
-    container_name: traduora   
+    container_name: traduora
     ports:
-     - "8080:8080"
+      - '8080:8080'
     environment:
       TR_DB_USER: tr
       TR_DB_PASSWORD: change_me
       TR_DB_DATABASE: tr_dev
       TR_DB_HOST: mysqldb
       TR_DB_PORT: 3306
-      NODE_ENV: ${NODE_ENV:-development}    
+      NODE_ENV: ${NODE_ENV:-development}
     entrypoint: './docker-entrypoint.compose.sh'
     restart: on-failure
     depends_on:
       - mysqldb
     links:
-      - mysqldb:${TR_DB_HOST:-mysqldb}      
+      - mysqldb:${TR_DB_HOST:-mysqldb}
     networks:
       - overlay
 
@@ -28,7 +27,7 @@ services:
     container_name: mysqldb
     restart: always
     ports:
-      - "3306:3306"
+      - '3306:3306'
     environment:
       MYSQL_DATABASE: tr_dev
       MYSQL_USER: tr
@@ -40,4 +39,4 @@ services:
 
 networks:
   overlay:
-      driver: bridge
+    driver: bridge

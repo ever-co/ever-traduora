@@ -1,4 +1,4 @@
-# Ever Traduora Platform 
+# Ever Traduora Platform
 
 [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/ever-co/ever-traduora)
 [![Latest Release](https://img.shields.io/github/release/ever-co/ever-traduora.svg?label=latest%20release)](https://github.com/ever-co/ever-traduora/releases)
@@ -14,13 +14,13 @@ It's built with React / ReactNative stack and connects to headless [Ever Gauzy P
 
 ## 🌟 What is it
 
-[Ever® Traduora](https://traduora.co) - **Open Translation Management Platform** for teams. 
+[Ever® Traduora](https://traduora.co) - **Open Translation Management Platform** for teams.
 
-Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and *soon* automatically translate your project via third-party integrations.
+Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and _soon_ automatically translate your project via third-party integrations.
 
 ![Traduora Product Screenshot](docs-website/static/img/traduora-preview.png)
 
-We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core products **open-source** with the intention of growing a **community** and enabling developers to build on top of it as a platform. 
+We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core products **open-source** with the intention of growing a **community** and enabling developers to build on top of it as a platform.
 
 We are going to also use Traduora from our other open-source platforms (currently https://github.com/ever-co/ever-gauzy and https://github.com/ever-co/ever-demand). You are welcome to check more information about the platforms at our official website - https://ever.co.
 
@@ -47,7 +47,7 @@ Please refer to our official [Platform Documentation](https://docs.traduora.co).
 
 ## 📊 Activity
 
-![Alt](https://repobeats.axiom.co/api/embed/8ed434d797f3fafdb41858386930efa788949773.svg "Repobeats analytics image")
+![Alt](https://repobeats.axiom.co/api/embed/8ed434d797f3fafdb41858386930efa788949773.svg 'Repobeats analytics image')
 
 ## 🚀 Try it out
 
@@ -71,14 +71,14 @@ Some questions come up over and over again. Be sure to check out our [FAQ](https
 
 ## 💌 Contact Us
 
--   [Ever.co Website Contact Us page](https://ever.co/contacts)
--   [CodeMentor](https://www.codementor.io/evereq)
--   For business inquiries: <mailto:traduora@ever.co>
--   Please report security vulnerabilities to <mailto:security@ever.co>
+- [Ever.co Website Contact Us page](https://ever.co/contacts)
+- [CodeMentor](https://www.codementor.io/evereq)
+- For business inquiries: <mailto:traduora@ever.co>
+- Please report security vulnerabilities to <mailto:security@ever.co>
 
 ## 🔐 Security
 
-Security is very important to us. 
+Security is very important to us.
 Ever® Traduora Platform follows good security practices, but 100% security cannot be guaranteed in any software!
 Ever® Traduora Platform is provided AS IS without any warranty. Use at your own risk!
 See more details in the [LICENSE](https://github.com/ever-co/ever-traduora/blob/master/LICENSE).
@@ -86,7 +86,7 @@ See more details in the [LICENSE](https://github.com/ever-co/ever-traduora/blob/
 In a production setup, all client-side to server-side (backend, APIs) communications should be encrypted using HTTPS/SSL (REST APIs).
 
 If you discover any issue regarding security, please disclose the information responsibly by sending an email to <mailto:security@ever.co> and not by creating a GitHub issue.
- 
+
 ## Internationalization
 
 Of course, we'd like Traduora to be available in as many languages as possible, so feel free to contribute!
@@ -106,7 +106,7 @@ Traduora was created by https://github.com/anthonynsimon (https://anthonynsimon.
 ## ™️ Trademarks
 
 **Ever**® is a registered trademark of [Ever Co. LTD](https://ever.co).  
-**Ever® Traduora™**, **Ever® Demand™**, **Ever® Gauzy™**, **Ever® Teams™** and **Ever® OpenSaaS™**  are all trademarks of [Ever Co. LTD](https://ever.co).
+**Ever® Traduora™**, **Ever® Demand™**, **Ever® Gauzy™**, **Ever® Teams™** and **Ever® OpenSaaS™** are all trademarks of [Ever Co. LTD](https://ever.co).
 The trademarks may only be used with the written permission of Ever Co. LTD. and may not be used to promote or otherwise market competitive products or services.
 
 All other brand and product names are trademarks, registered trademarks, or service marks of their respective holders.
@@ -115,10 +115,10 @@ All other brand and product names are trademarks, registered trademarks, or serv
 
 We think it's great that you'd like to contribute to Traduora.
 
--   Please give us :star: on Github, it **helps**!
--   You are more than welcome to submit feature requests in the [separate repo](https://github.com/ever-co/feature-requests/issues).
--   Pull requests are always welcome! Please base pull requests against the _develop_ branch and follow the [contribution guidelines](https://docs.traduora.co/docs/contributing). 
- 
+- Please give us :star: on Github, it **helps**!
+- You are more than welcome to submit feature requests in the [separate repo](https://github.com/ever-co/feature-requests/issues).
+- Pull requests are always welcome! Please base pull requests against the _develop_ branch and follow the [contribution guidelines](https://docs.traduora.co/docs/contributing).
+
 ## 💪 Thanks to our Contributors
 
 See our contributors list in [CONTRIBUTORS.md](https://github.com/ever-co/ever-traduora/blob/develop/.github/CONTRIBUTORS.md).  
@@ -143,7 +143,7 @@ You can also view a full list of our [contributors tracked by Github](https://gi
 ![visitors](https://visitor-badge.laobi.icu/badge?page_id=ever-co.traduora-platform)
 [![Circle CI](https://circleci.com/gh/ever-co/ever-traduora.svg?style=svg)](https://circleci.com/gh/ever-co/ever-traduora)
 [![codecov](https://codecov.io/gh/ever-co/ever-traduora/branch/master/graph/badge.svg)](https://codecov.io/gh/ever-co/ever-traduora)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/0d5e1c68dc1e44c79249241b4abb15b8)](https://www.codacy.com/gh/ever-co/ever-traduora/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ever-co/ever-traduora&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/0d5e1c68dc1e44c79249241b4abb15b8)](https://www.codacy.com/gh/ever-co/ever-traduora/dashboard?utm_source=github.com&utm_medium=referral&utm_content=ever-co/ever-traduora&utm_campaign=Badge_Grade)
 [![DeepScan grade](https://deepscan.io/api/teams/3293/projects/16761/branches/365112/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=3293&pid=16761&bid=365112)
 [![Known Vulnerabilities](https://snyk.io/test/github/ever-co/ever-traduora/badge.svg)](https://snyk.io/test/github/ever-co/ever-traduora)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora?ref=badge_shield)

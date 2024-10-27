@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-    node: circleci/node@5.2.0
+  node: circleci/node@5.2.0
 
 defaults: &defaults
   # put here anything which is common between all jobs
@@ -9,7 +9,7 @@ defaults: &defaults
   working_directory: ~/workspace
 
 jobs:
-  check_lint:    
+  check_lint:
     <<: *defaults
     docker:
       - image: 'cimg/base:stable'
@@ -38,14 +38,14 @@ jobs:
           name: Run Lint checks
           command: bin/check_lint.sh
 
-  test_unit:    
+  test_unit:
     <<: *defaults
     docker:
       - image: 'cimg/base:stable'
       - image: mysql:5.7
         environment:
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-          MYSQL_DATABASE: "tr_e2e"
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: 'tr_e2e'
     steps:
       - checkout
       - node/install:
@@ -74,14 +74,14 @@ jobs:
           name: Run tests and checks
           command: bin/test_unit.sh
 
-  test_e2e:    
+  test_e2e:
     <<: *defaults
     docker:
       - image: 'cimg/base:stable'
       - image: mysql:5.7
         environment:
-          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-          MYSQL_DATABASE: "tr_e2e"
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: 'tr_e2e'
     steps:
       - checkout
       - node/install:
@@ -146,21 +146,21 @@ workflows:
   test:
     jobs:
       - check_lint:
-           filters:
-              branches:
-                ignore: master
+          filters:
+            branches:
+              ignore: master
       - test_unit:
           requires:
             - check_lint
           filters:
-              branches:
-                ignore: master
+            branches:
+              ignore: master
       - test_e2e:
           requires:
             - check_lint
           filters:
-              branches:
-                ignore: master
+            branches:
+              ignore: master
 
   release:
     jobs:

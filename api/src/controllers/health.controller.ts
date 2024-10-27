@@ -4,8 +4,6 @@ import { version } from '../../package.json';
 
 @Controller()
 export default class HealthController {
-
-
   @ApiExcludeEndpoint()
   @Get('/health')
   async health() {

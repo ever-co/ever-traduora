@@ -24,7 +24,6 @@ TR_DB_USER
 TR_DB_PASSWORD
 ```
 
-
 ## Docker compose
 
 The quickest way to try Traduora is by using our example docker-compose setup:
@@ -36,7 +35,6 @@ docker-compose -f docker-compose.demo.yaml up
 ```
 
 Note: if you want to build docker image locally (instead of downloading prebuilt one), just run `docker-compose up` instead of `docker-compose -f docker-compose.demo.yaml up`.
-
 
 ## Docker
 
@@ -53,7 +51,6 @@ docker run -d -p 8080:8080 -e TR_SECRET=mysupersecret -e TR_VIRTUAL_HOST=example
 ```
 
 This will run Traduora **without any persistent storage**. You will likely want to point it to the location of your MySQL database, to see the available environment variables checkout the [configuration](configuration.md) section.
-
 
 ## Kubernetes
 
@@ -87,8 +84,8 @@ kubectl apply -f deploy/k8s/traduora-preview-ingress-nginx.yaml
 
 It is **strongly recommended** that you only serve Traduora over TLS, you should configure according to your cloud environment
 
-
 ## From source
+
 To build from source the pre-requisites are: `Node.js v10+` and `yarn` (or npm).
 
 Clone the repo locally:
@@ -111,7 +108,6 @@ bin/start.sh
 
 The server will be (by default) listening on `0.0.0.0:8080`. You might want to start the server with a service/process manager like `systemd`, `upstart`, `supervisord` or `pm2` on production environments.
 
-
 ## Configuration
-You can of course configure Traduora according to your needs, to see the available environment variables checkout the [configuration](configuration.md) section.
 
+You can of course configure Traduora according to your needs, to see the available environment variables checkout the [configuration](configuration.md) section.

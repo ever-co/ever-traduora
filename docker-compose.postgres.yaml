@@ -1,7 +1,6 @@
 version: '3.7'
 
 services:
-
   traduora:
     image: everco/ever-traduora:latest
     container_name: traduora
@@ -9,9 +8,9 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-          NODE_ENV: ${NODE_ENV:-development}
+        NODE_ENV: ${NODE_ENV:-development}
     ports:
-     - "8080:8080"
+      - '8080:8080'
     environment:
       TR_DB_TYPE: postgres
       TR_DB_USER: tr
@@ -44,4 +43,4 @@ services:
 
 networks:
   overlay:
-      driver: bridge
+    driver: bridge
