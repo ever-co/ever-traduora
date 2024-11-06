@@ -1,4 +1,4 @@
-import { Closable } from "types";
+import { Closable } from 'types';
 import * as process from 'process';
 
 /**
@@ -11,21 +11,19 @@ import * as process from 'process';
  *                    This method is expected to clean up or release resources associated with each object.
  */
 export function setupShutdownHandler(closables: Closable[]) {
-    process.on('SIGINT', async () => {
-        console.log('Shutdown signal received. Initiating graceful shutdown...');
-        console.log(`Total resources to close: ${closables.length}`);
+  process.on('SIGINT', async () => {
+    console.log('Shutdown signal received. Initiating graceful shutdown...');
+    console.log(`Total resources to close: ${closables.length}`);
 
-        try {
-            for (const [index, closable] of closables.entries()) {
-                await closable.close();
-                console.log(`Resource ${index + 1} closed successfully.`);
-            }
-        } catch (error) {
-            console.error('Error occurred while closing resources:', error);
-        } finally {
-            process.exit(1);
-        }
-    });
+    try {
+      for (const [index, closable] of closables.entries()) {
+        await closable.close();
+        console.log(`Resource ${index + 1} closed successfully.`);
+      }
+    } catch (error) {
+      console.error('Error occurred while closing resources:', error);
+    } finally {
+      process.exit(1);
+    }
+  });
 }
-
-

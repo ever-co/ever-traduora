@@ -6,5 +6,5 @@
  * resolves when the operation is complete.
  */
 export interface Closable {
-    close(): Promise<void>;
+  close(): Promise<void>;
 }
