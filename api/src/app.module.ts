@@ -42,69 +42,102 @@ import { UserService } from './services/user.service';
 import ProjectStatsController from './controllers/project-stats.controller';
 
 @Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secretOrPrivateKey: config.secret,
-      signOptions: {
-        expiresIn: config.authTokenExpires,
-      },
-    }),
-    TypeOrmModule.forRoot(config.db.default),
-    TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Label]),
-    HttpModule,
-  ],
-  controllers: [
-    HealthController,
-    AuthController,
-    UserController,
-    ProjectController,
-    ProjectStatsController,
-    ProjectPlanController,
-    ProjectUserController,
-    ProjectInviteController,
-    TermController,
-    TranslationController,
-    ImportController,
-    ProjectClientController,
-    ProjectLabelController,
-    ExportsController,
-    LocaleController,
-    IndexController,
-  ],
-  providers: [UserService, AuthService, MailService, JwtStrategy, AuthorizationService],
+    imports: [
+        PassportModule.register({ defaultStrategy: 'jwt' }),
+        JwtModule.register({
+            secret: config.secret,
+            signOptions: {
+                expiresIn: config.authTokenExpires,
+            }
+        }),
+        TypeOrmModule.forRoot(config.db.default),
+        TypeOrmModule.forFeature([
+            User,
+            Invite,
+            ProjectUser,
+            Project,
+            Term,
+            Locale,
+            ProjectLocale,
+            Translation,
+            ProjectClient,
+            Plan,
+            Label
+        ]),
+        HttpModule,
+    ],
+    controllers: [
+        HealthController,
+        AuthController,
+        UserController,
+        ProjectController,
+        ProjectStatsController,
+        ProjectPlanController,
+        ProjectUserController,
+        ProjectInviteController,
+        TermController,
+        TranslationController,
+        ImportController,
+        ProjectClientController,
+        ProjectLabelController,
+        ExportsController,
+        LocaleController,
+        IndexController,
+    ],
+    providers: [
+        UserService,
+        AuthService,
+        MailService,
+        JwtStrategy,
+        AuthorizationService
+    ],
 })
 export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
-    if (config.accessLogsEnabled) {
-      MorganMiddleware.configure('short');
-      consumer.apply(MorganMiddleware).forRoutes('*');
+   /**
+     * Configures middleware for the application, applying the Morgan logging middleware
+     * conditionally based on the `accessLogsEnabled` configuration.
+     *
+     * @param {MiddlewareConsumer} consumer - The `MiddlewareConsumer` instance used to apply middleware to routes.
+     * @returns {void} - This function does not return a value.
+     */
+    configure(consumer: MiddlewareConsumer): void {
+        if (config.accessLogsEnabled) {
+            MorganMiddleware.configure('short');
+            consumer.apply(MorganMiddleware).forRoutes('*');
+        }
     }
-  }
 }
 
-export const addPipesAndFilters = (app: NestExpressApplication) => {
-  app.disable('x-powered-by');
+/**
+ * Configures global pipes, filters, CORS, static assets, and view settings for the given NestExpress application instance.
+ * This setup is used to ensure consistent security, validation, and resource serving behavior across the application.
+ *
+ * @param {NestExpressApplication} app - The NestJS application instance to apply the configurations to.
+ * @returns {void} - This function does not return a value.
+ */
+export const addPipesAndFilters = (app: NestExpressApplication): void => {
+    app.disable('x-powered-by');
 
-  app.set('etag', false);
+    app.set('etag', false);
 
-  if (config.corsEnabled) {
-    app.enableCors({ origin: '*' });
-  }
+    if (config.corsEnabled) {
+        app.enableCors({ origin: '*' });
+    }
 
-  app.useGlobalFilters(new CustomExceptionFilter());
+    app.useGlobalFilters(new CustomExceptionFilter());
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: false,
-      disableErrorMessages: true,
-      whitelist: true,
-    }),
-  );
+    app.useGlobalPipes(
+        new ValidationPipe({
+            transform: false,
+            disableErrorMessages: true,
+            whitelist: true,
+        }),
+    );
 
-  app.useStaticAssets(config.publicDir, { index: false, redirect: false });
+    app.useStaticAssets(config.publicDir, { index: false, redirect: false });
 
-  app.setBaseViewsDir('src/templates');
+    app.setBaseViewsDir('src/templates');
 
-  app.engine('html', renderFile);
+    app.engine('html', renderFile);
 };
+
