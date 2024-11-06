@@ -33,3 +33,5 @@ yarn-error.log
 /**/.cache
 
 .vscode/
+
+.env

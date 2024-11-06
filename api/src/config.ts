@@ -1,13 +1,10 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DefaultNamingStrategy } from 'typeorm';
-
 import { join } from 'path';
 import * as process from 'process';
-
 import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
 
 const env = process.env;
-
 const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? value === 'true' : defaultValue);
 
 export const config = {
