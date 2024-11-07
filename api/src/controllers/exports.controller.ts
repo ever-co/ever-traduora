@@ -3,7 +3,6 @@ import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request, Response } from 'express';
 import { Repository } from 'typeorm';
-import { config } from '../config'
 import { ProjectAction } from '../domain/actions';
 import { IntermediateTranslationFormat } from '../domain/formatters';
 import { ExportQuery, ImportExportFormat } from '../domain/http';
