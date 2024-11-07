@@ -4,7 +4,6 @@ import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
-import { config } from '../config';
 import { ProjectAction } from '../domain/actions';
 import { ProjectStatsResponse } from '../domain/http';
 import { Locale } from '../entity/locale.entity';
@@ -13,6 +12,7 @@ import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
+import { resolveColumnName } from '../utils/alias-helper';
 
 @Controller('api/v1/projects/:projectId/stats')
 @UseGuards(AuthGuard())
@@ -45,18 +45,12 @@ export default class ProjectStatsController {
 
     const termCount = membership.project.termsCount;
 
-    // TypeORM fails to properly quote camelCase aliases with PostgreSQL
-    // https://github.com/typeorm/typeorm/issues/10961
-    const useSnakeCase = config.db.default.type === 'postgres';
-
-    const projectLocale = useSnakeCase ? 'project_locale' : 'projectLocale';
-
     const translatedByLocale = await this.projectLocaleRepo
-      .createQueryBuilder(projectLocale)
-      .leftJoin(`${projectLocale}.translations`, 'translations')
-      .select(`${projectLocale}.${useSnakeCase ? 'locale_code' : 'localeCode'}`, 'localeCode')
+      .createQueryBuilder(resolveColumnName('projectLocale'))
+      .leftJoin(`${resolveColumnName('projectLocale')}.translations`, 'translations')
+      .select(`${resolveColumnName('projectLocale')}.${resolveColumnName('localeCode')}`, 'localeCode')
       .addSelect('count(*)', 'translated')
-      .groupBy(`${projectLocale}.${useSnakeCase ? 'locale_code' : 'localeCode'}`)
+      .groupBy(`${resolveColumnName('projectLocale')}.${resolveColumnName('localeCode')}`)
       .whereInIds(locales.map(l => l.id))
       .andWhere("translations.value <> ''")
       .execute();

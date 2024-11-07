@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request, Response } from 'express';
 import { Repository } from 'typeorm';
+import { config } from '../config'
 import { ProjectAction } from '../domain/actions';
 import { IntermediateTranslationFormat } from '../domain/formatters';
 import { ExportQuery, ImportExportFormat } from '../domain/http';
@@ -23,6 +24,7 @@ import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nes
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
 import { merge } from 'lodash';
+import { resolveColumnName } from '../utils/alias-helper';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -69,10 +71,10 @@ export class ExportsController {
 
     const queryBuilder = this.termRepo
       .createQueryBuilder('term')
-      .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', {
+      .leftJoinAndSelect('term.translations', 'translation', `translation.${resolveColumnName('projectLocaleId')} = :projectLocaleId`, {
         projectLocaleId: projectLocale.id,
       })
-      .where('term.projectId = :projectId', { projectId })
+      .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId })
       .orderBy('term.value', 'ASC');
 
     if (query.untranslated) {
@@ -112,10 +114,10 @@ export class ExportsController {
       if (fallbackProjectLocale) {
         const fallbackTermsWithTranslations = await this.termRepo
           .createQueryBuilder('term')
-          .leftJoinAndSelect('term.translations', 'translation', 'translation.projectLocaleId = :projectLocaleId', {
+          .leftJoinAndSelect('term.translations', 'translation', `translation.${resolveColumnName('projectLocaleId')} = :projectLocaleId`, {
             projectLocaleId: fallbackProjectLocale.id,
           })
-          .where('term.projectId = :projectId', { projectId })
+          .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId })
           .orderBy('term.value', 'ASC')
           .getMany();
 
