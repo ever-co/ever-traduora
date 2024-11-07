@@ -50,7 +50,7 @@ export default class ProjectStatsController {
       .leftJoin(`${resolveColumnName('projectLocale')}.translations`, 'translations')
       .select(`${resolveColumnName('projectLocale')}.${resolveColumnName('localeCode')}`, 'localeCode')
       .addSelect('count(*)', 'translated')
-      .groupBy(`${resolveColumnName('projectLocale')}.${resolveColumnName('localeCode')}`)
+      .groupBy(resolveColumnName('localeCode'))
       .whereInIds(locales.map(l => l.id))
       .andWhere("translations.value <> ''")
       .execute();
