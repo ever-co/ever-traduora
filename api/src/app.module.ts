@@ -45,7 +45,7 @@ import ProjectStatsController from './controllers/project-stats.controller';
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secretOrPrivateKey: config.secret,
+      secret: config.secret,
       signOptions: {
         expiresIn: config.authTokenExpires,
       },
@@ -75,7 +75,14 @@ import ProjectStatsController from './controllers/project-stats.controller';
   providers: [UserService, AuthService, MailService, JwtStrategy, AuthorizationService],
 })
 export class AppModule {
-  configure(consumer: MiddlewareConsumer) {
+  /**
+   * Configures middleware for the application, applying the Morgan logging middleware
+   * conditionally based on the `accessLogsEnabled` configuration.
+   *
+   * @param {MiddlewareConsumer} consumer - The `MiddlewareConsumer` instance used to apply middleware to routes.
+   * @returns {void} - This function does not return a value.
+   */
+  configure(consumer: MiddlewareConsumer): void {
     if (config.accessLogsEnabled) {
       MorganMiddleware.configure('short');
       consumer.apply(MorganMiddleware).forRoutes('*');
@@ -83,7 +90,14 @@ export class AppModule {
   }
 }
 
-export const addPipesAndFilters = (app: NestExpressApplication) => {
+/**
+ * Configures global pipes, filters, CORS, static assets, and view settings for the given NestExpress application instance.
+ * This setup is used to ensure consistent security, validation, and resource serving behavior across the application.
+ *
+ * @param {NestExpressApplication} app - The NestJS application instance to apply the configurations to.
+ * @returns {void} - This function does not return a value.
+ */
+export const addPipesAndFilters = (app: NestExpressApplication): void => {
   app.disable('x-powered-by');
 
   app.set('etag', false);
