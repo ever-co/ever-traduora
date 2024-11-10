@@ -12,6 +12,7 @@ import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
+import { resolveColumnName } from '../utils/alias-helper';
 
 @Controller('api/v1/projects/:projectId/stats')
 @UseGuards(AuthGuard())
@@ -45,11 +46,11 @@ export default class ProjectStatsController {
     const termCount = membership.project.termsCount;
 
     const translatedByLocale = await this.projectLocaleRepo
-      .createQueryBuilder('projectLocale')
-      .leftJoin('projectLocale.translations', 'translations')
-      .select('projectLocale.localeCode', 'localeCode')
+      .createQueryBuilder(resolveColumnName('projectLocale'))
+      .leftJoin(`${resolveColumnName('projectLocale')}.translations`, 'translations')
+      .select(`${resolveColumnName('projectLocale')}.${resolveColumnName('localeCode')}`, 'localeCode')
       .addSelect('count(*)', 'translated')
-      .groupBy('localeCode')
+      .groupBy(resolveColumnName('localeCode'))
       .whereInIds(locales.map(l => l.id))
       .andWhere("translations.value <> ''")
       .execute();
