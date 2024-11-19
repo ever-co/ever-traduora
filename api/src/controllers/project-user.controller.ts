@@ -97,9 +97,17 @@ export default class ProjectUserController {
       throw new BadRequestException(`can't edit your own role`);
     }
 
-    const targetUser = await this.projectUserRepo.findOneOrFail({
-      where: { user: { id: userId } },
+    const targetUser = await this.projectUserRepo.findOne({
+      where: {
+        user: { id: userId },
+        project: { id: projectId },
+      },
+      relations: ['user', 'project'],
     });
+
+    if (!targetUser) {
+      throw new BadRequestException(`The specified user is not part of this project.`);
+    }
 
     await this.projectUserRepo.remove(targetUser);
   }
