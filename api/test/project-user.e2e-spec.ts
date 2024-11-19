@@ -190,6 +190,15 @@ describe('ProjectUserController (e2e)', () => {
 
   it('/api/v1/projects/:projectId/users/:userId (DELETE) should remove project users if allowed', async () => {
     await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject1.id}/invites`)
+      .set('Authorization', `Bearer ${testingUser1.accessToken}`)
+      .send({
+        email: testingUser2.email,
+        role: 'editor',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
       .delete(`/api/v1/projects/${testProject1.id}/users/${testingUser2.id}`)
       .set('Authorization', `Bearer ${testingUser1.accessToken}`)
       .expect(204);
