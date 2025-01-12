@@ -4,7 +4,7 @@ ARG NODE_OPTIONS
 ARG NODE_ENV
 
 # Build stage
-FROM node:20.11.1-alpine3.19 as builder
+FROM node:22-alpine3.20 as builder
 
 LABEL maintainer="ever@ever.co"
 LABEL org.opencontainers.image.source https://github.com/ever-co/ever-traduora
