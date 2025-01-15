@@ -96,9 +96,8 @@ export class TermsListComponent implements OnInit, OnDestroy {
             this.filteredTerms$ = this.labelFilterControl.valueChanges.pipe(
               startWith(''),
               debounceTime(300),
-              switchMap(
-                (selectedLabel: string) =>
-                  selectedLabel ? this.projectTermsService.fetchFilteredTerms(project.id, selectedLabel) : this.projectTerms$, // Retourner tous les termes si aucun label n'est sélectionné
+              switchMap((selectedLabel: string) =>
+                selectedLabel ? this.projectTermsService.fetchFilteredTerms(project.id, selectedLabel) : this.projectTerms$,
               ),
             );
           }

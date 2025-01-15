@@ -7,7 +7,7 @@
         <div class="label-filter">
           <div class="label-filter__select">
             <select id="labelFilter" class="form-control" [formControl]="labelFilterControl">
-              <option value="" disabled selected>Filter by Label</option>
+              <option value="" selected>Filter by Label</option>
               <option *ngFor="let label of projectLabels$ | async" [value]="label.id">
                 {{ label.value }}
               </option>
