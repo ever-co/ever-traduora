@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Select, Store } from '@ngxs/store';
-import { BehaviorSubject, Observable, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged, map, startWith, switchMap, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of, Subscription } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
 import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
@@ -97,7 +97,14 @@ export class TermsListComponent implements OnInit, OnDestroy {
               startWith(''),
               debounceTime(300),
               switchMap((selectedLabel: string) =>
-                selectedLabel ? this.projectTermsService.fetchFilteredTerms(project.id, selectedLabel) : this.projectTerms$,
+                selectedLabel
+                  ? this.projectTermsService.fetchFilteredTerms(project.id, selectedLabel).pipe(
+                      catchError(error => {
+                        console.error('Error fetching filtered terms:', error);
+                        return of([]);
+                      }),
+                    )
+                  : this.projectTerms$,
               ),
             );
             this.store.dispatch(new GetTerms(project.id));

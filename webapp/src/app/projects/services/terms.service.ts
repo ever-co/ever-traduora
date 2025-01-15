@@ -20,7 +20,9 @@ export class ProjectTermsService {
 
   fetchFilteredTerms(projectId: string, labelId: string): Observable<Term[]> {
     return this.http
-      .get<Payload<Term[]>>(`${this.endpoint}/projects/${projectId}/terms/filter-by-label?labelId=${labelId}`)
+      .get<Payload<Term[]>>(`${this.endpoint}/projects/${projectId}/terms/filter-by-label`, {
+        params: { labelId },
+      })
       .pipe(map(res => res.data));
   }
   create(projectId: string, value: string, context?: string | null): Observable<Term> {
