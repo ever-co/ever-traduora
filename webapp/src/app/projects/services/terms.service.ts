@@ -19,7 +19,6 @@ export class ProjectTermsService {
   }
 
   fetchFilteredTerms(projectId: string, labelId: string): Observable<Term[]> {
-    const url = `/api/v1/projects/${projectId}/terms`;
     return this.http
       .get<Payload<Term[]>>(`${this.endpoint}/projects/${projectId}/terms/filter-by-label?labelId=${labelId}`)
       .pipe(map(res => res.data));

@@ -100,9 +100,9 @@ export class TermsListComponent implements OnInit, OnDestroy {
                 selectedLabel ? this.projectTermsService.fetchFilteredTerms(project.id, selectedLabel) : this.projectTerms$,
               ),
             );
+            this.store.dispatch(new GetTerms(project.id));
+            this.store.dispatch(new GetProjectLabels(project.id));
           }
-          this.store.dispatch(new GetTerms(project.id));
-          this.store.dispatch(new GetProjectLabels(project.id));
         }),
       )
       .subscribe();
