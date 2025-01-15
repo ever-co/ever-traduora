@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Select, Store } from '@ngxs/store';
 import { BehaviorSubject, Observable, of, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, takeUntil, tap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, tap } from 'rxjs/operators';
 import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
