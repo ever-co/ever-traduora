@@ -9,12 +9,14 @@ import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
+import { UserLoginAttemptsStorage } from 'redis/user-login-attempts.storage';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
+    private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
   ) {}
 
   async userExists(email: string): Promise<boolean> {
@@ -180,53 +182,85 @@ export class UserService {
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {
     const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneBy({ email: normalizedEmail });
+
     if (!user) {
       throw new UnauthorizedException('invalid credentials');
     }
 
+    const userKey = `user-${user.id}`;
     const timeThreshold = moment().subtract(15, 'minutes').toDate();
 
-    // If lockout time has passed, reset counter
+    let loginAttempts = await this.getLoginAttempts(userKey, user);
+
+    // Reset login attempts if the last login is older than 15 minutes
     if (user.lastLogin < timeThreshold) {
-      user.loginAttempts = 0;
-      // Otherwise abort request
-    } else if (user.loginAttempts >= 3) {
-      throw new TooManyRequestsException('too many login attempts');
+      loginAttempts = 0;
     }
 
-    switch (grantType) {
-      case GrantType.Password:
-        if (!user.encryptedPassword) {
-          await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
-          throw new UnprocessableEntityException('No password for this user, was this account created via a provider?');
-        }
-
-        const valid = await new Promise((resolve, reject) => {
-          bcrypt.compare(password, user.encryptedPassword.toString('utf8'), (err, same) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(same);
-            }
-          });
-        });
-        // When credentials are invalid, increment login attempts and respond with error
-        if (!valid) {
-          await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
-          throw new UnauthorizedException('invalid credentials');
-        }
-        break;
-
-      default:
-        throw new BadRequestException('Tried to authenticate with unsupported grant type');
+    // Handle too many login attempts
+    if (loginAttempts >= 3) {
+      user.lastLogin = new Date();
+      await this.saveUser(user); // Save the updated lastLogin
+      throw new TooManyRequestsException('You have made too many requests. Please try again later.');
     }
 
-    user.lastLogin = new Date();
+    // Handle password grant type authentication
+    if (grantType === GrantType.Password) {
+      await this.handlePasswordAuthentication(user, password, loginAttempts, userKey);
+    } else {
+      throw new BadRequestException('Tried to authenticate with unsupported grant type');
+    }
 
     // All good, reset login attempts
-    user.loginAttempts = 0;
-    await this.userRepo.save(user);
+    await this.resetLoginAttempts(userKey, user);
 
     return user;
+  }
+
+  private async getLoginAttempts(userKey: string, user: User): Promise<number> {
+    if (this.loginAttemptsStorage.getRedisClient()) {
+      // Fetch login attempts from Redis if available
+      return await this.loginAttemptsStorage.getUserAttempts(userKey);
+    }
+    // Fall back to using the database
+    return user.loginAttempts;
+  }
+
+  private async handlePasswordAuthentication(user: User, password: string, loginAttempts: number, userKey: string): Promise<void> {
+    if (!user.encryptedPassword) {
+      await this.incrementLoginAttempts(user, loginAttempts, userKey);
+      throw new UnprocessableEntityException('No password for this user. Was this account created via a provider?');
+    }
+
+    const isValidPassword = await bcrypt.compare(password, user.encryptedPassword.toString('utf8'));
+
+    if (!isValidPassword) {
+      await this.incrementLoginAttempts(user, loginAttempts, userKey);
+      throw new UnauthorizedException('invalid credentials');
+    }
+  }
+
+  private async incrementLoginAttempts(user: User, loginAttempts: number, userKey: string): Promise<void> {
+    user.lastLogin = new Date();
+    await this.saveUser(user);
+
+    if (this.loginAttemptsStorage.getRedisClient()) {
+      await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, 900); // 15 minutes TTL
+    } else {
+      await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
+    }
+  }
+
+  private async saveUser(user: User): Promise<void> {
+    await this.userRepo.save(user);
+  }
+
+  private async resetLoginAttempts(userKey: string, user: User): Promise<void> {
+    if (this.loginAttemptsStorage.getRedisClient()) {
+      await this.loginAttemptsStorage.setUserAttempts(userKey, 0, 900); // Reset attempts in Redis
+    } else {
+      user.loginAttempts = 0;
+      await this.saveUser(user);
+    }
   }
 }

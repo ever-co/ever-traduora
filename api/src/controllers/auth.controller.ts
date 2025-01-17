@@ -40,6 +40,7 @@ import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('api/v1/auth')
 @ApiTags('Authentication')
@@ -179,6 +180,7 @@ export class AuthController {
     };
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60 * 1000 } })
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
