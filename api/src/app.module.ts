@@ -5,6 +5,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { renderFile } from 'ejs';
 import { config } from './config';
 import { AuthController } from './controllers/auth.controller';
@@ -42,10 +44,8 @@ import { UserService } from './services/user.service';
 import ProjectStatsController from './controllers/project-stats.controller';
 import { ConfigModule } from '@nestjs/config';
 import { RedisModule } from './redis/redis.module';
-import { UserLoginAttemptsStorage } from 'redis/user-login-attempts.storage';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
-import { CustomThrottlerGuard } from 'guards/custom-throttler.guard';
+import { UserLoginAttemptsStorage } from './redis/user-login-attempts.storage';
+import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 
 @Module({
   imports: [

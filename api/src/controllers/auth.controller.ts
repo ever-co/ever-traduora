@@ -17,6 +17,7 @@ import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
+import { Throttle } from '@nestjs/throttler';
 import { config } from '../config';
 import {
   AccessTokenDTO,
@@ -40,7 +41,6 @@ import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
-import { Throttle } from '@nestjs/throttler';
 
 @Controller('api/v1/auth')
 @ApiTags('Authentication')

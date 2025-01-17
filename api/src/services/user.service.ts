@@ -9,7 +9,7 @@ import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
-import { UserLoginAttemptsStorage } from 'redis/user-login-attempts.storage';
+import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 
 @Injectable()
 export class UserService {
