@@ -14,14 +14,18 @@ import { ConfigService } from '@nestjs/config';
 
         if (!redisHost || !redisPort) {
           Logger.warn('Redis configuration is missing. Redis will not be initialized.');
-          return null; // Pas de Redis client
+          return null;
         }
-
-        return new Redis({
-          host: redisHost,
-          port: redisPort,
-          password: redisPassword,
-        });
+        try {
+          return new Redis({
+            host: redisHost,
+            port: redisPort,
+            password: redisPassword,
+          });
+        } catch (error) {
+          Logger.error('Failed to initialize Redis client:', error.message);
+          return null;
+        }
       },
       inject: [ConfigService],
     },
