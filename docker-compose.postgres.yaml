@@ -25,6 +25,8 @@ services:
       - postgresdb
     links:
       - postgresdb:${TR_DB_HOST:-postgresdb}
+    volumes:
+      - traduora_postgres_data:/var/lib/postgresql/data
     networks:
       - overlay
 
