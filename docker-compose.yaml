@@ -41,7 +41,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_ALLOW_EMPTY_PASSWORD: 'true'
     volumes:
-      - traduora_mysql_data:/var/lib/mysql
+      - ./traduora_mysql_data:/var/lib/mysql
     networks:
       - overlay
 

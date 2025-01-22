@@ -39,7 +39,7 @@ services:
       POSTGRES_USER: tr
       POSTGRES_PASSWORD: change_me
     volumes:
-      - traduora_postgres_data:/var/lib/postgresql/data
+      - ./traduora_postgres_data:/var/lib/postgresql/data
     networks:
       - overlay
 
