@@ -26,7 +26,7 @@ export const config = {
   },
   providers: {
     google: {
-      active: env.TR_AUTH_GOOGLE_ENABLED,
+      active: getBoolOrDefault(env.TR_AUTH_GOOGLE_ENABLED, false),
       clientSecret: env.TR_AUTH_GOOGLE_CLIENT_SECRET,
       clientId: env.TR_AUTH_GOOGLE_CLIENT_ID,
       redirectUrl: env.TR_AUTH_GOOGLE_REDIRECT_URL,
