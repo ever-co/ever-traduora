@@ -11,7 +11,7 @@ export class AuthService {
     const { active, apiUrl, clientId, clientSecret, redirectUrl } = config.providers.google;
 
     if (!active) {
-      throw new BadRequestException();
+      throw new BadRequestException('Google authentication provider is not enabled');
     }
 
     try {
