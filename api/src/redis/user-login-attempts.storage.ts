@@ -9,6 +9,8 @@ export class UserLoginAttemptsStorage {
   constructor(@Inject('REDIS_CLIENT') private readonly redisClient?: Redis) {
     if (!this.redisClient) {
       this.logger.warn('Redis client is not initialized. Using in-memory storage.');
+      // Set up periodic cleanup every 5 minutes
+      setInterval(() => this.cleanupExpiredEntries(), 5 * 60 * 1000);
     }
   }
 
@@ -48,5 +50,14 @@ export class UserLoginAttemptsStorage {
 
   public getRedisClient(): Redis {
     return this.redisClient;
+  }
+
+  private cleanupExpiredEntries(): void {
+    const now = Date.now();
+    for (const [key, value] of this.inMemoryStorage.entries()) {
+      if (value.expiry <= now) {
+        this.inMemoryStorage.delete(key);
+      }
+    }
   }
 }
