@@ -15,6 +15,9 @@ export class UserLoginAttemptsStorage {
   }
 
   async setUserAttempts(userKey: string, userAttempt: number, ttl: number): Promise<void> {
+    if (!userKey || userAttempt < 0 || ttl <= 0) {
+      throw new Error('Invalid input parameters');
+    }
     if (this.redisClient) {
       try {
         await this.redisClient.set(userKey, userAttempt, 'EX', ttl);
@@ -23,28 +26,45 @@ export class UserLoginAttemptsStorage {
         throw error;
       }
     } else {
-      const expiry = Date.now() + ttl * 1000;
-      this.inMemoryStorage.set(userKey, { attempts: userAttempt, expiry });
+      try {
+        const expiry = Date.now() + ttl * 1000;
+        this.inMemoryStorage.set(userKey, { attempts: userAttempt, expiry });
+      } catch (error) {
+        this.logger.error('Failed to set user attempts in memory:', error.message);
+        throw error;
+      }
     }
   }
 
   async getUserAttempts(userKey: string): Promise<number> {
+    if (!userKey) {
+      throw new Error('Invalid user key');
+    }
     if (this.redisClient) {
       try {
         const attempts = await this.redisClient.get(userKey);
-        return attempts ? parseInt(attempts, 10) : 0;
+        const parsedAttempts = attempts ? Number(attempts) : 0;
+        if (isNaN(parsedAttempts)) {
+          throw new Error('Invalid attempts value in Redis');
+        }
+        return parsedAttempts;
       } catch (error) {
         this.logger.error('Failed to get user attempts from Redis:', error.message);
         throw error;
       }
     } else {
-      const entry = this.inMemoryStorage.get(userKey);
-      if (entry && entry.expiry > Date.now()) {
-        return entry.attempts;
+      try {
+        const entry = this.inMemoryStorage.get(userKey);
+        if (entry && entry.expiry > Date.now()) {
+          return entry.attempts;
+        }
+        // Remove expired entries
+        this.inMemoryStorage.delete(userKey);
+        return 0;
+      } catch (error) {
+        this.logger.error('Failed to get user attempts from memory:', error.message);
+        throw error;
       }
-      // Remove expired entries
-      this.inMemoryStorage.delete(userKey);
-      return 0;
     }
   }
 
