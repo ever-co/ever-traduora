@@ -18,6 +18,13 @@ export class ProjectTermsService {
     return this.http.get<Payload<Term[]>>(`${this.endpoint}/projects/${projectId}/terms`).pipe(map(res => res.data));
   }
 
+  fetchFilteredTerms(projectId: string, labelId: string): Observable<Term[]> {
+    return this.http
+      .get<Payload<Term[]>>(`${this.endpoint}/projects/${projectId}/terms/filter-by-label`, {
+        params: { labelId },
+      })
+      .pipe(map(res => res.data));
+  }
   create(projectId: string, value: string, context?: string | null): Observable<Term> {
     return this.http.post<Payload<Term>>(`${this.endpoint}/projects/${projectId}/terms`, { value, context }).pipe(map(res => res.data));
   }
