@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
@@ -13,11 +14,16 @@ import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 
 @Injectable()
 export class UserService {
+  private readonly loginAttemptsTTL: number;
+
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
     private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.loginAttemptsTTL = this.configService.get<number>('LOGIN_ATTEMPTS_TTL', 900) //15 minutes TTL by default
+  }
 
   async userExists(email: string): Promise<boolean> {
     const normalizedEmail = normalizeEmail(email);
@@ -199,8 +205,7 @@ export class UserService {
 
     // Handle too many login attempts
     if (loginAttempts >= 3) {
-      user.lastLogin = new Date();
-      await this.saveUser(user); // Save the updated lastLogin
+      await this.incrementLoginAttempts(user, loginAttempts, userKey);
       throw new TooManyRequestsException('You have made too many requests. Please try again later.');
     }
 
@@ -245,10 +250,9 @@ export class UserService {
     await this.saveUser(user);
 
     if (this.loginAttemptsStorage.getRedisClient()) {
-      await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, 900); // 15 minutes TTL
-    } else {
-      await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
+      await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, this.loginAttemptsTTL); 
     }
+    await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
   }
 
   private async saveUser(user: User): Promise<void> {
@@ -257,10 +261,9 @@ export class UserService {
 
   private async resetLoginAttempts(userKey: string, user: User): Promise<void> {
     if (this.loginAttemptsStorage.getRedisClient()) {
-      await this.loginAttemptsStorage.setUserAttempts(userKey, 0, 900); // Reset attempts in Redis
-    } else {
-      user.loginAttempts = 0;
-      await this.saveUser(user);
+      await this.loginAttemptsStorage.setUserAttempts(userKey, 0, this.loginAttemptsTTL); // Reset attempts in Redis
     }
+    user.loginAttempts = 0;
+    await this.saveUser(user);
   }
 }
