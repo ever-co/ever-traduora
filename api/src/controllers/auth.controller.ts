@@ -17,6 +17,7 @@ import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
+import { Throttle } from '@nestjs/throttler';
 import { config } from '../config';
 import {
   AccessTokenDTO,
@@ -179,6 +180,7 @@ export class AuthController {
     };
   }
 
+  @Throttle({ default: { limit: 10, ttl: 60 * 1000 } })
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
