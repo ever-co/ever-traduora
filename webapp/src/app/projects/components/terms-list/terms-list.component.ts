@@ -1,13 +1,15 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Select, Store } from '@ngxs/store';
-import { BehaviorSubject, Observable, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged, map, switchMap, tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of, Subscription } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, tap } from 'rxjs/operators';
 import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
 import { ClearMessages, CreateTerm, DeleteTerm, GetTerms, TermsState, UpdateTerm } from '../../stores/terms.state';
 import { LabelTerm, UnlabelTerm, ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
 import { Label } from '../../models/label';
+import { FormControl } from '@angular/forms';
+import { ProjectTermsService } from '../../services/terms.service';
 
 @Component({
   selector: 'app-terms-list',
@@ -31,6 +33,10 @@ export class TermsListComponent implements OnInit, OnDestroy {
   errorMessage$: Observable<string | undefined>;
 
   newValue = '';
+
+  labelFilterControl = new FormControl('');
+
+  filteredTerms$: Observable<Term[]>;
 
   page = 0;
   pageSize = 10;
@@ -77,14 +83,33 @@ export class TermsListComponent implements OnInit, OnDestroy {
     return [item.value, ...item.labels.map(v => v.value)].join('').toLowerCase();
   };
 
-  constructor(private store: Store) {}
+  constructor(
+    private store: Store,
+    private projectTermsService: ProjectTermsService,
+  ) {}
 
   ngOnInit() {
     this.sub = this.project$
       .pipe(
         tap(project => {
-          this.store.dispatch(new GetTerms(project.id));
-          this.store.dispatch(new GetProjectLabels(project.id));
+          if (project) {
+            this.filteredTerms$ = this.labelFilterControl.valueChanges.pipe(
+              startWith(''),
+              debounceTime(300),
+              switchMap((selectedLabel: string) =>
+                selectedLabel
+                  ? this.projectTermsService.fetchFilteredTerms(project.id, selectedLabel).pipe(
+                      catchError(error => {
+                        console.error('Error fetching filtered terms:', error);
+                        return of([]);
+                      }),
+                    )
+                  : this.projectTerms$,
+              ),
+            );
+            this.store.dispatch(new GetTerms(project.id));
+            this.store.dispatch(new GetProjectLabels(project.id));
+          }
         }),
       )
       .subscribe();

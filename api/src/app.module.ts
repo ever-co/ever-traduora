@@ -5,6 +5,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { renderFile } from 'ejs';
 import { config } from './config';
 import { AuthController } from './controllers/auth.controller';
@@ -40,6 +42,10 @@ import { JwtStrategy } from './services/jwt.strategy';
 import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
 import ProjectStatsController from './controllers/project-stats.controller';
+import { ConfigModule } from '@nestjs/config';
+import { RedisModule } from './redis/redis.module';
+import { UserLoginAttemptsStorage } from './redis/user-login-attempts.storage';
+import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 
 @Module({
   imports: [
@@ -50,6 +56,9 @@ import ProjectStatsController from './controllers/project-stats.controller';
         expiresIn: config.authTokenExpires,
       },
     }),
+    ThrottlerModule.forRoot([{ ttl: 0, limit: 0 }]),
+    ConfigModule.forRoot({ isGlobal: true }),
+    RedisModule,
     TypeOrmModule.forRoot(config.db.default),
     TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Label]),
     HttpModule,
@@ -72,7 +81,18 @@ import ProjectStatsController from './controllers/project-stats.controller';
     LocaleController,
     IndexController,
   ],
-  providers: [UserService, AuthService, MailService, JwtStrategy, AuthorizationService],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard,
+    },
+    UserService,
+    AuthService,
+    MailService,
+    JwtStrategy,
+    AuthorizationService,
+    UserLoginAttemptsStorage,
+  ],
 })
 export class AppModule {
   /**

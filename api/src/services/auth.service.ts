@@ -8,7 +8,11 @@ export class AuthService {
   constructor(private readonly httpService: HttpService) {}
 
   async getTokenFromGoogle(code: string): Promise<any> {
-    const { apiUrl, clientId, clientSecret, redirectUrl } = config.providers.google;
+    const { active, apiUrl, clientId, clientSecret, redirectUrl } = config.providers.google;
+
+    if (!active) {
+      throw new BadRequestException('Google authentication provider is not enabled');
+    }
 
     try {
       const body = stringify(

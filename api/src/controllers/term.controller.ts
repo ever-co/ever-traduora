@@ -52,6 +52,44 @@ export default class TermController {
     };
   }
 
+  @Get('/filter-by-label')
+  @ApiOperation({ summary: 'Filter terms by a single label' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectTermsResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async findByLabel(@Req() req, @Param('projectId') projectId: string, @Query('labelId') labelId: string) {
+    const user = this.auth.getRequestUserOrClient(req);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTerm);
+
+    if (!labelId) {
+      return {
+        data: [],
+        message: 'No label provided for filtering',
+      };
+    }
+
+    const terms = await this.termRepo
+      .createQueryBuilder('term')
+      .leftJoinAndSelect('term.labels', 'label')
+      .leftJoinAndSelect('term.project', 'project')
+      .where('term.project.id = :projectId', { projectId: membership.project.id })
+      .andWhere('label.id = :labelId', { labelId })
+      .orderBy('term.value', 'ASC')
+      .getMany();
+
+    const data = terms.map(t => ({
+      id: t.id,
+      value: t.value,
+      context: t.context,
+      labels: t.labels,
+      date: t.date,
+    }));
+
+    return {
+      data,
+    };
+  }
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a new project term' })

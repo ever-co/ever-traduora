@@ -3,10 +3,22 @@
   <div *ngIf="project$ | async as project" class="h-100">
     <div class="d-flex mb-4 justify-content-between align-items-center section-title-row">
       <h5 class="font-serif m-0">Terms</h5>
-      <app-new-term *ngIf="true | can: 'AddTerm' | async" [project]="project"></app-new-term>
+      <div class="filter-container">
+        <div class="label-filter">
+          <div class="label-filter__select">
+            <select id="labelFilter" class="form-control" [formControl]="labelFilterControl">
+              <option value="" selected>Filter by Label</option>
+              <option *ngFor="let label of projectLabels$ | async" [value]="label.id">
+                {{ label.value }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <app-new-term *ngIf="true | can: 'AddTerm' | async" [project]="project"></app-new-term>
+      </div>
     </div>
 
-    <app-search [items]="projectTerms$" [key]="searchKey" [trackBy]="trackElement">
+    <app-search [items]="filteredTerms$" [key]="searchKey" [trackBy]="trackElement">
       <ng-template #searchResultsItem let-term="result">
         <div class="card mb-3">
           <div class="card-body">
