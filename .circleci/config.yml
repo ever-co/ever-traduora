@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  node: circleci/node@5.2.0
+  node: circleci/node@7.1.0
 
 defaults: &defaults
   # put here anything which is common between all jobs
@@ -17,7 +17,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '20.11.1'
+          node-version: '20.19.0'
       - run: node --version
       - restore_cache:
           keys:
@@ -50,7 +50,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '20.11.1'
+          node-version: '20.19.0'
       - run: node --version
       - restore_cache:
           keys:
@@ -86,7 +86,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '20.11.1'
+          node-version: '20.19.0'
       - run: node --version
       - restore_cache:
           keys:
@@ -118,7 +118,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '20.11.1'
+          node-version: '20.19.0'
       - run: node --version
       - setup_remote_docker
       - run:
@@ -133,7 +133,7 @@ jobs:
       - checkout
       - node/install:
           install-yarn: true
-          node-version: '20.11.1'
+          node-version: '20.19.0'
       - run: node --version
       - setup_remote_docker
       - run:

@@ -140,7 +140,7 @@ export class AuthController {
     // This endpoint can be used for signing in too in the case of providers.
     // Ensure that we forbid a new account if we have disabled signups.
     // But still allow logging in in case the account had already been created.
-    if (!config.signupsEnabled && invites.length === 0 && !await this.userService.userExists(decodedToken.email)) {
+    if (!config.signupsEnabled && invites.length === 0 && !(await this.userService.userExists(decodedToken.email))) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 

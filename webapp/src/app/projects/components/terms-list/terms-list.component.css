@@ -1,53 +1,49 @@
 .filter-container {
-    display: flex;
-    align-items: center; 
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem; 
-  }
-  
-  
-  .label-filter {
-    display: flex;
-    flex-direction: column; 
-    gap: 0.5rem; 
-  }
-  
- 
- 
-  
-  .label-filter__select {
-    position: relative;
-  }
-  
-  select {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 100%;
-    font-size: 1.15rem;
-    padding: 0.3em 6em 0.3em 1em;
-    height: calc(1.5em + 0.5rem + 2px);
-  }
-  
-  .label-filter__select::before,
-  .label-filter__select::after {
-    --size: 0.3rem;
-    content: "";
-    position: absolute;
-    right: 1rem;
-    pointer-events: none;
-  }
-  
-  .label-filter__select::before {
-    border-left: var(--size) solid transparent;
-    border-right: var(--size) solid transparent;
-    border-bottom: var(--size) solid black;
-    top: 40%;
-  }
-  
-  .label-filter__select::after {
-    border-left: var(--size) solid transparent;
-    border-right: var(--size) solid transparent;
-    border-top: var(--size) solid black;
-    top: 55%;
-  }
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.label-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label-filter__select {
+  position: relative;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  font-size: 1.15rem;
+  padding: 0.3em 6em 0.3em 1em;
+  height: calc(1.5em + 0.5rem + 2px);
+}
+
+.label-filter__select::before,
+.label-filter__select::after {
+  --size: 0.3rem;
+  content: '';
+  position: absolute;
+  right: 1rem;
+  pointer-events: none;
+}
+
+.label-filter__select::before {
+  border-left: var(--size) solid transparent;
+  border-right: var(--size) solid transparent;
+  border-bottom: var(--size) solid black;
+  top: 40%;
+}
+
+.label-filter__select::after {
+  border-left: var(--size) solid transparent;
+  border-right: var(--size) solid transparent;
+  border-top: var(--size) solid black;
+  top: 55%;
+}

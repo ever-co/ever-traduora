@@ -28,7 +28,8 @@ const siteConfig = {
   twitterImage: 'img/traduora-preview.png',
   cleanUrl: true,
   scrollToTop: true,
-  copyright: 'Copyright © 2020-present <a href="https://ever.co">Ever Co. LTD</a> and <a href="https://github.com/ever-co/ever-traduora/graphs/contributors">contributors</a>. All Rights Reserved',
+  copyright:
+    'Copyright © 2020-present <a href="https://ever.co">Ever Co. LTD</a> and <a href="https://github.com/ever-co/ever-traduora/graphs/contributors">contributors</a>. All Rights Reserved',
   repoUrl: repo,
   scripts: ['https://buttons.github.io/buttons.js'],
   stylesheets: ['https://fonts.googleapis.com/css?family=Varela+Round:400', 'https://fonts.googleapis.com/css?family=Ubuntu:400,500,700'],

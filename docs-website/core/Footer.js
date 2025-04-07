@@ -5,17 +5,17 @@
  * @format
  */
 
-const React = require("react");
+const React = require('react');
 
 class Footer extends React.Component {
   docUrl(doc, language) {
     const baseUrl = this.props.config.baseUrl;
-    return baseUrl + "docs/" + (language ? language + "/" : "") + doc;
+    return baseUrl + 'docs/' + (language ? language + '/' : '') + doc;
   }
 
   pageUrl(doc, language) {
     const baseUrl = this.props.config.baseUrl;
-    return baseUrl + (language ? language + "/" : "") + doc;
+    return baseUrl + (language ? language + '/' : '') + doc;
   }
 
   render() {
@@ -58,7 +58,7 @@ class Footer extends React.Component {
           </div>
         </section>
         <section className="copyright">
-          <div dangerouslySetInnerHTML={{__html: this.props.config.copyright}} />
+          <div dangerouslySetInnerHTML={{ __html: this.props.config.copyright }} />
         </section>
       </footer>
     );

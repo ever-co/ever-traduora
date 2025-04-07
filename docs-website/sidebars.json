@@ -1,28 +1,9 @@
 {
   "docs": {
-    "Quickstart": [
-      "getting-started",
-      "screenshots",
-      "deployment",
-      "configuration"
-    ],
-    "Concepts": [
-      "concepts/formats"
-    ],
-    "API reference": [
-      "api/v1/overview",
-      "api/v1/authentication",
-      "api/v1/roles-permissions",
-      "api/v1/endpoints",
-      "api/v1/errors"
-    ],
-    "Tools": [
-      "tools/cli"
-    ],
-    "Misc": [
-      "changelog",
-      "contributing",
-      "faq"
-    ]
+    "Quickstart": ["getting-started", "screenshots", "deployment", "configuration"],
+    "Concepts": ["concepts/formats"],
+    "API reference": ["api/v1/overview", "api/v1/authentication", "api/v1/roles-permissions", "api/v1/endpoints", "api/v1/errors"],
+    "Tools": ["tools/cli"],
+    "Misc": ["changelog", "contributing", "faq"]
   }
 }

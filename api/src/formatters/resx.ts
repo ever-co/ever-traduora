@@ -1,3 +1,5 @@
+/* tslint:disable */
+
 import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
