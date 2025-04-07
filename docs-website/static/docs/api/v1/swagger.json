@@ -7,10 +7,7 @@
   },
   "basePath": "/",
   "tags": [],
-  "schemes": [
-    "http",
-    "https"
-  ],
+  "schemes": ["http", "https"],
   "securityDefinitions": {
     "oauth2": {
       "type": "oauth2",
@@ -31,15 +28,9 @@
             }
           }
         },
-        "tags": [
-          "Authentication"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/auth/signup": {
@@ -69,15 +60,9 @@
             "description": "A user with this email already exists"
           }
         },
-        "tags": [
-          "Authentication"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/auth/signup-provider": {
@@ -88,15 +73,9 @@
             "description": ""
           }
         },
-        "tags": [
-          "Authentication"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/auth/token": {
@@ -133,15 +112,9 @@
             "description": "Too many attempts, please wait at least 15 minutes before retrying"
           }
         },
-        "tags": [
-          "Authentication"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/auth/forgot-password": {
@@ -165,15 +138,9 @@
             "description": "No user with such email found"
           }
         },
-        "tags": [
-          "Authentication"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/auth/reset-password": {
@@ -203,15 +170,9 @@
             "description": "No such resource found"
           }
         },
-        "tags": [
-          "Authentication"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Authentication"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/auth/change-password": {
@@ -241,20 +202,14 @@
             "description": "No such resource found"
           }
         },
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/users/me": {
@@ -271,20 +226,14 @@
             "description": "Unauthorized"
           }
         },
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "patch": {
         "summary": "Update the current user's profile",
@@ -309,20 +258,14 @@
             "description": "Unauthorized"
           }
         },
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Delete the current user's account",
@@ -337,20 +280,14 @@
             "description": "Cannot delete account"
           }
         },
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects": {
@@ -367,20 +304,14 @@
             "description": "Unauthorized"
           }
         },
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "post": {
         "summary": "Create a new project",
@@ -406,20 +337,14 @@
             "description": "Unauthorized"
           }
         },
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}": {
@@ -447,20 +372,14 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "patch": {
         "summary": "Update a project",
@@ -497,20 +416,14 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Delete a project",
@@ -533,20 +446,14 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Projects"
-        ],
+        "tags": ["Projects"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/stats": {
@@ -574,20 +481,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Stats"
-        ],
+        "tags": ["Project Stats"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/plan": {
@@ -615,20 +516,14 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Project Plans"
-        ],
+        "tags": ["Project Plans"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/users": {
@@ -656,20 +551,14 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Project Users"
-        ],
+        "tags": ["Project Users"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/users/{userId}": {
@@ -714,20 +603,14 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Project Users"
-        ],
+        "tags": ["Project Users"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Revoke a user's access to a project",
@@ -759,20 +642,14 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Project Users"
-        ],
+        "tags": ["Project Users"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/invites": {
@@ -800,15 +677,9 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Project Invites"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Project Invites"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "post": {
         "summary": "Add a new project invite",
@@ -845,15 +716,9 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Invites"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Project Invites"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/invites/{inviteId}": {
@@ -898,15 +763,9 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Project Invites"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Project Invites"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Remove a project invite",
@@ -938,15 +797,9 @@
             "description": "Not found"
           }
         },
-        "tags": [
-          "Project Invites"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Project Invites"],
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/terms": {
@@ -977,20 +830,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Terms"
-        ],
+        "tags": ["Terms"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "post": {
         "summary": "Add a new project term",
@@ -1030,20 +877,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Terms"
-        ],
+        "tags": ["Terms"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/terms/{termId}": {
@@ -1088,20 +929,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Terms"
-        ],
+        "tags": ["Terms"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Remove a project's term",
@@ -1134,20 +969,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Terms"
-        ],
+        "tags": ["Terms"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/translations": {
@@ -1175,20 +1004,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Translations"
-        ],
+        "tags": ["Translations"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "post": {
         "summary": "Add a new translation locale for a project",
@@ -1228,20 +1051,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Translations"
-        ],
+        "tags": ["Translations"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/translations/{localeCode}": {
@@ -1278,20 +1095,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Translations"
-        ],
+        "tags": ["Translations"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "patch": {
         "summary": "Update a term's translation",
@@ -1334,20 +1145,14 @@
             "description": "Project or locale not found"
           }
         },
-        "tags": [
-          "Translations"
-        ],
+        "tags": ["Translations"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Delete a project's locale",
@@ -1377,20 +1182,14 @@
             "description": "Project or locale not found"
           }
         },
-        "tags": [
-          "Translations"
-        ],
+        "tags": ["Translations"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/imports": {
@@ -1457,20 +1256,14 @@
             "description": "No such resource found"
           }
         },
-        "tags": [
-          "Imports"
-        ],
-        "consumes": [
-          "multipart/form-data"
-        ],
+        "tags": ["Imports"],
+        "consumes": ["multipart/form-data"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ]
+        "produces": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/clients": {
@@ -1498,20 +1291,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Clients"
-        ],
+        "tags": ["Project Clients"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "post": {
         "summary": "Create a new project client",
@@ -1548,20 +1335,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Clients"
-        ],
+        "tags": ["Project Clients"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/clients/{clientId}": {
@@ -1606,20 +1387,14 @@
             "description": "Project or client not found"
           }
         },
-        "tags": [
-          "Project Clients"
-        ],
+        "tags": ["Project Clients"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Revoke access from a project's client",
@@ -1648,20 +1423,14 @@
             "description": "Project or client not found"
           }
         },
-        "tags": [
-          "Project Clients"
-        ],
+        "tags": ["Project Clients"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/clients/{clientId}/rotate-secret": {
@@ -1695,20 +1464,14 @@
             "description": "Project or client not found"
           }
         },
-        "tags": [
-          "Project Clients"
-        ],
+        "tags": ["Project Clients"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/labels": {
@@ -1739,20 +1502,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "post": {
         "summary": "Add a new project label",
@@ -1792,20 +1549,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/labels/{labelId}": {
@@ -1850,20 +1601,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Remove a project's label",
@@ -1896,20 +1641,14 @@
             "description": "Project not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/labels/{labelId}/terms/{termId}": {
@@ -1949,20 +1688,14 @@
             "description": "Project, term or label not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Unlabel a project term",
@@ -2000,20 +1733,14 @@
             "description": "Project, term or label not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/labels/{labelId}/terms/{termId}/translations/{localeCode}": {
@@ -2059,20 +1786,14 @@
             "description": "Project, term or label not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       },
       "delete": {
         "summary": "Unlabel a project term translation",
@@ -2116,20 +1837,14 @@
             "description": "Project, term or label not found"
           }
         },
-        "tags": [
-          "Project Labels"
-        ],
+        "tags": ["Project Labels"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/projects/{projectId}/exports": {
@@ -2183,20 +1898,14 @@
             "description": "Project or locale not found"
           }
         },
-        "produces": [
-          "application/octet-stream"
-        ],
+        "produces": ["application/octet-stream"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "tags": [
-          "Exports"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "tags": ["Exports"],
+        "consumes": ["application/json"]
       }
     },
     "/api/v1/locales": {
@@ -2213,20 +1922,14 @@
             "description": "Unauthorized"
           }
         },
-        "tags": [
-          "Locales"
-        ],
+        "tags": ["Locales"],
         "security": [
           {
             "oauth2": []
           }
         ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ]
+        "produces": ["application/json"],
+        "consumes": ["application/json"]
       }
     }
   },
@@ -2247,12 +1950,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "slug",
-        "clientId",
-        "url",
-        "redirectUrl"
-      ]
+      "required": ["slug", "clientId", "url", "redirectUrl"]
     },
     "ListAuthProvidersResponse": {
       "type": "object",
@@ -2264,9 +1962,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "SignupRequest": {
       "type": "object",
@@ -2285,11 +1981,7 @@
           "maxLength": 255
         }
       },
-      "required": [
-        "name",
-        "email",
-        "password"
-      ]
+      "required": ["name", "email", "password"]
     },
     "NewUserDTO": {
       "type": "object",
@@ -2307,12 +1999,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "accessToken"
-      ]
+      "required": ["id", "name", "email", "accessToken"]
     },
     "SignupResponse": {
       "type": "object",
@@ -2321,20 +2008,14 @@
           "$ref": "#/definitions/NewUserDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "AuthenticateRequest": {
       "type": "object",
       "properties": {
         "grant_type": {
           "type": "string",
-          "enum": [
-            "password",
-            "client_credentials",
-            "provider"
-          ]
+          "enum": ["password", "client_credentials", "provider"]
         },
         "username": {
           "type": "string"
@@ -2353,9 +2034,7 @@
           "maxLength": 255
         }
       },
-      "required": [
-        "grant_type"
-      ]
+      "required": ["grant_type"]
     },
     "AccessTokenDTO": {
       "type": "object",
@@ -2370,11 +2049,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "access_token",
-        "expires_in",
-        "token_type"
-      ]
+      "required": ["access_token", "expires_in", "token_type"]
     },
     "ForgotPasswordRequest": {
       "type": "object",
@@ -2383,9 +2058,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "email"
-      ]
+      "required": ["email"]
     },
     "ResetPasswordRequest": {
       "type": "object",
@@ -2402,11 +2075,7 @@
           "maxLength": 255
         }
       },
-      "required": [
-        "email",
-        "token",
-        "newPassword"
-      ]
+      "required": ["email", "token", "newPassword"]
     },
     "ChangePasswordRequest": {
       "type": "object",
@@ -2422,10 +2091,7 @@
           "maxLength": 255
         }
       },
-      "required": [
-        "oldPassword",
-        "newPassword"
-      ]
+      "required": ["oldPassword", "newPassword"]
     },
     "UserInfoDTO": {
       "type": "object",
@@ -2440,11 +2106,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "id",
-        "name",
-        "email"
-      ]
+      "required": ["id", "name", "email"]
     },
     "UserInfoResponse": {
       "type": "object",
@@ -2453,9 +2115,7 @@
           "$ref": "#/definitions/UserInfoDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "UpdateUserDataRequest": {
       "type": "object",
@@ -2480,10 +2140,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "created",
-        "modified"
-      ]
+      "required": ["created", "modified"]
     },
     "ProjectDTO": {
       "type": "object",
@@ -2505,25 +2162,13 @@
         },
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         },
         "date": {
           "$ref": "#/definitions/AccessDatesDTO"
         }
       },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "localesCount",
-        "termsCount",
-        "role",
-        "date"
-      ]
+      "required": ["id", "name", "description", "localesCount", "termsCount", "role", "date"]
     },
     "ListProjectsResponse": {
       "type": "object",
@@ -2535,9 +2180,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "CreateProjectRequest": {
       "type": "object",
@@ -2553,9 +2196,7 @@
           "maxLength": 255
         }
       },
-      "required": [
-        "name"
-      ]
+      "required": ["name"]
     },
     "ProjectResponse": {
       "type": "object",
@@ -2564,9 +2205,7 @@
           "$ref": "#/definitions/ProjectDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "UpdateProjectRequest": {
       "type": "object",
@@ -2602,13 +2241,7 @@
           "type": "number"
         }
       },
-      "required": [
-        "progress",
-        "translated",
-        "total",
-        "terms",
-        "locales"
-      ]
+      "required": ["progress", "translated", "total", "terms", "locales"]
     },
     "GetProjectStatsDTO": {
       "type": "object",
@@ -2620,10 +2253,7 @@
           "type": "object"
         }
       },
-      "required": [
-        "projectStats",
-        "localeStats"
-      ]
+      "required": ["projectStats", "localeStats"]
     },
     "ProjectStatsResponse": {
       "type": "object",
@@ -2632,9 +2262,7 @@
           "$ref": "#/definitions/GetProjectStatsDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "ProjectPlanDTO": {
       "type": "object",
@@ -2652,12 +2280,7 @@
           "$ref": "#/definitions/AccessDatesDTO"
         }
       },
-      "required": [
-        "code",
-        "name",
-        "maxStrings",
-        "date"
-      ]
+      "required": ["code", "name", "maxStrings", "date"]
     },
     "ProjectPlanResponse": {
       "type": "object",
@@ -2666,9 +2289,7 @@
           "$ref": "#/definitions/ProjectPlanDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "ProjectUserDTO": {
       "type": "object",
@@ -2684,19 +2305,10 @@
         },
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "role"
-      ]
+      "required": ["id", "name", "email", "role"]
     },
     "ListProjectUsersResponse": {
       "type": "object",
@@ -2708,25 +2320,17 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "UpdateProjectUserRequest": {
       "type": "object",
       "properties": {
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         }
       },
-      "required": [
-        "role"
-      ]
+      "required": ["role"]
     },
     "ProjectUserResponse": {
       "type": "object",
@@ -2735,9 +2339,7 @@
           "$ref": "#/definitions/ProjectUserDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "ProjectInviteDto": {
       "type": "object",
@@ -2747,29 +2349,17 @@
         },
         "status": {
           "type": "string",
-          "enum": [
-            "sent",
-            "accepted"
-          ]
+          "enum": ["sent", "accepted"]
         },
         "email": {
           "type": "string"
         },
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         }
       },
-      "required": [
-        "id",
-        "status",
-        "email",
-        "role"
-      ]
+      "required": ["id", "status", "email", "role"]
     },
     "ListInviteUsersResponse": {
       "type": "object",
@@ -2781,9 +2371,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "InviteUserRequest": {
       "type": "object",
@@ -2796,9 +2384,7 @@
           "type": "object"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "UpdateProjectInviteRequest": {
       "type": "object",
@@ -2811,9 +2397,7 @@
           "$ref": "#/definitions/ProjectInviteDto"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "ProjectTermDTO": {
       "type": "object",
@@ -2834,12 +2418,7 @@
           "$ref": "#/definitions/AccessDatesDTO"
         }
       },
-      "required": [
-        "id",
-        "value",
-        "labels",
-        "date"
-      ]
+      "required": ["id", "value", "labels", "date"]
     },
     "ListProjectTermsResponse": {
       "type": "object",
@@ -2851,9 +2430,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "AddTermRequest": {
       "type": "object",
@@ -2864,9 +2441,7 @@
           "maxLength": 255
         }
       },
-      "required": [
-        "value"
-      ]
+      "required": ["value"]
     },
     "ProjectTermResponse": {
       "type": "object",
@@ -2875,9 +2450,7 @@
           "$ref": "#/definitions/ProjectTermDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "UpdateTermRequest": {
       "type": "object",
@@ -2888,9 +2461,7 @@
           "maxLength": 255
         }
       },
-      "required": [
-        "value"
-      ]
+      "required": ["value"]
     },
     "LocaleDTO": {
       "type": "object",
@@ -2905,11 +2476,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "code",
-        "language",
-        "region"
-      ]
+      "required": ["code", "language", "region"]
     },
     "ProjectLocaleDTO": {
       "type": "object",
@@ -2924,11 +2491,7 @@
           "$ref": "#/definitions/AccessDatesDTO"
         }
       },
-      "required": [
-        "id",
-        "locale",
-        "date"
-      ]
+      "required": ["id", "locale", "date"]
     },
     "ListProjectLocalesResponse": {
       "type": "object",
@@ -2940,9 +2503,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "AddLocaleRequest": {
       "type": "object",
@@ -2953,9 +2514,7 @@
           "maxLength": 16
         }
       },
-      "required": [
-        "code"
-      ]
+      "required": ["code"]
     },
     "ProjectLocaleResponse": {
       "type": "object",
@@ -2964,9 +2523,7 @@
           "$ref": "#/definitions/ProjectLocaleDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "TermTranslationDTO": {
       "type": "object",
@@ -2987,12 +2544,7 @@
           "$ref": "#/definitions/AccessDatesDTO"
         }
       },
-      "required": [
-        "termId",
-        "value",
-        "labels",
-        "date"
-      ]
+      "required": ["termId", "value", "labels", "date"]
     },
     "ListTermTranslatonsResponse": {
       "type": "object",
@@ -3004,9 +2556,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "UpdateTranslationRequest": {
       "type": "object",
@@ -3020,10 +2570,7 @@
           "maxLength": 8192
         }
       },
-      "required": [
-        "termId",
-        "value"
-      ]
+      "required": ["termId", "value"]
     },
     "TermTranslatonResponse": {
       "type": "object",
@@ -3032,9 +2579,7 @@
           "$ref": "#/definitions/TermTranslationDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "ImportTermsDTO": {
       "type": "object",
@@ -3046,10 +2591,7 @@
           "type": "number"
         }
       },
-      "required": [
-        "added",
-        "skipped"
-      ]
+      "required": ["added", "skipped"]
     },
     "ImportTranslationsDTO": {
       "type": "object",
@@ -3058,9 +2600,7 @@
           "type": "number"
         }
       },
-      "required": [
-        "upserted"
-      ]
+      "required": ["upserted"]
     },
     "ImportFileDTO": {
       "type": "object",
@@ -3072,10 +2612,7 @@
           "$ref": "#/definitions/ImportTranslationsDTO"
         }
       },
-      "required": [
-        "terms",
-        "translations"
-      ]
+      "required": ["terms", "translations"]
     },
     "ImportResponse": {
       "type": "object",
@@ -3084,9 +2621,7 @@
           "$ref": "#/definitions/ImportFileDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "ProjectClientDTO": {
       "type": "object",
@@ -3099,18 +2634,10 @@
         },
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         }
       },
-      "required": [
-        "id",
-        "name",
-        "role"
-      ]
+      "required": ["id", "name", "role"]
     },
     "ListProjectClientsResponse": {
       "type": "object",
@@ -3122,9 +2649,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "AddProjectClientRequest": {
       "type": "object",
@@ -3136,17 +2661,10 @@
         },
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         }
       },
-      "required": [
-        "name",
-        "role"
-      ]
+      "required": ["name", "role"]
     },
     "ProjectClientWithSecretDTO": {
       "type": "object",
@@ -3159,22 +2677,13 @@
         },
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         },
         "secret": {
           "type": "string"
         }
       },
-      "required": [
-        "id",
-        "name",
-        "role",
-        "secret"
-      ]
+      "required": ["id", "name", "role", "secret"]
     },
     "ProjectClientWithSecretResponse": {
       "type": "object",
@@ -3183,25 +2692,17 @@
           "$ref": "#/definitions/ProjectClientWithSecretDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "UpdateProjectClientRequest": {
       "type": "object",
       "properties": {
         "role": {
           "type": "string",
-          "enum": [
-            "admin",
-            "editor",
-            "viewer"
-          ]
+          "enum": ["admin", "editor", "viewer"]
         }
       },
-      "required": [
-        "role"
-      ]
+      "required": ["role"]
     },
     "ProjectClientResponse": {
       "type": "object",
@@ -3210,9 +2711,7 @@
           "$ref": "#/definitions/ProjectClientDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "ProjectLabelDTO": {
       "type": "object",
@@ -3227,11 +2726,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "id",
-        "value",
-        "color"
-      ]
+      "required": ["id", "value", "color"]
     },
     "ProjectLabelResponse": {
       "type": "object",
@@ -3240,9 +2735,7 @@
           "$ref": "#/definitions/ProjectLabelDTO"
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     },
     "AddLabelRequest": {
       "type": "object",
@@ -3258,10 +2751,7 @@
           "maxLength": 7
         }
       },
-      "required": [
-        "value",
-        "color"
-      ]
+      "required": ["value", "color"]
     },
     "UpdateLabelRequest": {
       "type": "object",
@@ -3277,10 +2767,7 @@
           "maxLength": 7
         }
       },
-      "required": [
-        "value",
-        "color"
-      ]
+      "required": ["value", "color"]
     },
     "ListLocalesResponse": {
       "type": "object",
@@ -3292,9 +2779,7 @@
           }
         }
       },
-      "required": [
-        "data"
-      ]
+      "required": ["data"]
     }
   }
 }

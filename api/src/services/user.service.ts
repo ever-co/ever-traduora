@@ -22,7 +22,7 @@ export class UserService {
     private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
     private readonly configService: ConfigService,
   ) {
-    this.loginAttemptsTTL = this.configService.get<number>('LOGIN_ATTEMPTS_TTL', 900) //15 minutes TTL by default
+    this.loginAttemptsTTL = this.configService.get<number>('LOGIN_ATTEMPTS_TTL', 900); // 15 minutes TTL by default
   }
 
   async userExists(email: string): Promise<boolean> {
@@ -250,7 +250,7 @@ export class UserService {
     await this.saveUser(user);
 
     if (this.loginAttemptsStorage.getRedisClient()) {
-      await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, this.loginAttemptsTTL); 
+      await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, this.loginAttemptsTTL);
     }
     await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
   }
