@@ -631,6 +631,7 @@ export class ExportQuery {
 
   @IsBoolean()
   @Transform(({ value }) => value === 'true' || value === true)
+  @ApiProperty({ description: 'Include untranslated keys in the export', required: false })
   untranslated: boolean;
 
   @IsEnum(ImportExportFormat)
