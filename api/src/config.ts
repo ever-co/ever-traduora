@@ -74,7 +74,7 @@ export const config = {
 
   throttle: {
     global: {
-      ttl: getNumberOrDefault(env.TR_THROTTLE_TTL, 60000),
+      ttl: getNumberOrDefault(env.TR_THROTTLE_TTL, 0),
       limit: getNumberOrDefault(env.TR_THROTTLE_LIMIT, 0),
     },
     auth: {

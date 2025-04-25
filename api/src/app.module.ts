@@ -103,6 +103,8 @@ export class AppModule {
    * @returns {void} - This function does not return a value.
    */
   configure(consumer: MiddlewareConsumer): void {
+    console.log(config.throttle.global);
+
     if (config.accessLogsEnabled) {
       MorganMiddleware.configure('short');
       consumer.apply(MorganMiddleware).forRoutes('*');
