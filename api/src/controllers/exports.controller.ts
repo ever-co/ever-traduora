@@ -52,10 +52,6 @@ export class ExportsController {
       throw new BadRequestException('locale is a required param');
     }
 
-    if (!query.untranslated) {
-      throw new BadRequestException('untranslated is a required param');
-    }
-
     // Ensure locale is requested project locale
     const projectLocale = await this.projectLocaleRepo.findOne({
       where: {
