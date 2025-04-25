@@ -42,8 +42,6 @@ import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
 
-const DEFAULT_AUTH_THROTTLE_LIMIT = process.env.NODE_ENV === 'production' ? 100 : 10;
-
 @Controller('api/v1/auth')
 @ApiTags('Authentication')
 export class AuthController {

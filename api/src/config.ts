@@ -7,7 +7,11 @@ import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
 const env = process.env;
 const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? value === 'true' : defaultValue);
 
-const getNumberOrDefault = (value: string, defaultValue: number) => (value ? parseInt(value, 10) : defaultValue);
+const getNumberOrDefault = (value: string, defaultValue: number) => {
+  if (!value) return defaultValue;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? defaultValue : parsed;
+};
 
 export const config = {
   env: env.NODE_ENV || 'dev',
