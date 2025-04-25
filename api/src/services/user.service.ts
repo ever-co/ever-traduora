@@ -15,6 +15,7 @@ import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 @Injectable()
 export class UserService {
   private readonly loginAttemptsTTL: number;
+  private readonly maxLoginAttempts: number;
 
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
@@ -22,7 +23,8 @@ export class UserService {
     private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
     private readonly configService: ConfigService,
   ) {
-    this.loginAttemptsTTL = this.configService.get<number>('LOGIN_ATTEMPTS_TTL', 900); // 15 minutes TTL by default
+    this.loginAttemptsTTL = this.configService.get<number>('TR_LOGIN_ATTEMPTS_TTL', 900); // 15 minutes TTL by default
+    this.maxLoginAttempts = this.configService.get<number>('TR_LOGIN_ATTEMPTS_MAX', 3);
   }
 
   async userExists(email: string): Promise<boolean> {
@@ -204,7 +206,7 @@ export class UserService {
     }
 
     // Handle too many login attempts
-    if (loginAttempts >= 3) {
+    if (loginAttempts >= this.maxLoginAttempts) {
       await this.incrementLoginAttempts(user, loginAttempts, userKey);
       throw new TooManyRequestsException('You have made too many requests. Please try again later.');
     }

@@ -82,4 +82,9 @@ export const config = {
       limit: getNumberOrDefault(env.TR_AUTH_THROTTLE_LIMIT, env.NODE_ENV === 'production' ? 100 : 10),
     },
   },
+
+  loginAttempts: {
+    ttl: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_TTL, 900),
+    maxAttempts: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_MAX, 3),
+  },
 };
