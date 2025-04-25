@@ -56,7 +56,7 @@ import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
         expiresIn: config.authTokenExpires,
       },
     }),
-    ThrottlerModule.forRoot([{ ttl: 0, limit: 0 }]),
+    ThrottlerModule.forRoot([{ ttl: config.throttle.global.ttl, limit: config.throttle.global.limit }]),
     ConfigModule.forRoot({ isGlobal: true }),
     RedisModule,
     TypeOrmModule.forRoot(config.db.default),

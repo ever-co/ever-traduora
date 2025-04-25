@@ -7,6 +7,8 @@ import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
 const env = process.env;
 const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? value === 'true' : defaultValue);
 
+const getNumberOrDefault = (value: string, defaultValue: number) => (value ? parseInt(value, 10) : defaultValue);
+
 export const config = {
   env: env.NODE_ENV || 'dev',
   port: parseInt(env.TR_PORT, 10) || 8080,
@@ -64,5 +66,16 @@ export const config = {
       migrations: ['src/migrations/*'],
       namingStrategy: env.TR_DB_TYPE === 'postgres' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
     } as TypeOrmModuleOptions,
+  },
+
+  throttle: {
+    global: {
+      ttl: getNumberOrDefault(env.TR_THROTTLE_TTL, 60000),
+      limit: getNumberOrDefault(env.TR_THROTTLE_LIMIT, 0),
+    },
+    auth: {
+      ttl: getNumberOrDefault(env.TR_AUTH_THROTTLE_TTL, 60000),
+      limit: getNumberOrDefault(env.TR_AUTH_THROTTLE_LIMIT, env.NODE_ENV === 'production' ? 100 : 10),
+    },
   },
 };
