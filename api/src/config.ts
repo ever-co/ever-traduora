@@ -9,7 +9,7 @@ const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? valu
 
 const getNumberOrDefault = (value: string, defaultValue: number) => {
   if (!value) return defaultValue;
-  const parsed = parseInt(value, 10);
+  const parsed = Number.parseInt(value, 10);
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
