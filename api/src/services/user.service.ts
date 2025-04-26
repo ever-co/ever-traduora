@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
-import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
