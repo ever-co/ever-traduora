@@ -11,6 +11,7 @@ import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
+import { config } from '../config';
 
 @Injectable()
 export class UserService {
@@ -21,10 +22,9 @@ export class UserService {
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
     private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
-    private readonly configService: ConfigService,
   ) {
-    this.loginAttemptsTTL = this.configService.get<number>('TR_LOGIN_ATTEMPTS_TTL', 900); // 15 minutes TTL by default
-    this.maxLoginAttempts = this.configService.get<number>('TR_LOGIN_ATTEMPTS_MAX', 3);
+    this.loginAttemptsTTL = config.loginAttempts.ttl;
+    this.maxLoginAttempts = config.loginAttempts.maxAttempts;
   }
 
   async userExists(email: string): Promise<boolean> {

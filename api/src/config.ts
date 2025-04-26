@@ -84,7 +84,7 @@ export const config = {
   },
 
   loginAttempts: {
-    ttl: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_TTL, 900),
+    ttl: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_TTL, 900000),
     maxAttempts: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_MAX, 3),
   },
 };
