@@ -8,6 +8,9 @@ import { checkEnvVariables } from './env.logger';
 import { Closable } from './types';
 import { config } from './config';
 import { addPipesAndFilters, AppModule } from './app.module';
+import { SeedDataService } from 'seeds/seed-data.service';
+
+import * as chalk from 'chalk';
 
 const closables: Closable[] = [];
 
@@ -17,6 +20,7 @@ const closables: Closable[] = [];
  */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
+
   addPipesAndFilters(app);
   closables.push(app);
 
@@ -26,6 +30,12 @@ async function bootstrap() {
     const connection = app.get(Connection);
     await connection.runMigrations();
     console.log('DB migrations up to date');
+  }
+
+  if (config.seedData) {
+    console.log(chalk.yellow('🌱 Seeding initial data...'));
+    const seedService = app.get(SeedDataService);
+    await seedService.runAllSeed();
   }
 
   const port = config.port;
