@@ -81,7 +81,7 @@ You can override these credentials by setting the following environment variable
 
 - `TR_ADMIN_EMAIL` – Admin user email (default: `local.admin@ever.co`)
 - `TR_ADMIN_PASSWORD` – Admin user password (default: `admin`)
-- `TR_ADMIN_NAME` – Admin user name (default: `Admin`)
+- `TR_ADMIN_NAME` – Admin username (default: `Admin`)
 
 > 🔐 After logging in for the first time, you can easily update these admin credentials (email, password, name) directly via the user settings in the web interface.
 

@@ -8,7 +8,7 @@ import { checkEnvVariables } from './env.logger';
 import { Closable } from './types';
 import { config } from './config';
 import { addPipesAndFilters, AppModule } from './app.module';
-import { SeedDataService } from 'seeds/seed-data.service';
+import { SeedDataService } from './seeds/seed-data.service';
 
 import * as chalk from 'chalk';
 

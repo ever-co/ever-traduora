@@ -1,15 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import * as chalk from 'chalk';
-import { AppModule } from 'app.module';
+import { AppModule } from '../app.module';
 import { SeedDataService } from './seed-data.service';
 import { config } from '../config';
 
 /**
  * Bootstrap function to set up the NestJS application and run seed operations
  */
+const logger = new Logger('SeedCLI');
 async function bootstrap() {
-  const logger = new Logger('SeedCLI');
   logger.log(chalk.blue('🚀 Starting seed CLI...'));
 
   try {
@@ -34,7 +34,7 @@ async function bootstrap() {
 
     // Gracefully shut down the application
     await app.close();
-    process.exit(0);
+    process.exitCode = 0;
   } catch (error) {
     logger.error(chalk.red(`❌ Seeding failed: ${error.message}`), error.stack);
     process.exit(1);
@@ -43,7 +43,7 @@ async function bootstrap() {
 
 // Check if seeding is enabled
 if (!config.seedData) {
-  console.log(chalk.yellow('⚠️ Seeding is disabled. Set TR_SEED_DATA=true to enable.'));
+  logger.warn(chalk.yellow('⚠️ Seeding is disabled. Set TR_SEED_DATA=true to enable.'));
   process.exit(0);
 }
 

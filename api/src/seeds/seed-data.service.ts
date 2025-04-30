@@ -15,17 +15,10 @@ export class SeedDataService {
    * Run all seed methods in the correct order
    */
   async runAllSeed(): Promise<void> {
-    try {
-      this.logger.log(chalk.blue('Starting complete data seeding process...'));
-
-      // seed users
-      await this.seedDefaultUsers();
-
-      this.logger.log(chalk.green('✅ Data seeding completed successfully'));
-    } catch (error) {
-      this.logger.error(chalk.red(`❌ Data seeding failed: ${error.message}`), error.stack);
-      throw error;
-    }
+    await this.runSeed('complete', [
+      this.seedDefaultUsers,
+      // Additional seed operations can be added here in the future
+    ]);
   }
 
   /**
@@ -38,15 +31,29 @@ export class SeedDataService {
   }
 
   /**
-   * Method to run only the default seeding process (for API calls)
+   * Run default seed methods
    */
   async runDefaultSeed(): Promise<void> {
+    await this.runSeed('default', [this.seedDefaultUsers]);
+  }
+
+  /**
+   * Run specified seed operations with appropriate logging
+   * @param seedType Description of the seeding process type
+   * @param seedOperations Array of functions to execute for seeding
+   */
+  private async runSeed(seedType: string, seedOperations: Array<() => Promise<void>>): Promise<void> {
     try {
-      this.logger.log(chalk.blue('Starting default data seeding process...'));
-      await this.seedDefaultUsers();
-      this.logger.log(chalk.green('✅ Default data seeding completed successfully'));
+      this.logger.log(chalk.blue(`Starting ${seedType} data seeding process...`));
+
+      // Execute all seed operations in sequence
+      for (const operation of seedOperations) {
+        await operation.call(this);
+      }
+
+      this.logger.log(chalk.green(`✅ ${seedType} data seeding completed successfully`));
     } catch (error) {
-      this.logger.error(chalk.red(`❌ Default data seeding failed: ${error.message}`), error.stack);
+      this.logger.error(chalk.red(`❌ ${seedType} data seeding failed: ${error.message}`), error.stack);
       throw error;
     }
   }

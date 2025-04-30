@@ -14,10 +14,7 @@ import { config } from '../config';
 export class UserSeed {
   private readonly logger = new Logger(UserSeed.name);
 
-  constructor(
-    @InjectRepository(User) private userRepo: Repository<User>,
-    private readonly userService: UserService,
-  ) {}
+  constructor(private readonly userService: UserService) {}
 
   /**
    * Creates default admin user if it doesn't exist
