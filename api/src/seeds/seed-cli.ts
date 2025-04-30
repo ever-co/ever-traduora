@@ -8,9 +8,16 @@ import { config } from '../config';
 /**
  * Bootstrap function to set up the NestJS application and run seed operations
  */
-const logger = new Logger('SeedCLI');
+
 async function bootstrap() {
+  const logger = new Logger('SeedCLI');
   logger.log(chalk.blue('🚀 Starting seed CLI...'));
+
+  if (!config.seedData) {
+    logger.warn(chalk.yellow('⚠️ Seeding is disabled. Set TR_SEED_DATA=true to enable.'));
+    process.exitCode = 1;
+    return;
+  }
 
   try {
     // Create a standalone application context
@@ -39,12 +46,6 @@ async function bootstrap() {
     logger.error(chalk.red(`❌ Seeding failed: ${error.message}`), error?.stack);
     process.exitCode = 1;
   }
-}
-
-// Check if seeding is enabled
-if (!config.seedData) {
-  logger.warn(chalk.yellow('⚠️ Seeding is disabled. Set TR_SEED_DATA=true to enable.'));
-  process.exitCode = 1;
 }
 
 // Run the bootstrap function
