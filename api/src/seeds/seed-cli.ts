@@ -44,7 +44,7 @@ async function bootstrap() {
 // Check if seeding is enabled
 if (!config.seedData) {
   logger.warn(chalk.yellow('⚠️ Seeding is disabled. Set TR_SEED_DATA=true to enable.'));
-  process.exit(0);
+  process.exitCode = 1;
 }
 
 // Run the bootstrap function
