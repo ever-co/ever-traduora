@@ -91,7 +91,7 @@ export const config = {
 
   defaultAdminCredentialConfig: {
     adminEmail: process.env.TR_ADMIN_EMAIL || `local.admin@ever.co`,
-    adminPassword: process.env.TR_ADMIN_PASSWORD || `admin`,
+    adminPassword: process.env.TR_ADMIN_PASSWORD || `sTr0ngP@ssw0rd!2025`,
     adminName: process.env.TR_ADMIN_NAME || 'Admin',
   },
 };

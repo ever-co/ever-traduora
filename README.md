@@ -74,13 +74,13 @@ Traduora provides a seed function that creates this default admin user. You can 
 **🆔 Default Admin Credentials:**
 
 - **Email:** `local.admin@ever.co`
-- **Password:** `admin`
+- **Password:** `sTr0ngP@ssw0rd!2025`
 - **Name:** `Admin`
 
 You can override these credentials by setting the following environment variables:
 
 - `TR_ADMIN_EMAIL` – Admin user email (default: `local.admin@ever.co`)
-- `TR_ADMIN_PASSWORD` – Admin user password (default: `admin`)
+- `TR_ADMIN_PASSWORD` – Admin user password (default: `sTr0ngP@ssw0rd!2025`)
 - `TR_ADMIN_NAME` – Admin username (default: `Admin`)
 
 > 🔐 After logging in for the first time, you can easily update these admin credentials (email, password, name) directly via the user settings in the web interface.
