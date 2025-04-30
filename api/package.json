@@ -27,7 +27,9 @@
     "test:watch": "cross-env NODE_ENV=test TR_ACCESS_LOGS_ENABLED=false jest --watch",
     "test:e2e": "cross-env NODE_ENV=e2e TR_DEFAULT_PROJECT_PLAN=default TR_ACCESS_LOGS_ENABLED=false TR_DB_DATABASE=tr_e2e jest --config ./test/jest-e2e.json --runInBand --verbose --detectOpenHandles --forceExit",
     "test:ci": "yarn test && yarn test:e2e",
-    "typeorm": "ts-node node_modules/.bin/typeorm"
+    "typeorm": "ts-node node_modules/.bin/typeorm",
+    "seed": "cross-env TR_SEED_DATA=true ts-node -r tsconfig-paths/register src/seeds/seed-cli.ts",
+    "seed:default": "cross-env TR_SEED_DATA=true TR_DEFAULT_SEED_ONLY=true ts-node -r tsconfig-paths/register src/seeds/seed-cli.ts"
   },
   "dependencies": {
     "@nestjs/axios": "^3.1.0",

@@ -31,7 +31,9 @@
     "start:api": "cross-env yarn --cwd ./api start",
     "commit": "git-cz",
     "commit:lint": "commitlint -E HUSKY_GIT_PARAMS",
-    "semantic-release": "semantic-release"
+    "semantic-release": "semantic-release",
+    "seed": "cross-env yarn --cwd ./api seed",
+    "seed:default": "cross-env yarn --cwd ./api seed:default"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
