@@ -36,8 +36,8 @@ async function bootstrap() {
     await app.close();
     process.exitCode = 0;
   } catch (error) {
-    logger.error(chalk.red(`❌ Seeding failed: ${error.message}`), error.stack);
-    process.exit(1);
+    logger.error(chalk.red(`❌ Seeding failed: ${error.message}`), error?.stack);
+    process.exitCode = 1;
   }
 }
 

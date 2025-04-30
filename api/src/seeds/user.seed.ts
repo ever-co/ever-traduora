@@ -33,21 +33,22 @@ export class UserSeed {
       // Check if admin user already exists
       const adminExists = await this.userService.userExists(adminEmail);
 
-      if (!adminExists) {
-        // Create admin user
-        const { user, isNewUser } = await this.userService.create({
-          grantType: GrantType.Password,
-          email: adminEmail,
-          name: adminName,
-          password: adminPassword,
-        });
-
-        if (isNewUser) {
-          this.logger.log(chalk.green(`✅ Default admin user created successfully: ${chalk.blue(adminEmail)}`));
-          return user;
-        }
-      } else {
+      if (adminExists) {
         this.logger.log(chalk.yellow(`ℹ️ Default admin user already exists. Skipping creation.`));
+        return null;
+      }
+
+      // Create admin user
+      const { user, isNewUser } = await this.userService.create({
+        grantType: GrantType.Password,
+        email: adminEmail,
+        name: adminName,
+        password: adminPassword,
+      });
+
+      if (isNewUser) {
+        this.logger.log(chalk.green(`✅ Default admin user created successfully: ${chalk.blue(adminEmail)}`));
+        return user;
       }
 
       return null;

@@ -25,9 +25,14 @@ export class SeedDataService {
    * Seed default users including admin
    */
   async seedDefaultUsers(): Promise<void> {
-    this.logger.log(chalk.yellow('🧑‍💼 Seeding default users...'));
-    await this.userSeed.seed();
-    this.logger.log(chalk.green('✅ Default users seeded successfully'));
+    try {
+      this.logger.log(chalk.yellow('🧑‍💼 Seeding default users...'));
+      await this.userSeed.seed();
+      this.logger.log(chalk.green('✅ Default users seeded successfully'));
+    } catch (error) {
+      this.logger.error(chalk.red(`❌ Default users seeding failed: ${error.message}`), error?.stack);
+      throw error;
+    }
   }
 
   /**
