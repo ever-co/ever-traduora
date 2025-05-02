@@ -24,10 +24,12 @@ export const dataSourceOptions = (): DataSourceOptions => {
 
   // Handle SQLite configuration
   if (dbType === 'better-sqlite3' || dbType === 'sqlite') {
+    console.log('Ici magique');
+
     return {
       ...commonOptions,
       type: 'better-sqlite3',
-      database: env.TR_DB_DATABASE || path.resolve(process.cwd(), 'tr_dev.sqlite'),
+      database: path.resolve(process.cwd(), 'data/tr_dev.sqlite3'),
       // SQLite-specific options
       foreignKeys: true,
       // Enable WAL mode for better concurrency

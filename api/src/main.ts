@@ -8,6 +8,7 @@ import { checkEnvVariables } from './env.logger';
 import { Closable } from './types';
 import { config } from './config';
 import { addPipesAndFilters, AppModule } from './app.module';
+import { getDataSourceConnection } from 'connection/datasource';
 
 const closables: Closable[] = [];
 
@@ -23,8 +24,8 @@ async function bootstrap() {
   // Run migrations
   if (config.autoMigrate) {
     console.log('Running DB migrations if necessary');
-    const connection = app.get(Connection);
-    await connection.runMigrations();
+    const dataSource = await getDataSourceConnection();
+    await dataSource.runMigrations();
     console.log('DB migrations up to date');
   }
 
