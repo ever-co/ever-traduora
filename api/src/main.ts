@@ -9,6 +9,7 @@ import { Closable } from './types';
 import { config } from './config';
 import { addPipesAndFilters, AppModule } from './app.module';
 import { getDataSourceConnection } from 'connection/datasource';
+import { getDbType } from './utils/database-type-helper';
 
 const closables: Closable[] = [];
 
@@ -20,6 +21,9 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, new ExpressAdapter());
   addPipesAndFilters(app);
   closables.push(app);
+
+  // Get current database type
+  const dbType = getDbType();
 
   // Run migrations
   if (config.autoMigrate) {
@@ -62,6 +66,7 @@ async function bootstrap() {
   }
 
   await app.listen(port, host, () => {
+    console.log(`Using database type: ${dbType}`);
     console.log(`Listening at http://${host}:${port}`);
   });
 }

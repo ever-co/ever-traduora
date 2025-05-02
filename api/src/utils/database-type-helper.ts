@@ -1,4 +1,3 @@
-// src/helpers/db-type.helper.ts
 import { config } from '../config';
 import { ColumnOptions, ColumnType } from 'typeorm';
 
