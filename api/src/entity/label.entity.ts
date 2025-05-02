@@ -1,5 +1,4 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, ManyToMany, JoinTable } from 'typeorm';
-import { AccessTimestamps } from './base';
 import { Project } from './project.entity';
 import { Term } from './term.entity';
 import { Translation } from './translation.entity';
