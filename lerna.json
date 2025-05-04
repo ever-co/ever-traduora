@@ -1,7 +1,7 @@
 {
   "lerna": "4.0.0",
   "npmClient": "yarn",
-  "version": "0.1.0",
+  "version": "0.20.5",
   "changelog": {
     "repo": "ever-co/ever-traduora",
     "cacheDir": ".changelog",
