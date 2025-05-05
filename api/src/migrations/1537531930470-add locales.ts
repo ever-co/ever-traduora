@@ -1149,6 +1149,7 @@ export class addLocales1537531930470 implements MigrationInterface {
           ('zu', 'Zulu', ''),
           ('zu_ZA', 'Zulu', 'South Africa');
       `);
+        break;
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "locale" (
