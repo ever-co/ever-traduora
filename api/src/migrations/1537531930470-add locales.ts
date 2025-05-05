@@ -1156,8 +1156,8 @@ export class addLocales1537531930470 implements MigrationInterface {
                 "code" varchar(255) PRIMARY KEY NOT NULL,
                 "language" varchar(255) NOT NULL,
                 "region" varchar(255) NOT NULL,
-                "dateCreated" datetime NOT NULL DEFAULT (datetime('now')),
-                "dateModified" datetime NOT NULL DEFAULT (datetime('now'))
+                "date_created" datetime NOT NULL DEFAULT (datetime('now')),
+                "date_modified" datetime NOT NULL DEFAULT (datetime('now'))
              ); `,
         );
 
