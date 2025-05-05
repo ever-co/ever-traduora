@@ -48,7 +48,7 @@ import { UserLoginAttemptsStorage } from './redis/user-login-attempts.storage';
 import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 import { SeedDataService } from './seeds/seed-data.service';
 import { UserSeed } from './seeds/user.seed';
-import { dataSourceOptions } from 'connection/datasource';
+import { dataSourceOptions } from './connection/datasource';
 
 @Module({
   imports: [

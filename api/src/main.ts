@@ -9,7 +9,7 @@ import { config } from './config';
 import { addPipesAndFilters, AppModule } from './app.module';
 import { SeedDataService } from './seeds/seed-data.service';
 import * as chalk from 'chalk';
-import { getDataSourceConnection } from 'connection/datasource';
+import { getDataSourceConnection } from './connection/datasource';
 import { getDbType } from './utils/database-type-helper';
 
 const closables: Closable[] = [];
