@@ -27,6 +27,7 @@ export const config = {
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
+  seedData: getBoolOrDefault(env.TR_SEED_DATA, true),
   import: {
     maxNestedLevels: parseInt(env.TR_IMPORT_MAX_NESTED_LEVELS, 10) || 100,
   },
@@ -86,5 +87,11 @@ export const config = {
   loginAttempts: {
     ttl: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_TTL, 900000),
     maxAttempts: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_MAX, 3),
+  },
+
+  defaultAdminCredentialConfig: {
+    adminEmail: process.env.TR_ADMIN_EMAIL || `local.admin@ever.co`,
+    adminPassword: process.env.TR_ADMIN_PASSWORD || `sTr0ngP@ssw0rd!2025`,
+    adminName: process.env.TR_ADMIN_NAME || 'Admin',
   },
 };

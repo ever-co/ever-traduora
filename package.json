@@ -1,6 +1,6 @@
 {
   "name": "ever-traduora",
-  "version": "0.20.4",
+  "version": "0.20.5",
   "description": "Ever® Traduora - Open Translation Management Platform",
   "license": "AGPL-3.0-only",
   "homepage": "https://traduora.co",
@@ -31,7 +31,9 @@
     "start:api": "cross-env yarn --cwd ./api start",
     "commit": "git-cz",
     "commit:lint": "commitlint -E HUSKY_GIT_PARAMS",
-    "semantic-release": "semantic-release"
+    "semantic-release": "semantic-release",
+    "seed": "cross-env yarn --cwd ./api seed",
+    "seed:default": "cross-env yarn --cwd ./api seed:default"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",

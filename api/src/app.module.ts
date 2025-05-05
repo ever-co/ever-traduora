@@ -46,6 +46,8 @@ import { ConfigModule } from '@nestjs/config';
 import { RedisModule } from './redis/redis.module';
 import { UserLoginAttemptsStorage } from './redis/user-login-attempts.storage';
 import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
+import { SeedDataService } from './seeds/seed-data.service';
+import { UserSeed } from './seeds/user.seed';
 import { dataSourceOptions } from 'connection/datasource';
 
 @Module({
@@ -95,6 +97,8 @@ import { dataSourceOptions } from 'connection/datasource';
     JwtStrategy,
     AuthorizationService,
     UserLoginAttemptsStorage,
+    SeedDataService,
+    UserSeed,
   ],
 })
 export class AppModule {
