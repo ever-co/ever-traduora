@@ -3,7 +3,7 @@ import * as process from 'process';
 import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
 import * as path from 'path';
 import * as fs from 'fs';
-import { DbType } from 'utils/database-type-helper';
+import { DbType } from '../utils/database-type-helper';
 
 const env = process.env;
 
