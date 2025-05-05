@@ -1,14 +1,18 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 import { config } from '../config';
+import { DbType } from '../utils/database-type-helper';
 
 export class addTermContext1667573768424 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     switch (config.db.default.type) {
-      case 'postgres':
+      case DbType.POSTGRES:
         await queryRunner.query(`ALTER TABLE term ADD COLUMN context TEXT DEFAULT NULL;`);
         break;
-      case 'mysql':
+      case DbType.MYSQL:
         await queryRunner.query('ALTER TABLE `term` ADD COLUMN `context` TEXT DEFAULT NULL AFTER `value`');
+        break;
+      case DbType.BETTER_SQLITE3:
+        await queryRunner.query('ALTER TABLE "term" ADD COLUMN "context" TEXT DEFAULT NULL');
         break;
       default:
         console.log('Unknown DB type');
@@ -17,12 +21,14 @@ export class addTermContext1667573768424 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     switch (config.db.default.type) {
-      case 'postgres':
-        await queryRunner.query(`ALTER TABLE term DROP COLUMN context;
-    `);
+      case DbType.POSTGRES:
+        await queryRunner.query(`ALTER TABLE term DROP COLUMN context;`);
         break;
-      case 'mysql':
+      case DbType.MYSQL:
         await queryRunner.query('ALTER TABLE `term` DROP COLUMN `context`');
+        break;
+      case DbType.BETTER_SQLITE3:
+        await queryRunner.query('ALTER TABLE "term" DROP COLUMN "context"');
         break;
       default:
         console.log('Unknown DB type');

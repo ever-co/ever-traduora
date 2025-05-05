@@ -43,10 +43,9 @@ export const dataSourceOptions = (): DataSourceOptions => {
       ...commonOptions,
       type: DbType.BETTER_SQLITE3,
       database: resolvedPath,
-      // SQLite-specific options
       foreignKeys: true,
-      // Enable WAL mode for better concurrency
       enableWAL: true,
+      namingStrategy: new SnakeNamingStrategy(),
     } as DataSourceOptions;
   }
 
