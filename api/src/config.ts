@@ -55,7 +55,7 @@ export const config = {
   },
   db: {
     default: {
-      type: env.TR_DB_TYPE || 'mysql',
+      type: env.TR_DB_TYPE || 'better-sqlite3',
       host: env.TR_DB_HOST || '127.0.0.1',
       port: parseInt(env.TR_DB_PORT, 10) || 3306,
       username: env.TR_DB_USER || 'root',
@@ -69,7 +69,7 @@ export const config = {
       keepConnectionAlive: true,
       entities: ['src/entity/*.entity*'],
       migrations: ['src/migrations/*'],
-      namingStrategy: env.TR_DB_TYPE === 'postgres' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
+      namingStrategy: env.TR_DB_TYPE === 'postgres' || env.TR_DB_TYPE === 'better-sqlite3' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
     } as TypeOrmModuleOptions,
   },
 
