@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
-import { BinaryColumnType, NumberColumnType, TimeColumnType } from 'utils/database-type-helper';
+import { BinaryColumnType, NumberColumnType, TimeColumnType } from '../utils/database-type-helper';
 
 /**
  * User entity representing application users

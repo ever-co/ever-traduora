@@ -2,7 +2,7 @@ import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { ProjectRole } from './project-user.entity';
 import { Project } from './project.entity';
-import { BinaryColumnType, EnumColumnType } from 'utils/database-type-helper';
+import { BinaryColumnType, EnumColumnType } from '../utils/database-type-helper';
 
 /**
  * Represents API clients that can access projects

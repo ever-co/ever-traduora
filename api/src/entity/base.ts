@@ -1,5 +1,5 @@
 import { CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { TimeColumnType } from 'utils/database-type-helper';
+import { TimeColumnType } from '../utils/database-type-helper';
 
 /**
  * Base class for tracking creation and modification timestamps

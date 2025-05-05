@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
-import { NumberColumnType } from 'utils/database-type-helper';
+import { NumberColumnType } from '../utils/database-type-helper';
 
 @Entity()
 export class Plan {

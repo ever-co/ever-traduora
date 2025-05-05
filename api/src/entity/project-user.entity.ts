@@ -2,7 +2,7 @@ import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeor
 import { AccessTimestamps } from './base';
 import { Project } from './project.entity';
 import { User } from './user.entity';
-import { EnumColumnType } from 'utils/database-type-helper';
+import { EnumColumnType } from '../utils/database-type-helper';
 
 /**
  * Defines the roles a user can have within a project

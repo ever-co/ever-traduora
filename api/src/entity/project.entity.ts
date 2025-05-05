@@ -1,7 +1,7 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { Plan } from './plan.entity';
-import { NumberColumnType } from 'utils/database-type-helper';
+import { NumberColumnType } from '../utils/database-type-helper';
 
 @Entity()
 export class Project {

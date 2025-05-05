@@ -2,7 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { Project } from './project.entity';
 import { ProjectRole } from './project-user.entity';
-import { EnumColumnType } from 'utils/database-type-helper';
+import { EnumColumnType } from '../utils/database-type-helper';
 
 /**
  * Defines the possible statuses for an invitation
