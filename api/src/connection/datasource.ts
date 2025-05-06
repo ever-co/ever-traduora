@@ -14,7 +14,7 @@ const env = process.env;
  */
 export const dataSourceOptions = (): DataSourceOptions => {
   // Parse the database type with proper type validation
-  const dbTypeInput = env.TR_DB_TYPE || DbType.BETTER_SQLITE3;
+  const dbTypeInput = env.TR_DB_TYPE || DbType.MYSQL;
 
   // Validate that the provided DB type is supported
   const dbType = Object.values(DbType).includes(dbTypeInput as DbType) ? (dbTypeInput as DbType) : DbType.BETTER_SQLITE3;
