@@ -19,7 +19,7 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE "project_user"`);
         await queryRunner.query(
           `CREATE TABLE "project_user" (
-            "id" TEXT NOT NULL,
+            "id" TEXT NOT NULL DEFAULT (hex(randomblob(16))),
             "project_id" TEXT,
             "user_id" TEXT,
             "role" TEXT NOT NULL DEFAULT 'viewer' CHECK(role IN ('admin','editor','viewer')),

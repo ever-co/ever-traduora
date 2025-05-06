@@ -104,7 +104,7 @@ export class init1537535282567 implements MigrationInterface {
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "project" (
-              "id" TEXT PRIMARY KEY NOT NULL,
+            "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
               "name" TEXT NOT NULL,
               "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
               "date_modified" TEXT NOT NULL DEFAULT (datetime('now'))
@@ -113,7 +113,7 @@ export class init1537535282567 implements MigrationInterface {
 
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "project_locale" (
-              "id" TEXT PRIMARY KEY NOT NULL,
+             "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
               "locale_code" TEXT,
               "project_id" TEXT,
               "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
@@ -126,7 +126,7 @@ export class init1537535282567 implements MigrationInterface {
 
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "user" (
-              "id" TEXT PRIMARY KEY NOT NULL,
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
               "name" TEXT NOT NULL,
               "email" TEXT NOT NULL UNIQUE,
               "encrypted_password" BLOB NOT NULL,
@@ -141,7 +141,7 @@ export class init1537535282567 implements MigrationInterface {
 
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "project_user" (
-              "id" TEXT PRIMARY KEY NOT NULL,
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
               "project_id" TEXT,
               "user_id" TEXT,
               "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
@@ -153,7 +153,7 @@ export class init1537535282567 implements MigrationInterface {
 
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "term" (
-              "id" TEXT PRIMARY KEY NOT NULL,
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
               "value" TEXT NOT NULL,
               "project_id" TEXT NOT NULL,
               "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
@@ -165,7 +165,7 @@ export class init1537535282567 implements MigrationInterface {
 
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "translation" (
-              "id" TEXT PRIMARY KEY NOT NULL,
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
               "value" TEXT NOT NULL,
               "term_id" TEXT NOT NULL,
               "project_locale_id" TEXT NOT NULL,

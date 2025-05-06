@@ -24,11 +24,11 @@ export class projectClientsTable1549981241264 implements MigrationInterface {
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "project_client" (
-            "id" varchar PRIMARY KEY, 
-            "name" varchar(255) NOT NULL, 
-            "role" varchar(255) NOT NULL DEFAULT 'viewer' CHECK ("role" in ('admin', 'editor', 'viewer')), 
+            "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+            "name" TEXT NOT NULL, 
+            "role" TEXT NOT NULL DEFAULT 'viewer' CHECK ("role" in ('admin', 'editor', 'viewer')), 
             "encrypted_secret" blob NOT NULL, 
-            "project_id" varchar, 
+            "project_id" TEXT, 
             "date_created" datetime NOT NULL DEFAULT (datetime('now')), 
             "date_modified" datetime NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE

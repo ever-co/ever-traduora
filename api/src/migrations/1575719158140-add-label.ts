@@ -53,7 +53,7 @@ export class addLabel1575719158140 implements MigrationInterface {
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "label" (
-            "id" TEXT PRIMARY KEY NOT NULL,
+            "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
             "value" TEXT NOT NULL,
             "color" TEXT NOT NULL CHECK(length("color") = 7),
             "project_id" TEXT NOT NULL,

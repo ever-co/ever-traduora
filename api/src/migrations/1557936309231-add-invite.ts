@@ -44,7 +44,7 @@ export class addInvite1557936309231 implements MigrationInterface {
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "invite" (
-            "id" TEXT PRIMARY KEY NOT NULL,
+            "id"  TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
             "email" TEXT NOT NULL,
             "status" TEXT NOT NULL DEFAULT 'sent' CHECK ("status" IN ('sent', 'accepted')),
             "role" TEXT NOT NULL DEFAULT 'viewer' CHECK ("role" IN ('admin', 'editor', 'viewer')),

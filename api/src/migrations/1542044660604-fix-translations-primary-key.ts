@@ -18,8 +18,8 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
       case DbType.BETTER_SQLITE3:
         // SQLite doesn't support dropping PRIMARY KEY directly, so we need to recreate the table
         await queryRunner.query(`CREATE TABLE "translation_new" (
-          "term_id" TEXT NOT NULL,
-          "project_locale_id" TEXT NOT NULL,
+          "term_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
+          "project_locale_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
           "value" TEXT NOT NULL,
           "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
           "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),

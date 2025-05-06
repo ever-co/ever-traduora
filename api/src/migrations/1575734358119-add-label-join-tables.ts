@@ -92,8 +92,8 @@ export class addLabelJoinTables1575734358119 implements MigrationInterface {
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "label_terms_term" (
-            "label_id" TEXT NOT NULL,
-            "term_id" TEXT NOT NULL,
+            "label_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
+            "term_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
             PRIMARY KEY ("label_id", "term_id"),
             FOREIGN KEY ("label_id") REFERENCES "label"("id") ON DELETE CASCADE,
             FOREIGN KEY ("term_id") REFERENCES "term"("id") ON DELETE CASCADE
@@ -104,9 +104,9 @@ export class addLabelJoinTables1575734358119 implements MigrationInterface {
 
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "label_translations_translation" (
-            "label_id" TEXT NOT NULL,
-            "translation_term_id" TEXT NOT NULL,
-            "translation_project_locale_id" TEXT NOT NULL,
+            "label_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
+            "translation_term_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
+            "translation_project_locale_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
             PRIMARY KEY ("label_id", "translation_term_id", "translation_project_locale_id"),
             FOREIGN KEY ("label_id") REFERENCES "label"("id") ON DELETE CASCADE,
             FOREIGN KEY ("translation_term_id", "translation_project_locale_id") 
