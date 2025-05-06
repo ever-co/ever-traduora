@@ -14,7 +14,11 @@ export class CustomExceptionFilter implements ExceptionFilter {
           message: 'The requested resource could not be found',
         },
       });
-    } else if (exception.status === 409 || (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY')) {
+    } else if (
+      exception.status === 409 ||
+      (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY') ||
+      exception.code === 'SQLITE_CONSTRAINT_UNIQUE'
+    ) {
       response.status(409).json({
         error: {
           code: 'AlreadyExists',
