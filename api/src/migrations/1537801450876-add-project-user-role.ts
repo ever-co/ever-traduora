@@ -30,8 +30,12 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
             FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE
           )`,
         );
+        await queryRunner.query('PRAGMA foreign_keys = OFF');
+        await queryRunner.query('BEGIN TRANSACTION');
         await queryRunner.query(`INSERT INTO "project_user" SELECT * FROM "project_user_temp"`);
         await queryRunner.query(`DROP TABLE "project_user_temp"`);
+        await queryRunner.query('COMMIT');
+        await queryRunner.query('PRAGMA foreign_keys = ON');
         break;
       default:
         console.log('Unknown DB type');

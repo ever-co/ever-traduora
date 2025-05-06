@@ -11,7 +11,7 @@ export class Project {
   @Column()
   name: string;
 
-  @Column({ length: 255, default: null, nullable: true })
+  @Column({ length: 255, nullable: true })
   description: string;
 
   @Column(NumberColumnType.integer(0))

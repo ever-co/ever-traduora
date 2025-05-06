@@ -16,19 +16,19 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column(BinaryColumnType.encryptedPassword())
+  @Column({ ...BinaryColumnType.encryptedPassword(), nullable: true })
   encryptedPassword: Buffer;
 
-  @Column(BinaryColumnType.encryptedToken())
+  @Column({ ...BinaryColumnType.encryptedToken(), nullable: true })
   encryptedPasswordResetToken: Buffer;
 
-  @Column(TimeColumnType.date())
+  @Column({ ...TimeColumnType.date(), nullable: true })
   passwordResetExpires: Date;
 
   @Column(NumberColumnType.integer(0))
   loginAttempts: number;
 
-  @Column(TimeColumnType.date())
+  @Column({ ...TimeColumnType.date(), nullable: true })
   lastLogin: Date;
 
   @Column(NumberColumnType.integer(0))

@@ -9,7 +9,7 @@ export const resolveColumnName = (columnName: string): string => {
     throw new Error('Column name cannot be empty');
   }
 
-  // convert only for postgres until typeorm has a fix
+  //  convert for postgres and sqlite
   if (config.db.default.type === DbType.POSTGRES || config.db.default.type === DbType.BETTER_SQLITE3) {
     return snakeCase(columnName);
   }

@@ -14,11 +14,7 @@ export class CustomExceptionFilter implements ExceptionFilter {
           message: 'The requested resource could not be found',
         },
       });
-    } else if (
-      exception.status === 409 ||
-      (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY') ||
-      exception.code === 'SQLITE_CONSTRAINT_UNIQUE'
-    ) {
+    } else if (this.isUniqueConstraintViolation(exception)) {
       response.status(409).json({
         error: {
           code: 'AlreadyExists',
@@ -77,5 +73,12 @@ export class CustomExceptionFilter implements ExceptionFilter {
         },
       });
     }
+  }
+  private isUniqueConstraintViolation(exception: any): boolean {
+    return (
+      exception.status === 409 ||
+      (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY') ||
+      exception.code === 'SQLITE_CONSTRAINT_UNIQUE'
+    );
   }
 }

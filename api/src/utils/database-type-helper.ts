@@ -16,7 +16,7 @@ export enum DbType {
  * @returns true if the current database type matches the specified type
  */
 export function isDbType(type: DbType): boolean {
-  return config.db.default.type === type;
+  return Object.values(DbType).includes(config.db.default.type as DbType) && config.db.default.type === type;
 }
 
 /**
@@ -24,7 +24,7 @@ export function isDbType(type: DbType): boolean {
  * @returns The current database type
  */
 export function getDbType(): string {
-  return config.db.default.type;
+  return config.db.default.type as DbType;
 }
 
 /**
@@ -146,7 +146,7 @@ export const NumberColumnType = {
    * Type for integer columns
    * @param defaultValue Default integer value
    */
-  integer: (defaultValue: number = 0): ColumnOptions => {
+  integer: (defaultValue = 0): ColumnOptions => {
     if (isDbType(DbType.BETTER_SQLITE3)) {
       return { type: 'integer' as ColumnType, default: defaultValue };
     } else {

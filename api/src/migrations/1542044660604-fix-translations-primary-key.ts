@@ -16,7 +16,6 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         await queryRunner.query('ALTER TABLE `translation` ADD PRIMARY KEY (`termId`, `projectLocaleId`)');
         break;
       case DbType.BETTER_SQLITE3:
-        // SQLite doesn't support dropping PRIMARY KEY directly, so we need to recreate the table
         await queryRunner.query(`CREATE TABLE "translation_new" (
           "term_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
           "project_locale_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
@@ -26,13 +25,11 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
           PRIMARY KEY ("term_id", "project_locale_id")
         )`);
 
-        // Copy data from old table to new table
         await queryRunner.query(`INSERT INTO "translation_new" 
           ("term_id", "project_locale_id", "value", "date_created", "date_modified")
           SELECT "term_id", "project_locale_id", "value", "date_created", "date_modified" 
           FROM "translation"`);
 
-        // Drop old table and rename new one
         await queryRunner.query(`DROP TABLE "translation"`);
         await queryRunner.query(`ALTER TABLE "translation_new" RENAME TO "translation"`);
         break;
@@ -54,12 +51,12 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         break;
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(`CREATE TABLE "translation_old" (
-          "id" TEXT PRIMARY KEY NOT NULL,
           "term_id" TEXT NOT NULL,
           "project_locale_id" TEXT NOT NULL,
           "value" TEXT NOT NULL,
           "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
           "date_modified" TEXT NOT NULL DEFAULT (datetime('now'))
+          PRIMARY KEY ("term_id", "project_locale_id")
         )`);
 
         await queryRunner.query(`INSERT INTO "translation_old" 

@@ -36,7 +36,12 @@ export const dataSourceOptions = (): DataSourceOptions => {
 
     if (!fs.existsSync(dbDir)) {
       console.log(`Creating SQLite database directory: ${dbDir}`);
-      fs.mkdirSync(dbDir, { recursive: true });
+      try {
+        fs.mkdirSync(dbDir, { recursive: true });
+      } catch (error) {
+        console.error(`Failed to create database directory: ${error.message}`);
+        throw error;
+      }
     }
 
     return {

@@ -15,20 +15,17 @@ export class addLabelJoinTables1575734358119 implements MigrationInterface {
         );
 
         await queryRunner.query(
-          `
-      CREATE TABLE IF NOT EXISTS "label_translations_translation" (
+          `CREATE TABLE IF NOT EXISTS "label_translations_translation" (
         "label_id" uuid DEFAULT uuid_generate_v4 (),
         "translation_term_id" uuid DEFAULT uuid_generate_v4 (),
         "translation_project_locale_id" uuid DEFAULT uuid_generate_v4 (),
         CONSTRAINT "PK_9ec857c974a19b54c1e0cb03f91"
             PRIMARY KEY ("label_id", "translation_term_id", "translation_project_locale_id")
-    );
-    `,
+    );`,
         );
 
         await queryRunner.query(
-          `
-      CREATE INDEX "IDX_957f3fe5cf7454257be8643575"
+          `CREATE INDEX "IDX_957f3fe5cf7454257be8643575"
     ON "label_translations_translation" ("label_id");
     `,
         );
@@ -92,8 +89,8 @@ export class addLabelJoinTables1575734358119 implements MigrationInterface {
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "label_terms_term" (
-            "label_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
-            "term_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
+            "label_id"  TEXT NOT NULL ,
+            "term_id"  TEXT NOT NULL ,
             PRIMARY KEY ("label_id", "term_id"),
             FOREIGN KEY ("label_id") REFERENCES "label"("id") ON DELETE CASCADE,
             FOREIGN KEY ("term_id") REFERENCES "term"("id") ON DELETE CASCADE

@@ -51,6 +51,7 @@ export class addLabel1575719158140 implements MigrationInterface {
         );
         break;
       case DbType.BETTER_SQLITE3:
+        await queryRunner.query(`PRAGMA foreign_keys = ON;`);
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "label" (
             "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
