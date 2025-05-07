@@ -60,8 +60,8 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         )`);
 
         await queryRunner.query(`INSERT INTO "translation_old" 
-          ("id", "term_id", "project_locale_id", "value", "date_created", "date_modified")
-          SELECT hex(randomblob(16)), "term_id", "project_locale_id", "value", "date_created", "date_modified" 
+          ("term_id", "project_locale_id", "value", "date_created", "date_modified")
+          SELECT "term_id", "project_locale_id", "value", "date_created", "date_modified" 
           FROM "translation"`);
 
         await queryRunner.query(`DROP TABLE "translation"`);
