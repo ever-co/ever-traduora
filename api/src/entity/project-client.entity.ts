@@ -15,7 +15,7 @@ export class ProjectClient {
   @Column()
   name: string;
 
-  @Column(EnumColumnType.projectRole(ProjectRole.Viewer))
+  @Column(EnumColumnType.projectRole(ProjectRole, ProjectRole.Viewer))
   role: ProjectRole;
 
   @Column(BinaryColumnType.encryptedSecret())

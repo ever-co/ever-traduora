@@ -28,6 +28,34 @@ export function getDbType(): string {
 }
 
 /**
+ * Get column type based on database type
+ * @param typeMap Object containing column types for different databases
+ * @param defaultOptions Additional column options to merge
+ * @returns Column options for current database
+ */
+function getDbColumnType(
+  typeMap: {
+    postgres?: string | ColumnType;
+    mysql?: string | ColumnType;
+    betterSqlite3?: string | ColumnType;
+  },
+  defaultOptions: Partial<ColumnOptions> = {},
+): ColumnOptions {
+  let type: string | ColumnType;
+
+  if (isDbType(DbType.POSTGRES)) {
+    type = typeMap.postgres || 'varchar';
+  } else if (isDbType(DbType.BETTER_SQLITE3)) {
+    type = typeMap.betterSqlite3 || 'varchar';
+  } else {
+    // Default to MySQL
+    type = typeMap.mysql || 'varchar';
+  }
+
+  return { type: type as ColumnType, ...defaultOptions };
+}
+
+/**
  * Helper for binary column types
  */
 export const BinaryColumnType = {
@@ -35,39 +63,24 @@ export const BinaryColumnType = {
    * Type for encrypted password columns
    */
   encryptedPassword: (): ColumnOptions => {
-    if (isDbType(DbType.POSTGRES)) {
-      return { type: 'bytea' as ColumnType, nullable: true };
-    } else if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'blob' as ColumnType, nullable: true };
-    } else {
-      return { type: 'binary' as ColumnType, length: 60, nullable: true };
-    }
+    return getDbColumnType(
+      { postgres: 'bytea', mysql: 'binary', betterSqlite3: 'blob' },
+      { nullable: true, ...(isDbType(DbType.MYSQL) ? { length: 60 } : {}) },
+    );
   },
 
   /**
    * Type for encrypted token columns
    */
   encryptedToken: (): ColumnOptions => {
-    if (isDbType(DbType.POSTGRES)) {
-      return { type: 'bytea' as ColumnType, nullable: true };
-    } else if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'blob' as ColumnType, nullable: true };
-    } else {
-      return { type: 'binary' as ColumnType, nullable: true };
-    }
+    return getDbColumnType({ postgres: 'bytea', mysql: 'binary', betterSqlite3: 'blob' }, { nullable: true });
   },
 
   /**
    * Type for encrypted secret columns
    */
   encryptedSecret: (): ColumnOptions => {
-    if (isDbType(DbType.POSTGRES)) {
-      return { type: 'bytea' as ColumnType };
-    } else if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'blob' as ColumnType };
-    } else {
-      return { type: 'binary' as ColumnType, length: 60 };
-    }
+    return getDbColumnType({ postgres: 'bytea', mysql: 'binary', betterSqlite3: 'blob' }, { ...(isDbType(DbType.MYSQL) ? { length: 60 } : {}) });
   },
 };
 
@@ -77,26 +90,24 @@ export const BinaryColumnType = {
 export const EnumColumnType = {
   /**
    * Type for project role columns
+   * @param enumObj Enum object containing possible values
    * @param defaultValue Default role value
    */
-  projectRole: (defaultValue: any): ColumnOptions => {
+  projectRole: (enumObj: object, defaultValue: any): ColumnOptions => {
     if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'varchar' as ColumnType, nullable: false, default: defaultValue };
-    } else {
-      return { type: 'enum' as ColumnType, enum: defaultValue.constructor, nullable: false, default: defaultValue };
+      return { type: 'varchar', nullable: false, default: defaultValue };
     }
+    return { type: 'enum', enum: enumObj, nullable: false, default: defaultValue };
   },
 
   /**
    * Type for invite status columns
-   * @param defaultValue Default status value
    */
-  inviteStatus: (defaultValue: any): ColumnOptions => {
+  inviteStatus: (enumObj: object, defaultValue: any): ColumnOptions => {
     if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'varchar' as ColumnType, nullable: false, default: defaultValue };
-    } else {
-      return { type: 'enum' as ColumnType, enum: defaultValue.constructor, nullable: false, default: defaultValue };
+      return { type: 'varchar', nullable: false, default: defaultValue };
     }
+    return { type: 'enum', enum: enumObj, nullable: false, default: defaultValue };
   },
 };
 
@@ -108,33 +119,24 @@ export const TimeColumnType = {
    * Type for date columns
    */
   date: (): ColumnOptions => {
-    if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'datetime' as ColumnType, nullable: true };
-    } else {
-      return { type: 'timestamp' as ColumnType, nullable: true, precision: 6 };
-    }
+    return getDbColumnType(
+      { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
+      { nullable: true, ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+    );
   },
 
   /**
    * Type for creation date columns
    */
   createDate: (): ColumnOptions => {
-    if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'datetime' as ColumnType };
-    } else {
-      return { type: 'timestamp' as ColumnType };
-    }
+    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
   },
 
   /**
    * Type for update date columns
    */
   updateDate: (): ColumnOptions => {
-    if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'datetime' as ColumnType };
-    } else {
-      return { type: 'timestamp' as ColumnType };
-    }
+    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
   },
 };
 
@@ -147,10 +149,6 @@ export const NumberColumnType = {
    * @param defaultValue Default integer value
    */
   integer: (defaultValue = 0): ColumnOptions => {
-    if (isDbType(DbType.BETTER_SQLITE3)) {
-      return { type: 'integer' as ColumnType, default: defaultValue };
-    } else {
-      return { type: 'int' as ColumnType, default: defaultValue };
-    }
+    return getDbColumnType({ postgres: 'int', mysql: 'int', betterSqlite3: 'integer' }, { default: defaultValue });
   },
 };

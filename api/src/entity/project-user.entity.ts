@@ -22,7 +22,7 @@ export class ProjectUser {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column(EnumColumnType.projectRole(ProjectRole.Viewer))
+  @Column(EnumColumnType.projectRole(ProjectRole, ProjectRole.Viewer))
   role: ProjectRole;
 
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })

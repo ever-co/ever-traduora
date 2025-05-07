@@ -23,13 +23,13 @@ export class Invite {
   @Column()
   email: string;
 
-  @Column(EnumColumnType.inviteStatus(InviteStatus.Sent))
+  @Column(EnumColumnType.inviteStatus(InviteStatus, InviteStatus.Sent))
   status: InviteStatus;
 
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })
   project: Project;
 
-  @Column(EnumColumnType.projectRole(ProjectRole.Viewer))
+  @Column(EnumColumnType.projectRole(ProjectRole, ProjectRole.Viewer))
   role: ProjectRole;
 
   @Column(type => AccessTimestamps)

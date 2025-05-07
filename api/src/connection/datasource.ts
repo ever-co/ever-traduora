@@ -49,7 +49,6 @@ export const dataSourceOptions = (): DataSourceOptions => {
       type: DbType.BETTER_SQLITE3,
       database: resolvedPath,
       foreignKeys: true,
-      enableWAL: true,
       namingStrategy: new SnakeNamingStrategy(),
     } as DataSourceOptions;
   }
