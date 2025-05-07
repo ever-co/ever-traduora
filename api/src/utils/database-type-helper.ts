@@ -11,12 +11,17 @@ export enum DbType {
 }
 
 /**
+ * Current database type (cached for performance)
+ */
+const currentDbType = config.db.default.type as DbType;
+
+/**
  * Checks if the current database type matches a specific type
  * @param type Database type to check
  * @returns true if the current database type matches the specified type
  */
 export function isDbType(type: DbType): boolean {
-  return Object.values(DbType).includes(config.db.default.type as DbType) && config.db.default.type === type;
+  return currentDbType === type;
 }
 
 /**
@@ -24,7 +29,7 @@ export function isDbType(type: DbType): boolean {
  * @returns The current database type
  */
 export function getDbType(): string {
-  return config.db.default.type as DbType;
+  return currentDbType;
 }
 
 /**
@@ -43,18 +48,13 @@ function getDbColumnType(
 ): ColumnOptions {
   let type: string | ColumnType;
 
-  switch (getDbType()) {
-    case DbType.POSTGRES:
-      type = typeMap.postgres ?? 'varchar';
-      break;
-    case DbType.BETTER_SQLITE3:
-      type = typeMap.betterSqlite3 ?? 'varchar';
-      break;
-    case DbType.MYSQL:
-      type = typeMap.mysql ?? 'varchar';
-      break;
-    default:
-      throw new Error(`Unsupported database type: ${getDbType()}`);
+  if (isDbType(DbType.POSTGRES)) {
+    type = typeMap.postgres || 'varchar';
+  } else if (isDbType(DbType.BETTER_SQLITE3)) {
+    type = typeMap.betterSqlite3 || 'varchar';
+  } else {
+    // Default to MySQL
+    type = typeMap.mysql || 'varchar';
   }
 
   return { type: type as ColumnType, ...defaultOptions };
@@ -98,7 +98,7 @@ export const EnumColumnType = {
    * @param enumObj Enum object containing possible values
    * @param defaultValue Default role value
    */
-  projectRole: (enumObj: object, defaultValue: any): ColumnOptions => {
+  projectRole: <T extends string | number>(enumObj: Record<string, T>, defaultValue: T): ColumnOptions => {
     if (isDbType(DbType.BETTER_SQLITE3)) {
       return { type: 'varchar', nullable: false, default: defaultValue };
     }
@@ -108,7 +108,7 @@ export const EnumColumnType = {
   /**
    * Type for invite status columns
    */
-  inviteStatus: (enumObj: object, defaultValue: any): ColumnOptions => {
+  inviteStatus: <T extends string | number>(enumObj: Record<string, T>, defaultValue: T): ColumnOptions => {
     if (isDbType(DbType.BETTER_SQLITE3)) {
       return { type: 'varchar', nullable: false, default: defaultValue };
     }
@@ -134,20 +134,14 @@ export const TimeColumnType = {
    * Type for creation date columns
    */
   createDate: (): ColumnOptions => {
-    return getDbColumnType(
-      { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
-      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
-    );
+    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
   },
 
   /**
    * Type for update date columns
    */
   updateDate: (): ColumnOptions => {
-    return getDbColumnType(
-      { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
-      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
-    );
+    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
   },
 };
 

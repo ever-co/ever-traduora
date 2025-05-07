@@ -18,7 +18,7 @@ export class ProjectClient {
   @Column(EnumColumnType.projectRole(ProjectRole, ProjectRole.Viewer))
   role: ProjectRole;
 
-  @Column(BinaryColumnType.encryptedSecret())
+  @Column({ ...BinaryColumnType.encryptedSecret(), nullable: true })
   encryptedSecret: Buffer;
 
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })
