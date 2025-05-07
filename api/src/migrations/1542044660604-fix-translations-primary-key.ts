@@ -50,13 +50,17 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         await queryRunner.query('ALTER TABLE `translation` ADD PRIMARY KEY (`id`)');
         break;
       case DbType.BETTER_SQLITE3:
+        await queryRunner.query(`PRAGMA foreign_keys = OFF;`);
+        await queryRunner.query(`BEGIN TRANSACTION;`);
         await queryRunner.query(`CREATE TABLE "translation_old" (
           "term_id" TEXT NOT NULL,
           "project_locale_id" TEXT NOT NULL,
           "value" TEXT NOT NULL,
           "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
-          "date_modified" TEXT NOT NULL DEFAULT (datetime('now'))
-          PRIMARY KEY ("term_id", "project_locale_id")
+          "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY ("term_id", "project_locale_id"),
+          FOREIGN KEY ("term_id") REFERENCES "term"("id") ON DELETE CASCADE,
+          FOREIGN KEY ("project_locale_id") REFERENCES "project_locale"("id") ON DELETE CASCADE
         )`);
 
         await queryRunner.query(`INSERT INTO "translation_old" 
@@ -66,6 +70,8 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
 
         await queryRunner.query(`DROP TABLE "translation"`);
         await queryRunner.query(`ALTER TABLE "translation_old" RENAME TO "translation"`);
+        await queryRunner.query(`COMMIT;`);
+        await queryRunner.query(`PRAGMA foreign_keys = ON;`);
         break;
       default:
         console.log('Unknown DB type');

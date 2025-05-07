@@ -43,13 +43,18 @@ function getDbColumnType(
 ): ColumnOptions {
   let type: string | ColumnType;
 
-  if (isDbType(DbType.POSTGRES)) {
-    type = typeMap.postgres || 'varchar';
-  } else if (isDbType(DbType.BETTER_SQLITE3)) {
-    type = typeMap.betterSqlite3 || 'varchar';
-  } else {
-    // Default to MySQL
-    type = typeMap.mysql || 'varchar';
+  switch (getDbType()) {
+    case DbType.POSTGRES:
+      type = typeMap.postgres ?? 'varchar';
+      break;
+    case DbType.BETTER_SQLITE3:
+      type = typeMap.betterSqlite3 ?? 'varchar';
+      break;
+    case DbType.MYSQL:
+      type = typeMap.mysql ?? 'varchar';
+      break;
+    default:
+      throw new Error(`Unsupported database type: ${getDbType()}`);
   }
 
   return { type: type as ColumnType, ...defaultOptions };
