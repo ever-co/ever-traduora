@@ -129,14 +129,20 @@ export const TimeColumnType = {
    * Type for creation date columns
    */
   createDate: (): ColumnOptions => {
-    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
+    return getDbColumnType(
+      { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
+      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+    );
   },
 
   /**
    * Type for update date columns
    */
   updateDate: (): ColumnOptions => {
-    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
+    return getDbColumnType(
+      { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
+      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+    );
   },
 };
 
