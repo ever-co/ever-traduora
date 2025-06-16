@@ -23,8 +23,8 @@ export const dataSourceOptions = (): DataSourceOptions => {
   const commonOptions = {
     synchronize: false,
     logging: false,
-    entities: [__dirname + '/../entity/*.entity.{js,ts}'],
-    migrations: [__dirname + '/../migrations/*.{js,ts}'],
+    entities: [`${__dirname}/../entity/*.entity.{js,ts}`],
+    migrations: [`${__dirname}/../migrations/*.{js,ts}`],
   };
 
   // Handle SQLite configuration
