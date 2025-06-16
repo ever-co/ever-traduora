@@ -54,8 +54,7 @@ export class changeTranslationValueType1543494409127 implements MigrationInterfa
         await queryRunner.query(`PRAGMA foreign_keys=on;`);
         break;
       default:
-        console.log('Unknown DB type');
-    }
+        throw new Error(`Unsupported DB type "${config.db.default.type}" in migration 1543494409127`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<any> {
