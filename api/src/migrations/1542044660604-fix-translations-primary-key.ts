@@ -34,7 +34,7 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         await queryRunner.query(`ALTER TABLE "translation_new" RENAME TO "translation"`);
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error(`Unsupported database type: ${config.db.default.type}`);
     }
   }
 
