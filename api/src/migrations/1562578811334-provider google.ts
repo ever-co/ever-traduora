@@ -12,10 +12,17 @@ export class providerGoogle1562578811334 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE `user` CHANGE `encryptedPassword` `encryptedPassword` binary(60) NULL');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query('ALTER TABLE "user" ADD COLUMN "encrypted_password_temp" BLOB');
-        await queryRunner.query('UPDATE "user" SET "encrypted_password_temp" = CAST("encrypted_password" AS BLOB)');
-        await queryRunner.query('ALTER TABLE "user" DROP COLUMN "encrypted_password"');
-        await queryRunner.query('ALTER TABLE "user" RENAME COLUMN "encrypted_password_temp" TO "encrypted_password"');
+        await queryRunner.startTransaction();
+        try {
+          await queryRunner.query('ALTER TABLE "user" ADD COLUMN "encrypted_password_temp" BLOB NULL');
+          await queryRunner.query('UPDATE "user" SET "encrypted_password_temp" = CAST("encrypted_password" AS BLOB)');
+          await queryRunner.query('ALTER TABLE "user" DROP COLUMN "encrypted_password"');
+          await queryRunner.query('ALTER TABLE "user" RENAME COLUMN "encrypted_password_temp" TO "encrypted_password"');
+          await queryRunner.commitTransaction();
+        } catch (error) {
+          await queryRunner.rollbackTransaction();
+          throw error;
+        }
         break;
       default:
         console.log('Unknown DB type');
@@ -32,10 +39,17 @@ export class providerGoogle1562578811334 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE `user` CHANGE `encryptedPassword` `encryptedPassword` binary(60) NOT NULL');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query('ALTER TABLE "user" ADD COLUMN "encrypted_password_temp" TEXT');
-        await queryRunner.query('UPDATE "user" SET "encrypted_password_temp" = CAST("encrypted_password" AS TEXT)');
-        await queryRunner.query('ALTER TABLE "user" DROP COLUMN "encrypted_password"');
-        await queryRunner.query('ALTER TABLE "user" RENAME COLUMN "encrypted_password_temp" TO "encrypted_password"');
+        await queryRunner.startTransaction();
+        try {
+          await queryRunner.query('ALTER TABLE "user" ADD COLUMN "encrypted_password_temp" TEXT');
+          await queryRunner.query('UPDATE "user" SET "encrypted_password_temp" = hex("encrypted_password")');
+          await queryRunner.query('ALTER TABLE "user" DROP COLUMN "encrypted_password"');
+          await queryRunner.query('ALTER TABLE "user" RENAME COLUMN "encrypted_password_temp" TO "encrypted_password"');
+          await queryRunner.commitTransaction();
+        } catch (error) {
+          await queryRunner.rollbackTransaction();
+          throw error;
+        }
         break;
       default:
         console.log('Unknown DB type');

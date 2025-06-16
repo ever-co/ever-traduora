@@ -1735,6 +1735,16 @@ export class addLocales1537531930470 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<any> {
-    await queryRunner.query('DROP TABLE IF EXISTS `locale`');
+    switch (config.db.default.type) {
+      case DbType.POSTGRES:
+        await queryRunner.query('DROP TABLE IF EXISTS "locale"');
+        break;
+      case DbType.BETTER_SQLITE3:
+      case DbType.MYSQL:
+        await queryRunner.query('DROP TABLE IF EXISTS `locale`');
+        break;
+      default:
+        console.log('Unknown DB type');
+    }
   }
 }

@@ -28,11 +28,12 @@ async function bootstrap() {
   const dbType = getDbType();
 
   // Run migrations
-  if (config.autoMigrate) {
-    console.log('Running DB migrations if necessary');
+  try {
     const dataSource = await getDataSourceConnection();
     await dataSource.runMigrations();
     console.log('DB migrations up to date');
+  } catch (error) {
+    console.error(`Failed to run migrations: ${error.message}`);
   }
 
   if (config.seedData) {

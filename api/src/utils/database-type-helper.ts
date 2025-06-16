@@ -48,13 +48,18 @@ function getDbColumnType(
 ): ColumnOptions {
   let type: string | ColumnType;
 
-  if (isDbType(DbType.POSTGRES)) {
-    type = typeMap.postgres || 'varchar';
-  } else if (isDbType(DbType.BETTER_SQLITE3)) {
-    type = typeMap.betterSqlite3 || 'varchar';
-  } else {
-    // Default to MySQL
-    type = typeMap.mysql || 'varchar';
+  switch (config.db.default.type) {
+    case DbType.POSTGRES:
+      type = typeMap.postgres || 'varchar';
+      break;
+    case DbType.MYSQL:
+      type = typeMap.mysql || 'varchar';
+      break;
+    case DbType.BETTER_SQLITE3:
+      type = typeMap.betterSqlite3 || 'varchar';
+      break;
+    default:
+      throw new Error(`Unsupported database type: ${config.db.default.type}. ` + `Supported types are: ${Object.values(DbType).join(', ')}`);
   }
 
   return { type: type as ColumnType, ...defaultOptions };
@@ -134,14 +139,20 @@ export const TimeColumnType = {
    * Type for creation date columns
    */
   createDate: (): ColumnOptions => {
-    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
+    return getDbColumnType(
+      { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
+      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+    );
   },
 
   /**
    * Type for update date columns
    */
   updateDate: (): ColumnOptions => {
-    return getDbColumnType({ postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' });
+    return getDbColumnType(
+      { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
+      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+    );
   },
 };
 

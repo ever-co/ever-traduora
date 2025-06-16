@@ -12,7 +12,7 @@ export class addInvite1557936309231 implements MigrationInterface {
             "email" varchar(255) NOT NULL,
             "status" varchar(255) NOT NULL DEFAULT 'sent' CHECK (status IN ('sent', 'accepted')),
             "role" varchar(255) NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'editor', 'viewer')),
-            "project_id" uuid DEFAULT uuid_generate_v4 (),
+            "project_id" uuid NOT NULL,
             "date_created" timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             "date_modified" timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
             CONSTRAINT "PK_invite" PRIMARY KEY ("id"),
@@ -42,13 +42,15 @@ export class addInvite1557936309231 implements MigrationInterface {
         );
         break;
       case DbType.BETTER_SQLITE3:
+        await queryRunner.query('PRAGMA foreign_keys = ON');
+
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "invite" (
             "id"  TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
             "email" TEXT NOT NULL,
             "status" TEXT NOT NULL DEFAULT 'sent' CHECK ("status" IN ('sent', 'accepted')),
             "role" TEXT NOT NULL DEFAULT 'viewer' CHECK ("role" IN ('admin', 'editor', 'viewer')),
-            "project_id" TEXT NOT NULL,
+            "project_id" TEXT NOT NULL REFERENCES "project"("id") ON DELETE CASCADE,
             "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
             "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE ("project_id", "email")

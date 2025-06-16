@@ -14,7 +14,7 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
         await queryRunner.query("ALTER TABLE `project_user` ADD `role` enum ('admin', 'editor', 'viewer') NOT NULL DEFAULT 'viewer'");
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query(`ALTER TABLE "project_user" ADD COLUMN "role" TEXT NOT NULL DEFAULT 'viewer'`);
+        // Créer la table temporaire AVANT d'ajouter la nouvelle colonne
         await queryRunner.query(`CREATE TABLE "project_user_temp" AS SELECT * FROM "project_user"`);
         await queryRunner.query(`DROP TABLE "project_user"`);
         await queryRunner.query(
@@ -31,7 +31,9 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
           )`,
         );
 
-        await queryRunner.query(`INSERT INTO "project_user" SELECT * FROM "project_user_temp"`);
+        // Insérer les données existantes avec la valeur par défaut pour role
+        await queryRunner.query(`INSERT INTO "project_user" (id, project_id, user_id, date_created, date_modified, role)
+                                 SELECT id, project_id, user_id, date_created, date_modified, 'viewer' FROM "project_user_temp"`);
         await queryRunner.query(`DROP TABLE "project_user_temp"`);
 
         break;
@@ -49,7 +51,11 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE `project_user` DROP COLUMN `role`');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query('ALTER TABLE "project_user" DROP COLUMN "role"');
+        await queryRunner.query(`CREATE TABLE "project_user_tmp" AS
+             SELECT id, project_id, user_id, date_created, date_modified
+             FROM "project_user";`);
+        await queryRunner.query('DROP TABLE "project_user";');
+        await queryRunner.query(`ALTER TABLE "project_user_tmp" RENAME TO "project_user";`);
         break;
       default:
         console.log('Unknown DB type');

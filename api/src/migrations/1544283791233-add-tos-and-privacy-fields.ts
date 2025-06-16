@@ -38,7 +38,7 @@ export class addTosAndPrivacyFields1544283791233 implements MigrationInterface {
           
           BEGIN TRANSACTION;
           
-          -- Créer une table temporaire sans les colonnes à supprimer
+         
           CREATE TABLE user_temp (
             "id" TEXT PRIMARY KEY NOT NULL DEFAULT (lower(hex(randomblob(16)))),
             "name" TEXT NOT NULL,
@@ -52,7 +52,7 @@ export class addTosAndPrivacyFields1544283791233 implements MigrationInterface {
             "date_modified" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
           );
           
-          -- Copier les données sans les colonnes à supprimer
+          
           INSERT INTO user_temp 
           SELECT 
             id, name, email, encrypted_password, encrypted_password_reset_token, 
@@ -60,13 +60,13 @@ export class addTosAndPrivacyFields1544283791233 implements MigrationInterface {
             date_created, date_modified 
           FROM "user";
           
-          -- Supprimer l'ancienne table
+          
           DROP TABLE "user";
           
-          -- Renommer la table temporaire
+         
           ALTER TABLE user_temp RENAME TO "user";
           
-          -- Recréer le trigger pour la cascade de suppression
+          
           CREATE TRIGGER IF NOT EXISTS user_delete
            BEFORE DELETE ON "user"
            FOR EACH ROW

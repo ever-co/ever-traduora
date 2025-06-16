@@ -12,7 +12,7 @@ export class changeTranslationValueType1543494409127 implements MigrationInterfa
       case DbType.MYSQL:
         await queryRunner.query('ALTER TABLE `translation` MODIFY COLUMN `value` text NOT NULL');
         break;
-      case DbType.BETTER_SQLITE3:
+      case DbType.BETTER_SQLITE3: {
         const tableInfo = await queryRunner.query(`PRAGMA table_info(translation)`);
         const hasIdColumn = tableInfo.some((col: any) => col.name === 'id');
 
@@ -53,6 +53,7 @@ export class changeTranslationValueType1543494409127 implements MigrationInterfa
 
         await queryRunner.query(`PRAGMA foreign_keys=on;`);
         break;
+      }
       default:
         throw new Error(`Unsupported DB type "${config.db.default.type}" in migration 1543494409127`);
   }

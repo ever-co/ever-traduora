@@ -45,7 +45,46 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "project" ADD COLUMN "terms_count" INTEGER NOT NULL DEFAULT 0`);
         await queryRunner.query(`ALTER TABLE "project" ADD COLUMN "locales_count" INTEGER NOT NULL DEFAULT 0`);
         await queryRunner.query(`ALTER TABLE "project" ADD COLUMN "plan_code" TEXT`);
+
+        await queryRunner.query(`PRAGMA foreign_keys = ON`);
+
+        await queryRunner.query(`
+          CREATE TRIGGER fk_project_plan_code_delete
+          BEFORE DELETE ON "plan"
+          FOR EACH ROW
+          BEGIN
+            UPDATE "project" SET "plan_code" = NULL WHERE "plan_code" = OLD.code;
+          END
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER fk_project_plan_code_insert
+          BEFORE INSERT ON "project"
+          FOR EACH ROW
+          WHEN NEW.plan_code IS NOT NULL
+          BEGIN
+            SELECT CASE
+              WHEN (SELECT code FROM "plan" WHERE code = NEW.plan_code) IS NULL
+              THEN RAISE(ABORT, 'Foreign key constraint failed: plan_code must reference an existing plan')
+            END;
+          END
+        `);
+
+        await queryRunner.query(`
+          CREATE TRIGGER fk_project_plan_code_update
+          BEFORE UPDATE ON "project"
+          FOR EACH ROW
+          WHEN NEW.plan_code IS NOT NULL
+          BEGIN
+            SELECT CASE
+              WHEN (SELECT code FROM "plan" WHERE code = NEW.plan_code) IS NULL
+              THEN RAISE(ABORT, 'Foreign key constraint failed: plan_code must reference an existing plan')
+            END;
+          END
+        `);
+
         await queryRunner.query(`CREATE INDEX "IDX_932b5479e9af5dc8b3c0053006" ON "project" ("plan_code")`);
+
         await queryRunner.query(`INSERT INTO "plan" ("code", "name", "max_strings") VALUES ('default', 'Default', 100)`);
         await queryRunner.query(`INSERT INTO "plan" ("code", "name", "max_strings") VALUES ('open-source', 'Open source', 100000)`);
         break;
@@ -77,10 +116,17 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
       case DbType.BETTER_SQLITE3:
         await queryRunner.query(`DELETE FROM "plan" WHERE code = 'default'`);
         await queryRunner.query(`DELETE FROM "plan" WHERE code = 'open-source'`);
+
+        await queryRunner.query(`DROP TRIGGER IF EXISTS fk_project_plan_code_delete`);
+        await queryRunner.query(`DROP TRIGGER IF EXISTS fk_project_plan_code_insert`);
+        await queryRunner.query(`DROP TRIGGER IF EXISTS fk_project_plan_code_update`);
+
         await queryRunner.query(`DROP INDEX IF EXISTS "IDX_932b5479e9af5dc8b3c0053006"`);
-        await queryRunner.query(`ALTER TABLE "project" DROP COLUMN "plan_code"`);
-        await queryRunner.query(`ALTER TABLE "project" DROP COLUMN "locales_count"`);
-        await queryRunner.query(`ALTER TABLE "project" DROP COLUMN "terms_count"`);
+        await queryRunner.query(`CREATE TABLE "project_tmp" AS
+             SELECT id, name, description, date_created, date_modified
+             FROM "project";`);
+        await queryRunner.query('DROP TABLE "project";');
+        await queryRunner.query(`ALTER TABLE "project_tmp" RENAME TO "project";`);
         await queryRunner.query(`DROP TABLE IF EXISTS "plan"`);
         break;
       default:

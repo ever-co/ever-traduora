@@ -1,8 +1,8 @@
 import { DataSource, DataSourceOptions, DefaultNamingStrategy } from 'typeorm';
 import * as process from 'process';
 import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
-import * as path from 'path';
-import * as fs from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { DbType } from '../utils/database-type-helper';
 
 const env = process.env;
@@ -55,7 +55,7 @@ export const dataSourceOptions = (): DataSourceOptions => {
 
   // Handle MySQL or PostgreSQL configuration
   // Parse the port safely with fallback to default ports based on DB type
-  const parsedPort = parseInt(env.TR_DB_PORT, 10);
+  const parsedPort = Number.parseInt(env.TR_DB_PORT, 10);
   const defaultPort = dbType === DbType.POSTGRES ? 5432 : 3306;
   const port = Number.isNaN(parsedPort) ? defaultPort : parsedPort;
 

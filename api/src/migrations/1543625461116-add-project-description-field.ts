@@ -12,7 +12,7 @@ export class addProjectDescriptionField1543625461116 implements MigrationInterfa
         await queryRunner.query('ALTER TABLE `project` ADD `description` varchar(255) NULL');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query('ALTER TABLE "project" ADD COLUMN "description" TEXT NULL');
+        await queryRunner.query('ALTER TABLE "project" ADD COLUMN "description" TEXT(255) NULL');
         break;
       default:
         console.log('Unknown DB type');
