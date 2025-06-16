@@ -36,7 +36,7 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
 
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
