@@ -15,7 +15,7 @@ export class projectUsersIndex1549613347230 implements MigrationInterface {
         await queryRunner.query('CREATE UNIQUE INDEX "IDX_20543d6caa7324ce6706fad2f5" ON "project_user"("project_id", "user_id")');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error(`Unsupported database type: ${config.db.default.type}`);
     }
   }
 
