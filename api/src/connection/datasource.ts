@@ -1,5 +1,5 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
-import * as process from 'process';
+import * as process from 'node:process';
 import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
