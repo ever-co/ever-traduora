@@ -1,12 +1,14 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { config } from '../config';
 import { DbType } from '../utils/database-type-helper';
 
 export class setDefaultEncoding1552729314169 implements MigrationInterface {
   tables = ['migrations', 'project_locale', 'translation', 'project_client', 'term', 'project_user', 'plan', 'project', 'user', 'locale'];
 
   public async up(queryRunner: QueryRunner): Promise<any> {
-    switch (config.db.default.type) {
+    // Get the database type from the connection
+    const dbType = queryRunner.connection.options.type;
+
+    switch (dbType) {
       case DbType.MYSQL:
         await queryRunner.query('SET FOREIGN_KEY_CHECKS=0;');
         for (const table of this.tables) {
@@ -14,8 +16,16 @@ export class setDefaultEncoding1552729314169 implements MigrationInterface {
         }
         await queryRunner.query('SET FOREIGN_KEY_CHECKS=1;');
         break;
+      case DbType.POSTGRES:
+        console.log('PostgreSQL uses UTF-8 by default, no encoding changes needed');
+        // PostgreSQL uses UTF-8 by default, no action needed
+        break;
+      case DbType.BETTER_SQLITE3:
+        console.log('SQLite uses UTF-8 by default, no encoding changes needed');
+        // SQLite uses UTF-8 by default, no action needed
+        break;
       default:
-        console.log('Unknown DB type');
+        console.log(`Database type '${dbType}' does not require encoding changes`);
     }
   }
 

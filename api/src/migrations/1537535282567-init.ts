@@ -6,6 +6,8 @@ export class init1537535282567 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
     switch (config.db.default.type) {
       case DbType.POSTGRES:
+        // Enable UUID extension for PostgreSQL
+        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "project" ("id" uuid DEFAULT uuid_generate_v4 (), "name" varchar(255) NOT NULL, "date_created" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, "date_modified" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY ("id"));`,
         );

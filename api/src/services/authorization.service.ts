@@ -6,6 +6,7 @@ import { ProjectClient } from '../entity/project-client.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { PaymentRequiredException } from '../errors';
+import { DbType, isDbType } from '../utils/database-type-helper';
 
 @Injectable()
 export default class AuthorizationService {
@@ -62,8 +63,24 @@ export default class AuthorizationService {
     if (!this.isAuthorized(membership.role, action)) {
       throw new ForbiddenException('you are not authorized to perform this action');
     }
-    const localesCount = membership.project.localesCount + newLocalesCount;
-    const termsCount = membership.project.termsCount + newTermsCount;
+
+    let currentLocalesCount = membership.project.localesCount;
+    let currentTermsCount = membership.project.termsCount;
+
+    // SQLite-specific fix: SQLite updates the in-memory object after increment operations,
+    // causing double-counting in quota validation. Detect and correct this.
+    if (isDbType(DbType.BETTER_SQLITE3) && action === ProjectAction.ImportTranslation && newLocalesCount > 0 && newTermsCount > 0) {
+      // This is the second authorization call in import (with terms)
+      // If current locales count > 0, it means the locale was already added and counted
+      // Don't count it again
+      if (currentLocalesCount > 0) {
+        newLocalesCount = 0;
+      }
+    }
+
+    const localesCount = currentLocalesCount + newLocalesCount;
+    const termsCount = currentTermsCount + newTermsCount;
+
     switch (action) {
       case ProjectAction.AddTerm:
       case ProjectAction.AddTranslation:

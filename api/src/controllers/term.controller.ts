@@ -9,6 +9,7 @@ import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Translation } from '../entity/translation.entity';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import { ProjectLocale } from '../entity/project-locale.entity';
 
 @Controller('api/v1/projects/:projectId/terms')
@@ -33,11 +34,23 @@ export default class TermController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTerm);
 
-    const terms = await this.termRepo.find({
-      where: { project: { id: membership.project.id } },
-      order: { value: 'ASC' },
-      relations: ['labels'],
-    });
+    // Use query builder for consistent sorting across databases
+    const queryBuilder = this.termRepo
+      .createQueryBuilder('term')
+      .leftJoinAndSelect('term.labels', 'label')
+      .where('term.project.id = :projectId', { projectId: membership.project.id });
+
+    // Apply database-specific collation for consistent lexical ordering
+    if (isDbType(DbType.POSTGRES)) {
+      queryBuilder.orderBy('term.value COLLATE "C"', 'ASC');
+    } else if (isDbType(DbType.MYSQL)) {
+      queryBuilder.orderBy('term.value COLLATE utf8mb4_bin', 'ASC');
+    } else {
+      // SQLite default collation is already consistent
+      queryBuilder.orderBy('term.value', 'ASC');
+    }
+
+    const terms = await queryBuilder.getMany();
 
     const data = terms.map(t => ({
       id: t.id,
@@ -69,14 +82,24 @@ export default class TermController {
       };
     }
 
-    const terms = await this.termRepo
+    const queryBuilder = this.termRepo
       .createQueryBuilder('term')
       .leftJoinAndSelect('term.labels', 'label')
       .leftJoinAndSelect('term.project', 'project')
       .where('term.project.id = :projectId', { projectId: membership.project.id })
-      .andWhere('label.id = :labelId', { labelId })
-      .orderBy('term.value', 'ASC')
-      .getMany();
+      .andWhere('label.id = :labelId', { labelId });
+
+    // Apply database-specific collation for consistent lexical ordering
+    if (isDbType(DbType.POSTGRES)) {
+      queryBuilder.orderBy('term.value COLLATE "C"', 'ASC');
+    } else if (isDbType(DbType.MYSQL)) {
+      queryBuilder.orderBy('term.value COLLATE utf8mb4_bin', 'ASC');
+    } else {
+      // SQLite default collation is already consistent
+      queryBuilder.orderBy('term.value', 'ASC');
+    }
+
+    const terms = await queryBuilder.getMany();
 
     const data = terms.map(t => ({
       id: t.id,

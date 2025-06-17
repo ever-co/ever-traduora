@@ -4,8 +4,7 @@ import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { DbType } from '../utils/database-type-helper';
-
-const env = process.env;
+import { config } from '../config';
 
 /**
  * Retrieves the connection options for TypeORM DataSource or TypeORMModule.
@@ -13,11 +12,13 @@ const env = process.env;
  * @returns The connection options for TypeORM DataSource or TypeORMModule.
  */
 export const dataSourceOptions = (): DataSourceOptions => {
-  // Parse the database type with proper type validation
-  const dbTypeInput = env.TR_DB_TYPE || DbType.MYSQL;
+  // Use the database type from config (which reads from environment variables)
+  const dbType = config.db.default.type as DbType;
 
   // Validate that the provided DB type is supported
-  const dbType = Object.values(DbType).includes(dbTypeInput as DbType) ? (dbTypeInput as DbType) : DbType.BETTER_SQLITE3;
+  if (!Object.values(DbType).includes(dbType)) {
+    throw new Error(`Unsupported database type: ${dbType}. Supported types are: ${Object.values(DbType).join(', ')}`);
+  }
 
   // Common options for all database types
   const commonOptions = {
@@ -29,8 +30,8 @@ export const dataSourceOptions = (): DataSourceOptions => {
 
   // Handle SQLite configuration
   if (dbType === DbType.BETTER_SQLITE3) {
-    // Ensure SQLite directory exists
-    const dbPath = env.TR_DB_SQLITE_PATH || 'data/tr_dev.sqlite3';
+    // Use SQLite path from config or fallback to environment variable
+    const dbPath = (config.db.default.database as string) || process.env.TR_DB_SQLITE_PATH || 'data/tr_dev.sqlite3';
     const resolvedPath = path.resolve(process.cwd(), dbPath);
     const dbDir = path.dirname(resolvedPath);
 
@@ -54,22 +55,18 @@ export const dataSourceOptions = (): DataSourceOptions => {
   }
 
   // Handle MySQL or PostgreSQL configuration
-  // Parse the port safely with fallback to default ports based on DB type
-  const parsedPort = Number.parseInt(env.TR_DB_PORT, 10);
-  const defaultPort = dbType === DbType.POSTGRES ? 5432 : 3306;
-  const port = Number.isNaN(parsedPort) ? defaultPort : parsedPort;
-
-  // Base options object for MySQL/PostgreSQL
+  // Use configuration from config.ts (cast to any to access the properties)
+  const configDb = config.db.default as any;
   const options: DataSourceOptions = {
     ...commonOptions,
     type: dbType,
-    host: env.TR_DB_HOST || '127.0.0.1',
-    port,
-    username: env.TR_DB_USER || 'root',
-    password: env.TR_DB_PASSWORD || '',
-    database: env.TR_DB_DATABASE || 'tr_dev',
-    charset: dbType === DbType.MYSQL ? 'utf8mb4' : undefined,
-    namingStrategy: dbType === DbType.POSTGRES ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
+    host: configDb.host,
+    port: configDb.port,
+    username: configDb.username,
+    password: configDb.password,
+    database: configDb.database,
+    charset: dbType === DbType.MYSQL ? configDb.charset : undefined,
+    namingStrategy: configDb.namingStrategy,
   };
 
   return options;

@@ -14,6 +14,30 @@ export class CustomExceptionFilter implements ExceptionFilter {
           message: 'The requested resource could not be found',
         },
       });
+    } else if (this.isInvalidUuidError(exception)) {
+      // PostgreSQL UUID syntax errors should be treated as "not found"
+      response.status(404).json({
+        error: {
+          code: 'NotFound',
+          message: 'The requested resource could not be found',
+        },
+      });
+    } else if (this.isSqliteError(exception)) {
+      // SQLite generic errors - log for debugging and return internal error
+      console.error('SQLite Error Details:', {
+        name: exception.name,
+        code: exception.code,
+        message: exception.message,
+        stack: exception.stack,
+        sql: exception.sql,
+        parameters: exception.parameters,
+      });
+      response.status(500).json({
+        error: {
+          code: 'Internal',
+          message: 'An internal error occurred',
+        },
+      });
     } else if (this.isUniqueConstraintViolation(exception)) {
       response.status(409).json({
         error: {
@@ -78,7 +102,22 @@ export class CustomExceptionFilter implements ExceptionFilter {
     return (
       exception.status === 409 ||
       (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY') ||
-      exception.code === 'SQLITE_CONSTRAINT_UNIQUE'
+      exception.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+      (exception.name === 'QueryFailedError' && exception.code === '23505') || // PostgreSQL unique constraint violation
+      (exception.name === 'SqliteError' && exception.code === 'SQLITE_CONSTRAINT_UNIQUE') // SQLite unique constraint
     );
+  }
+
+  private isInvalidUuidError(exception: any): boolean {
+    return (
+      exception.name === 'QueryFailedError' &&
+      exception.code === '22P02' && // PostgreSQL invalid input syntax error
+      exception.message &&
+      exception.message.includes('invalid input syntax for type uuid')
+    );
+  }
+
+  private isSqliteError(exception: any): boolean {
+    return exception.name === 'SqliteError' && exception.code === 'SQLITE_ERROR';
   }
 }
