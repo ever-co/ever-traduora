@@ -64,8 +64,8 @@ export default class AuthorizationService {
       throw new ForbiddenException('you are not authorized to perform this action');
     }
 
-    let currentLocalesCount = membership.project.localesCount;
-    let currentTermsCount = membership.project.termsCount;
+    const currentLocalesCount = membership.project.localesCount;
+    const currentTermsCount = membership.project.termsCount;
 
     // SQLite-specific fix: SQLite updates the in-memory object after increment operations,
     // causing double-counting in quota validation. Detect and correct this.
