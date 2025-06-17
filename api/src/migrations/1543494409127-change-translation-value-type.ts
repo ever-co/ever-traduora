@@ -55,7 +55,7 @@ export class changeTranslationValueType1543494409127 implements MigrationInterfa
         break;
       }
       default:
-        console.log('Unknown DB type');
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
