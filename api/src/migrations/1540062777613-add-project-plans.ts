@@ -168,8 +168,10 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         } catch (error) {
           await queryRunner.rollbackTransaction();
           throw error;
+        } finally {
+          await queryRunner.query(`PRAGMA foreign_keys = ON;`);
         }
-        await queryRunner.query(`PRAGMA foreign_keys=on;`);
+
         break;
       }
       default:

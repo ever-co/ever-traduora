@@ -85,8 +85,9 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         } catch (error) {
           await queryRunner.rollbackTransaction();
           throw error;
+        } finally {
+          await queryRunner.query(`PRAGMA foreign_keys = ON;`);
         }
-        await queryRunner.query(`PRAGMA foreign_keys = ON;`);
         break;
       default:
         throw new Error(`Unknown DB type: ${config.db.default.type}`);
