@@ -11,10 +11,13 @@ export class setDefaultEncoding1552729314169 implements MigrationInterface {
     switch (dbType) {
       case DbType.MYSQL:
         await queryRunner.query('SET FOREIGN_KEY_CHECKS=0;');
-        for (const table of this.tables) {
-          await queryRunner.query(`ALTER TABLE \`${table}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+        try {
+          for (const table of this.tables) {
+            await queryRunner.query(`ALTER TABLE \`${table}\` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+          }
+        } finally {
+          await queryRunner.query('SET FOREIGN_KEY_CHECKS=1;');
         }
-        await queryRunner.query('SET FOREIGN_KEY_CHECKS=1;');
         break;
       case DbType.POSTGRES:
         console.log('PostgreSQL uses UTF-8 by default, no encoding changes needed');
@@ -25,7 +28,7 @@ export class setDefaultEncoding1552729314169 implements MigrationInterface {
         // SQLite uses UTF-8 by default, no action needed
         break;
       default:
-        console.log(`Database type '${dbType}' does not require encoding changes`);
+        throw new Error(`Unknown DB type: ${dbType}`);
     }
   }
 

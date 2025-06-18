@@ -12,10 +12,10 @@ export class addProjectDescriptionField1543625461116 implements MigrationInterfa
         await queryRunner.query('ALTER TABLE `project` ADD `description` varchar(255) NULL');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query('ALTER TABLE "project" ADD COLUMN "description" TEXT(255) NULL');
+        await queryRunner.query('ALTER TABLE "project" ADD COLUMN "description" TEXT NULL');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
@@ -66,7 +66,7 @@ export class addProjectDescriptionField1543625461116 implements MigrationInterfa
         `);
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

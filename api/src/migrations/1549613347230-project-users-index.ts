@@ -31,7 +31,7 @@ export class projectUsersIndex1549613347230 implements MigrationInterface {
         await queryRunner.query('DROP INDEX IF EXISTS "IDX_20543d6caa7324ce6706fad2f5"');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

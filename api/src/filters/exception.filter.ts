@@ -102,7 +102,6 @@ export class CustomExceptionFilter implements ExceptionFilter {
     return (
       exception.status === 409 ||
       (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY') ||
-      exception.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
       (exception.name === 'QueryFailedError' && exception.code === '23505') || // PostgreSQL unique constraint violation
       (exception.name === 'SqliteError' && exception.code === 'SQLITE_CONSTRAINT_UNIQUE') // SQLite unique constraint
     );

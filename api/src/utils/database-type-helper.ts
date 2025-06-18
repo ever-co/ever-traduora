@@ -48,7 +48,7 @@ function getDbColumnType(
 ): ColumnOptions {
   let type: string | ColumnType;
 
-  switch (config.db.default.type) {
+  switch (currentDbType) {
     case DbType.POSTGRES:
       type = typeMap.postgres || 'varchar';
       break;
@@ -59,7 +59,7 @@ function getDbColumnType(
       type = typeMap.betterSqlite3 || 'varchar';
       break;
     default:
-      throw new Error(`Unsupported database type: ${config.db.default.type}. ` + `Supported types are: ${Object.values(DbType).join(', ')}`);
+      throw new Error(`Unsupported database type: ${currentDbType}. ` + `Supported types are: ${Object.values(DbType).join(', ')}`);
   }
 
   return { type: type as ColumnType, ...defaultOptions };
@@ -122,6 +122,22 @@ export const EnumColumnType = {
 };
 
 /**
+ * Get database-specific ORDER BY clause for consistent lexical ordering
+ * @param column The column name to order by
+ * @returns The ORDER BY clause with appropriate collation
+ */
+export function getLexicalOrderClause(column: string): string {
+  if (isDbType(DbType.POSTGRES)) return `${column} COLLATE "C"`;
+  if (isDbType(DbType.MYSQL)) return `${column} COLLATE utf8mb4_bin`;
+  return column; // SQLite default collation is already consistent
+}
+
+/**
+ * Timestamp precision for PostgreSQL and MySQL
+ */
+const TIMESTAMP_PRECISION = 6;
+
+/**
  * Helper for time column types
  */
 export const TimeColumnType = {
@@ -131,7 +147,7 @@ export const TimeColumnType = {
   date: (): ColumnOptions => {
     return getDbColumnType(
       { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
-      { nullable: true, ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+      { nullable: true, ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: TIMESTAMP_PRECISION } : {}) },
     );
   },
 
@@ -141,7 +157,7 @@ export const TimeColumnType = {
   createDate: (): ColumnOptions => {
     return getDbColumnType(
       { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
-      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: TIMESTAMP_PRECISION } : {}) },
     );
   },
 
@@ -151,7 +167,7 @@ export const TimeColumnType = {
   updateDate: (): ColumnOptions => {
     return getDbColumnType(
       { postgres: 'timestamp', mysql: 'timestamp', betterSqlite3: 'datetime' },
-      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: 6 } : {}) },
+      { ...(isDbType(DbType.POSTGRES) || isDbType(DbType.MYSQL) ? { precision: TIMESTAMP_PRECISION } : {}) },
     );
   },
 };

@@ -64,7 +64,7 @@ export class addLabel1575719158140 implements MigrationInterface {
         );
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
@@ -86,7 +86,7 @@ export class addLabel1575719158140 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS "label"');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

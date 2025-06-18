@@ -7,6 +7,7 @@ import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { PaymentRequiredException } from '../errors';
 import { DbType, isDbType } from '../utils/database-type-helper';
+import { Project } from '../entity/project.entity';
 
 @Injectable()
 export default class AuthorizationService {
@@ -67,16 +68,8 @@ export default class AuthorizationService {
     const currentLocalesCount = membership.project.localesCount;
     const currentTermsCount = membership.project.termsCount;
 
-    // SQLite-specific fix: SQLite updates the in-memory object after increment operations,
-    // causing double-counting in quota validation. Detect and correct this.
-    if (isDbType(DbType.BETTER_SQLITE3) && action === ProjectAction.ImportTranslation && newLocalesCount > 0 && newTermsCount > 0) {
-      // This is the second authorization call in import (with terms)
-      // If current locales count > 0, it means the locale was already added and counted
-      // Don't count it again
-      if (currentLocalesCount > 0) {
-        newLocalesCount = 0;
-      }
-    }
+    // SQLite-specific fix: Adjust quota counts to prevent double-counting
+    newLocalesCount = await this.adjustQuotaCounts(projectId, action, newLocalesCount, currentLocalesCount);
 
     const localesCount = currentLocalesCount + newLocalesCount;
     const termsCount = currentTermsCount + newTermsCount;
@@ -104,5 +97,31 @@ export default class AuthorizationService {
       default:
         return false;
     }
+  }
+
+  /**
+   * Adjusts quota counts for SQLite to prevent double-counting during import operations.
+   * SQLite updates in-memory objects after increment operations, causing quota validation
+   * to count locales multiple times in multi-chunk imports.
+   */
+  private async adjustQuotaCounts(projectId: string, action: ProjectAction, newLocalesCount: number, currentLocalesCount: number): Promise<number> {
+    // Only apply fix for SQLite import operations with new locales
+    if (!isDbType(DbType.BETTER_SQLITE3) || action !== ProjectAction.ImportTranslation || newLocalesCount === 0) {
+      return newLocalesCount;
+    }
+
+    // Get fresh locale count from database to detect if locales were added in this transaction
+    const freshProject = await this.projectUserRepo.manager.findOne(Project, {
+      where: { id: projectId },
+      select: ['localesCount'],
+    });
+
+    if (freshProject && freshProject.localesCount > currentLocalesCount) {
+      // Locales were already added in this transaction, don't double-count them
+      const localesAlreadyAdded = freshProject.localesCount - currentLocalesCount;
+      return Math.max(0, newLocalesCount - localesAlreadyAdded);
+    }
+
+    return newLocalesCount;
   }
 }

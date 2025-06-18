@@ -72,7 +72,7 @@ export class changeTranslationValueType1543494409127 implements MigrationInterfa
         console.log('No column type change needed for SQLite down migration');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

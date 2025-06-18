@@ -89,7 +89,7 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         await queryRunner.query(`INSERT INTO "plan" ("code", "name", "max_strings") VALUES ('open-source', 'Open source', 100000)`);
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
@@ -113,7 +113,7 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE `project` DROP COLUMN `termsCount`');
         await queryRunner.query('DROP TABLE IF EXISTS `plan`');
         break;
-      case DbType.BETTER_SQLITE3:
+      case DbType.BETTER_SQLITE3: {
         await queryRunner.query(`DELETE FROM "plan" WHERE code = 'default'`);
         await queryRunner.query(`DELETE FROM "plan" WHERE code = 'open-source'`);
 
@@ -123,26 +123,58 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
 
         await queryRunner.query(`DROP INDEX IF EXISTS "IDX_932b5479e9af5dc8b3c0053006"`);
 
-        // Check if description column exists before including it in SELECT
         const tableInfo = await queryRunner.query(`PRAGMA table_info("project")`);
         const hasDescription = tableInfo.some((col: any) => col.name === 'description');
 
-        if (hasDescription) {
-          await queryRunner.query(`CREATE TABLE "project_tmp" AS
-               SELECT id, name, description, date_created, date_modified
-               FROM "project";`);
-        } else {
-          await queryRunner.query(`CREATE TABLE "project_tmp" AS
-               SELECT id, name, date_created, date_modified
-               FROM "project";`);
-        }
+        await queryRunner.startTransaction();
+        try {
+          await queryRunner.query(`PRAGMA foreign_keys=off;`);
 
-        await queryRunner.query('DROP TABLE "project";');
-        await queryRunner.query(`ALTER TABLE "project_tmp" RENAME TO "project";`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "plan"`);
+          if (hasDescription) {
+            await queryRunner.query(
+              `CREATE TABLE "project_tmp" (
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "name" TEXT NOT NULL,
+              "description" TEXT,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now'))
+            )`,
+            );
+
+            await queryRunner.query(
+              `INSERT INTO "project_tmp" ("id", "name", "description", "date_created", "date_modified")
+             SELECT "id", "name", "description", "date_created", "date_modified" FROM "project"`,
+            );
+          } else {
+            await queryRunner.query(
+              `CREATE TABLE "project_tmp" (
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "name" TEXT NOT NULL,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now'))
+            )`,
+            );
+
+            await queryRunner.query(
+              `INSERT INTO "project_tmp" ("id", "name", "date_created", "date_modified")
+             SELECT "id", "name", "date_created", "date_modified" FROM "project"`,
+            );
+          }
+
+          await queryRunner.query('DROP TABLE "project";');
+          await queryRunner.query(`ALTER TABLE "project_tmp" RENAME TO "project";`);
+
+          await queryRunner.query(`PRAGMA foreign_keys=on;`);
+          await queryRunner.query(`DROP TABLE IF EXISTS "plan"`);
+          await queryRunner.commitTransaction();
+        } catch (error) {
+          await queryRunner.rollbackTransaction();
+          throw error;
+        }
         break;
+      }
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

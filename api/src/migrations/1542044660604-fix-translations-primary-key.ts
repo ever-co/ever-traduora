@@ -19,8 +19,8 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         await queryRunner.startTransaction();
         try {
           await queryRunner.query(`CREATE TABLE "translation_new" (
-            "term_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
-            "project_locale_id"  TEXT NOT NULL DEFAULT (hex(randomblob(16))),
+            "term_id"  TEXT NOT NULL,
+            "project_locale_id"  TEXT NOT NULL,
             "value" TEXT NOT NULL,
             "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
             "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),
@@ -49,6 +49,7 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
   public async down(queryRunner: QueryRunner): Promise<any> {
     switch (config.db.default.type) {
       case DbType.POSTGRES:
+        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
         await queryRunner.query(`ALTER TABLE "translation" DROP CONSTRAINT translation_pkey`);
         await queryRunner.query(`ALTER TABLE "translation" ADD COLUMN "id" uuid DEFAULT uuid_generate_v4 (), ADD PRIMARY KEY ("id")`);
         break;
@@ -58,9 +59,9 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         await queryRunner.query('ALTER TABLE `translation` ADD PRIMARY KEY (`id`)');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query(`PRAGMA foreign_keys = OFF;`);
         await queryRunner.startTransaction();
         try {
+          await queryRunner.query(`PRAGMA foreign_keys = OFF;`);
           await queryRunner.query(`CREATE TABLE "translation_old" (
             "term_id" TEXT NOT NULL,
             "project_locale_id" TEXT NOT NULL,
@@ -80,15 +81,15 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
           await queryRunner.query(`DROP TABLE "translation"`);
           await queryRunner.query(`ALTER TABLE "translation_old" RENAME TO "translation"`);
 
+          await queryRunner.query(`PRAGMA foreign_keys = ON;`);
           await queryRunner.commitTransaction();
         } catch (error) {
           await queryRunner.rollbackTransaction();
           throw error;
         }
-        await queryRunner.query(`PRAGMA foreign_keys = ON;`);
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

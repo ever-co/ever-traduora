@@ -38,7 +38,7 @@ export class projectClientsTable1549981241264 implements MigrationInterface {
         );
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
@@ -56,7 +56,7 @@ export class projectClientsTable1549981241264 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS "project_client";');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

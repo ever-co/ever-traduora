@@ -14,7 +14,6 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
         await queryRunner.query("ALTER TABLE `project_user` ADD `role` enum ('admin', 'editor', 'viewer') NOT NULL DEFAULT 'viewer'");
         break;
       case DbType.BETTER_SQLITE3:
-        // Créer la table temporaire AVANT d'ajouter la nouvelle colonne
         await queryRunner.query(`CREATE TABLE "project_user_temp" AS SELECT * FROM "project_user"`);
         await queryRunner.query(`DROP TABLE "project_user"`);
         await queryRunner.query(
@@ -31,7 +30,6 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
           )`,
         );
 
-        // Insérer les données existantes avec la valeur par défaut pour role
         await queryRunner.query(`INSERT INTO "project_user" (id, project_id, user_id, date_created, date_modified, role)
                                  SELECT id, project_id, user_id, date_created, date_modified, 'viewer' FROM "project_user_temp"`);
         await queryRunner.query(`DROP TABLE "project_user_temp"`);
@@ -51,14 +49,29 @@ export class addProjectUserRole1537801450876 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE `project_user` DROP COLUMN `role`');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query(`CREATE TABLE "project_user_tmp" AS
-             SELECT id, project_id, user_id, date_created, date_modified
-             FROM "project_user";`);
-        await queryRunner.query('DROP TABLE "project_user";');
-        await queryRunner.query(`ALTER TABLE "project_user_tmp" RENAME TO "project_user";`);
+        await queryRunner.query(
+          `CREATE TABLE "project_user_temp" (
+            "id" TEXT NOT NULL DEFAULT (hex(randomblob(16))),
+            "project_id" TEXT,
+            "user_id" TEXT,
+            "date_created" TEXT,
+            "date_modified" TEXT,
+            PRIMARY KEY ("id"),
+            FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE,
+            FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE
+          )`,
+        );
+
+        await queryRunner.query(
+          `INSERT INTO "project_user_temp" ("id", "project_id", "user_id", "date_created", "date_modified")
+           SELECT "id", "project_id", "user_id", "date_created", "date_modified" FROM "project_user"`,
+        );
+
+        await queryRunner.query(`DROP TABLE "project_user"`);
+        await queryRunner.query(`ALTER TABLE "project_user_temp" RENAME TO "project_user"`);
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

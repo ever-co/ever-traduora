@@ -18,7 +18,7 @@ export class addTosAndPrivacyFields1544283791233 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE "user" ADD COLUMN "tos_and_privacy_accepted_version" TEXT NULL');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
@@ -80,7 +80,7 @@ export class addTosAndPrivacyFields1544283791233 implements MigrationInterface {
         `);
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

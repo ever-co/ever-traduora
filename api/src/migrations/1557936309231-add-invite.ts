@@ -59,7 +59,7 @@ export class addInvite1557936309231 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX "IDX_invite_project_id" ON "invite" ("project_id")`);
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
@@ -78,7 +78,7 @@ export class addInvite1557936309231 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS "invite"');
         break;
       default:
-        console.log('Unknown DB type');
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }

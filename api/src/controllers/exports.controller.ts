@@ -24,7 +24,7 @@ import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
 import { merge } from 'lodash';
 import { resolveColumnName } from '../utils/alias-helper';
-import { DbType, isDbType } from '../utils/database-type-helper';
+import { getLexicalOrderClause } from '../utils/database-type-helper';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -76,15 +76,7 @@ export class ExportsController {
       })
       .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId });
 
-    // Apply database-specific collation for consistent lexical ordering
-    if (isDbType(DbType.POSTGRES)) {
-      queryBuilder.orderBy('term.value COLLATE "C"', 'ASC');
-    } else if (isDbType(DbType.MYSQL)) {
-      queryBuilder.orderBy('term.value COLLATE utf8mb4_bin', 'ASC');
-    } else {
-      // SQLite default collation is already consistent
-      queryBuilder.orderBy('term.value', 'ASC');
-    }
+    queryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
 
     if (query.untranslated) {
       queryBuilder.andWhere("translation.value = ''");
@@ -128,15 +120,7 @@ export class ExportsController {
           })
           .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId });
 
-        // Apply database-specific collation for consistent lexical ordering
-        if (isDbType(DbType.POSTGRES)) {
-          fallbackQueryBuilder.orderBy('term.value COLLATE "C"', 'ASC');
-        } else if (isDbType(DbType.MYSQL)) {
-          fallbackQueryBuilder.orderBy('term.value COLLATE utf8mb4_bin', 'ASC');
-        } else {
-          // SQLite default collation is already consistent
-          fallbackQueryBuilder.orderBy('term.value', 'ASC');
-        }
+        fallbackQueryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
 
         const fallbackTermsWithTranslations = await fallbackQueryBuilder.getMany();
 

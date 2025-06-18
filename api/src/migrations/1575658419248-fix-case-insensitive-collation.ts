@@ -1,14 +1,12 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
+import { config } from '../config';
 import { DbType } from '../utils/database-type-helper';
 
 export class fixCaseInsensitiveCollation1575658419248 implements MigrationInterface {
   tables = ['migrations', 'project_locale', 'translation', 'project_client', 'term', 'project_user', 'plan', 'project', 'user', 'locale', 'invite'];
 
   public async up(queryRunner: QueryRunner): Promise<any> {
-    // Get the database type from the connection
-    const dbType = queryRunner.connection.options.type;
-
-    switch (dbType) {
+    switch (config.db.default.type) {
       case DbType.MYSQL:
         await queryRunner.query('SET FOREIGN_KEY_CHECKS=0;');
         for (const table of this.tables) {
@@ -25,15 +23,12 @@ export class fixCaseInsensitiveCollation1575658419248 implements MigrationInterf
         // SQLite is case-sensitive by default, no action needed
         break;
       default:
-        console.log(`Database type '${dbType}' does not require collation changes`);
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 
   public async down(queryRunner: QueryRunner): Promise<any> {
-    // Get the database type from the connection
-    const dbType = queryRunner.connection.options.type;
-
-    switch (dbType) {
+    switch (config.db.default.type) {
       case DbType.MYSQL:
         console.log('Reverting to case-insensitive collation for MySQL database');
         await queryRunner.query('SET FOREIGN_KEY_CHECKS=0;');
@@ -51,7 +46,7 @@ export class fixCaseInsensitiveCollation1575658419248 implements MigrationInterf
         // No action needed for SQLite
         break;
       default:
-        console.log(`Database type '${dbType}' does not require collation changes`);
+        throw new Error('Unknown DB type: ' + config.db.default.type);
     }
   }
 }
