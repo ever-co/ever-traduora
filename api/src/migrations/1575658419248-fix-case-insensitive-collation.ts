@@ -23,7 +23,7 @@ export class fixCaseInsensitiveCollation1575658419248 implements MigrationInterf
         // SQLite is case-sensitive by default, no action needed
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
@@ -46,7 +46,7 @@ export class fixCaseInsensitiveCollation1575658419248 implements MigrationInterf
         // No action needed for SQLite
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

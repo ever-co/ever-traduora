@@ -14,10 +14,9 @@ export class removeTosAndPrivacy1552494719664 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE `user` DROP COLUMN `tosAndPrivacyAcceptedVersion`');
         break;
       case DbType.BETTER_SQLITE3:
+        await queryRunner.query(`PRAGMA foreign_keys=off;`);
         await queryRunner.startTransaction();
         try {
-          await queryRunner.query(`PRAGMA foreign_keys=off;`);
-
           await queryRunner.query(
             `CREATE TABLE "user_temp" (
             "id" TEXT NOT NULL DEFAULT (hex(randomblob(16))),
@@ -43,15 +42,15 @@ export class removeTosAndPrivacy1552494719664 implements MigrationInterface {
           await queryRunner.query(`DROP TABLE "user"`);
           await queryRunner.query(`ALTER TABLE "user_temp" RENAME TO "user"`);
 
-          await queryRunner.query(`PRAGMA foreign_keys=on;`);
           await queryRunner.commitTransaction();
         } catch (error) {
           await queryRunner.rollbackTransaction();
           throw error;
         }
+        await queryRunner.query(`PRAGMA foreign_keys=on;`);
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
@@ -70,7 +69,7 @@ export class removeTosAndPrivacy1552494719664 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE "user" ADD COLUMN "tos_and_privacy_accepted_date" TEXT NULL');
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

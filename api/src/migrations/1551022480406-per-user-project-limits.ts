@@ -15,7 +15,7 @@ export class perUserProjectLimits1551022480406 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE "user" ADD COLUMN "num_projects_created" INTEGER NOT NULL DEFAULT 0');
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
@@ -29,10 +29,9 @@ export class perUserProjectLimits1551022480406 implements MigrationInterface {
         break;
       case DbType.BETTER_SQLITE3:
         // SQLite doesn't support DROP COLUMN, so we need to recreate the table
+        await queryRunner.query(`PRAGMA foreign_keys=off;`);
         await queryRunner.startTransaction();
         try {
-          await queryRunner.query(`PRAGMA foreign_keys=off;`);
-
           // Create new table without the num_projects_created column
           await queryRunner.query(
             `CREATE TABLE "user_temp" (
@@ -60,15 +59,15 @@ export class perUserProjectLimits1551022480406 implements MigrationInterface {
           await queryRunner.query(`DROP TABLE "user"`);
           await queryRunner.query(`ALTER TABLE "user_temp" RENAME TO "user"`);
 
-          await queryRunner.query(`PRAGMA foreign_keys=on;`);
           await queryRunner.commitTransaction();
         } catch (error) {
           await queryRunner.rollbackTransaction();
           throw error;
         }
+        await queryRunner.query(`PRAGMA foreign_keys=on;`);
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

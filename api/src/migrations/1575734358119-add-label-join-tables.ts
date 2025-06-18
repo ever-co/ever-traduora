@@ -117,7 +117,7 @@ export class addLabelJoinTables1575734358119 implements MigrationInterface {
         );
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
@@ -156,7 +156,7 @@ export class addLabelJoinTables1575734358119 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS "label_terms_term"');
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

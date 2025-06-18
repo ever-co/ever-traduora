@@ -30,7 +30,7 @@ export class projectClientsTable1549981241264 implements MigrationInterface {
             "name" TEXT NOT NULL,
             "role" TEXT NOT NULL DEFAULT 'viewer' CHECK ("role" in ('admin', 'editor', 'viewer')),
             "encrypted_secret" blob NOT NULL,
-            "project_id" TEXT,
+            "project_id" TEXT NOT NULL,
             "date_created" datetime NOT NULL DEFAULT (datetime('now')),
             "date_modified" datetime NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE
@@ -56,7 +56,7 @@ export class projectClientsTable1549981241264 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS "project_client";');
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

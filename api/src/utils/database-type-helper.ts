@@ -138,6 +138,17 @@ export function getLexicalOrderClause(column: string): string {
 const TIMESTAMP_PRECISION = 6;
 
 /**
+ * Interface for SQLite PRAGMA table_info column information
+ */
+export interface ColumnInfo {
+  name: string;
+  type?: string;
+  notnull?: number;
+  dflt_value?: any;
+  pk?: number;
+}
+
+/**
  * Helper for time column types
  */
 export const TimeColumnType = {

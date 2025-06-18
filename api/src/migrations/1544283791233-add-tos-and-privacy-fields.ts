@@ -80,7 +80,7 @@ export class addTosAndPrivacyFields1544283791233 implements MigrationInterface {
         `);
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

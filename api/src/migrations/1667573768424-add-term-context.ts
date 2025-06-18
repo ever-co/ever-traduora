@@ -15,7 +15,7 @@ export class addTermContext1667573768424 implements MigrationInterface {
         await queryRunner.query('ALTER TABLE "term" ADD COLUMN "context" TEXT DEFAULT NULL');
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
@@ -54,7 +54,7 @@ export class addTermContext1667573768424 implements MigrationInterface {
         await queryRunner.query(`PRAGMA foreign_keys=on;`);
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

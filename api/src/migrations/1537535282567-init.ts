@@ -182,7 +182,7 @@ export class init1537535282567 implements MigrationInterface {
         await queryRunner.query(`CREATE INDEX "IDX_translation_project_locale_id" ON "translation" ("project_locale_id")`);
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
@@ -237,7 +237,7 @@ export class init1537535282567 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS "project"');
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

@@ -28,14 +28,16 @@ async function bootstrap() {
   const dbType = getDbType();
 
   // Run migrations
-  try {
-    const dataSource = await getDataSourceConnection();
-    await dataSource.runMigrations();
-    console.log('DB migrations up to date');
-  } catch (error) {
-    console.error(`Failed to run migrations: ${error.message}`);
+  if (config.autoMigrate) {
+    try {
+      const dataSource = await getDataSourceConnection();
+      await dataSource.runMigrations();
+      console.log('DB migrations up to date');
+    } catch (error) {
+      console.error(`Failed to run migrations: ${error.message}`);
+      process.exit(1);
+    }
   }
-
   if (config.seedData) {
     console.log(chalk.yellow('🌱 Seeding initial data...'));
     const seedService = app.get(SeedDataService);

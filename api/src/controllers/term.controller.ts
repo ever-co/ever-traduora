@@ -78,7 +78,6 @@ export default class TermController {
     const queryBuilder = this.termRepo
       .createQueryBuilder('term')
       .leftJoinAndSelect('term.labels', 'label')
-      .leftJoinAndSelect('term.project', 'project')
       .where('term.project.id = :projectId', { projectId: membership.project.id })
       .andWhere('label.id = :labelId', { labelId });
 

@@ -1,6 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 import { config } from '../config';
-import { DbType } from '../utils/database-type-helper';
+import { DbType, ColumnInfo } from '../utils/database-type-helper';
 
 export class addProjectPlans1540062777613 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
@@ -89,7 +89,7 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         await queryRunner.query(`INSERT INTO "plan" ("code", "name", "max_strings") VALUES ('open-source', 'Open source', 100000)`);
         break;
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
@@ -123,13 +123,12 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
 
         await queryRunner.query(`DROP INDEX IF EXISTS "IDX_932b5479e9af5dc8b3c0053006"`);
 
-        const tableInfo = await queryRunner.query(`PRAGMA table_info("project")`);
-        const hasDescription = tableInfo.some((col: any) => col.name === 'description');
+        const tableInfo: ColumnInfo[] = await queryRunner.query(`PRAGMA table_info("project")`);
+        const hasDescription = tableInfo.some(col => col.name === 'description');
 
+        await queryRunner.query(`PRAGMA foreign_keys=off;`);
         await queryRunner.startTransaction();
         try {
-          await queryRunner.query(`PRAGMA foreign_keys=off;`);
-
           if (hasDescription) {
             await queryRunner.query(
               `CREATE TABLE "project_tmp" (
@@ -164,17 +163,17 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
           await queryRunner.query('DROP TABLE "project";');
           await queryRunner.query(`ALTER TABLE "project_tmp" RENAME TO "project";`);
 
-          await queryRunner.query(`PRAGMA foreign_keys=on;`);
           await queryRunner.query(`DROP TABLE IF EXISTS "plan"`);
           await queryRunner.commitTransaction();
         } catch (error) {
           await queryRunner.rollbackTransaction();
           throw error;
         }
+        await queryRunner.query(`PRAGMA foreign_keys=on;`);
         break;
       }
       default:
-        throw new Error('Unknown DB type: ' + config.db.default.type);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }
