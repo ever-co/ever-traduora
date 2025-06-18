@@ -22,6 +22,13 @@ export class CustomExceptionFilter implements ExceptionFilter {
           message: 'The requested resource could not be found',
         },
       });
+    } else if (this.isUniqueConstraintViolation(exception)) {
+      response.status(409).json({
+        error: {
+          code: 'AlreadyExists',
+          message: 'This resource already exists',
+        },
+      });
     } else if (this.isSqliteError(exception)) {
       // SQLite generic errors - log for debugging and return internal error
       console.error('SQLite Error Details:', {
@@ -36,13 +43,6 @@ export class CustomExceptionFilter implements ExceptionFilter {
         error: {
           code: 'Internal',
           message: 'An internal error occurred',
-        },
-      });
-    } else if (this.isUniqueConstraintViolation(exception)) {
-      response.status(409).json({
-        error: {
-          code: 'AlreadyExists',
-          message: 'This resource already exists',
         },
       });
     } else if (exception.status === 401) {
@@ -101,9 +101,12 @@ export class CustomExceptionFilter implements ExceptionFilter {
   private isUniqueConstraintViolation(exception: any): boolean {
     return (
       exception.status === 409 ||
-      (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY') ||
+      (exception.name === 'QueryFailedError' && exception.code === 'ER_DUP_ENTRY') || // MySQL
       (exception.name === 'QueryFailedError' && exception.code === '23505') || // PostgreSQL unique constraint violation
-      (exception.name === 'SqliteError' && exception.code === 'SQLITE_CONSTRAINT_UNIQUE') // SQLite unique constraint
+      (exception.name === 'SqliteError' && exception.code === 'SQLITE_CONSTRAINT_UNIQUE') || // SQLite unique constraint
+      (exception.name === 'QueryFailedError' && exception.code === 'SQLITE_CONSTRAINT_UNIQUE') || // SQLite via TypeORM
+      (exception.errno === 19 && exception.code === 'SQLITE_CONSTRAINT') || // SQLite constraint error
+      (exception.message && exception.message.includes('UNIQUE constraint failed')) // SQLite unique constraint message
     );
   }
 

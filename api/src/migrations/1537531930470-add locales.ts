@@ -1741,6 +1741,7 @@ export class addLocales1537531930470 implements MigrationInterface {
         break;
       case DbType.BETTER_SQLITE3:
         await queryRunner.query('DROP TABLE IF EXISTS "locale"');
+        break;
       case DbType.MYSQL:
         await queryRunner.query('DROP TABLE IF EXISTS `locale`');
         break;
