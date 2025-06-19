@@ -42,7 +42,7 @@ export class fixTranslationsPrimaryKey1542044660604 implements MigrationInterfac
         }
         break;
       default:
-        throw new Error(`Unsupported database type: ${config.db.default.type}`);
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 

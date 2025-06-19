@@ -49,7 +49,7 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         await queryRunner.query(`PRAGMA foreign_keys = ON`);
 
         await queryRunner.query(`
-          CREATE TRIGGER fk_project_plan_code_delete
+          CREATE TRIGGER IF NOT EXISTS fk_project_plan_code_delete
           BEFORE DELETE ON "plan"
           FOR EACH ROW
           BEGIN
@@ -58,7 +58,7 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         `);
 
         await queryRunner.query(`
-          CREATE TRIGGER fk_project_plan_code_insert
+          CREATE TRIGGER IF NOT EXISTS fk_project_plan_code_insert
           BEFORE INSERT ON "project"
           FOR EACH ROW
           WHEN NEW.plan_code IS NOT NULL
@@ -71,7 +71,7 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
         `);
 
         await queryRunner.query(`
-          CREATE TRIGGER fk_project_plan_code_update
+          CREATE TRIGGER IF NOT EXISTS fk_project_plan_code_update
           BEFORE UPDATE ON "project"
           FOR EACH ROW
           WHEN NEW.plan_code IS NOT NULL
@@ -83,7 +83,7 @@ export class addProjectPlans1540062777613 implements MigrationInterface {
           END
         `);
 
-        await queryRunner.query(`CREATE INDEX "IDX_932b5479e9af5dc8b3c0053006" ON "project" ("plan_code")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_932b5479e9af5dc8b3c0053006" ON "project" ("plan_code")`);
 
         await queryRunner.query(`INSERT INTO "plan" ("code", "name", "max_strings") VALUES ('default', 'Default', 100)`);
         await queryRunner.query(`INSERT INTO "plan" ("code", "name", "max_strings") VALUES ('open-source', 'Open source', 100000)`);
