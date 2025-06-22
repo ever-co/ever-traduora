@@ -12,36 +12,13 @@ services:
     ports:
       - '8080:8080'
     environment:
-      TR_DB_TYPE: mysql
-      TR_DB_USER: tr
-      TR_DB_PASSWORD: change_me
-      TR_DB_DATABASE: tr_dev
-      TR_DB_HOST: mysqldb
-      TR_DB_PORT: 3306
+      TR_DB_TYPE: better-sqlite3
+      TR_DB_SQLITE_PATH: ${TR_DB_SQLITE_PATH:-api/data/tr_dev.sqlite3}
       NODE_ENV: ${NODE_ENV:-development}
     entrypoint: './docker-entrypoint.compose.sh'
     restart: on-failure
-    depends_on:
-      - mysqldb
-    links:
-      - mysqldb:${TR_DB_HOST:-mysqldb}
-    networks:
-      - overlay
-
-  mysqldb:
-    image: mysql:5.7
-    container_name: mysqldb
-    restart: always
-    ports:
-      - '3306:3306'
-    environment:
-      MYSQL_DATABASE: tr_dev
-      MYSQL_USER: tr
-      MYSQL_PASSWORD: change_me
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_ALLOW_EMPTY_PASSWORD: 'true'
     volumes:
-      - ./traduora_mysql_data:/var/lib/mysql
+      - ./traduora_sqlite_data:/app/api/data
     networks:
       - overlay
 

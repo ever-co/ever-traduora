@@ -2,8 +2,11 @@ import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { ProjectRole } from './project-user.entity';
 import { Project } from './project.entity';
-import { config } from '../config';
+import { BinaryColumnType, EnumColumnType } from '../utils/database-type-helper';
 
+/**
+ * Represents API clients that can access projects
+ */
 @Entity()
 export class ProjectClient {
   @PrimaryGeneratedColumn('uuid')
@@ -12,10 +15,10 @@ export class ProjectClient {
   @Column()
   name: string;
 
-  @Column({ nullable: false, type: 'enum', enum: ProjectRole, default: ProjectRole.Viewer })
+  @Column(EnumColumnType.projectRole(ProjectRole, ProjectRole.Viewer))
   role: ProjectRole;
 
-  @Column(config.db.default.type === 'postgres' ? { type: 'bytea' } : { type: 'binary', length: 60 })
+  @Column({ ...BinaryColumnType.encryptedSecret(), nullable: true })
   encryptedSecret: Buffer;
 
   @ManyToOne(() => Project, { onDelete: 'CASCADE' })

@@ -38,3 +38,5 @@ yarn-error.log
 
 traduora_mysql_data
 traduora_postgres_data
+
+data/

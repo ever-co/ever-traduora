@@ -180,7 +180,12 @@ export class AuthController {
     };
   }
 
-  @Throttle({ default: { limit: 10, ttl: 60 * 1000 } })
+  @Throttle({
+    default: {
+      limit: config.throttle.auth.limit,
+      ttl: config.throttle.auth.ttl,
+    },
+  })
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

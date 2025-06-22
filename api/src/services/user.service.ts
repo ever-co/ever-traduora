@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
-import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
@@ -11,18 +10,20 @@ import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
+import { config } from '../config';
 
 @Injectable()
 export class UserService {
   private readonly loginAttemptsTTL: number;
+  private readonly maxLoginAttempts: number;
 
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
     private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
-    private readonly configService: ConfigService,
   ) {
-    this.loginAttemptsTTL = this.configService.get<number>('LOGIN_ATTEMPTS_TTL', 900); // 15 minutes TTL by default
+    this.loginAttemptsTTL = config.loginAttempts.ttl;
+    this.maxLoginAttempts = config.loginAttempts.maxAttempts;
   }
 
   async userExists(email: string): Promise<boolean> {
@@ -204,7 +205,7 @@ export class UserService {
     }
 
     // Handle too many login attempts
-    if (loginAttempts >= 3) {
+    if (loginAttempts >= this.maxLoginAttempts) {
       await this.incrementLoginAttempts(user, loginAttempts, userKey);
       throw new TooManyRequestsException('You have made too many requests. Please try again later.');
     }

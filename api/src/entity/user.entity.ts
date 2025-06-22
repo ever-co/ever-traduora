@@ -1,7 +1,10 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
-import { config } from '../config';
+import { BinaryColumnType, NumberColumnType, TimeColumnType } from '../utils/database-type-helper';
 
+/**
+ * User entity representing application users
+ */
 @Entity()
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -13,34 +16,22 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column(config.db.default.type === 'postgres' ? { type: 'bytea', nullable: true } : { type: 'binary', length: 60, nullable: true })
+  @Column({ ...BinaryColumnType.encryptedPassword(), nullable: true })
   encryptedPassword: Buffer;
 
-  @Column(config.db.default.type === 'postgres' ? { type: 'bytea', nullable: true } : { nullable: true })
+  @Column({ ...BinaryColumnType.encryptedToken(), nullable: true })
   encryptedPasswordResetToken: Buffer;
 
-  @Column({
-    type: 'timestamp',
-    nullable: true,
-    precision: 6,
-  })
+  @Column({ ...TimeColumnType.date(), nullable: true })
   passwordResetExpires: Date;
 
-  @Column({ type: 'int', default: 0 })
+  @Column(NumberColumnType.integer(0))
   loginAttempts: number;
 
-  @Column({
-    type: 'timestamp',
-    nullable: true,
-    precision: 6,
-  })
+  @Column({ ...TimeColumnType.date(), nullable: true })
   lastLogin: Date;
 
-  @Column({
-    type: 'int',
-    nullable: false,
-    default: 0,
-  })
+  @Column(NumberColumnType.integer(0))
   numProjectsCreated: number;
 
   @Column(type => AccessTimestamps)

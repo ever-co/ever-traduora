@@ -1,8 +1,10 @@
-import { DataSource, DataSourceOptions, DefaultNamingStrategy } from 'typeorm';
-import * as process from 'process';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import * as process from 'node:process';
 import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
-
-const env = process.env;
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import { DbType } from '../utils/database-type-helper';
+import { config } from '../config';
 
 /**
  * Retrieves the connection options for TypeORM DataSource or TypeORMModule.
@@ -10,27 +12,61 @@ const env = process.env;
  * @returns The connection options for TypeORM DataSource or TypeORMModule.
  */
 export const dataSourceOptions = (): DataSourceOptions => {
-  // Safely cast the database type or default to 'mysql'
-  const dbType = (env.TR_DB_TYPE as any) || 'mysql';
+  // Use the database type from config (which reads from environment variables)
+  const dbType = config.db.default.type as DbType;
 
-  // Parse the port safely with fallback to 3306 if parsing fails
-  const parsedPort = parseInt(env.TR_DB_PORT, 10);
-  const port = Number.isNaN(parsedPort) ? 3306 : parsedPort;
+  // Validate that the provided DB type is supported
+  if (!Object.values(DbType).includes(dbType)) {
+    throw new Error(`Unsupported database type: ${dbType}. Supported types are: ${Object.values(DbType).join(', ')}`);
+  }
 
-  // Base options object using the more generic DataSourceOptions
-  const options: DataSourceOptions = {
-    type: dbType,
-    host: env.TR_DB_HOST || '127.0.0.1',
-    port,
-    username: env.TR_DB_USER || 'root',
-    password: env.TR_DB_PASSWORD || '',
-    database: env.TR_DB_DATABASE || 'tr_dev',
-    charset: 'utf8mb4',
+  // Common options for all database types
+  const commonOptions = {
     synchronize: false,
     logging: false,
-    entities: [__dirname + '/../entity/*.entity.{js,ts}'],
-    migrations: [__dirname + '/../migrations/*.{js,ts}'],
-    namingStrategy: dbType === 'postgres' ? new SnakeNamingStrategy() : new DefaultNamingStrategy(),
+    entities: [`${__dirname}/../entity/*.entity.{js,ts}`],
+    migrations: [`${__dirname}/../migrations/*.{js,ts}`],
+  };
+
+  // Handle SQLite configuration
+  if (dbType === DbType.BETTER_SQLITE3) {
+    // Use SQLite path from config or fallback to environment variable
+    const dbPath = (config.db.default.database as string) || process.env.TR_DB_SQLITE_PATH || 'data/tr_dev.sqlite3';
+    const resolvedPath = path.resolve(process.cwd(), dbPath);
+    const dbDir = path.dirname(resolvedPath);
+
+    if (!fs.existsSync(dbDir)) {
+      console.log(`Creating SQLite database directory: ${dbDir}`);
+      try {
+        fs.mkdirSync(dbDir, { recursive: true });
+      } catch (error) {
+        console.error(`Failed to create database directory: ${error.message}`);
+        throw error;
+      }
+    }
+
+    return {
+      ...commonOptions,
+      type: DbType.BETTER_SQLITE3,
+      database: resolvedPath,
+      foreignKeys: true,
+      namingStrategy: new SnakeNamingStrategy(),
+    } as DataSourceOptions;
+  }
+
+  // Handle MySQL or PostgreSQL configuration
+  // Use configuration from config.ts (cast to any to access the properties)
+  const configDb = config.db.default as any;
+  const options: DataSourceOptions = {
+    ...commonOptions,
+    type: dbType,
+    host: configDb.host,
+    port: configDb.port,
+    username: configDb.username,
+    password: configDb.password,
+    database: configDb.database,
+    charset: dbType === DbType.MYSQL ? configDb.charset : undefined,
+    namingStrategy: configDb.namingStrategy,
   };
 
   return options;
@@ -50,9 +86,11 @@ export const getDataSourceConnection = async (): Promise<DataSource> => {
   try {
     if (!dataSource.isInitialized) {
       await dataSource.initialize();
+      console.log(`Successfully connected to ${dataSource.options.type} database`);
     }
   } catch (error) {
     console.error(`Error initializing database connection: ${error?.message}`);
+    throw error; // Re-throw to allow proper error handling upstream
   }
 
   return dataSource;

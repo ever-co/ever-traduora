@@ -65,6 +65,51 @@ Please check [deployment](https://docs.traduora.co/docs/deployment) documents fo
 
 [![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/traduora)
 
+### 👤 Default Admin User
+
+When user signups are disabled (`TR_SIGNUPS_ENABLED=false`), a default admin user is required to access the platform.
+
+Traduora provides a seed function that creates this default admin user. You can use it to log in and perform administrative tasks such as inviting other users.
+
+**🆔 Default Admin Credentials:**
+
+- **Email:** `local.admin@ever.co`
+- **Password:** `sTr0ngP@ssw0rd!2025`
+- **Name:** `Admin`
+
+You can override these credentials by setting the following environment variables:
+
+- `TR_ADMIN_EMAIL` – Admin user email (default: `local.admin@ever.co`)
+- `TR_ADMIN_PASSWORD` – Admin user password (default: `sTr0ngP@ssw0rd!2025`)
+- `TR_ADMIN_NAME` – Admin username (default: `Admin`)
+
+> 🔐 After logging in for the first time, you can easily update these admin credentials (email, password, name) directly via the user settings in the web interface.
+
+**⚙️ Seeding Options:**
+
+To manually seed the default admin user:
+
+```bash
+# From the monorepo root
+yarn seed:default
+
+# Or from the API package directory
+yarn seed:default
+```
+
+To run all seeds (including the default admin user and other demo data):
+
+```bash
+# From the monorepo root
+yarn seed
+
+# Or from the API package directory
+yarn seed
+```
+
+**🚀 Automatic Seeding at Startup:**
+If the environment variable `TR_SEED_DATA=true` is set, Traduora will automatically run the seed scripts during application startup. This ensures that the default admin user is available without any manual intervention.
+
 ## 🔗 Frequently Asked Questions
 
 Some questions come up over and over again. Be sure to check out our [FAQ](https://docs.traduora.co/docs/faq) first!
