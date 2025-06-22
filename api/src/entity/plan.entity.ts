@@ -1,5 +1,6 @@
 import { Column, Entity, PrimaryColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
+import { NumberColumnType } from '../utils/database-type-helper';
 
 @Entity()
 export class Plan {
@@ -9,7 +10,7 @@ export class Plan {
   @Column()
   name: string;
 
-  @Column()
+  @Column(NumberColumnType.integer(0))
   maxStrings: number;
 
   @Column(type => AccessTimestamps)

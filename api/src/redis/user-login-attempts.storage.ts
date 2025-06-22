@@ -20,14 +20,14 @@ export class UserLoginAttemptsStorage {
     }
     if (this.redisClient) {
       try {
-        await this.redisClient.set(userKey, userAttempt, 'EX', ttl);
+        await this.redisClient.set(userKey, userAttempt, 'PX', ttl);
       } catch (error) {
         this.logger.error('Failed to set user attempts in Redis:', error.message);
         throw error;
       }
     } else {
       try {
-        const expiry = Date.now() + ttl * 1000;
+        const expiry = Date.now() + ttl;
         this.inMemoryStorage.set(userKey, { attempts: userAttempt, expiry });
       } catch (error) {
         this.logger.error('Failed to set user attempts in memory:', error.message);

@@ -1,10 +1,13 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 import { config } from '../config';
+import { DbType } from '../utils/database-type-helper';
 
 export class init1537535282567 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<any> {
     switch (config.db.default.type) {
-      case 'postgres':
+      case DbType.POSTGRES:
+        // Enable UUID extension for PostgreSQL
+        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "project" ("id" uuid DEFAULT uuid_generate_v4 (), "name" varchar(255) NOT NULL, "date_created" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, "date_modified" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY ("id"));`,
         );
@@ -59,7 +62,7 @@ export class init1537535282567 implements MigrationInterface {
           `ALTER TABLE "translation" ADD CONSTRAINT "FK_52b10ad0b87f2f52ed24b7dc451" FOREIGN KEY ("project_locale_id") REFERENCES "project_locale"("id") ON DELETE CASCADE;`,
         );
         break;
-      case 'mysql':
+      case DbType.MYSQL:
         await queryRunner.query(
           'CREATE TABLE IF NOT EXISTS `project` (`id` varchar(255) NOT NULL, `name` varchar(255) NOT NULL, `dateCreated` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), `dateModified` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), PRIMARY KEY (`id`)) ENGINE=InnoDB',
         );
@@ -100,14 +103,92 @@ export class init1537535282567 implements MigrationInterface {
           'ALTER TABLE `translation` ADD CONSTRAINT `FK_52b10ad0b87f2f52ed24b7dc451` FOREIGN KEY (`projectLocaleId`) REFERENCES `project_locale`(`id`) ON DELETE CASCADE',
         );
         break;
+      case DbType.BETTER_SQLITE3:
+        await queryRunner.query(
+          `CREATE TABLE IF NOT EXISTS "project" (
+            "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "name" TEXT NOT NULL,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now'))
+            )`,
+        );
+
+        await queryRunner.query(
+          `CREATE TABLE IF NOT EXISTS "project_locale" (
+             "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "locale_code" TEXT,
+              "project_id" TEXT,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),
+              UNIQUE ("project_id", "locale_code"),
+              FOREIGN KEY ("locale_code") REFERENCES "locale"("code") ON DELETE CASCADE,
+              FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE
+            )`,
+        );
+
+        await queryRunner.query(
+          `CREATE TABLE IF NOT EXISTS "user" (
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "name" TEXT NOT NULL,
+              "email" TEXT NOT NULL UNIQUE,
+              "encrypted_password" BLOB NOT NULL,
+              "encrypted_password_reset_token" BLOB,
+              "password_reset_expires" TEXT,
+              "login_attempts" INTEGER NOT NULL DEFAULT 0,
+              "last_login" TEXT,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now'))
+            )`,
+        );
+
+        await queryRunner.query(
+          `CREATE TABLE IF NOT EXISTS "project_user" (
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "project_id" TEXT,
+              "user_id" TEXT,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),
+              FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE,
+              FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE
+            )`,
+        );
+
+        await queryRunner.query(
+          `CREATE TABLE IF NOT EXISTS "term" (
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "value" TEXT NOT NULL,
+              "project_id" TEXT NOT NULL,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),
+              UNIQUE ("project_id", "value"),
+              FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE
+            )`,
+        );
+
+        await queryRunner.query(
+          `CREATE TABLE IF NOT EXISTS "translation" (
+              "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
+              "value" TEXT NOT NULL,
+              "term_id" TEXT NOT NULL,
+              "project_locale_id" TEXT NOT NULL,
+              "date_created" TEXT NOT NULL DEFAULT (datetime('now')),
+              "date_modified" TEXT NOT NULL DEFAULT (datetime('now')),
+              FOREIGN KEY ("term_id") REFERENCES "term"("id") ON DELETE CASCADE,
+              FOREIGN KEY ("project_locale_id") REFERENCES "project_locale"("id") ON DELETE CASCADE
+            )`,
+        );
+
+        await queryRunner.query(`CREATE INDEX "IDX_translation_term_id" ON "translation" ("term_id")`);
+        await queryRunner.query(`CREATE INDEX "IDX_translation_project_locale_id" ON "translation" ("project_locale_id")`);
+        break;
       default:
-        console.log('Unknown DB type');
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 
   public async down(queryRunner: QueryRunner): Promise<any> {
     switch (config.db.default.type) {
-      case 'postgres':
+      case DbType.POSTGRES:
         await queryRunner.query(`ALTER TABLE "translation" DROP FOREIGN KEY "FK_52b10ad0b87f2f52ed24b7dc451"`);
         await queryRunner.query(`ALTER TABLE "translation" DROP FOREIGN KEY "FK_f7f6e4a8de56880547c414276be"`);
         await queryRunner.query(`ALTER TABLE "term" DROP FOREIGN KEY "FK_b541fb8d0122efed5c870d55b15"`);
@@ -126,7 +207,7 @@ export class init1537535282567 implements MigrationInterface {
         await queryRunner.query(`DROP TABLE IF EXISTS "project_locale"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "project"`);
         break;
-      case 'mysql':
+      case DbType.MYSQL:
         await queryRunner.query('ALTER TABLE `translation` DROP FOREIGN KEY `FK_52b10ad0b87f2f52ed24b7dc451`');
         await queryRunner.query('ALTER TABLE `translation` DROP FOREIGN KEY `FK_f7f6e4a8de56880547c414276be`');
         await queryRunner.query('ALTER TABLE `term` DROP FOREIGN KEY `FK_b541fb8d0122efed5c870d55b15`');
@@ -145,8 +226,18 @@ export class init1537535282567 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS `project_locale`');
         await queryRunner.query('DROP TABLE IF EXISTS `project`');
         break;
+      case DbType.BETTER_SQLITE3:
+        await queryRunner.query('DROP INDEX IF EXISTS "IDX_translation_project_locale_id"');
+        await queryRunner.query('DROP INDEX IF EXISTS "IDX_translation_term_id"');
+        await queryRunner.query('DROP TABLE IF EXISTS "translation"');
+        await queryRunner.query('DROP TABLE IF EXISTS "term"');
+        await queryRunner.query('DROP TABLE IF EXISTS "project_user"');
+        await queryRunner.query('DROP TABLE IF EXISTS "user"');
+        await queryRunner.query('DROP TABLE IF EXISTS "project_locale"');
+        await queryRunner.query('DROP TABLE IF EXISTS "project"');
+        break;
       default:
-        console.log('Unknown DB type');
+        throw new Error(`Unknown DB type: ${config.db.default.type}`);
     }
   }
 }

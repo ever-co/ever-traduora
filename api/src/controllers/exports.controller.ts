@@ -24,6 +24,7 @@ import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
 import { merge } from 'lodash';
 import { resolveColumnName } from '../utils/alias-helper';
+import { getLexicalOrderClause } from '../utils/database-type-helper';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -73,8 +74,9 @@ export class ExportsController {
       .leftJoinAndSelect('term.translations', 'translation', `translation.${resolveColumnName('projectLocaleId')} = :projectLocaleId`, {
         projectLocaleId: projectLocale.id,
       })
-      .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId })
-      .orderBy('term.value', 'ASC');
+      .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId });
+
+    queryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
 
     if (query.untranslated) {
       queryBuilder.andWhere("translation.value = ''");
@@ -111,14 +113,16 @@ export class ExportsController {
       });
 
       if (fallbackProjectLocale) {
-        const fallbackTermsWithTranslations = await this.termRepo
+        const fallbackQueryBuilder = this.termRepo
           .createQueryBuilder('term')
           .leftJoinAndSelect('term.translations', 'translation', `translation.${resolveColumnName('projectLocaleId')} = :projectLocaleId`, {
             projectLocaleId: fallbackProjectLocale.id,
           })
-          .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId })
-          .orderBy('term.value', 'ASC')
-          .getMany();
+          .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId });
+
+        fallbackQueryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
+
+        const fallbackTermsWithTranslations = await fallbackQueryBuilder.getMany();
 
         const fallbackTermsWithTranslationsMapped = fallbackTermsWithTranslations.map(t => ({
           term: t.value,

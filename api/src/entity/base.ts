@@ -1,9 +1,13 @@
 import { CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { TimeColumnType } from '../utils/database-type-helper';
 
+/**
+ * Base class for tracking creation and modification timestamps
+ */
 export class AccessTimestamps {
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn(TimeColumnType.createDate())
   created: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn(TimeColumnType.updateDate())
   modified: Date;
 }

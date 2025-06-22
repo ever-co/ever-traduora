@@ -1,6 +1,7 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { AccessTimestamps } from './base';
 import { Plan } from './plan.entity';
+import { NumberColumnType } from '../utils/database-type-helper';
 
 @Entity()
 export class Project {
@@ -10,16 +11,16 @@ export class Project {
   @Column()
   name: string;
 
-  @Column({ length: 255, default: null })
+  @Column({ length: 255, nullable: true })
   description: string;
 
-  @Column({ default: 0 })
+  @Column(NumberColumnType.integer(0))
   termsCount: number;
 
-  @Column({ default: 0 })
+  @Column(NumberColumnType.integer(0))
   localesCount: number;
 
-  @ManyToOne(() => Plan, { onDelete: 'SET NULL' })
+  @ManyToOne(() => Plan, { onDelete: 'SET NULL', nullable: true })
   plan: Plan;
 
   @Column(type => AccessTimestamps)
