@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:oasis:names:tc:xliff:document:1.2 http://docs.oasis-open.org/xliff/v1.2/os/xliff-core-1.2-strict.xsd" xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+  <file original="de_DE" datatype="plaintext" source-language="de_DE" target-language="de_DE">
+    <body>
+      <trans-unit id="term.one">
+        <source>Current Plan: {{ project.plan.name }}</source>
+        <target>Current Plan: {{ project.plan.name }}</target>
+      </trans-unit>
+      <trans-unit id="term two">
+        <source>{VAR_PLURAL, plural, =0 {locales} =1 {locale} other {locales} }</source>
+        <target>{VAR_PLURAL, plural, =0 {locales} =1 {locale} other {locales} }</target>
+      </trans-unit>
+      <trans-unit id="TERM_THREE">
+        <source>Export format...</source>
+        <target>Export format...</target>
+      </trans-unit>
+      <trans-unit id="term:four">
+        <source>hello there you\nthis should be in a newline</source>
+        <target>hello there you\nthis should be in a newline</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

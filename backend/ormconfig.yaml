@@ -1,0 +1,19 @@
+# NOTE: this config is only used for the typeorm cli on development.
+# For the config used by the API, checkout api/src/config.ts and the environment variables documentation.
+
+default:
+  type: mysql
+  host: localhost
+  port: 3306
+  username: root
+  password: ''
+  database: tr_dev
+  synchronize: false
+  logging: true
+  entities: ['src/entity/*.entity.ts']
+  migrations: ['src/migrations/*.ts']
+  charset: utf8mb4
+  cli:
+    entitiesDir: src/entity
+    migrationsDir: src/migrations
+    subscribersDir: src/subscriber

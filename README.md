@@ -1,195 +1,220 @@
-# Ever Traduora Platform
+# Traduora - Translation Management Platform
 
-[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/ever-co/ever-traduora)
-[![Latest Release](https://img.shields.io/github/release/ever-co/ever-traduora.svg?label=latest%20release)](https://github.com/ever-co/ever-traduora/releases)
-[![GitHub License](https://img.shields.io/badge/license-AGPL-v3.svg)](https://raw.githubusercontent.com/ever-co/ever-traduora/master/LICENSE)
-[![Docker Pulls](https://img.shields.io/docker/pulls/traduora/traduora)](https://hub.docker.com/r/traduora/traduora)
-[![Get help on Codementor](https://cdn.codementor.io/badges/get_help_github.svg)](https://www.codementor.io/evereq?utm_source=github&utm_medium=button&utm_term=evereq&utm_campaign=github)
+A complete translation management platform extracted from the original Traduora project, without Docker dependencies.
 
-## 💡 What's New
+## Overview
 
-We released [Ever Gauzy Teams](https://github.com/ever-co/ever-gauzy-teams) platform for Work & Project Management.  
-Please check <https://github.com/ever-co/ever-gauzy-teams> and make it ⭐ on GitHub!  
-It's built with React / ReactNative stack and connects to headless [Ever Gauzy Platform](https://github.com/ever-co/ever-gauzy) APIs.
+Traduora is an open-source translation management platform that helps teams manage translations for their applications. This extracted version includes the complete frontend and backend code without any Docker functionality.
 
-## 🌟 What is it
+## Architecture
 
-[Ever® Traduora](https://traduora.co) - **Open Translation Management Platform** for teams.
+- **Frontend**: Angular 16 web application
+- **Backend**: NestJS API server
+- **Database**: PostgreSQL/MySQL/SQLite (configurable)
+- **Authentication**: JWT-based authentication
 
-Once you setup your project you can import and export your translations to various formats, work together with your team, instantly deliver translation updates over the air, and _soon_ automatically translate your project via third-party integrations.
+## Quick Start
 
-![Traduora Product Screenshot](docs-website/static/img/traduora-preview.png)
+### Backend Setup
 
-We want Traduora to become the home for managing your translation workflow, that's why we have made all of the core products **open-source** with the intention of growing a **community** and enabling developers to build on top of it as a platform.
-
-We are going to also use Traduora from our other open-source platforms (currently https://github.com/ever-co/ever-gauzy and https://github.com/ever-co/ever-demand). You are welcome to check more information about the platforms at our official website - https://ever.co.
-
-## ✨ Features
-
-For a quick features review, please see our official docs [screenshots](https://docs.traduora.co/docs/screenshots) page.
-
-A short list of platform features:
-
-- 5-minute setup with Docker, Kubernetes, or from source
-- Find what you are looking for with an instant search
-- Invite your team, everyone can work together on the same project
-- Automate your translation workflow via our REST API
-- Import and export to your favorite formats: JSON flat and nested, CSV, YAML flat and nested, Java Properties, XLIFF 1.2, Gettext (po), Strings, Android Resources (xml).
-- Community-contributed CLI available at https://github.com/iilei/traduora-cli (not official CLI)
-
-For more information check out our official website [traduora.co](https://traduora.co), or our docs at [docs.traduora.co](https://docs.traduora.co).
-
-Any missing feature you'd like to see? File an [issue](https://github.com/ever-co/feature-requests/issues) with the feature request to let us know.
-
-## 📄 Documentation
-
-Please refer to our official [Platform Documentation](https://docs.traduora.co).
-
-## 📊 Activity
-
-![Alt](https://repobeats.axiom.co/api/embed/8ed434d797f3fafdb41858386930efa788949773.svg 'Repobeats analytics image')
-
-## 🚀 Try it out
-
-Traduora can be run just about anywhere, check out our [Quickstart](https://docs.traduora.co/docs/getting-started) for more info.
-
-Also, check out Traduora's [Docker Hub page](https://hub.docker.com/r/everco/ever-traduora) for pre-built images.
-
-### Configuration
-
-Please check out the [configuration](https://docs.traduora.co/docs/configuration).
-
-### Deployments
-
-Please check [deployment](https://docs.traduora.co/docs/deployment) documents for more information on deploying Traduora.
-
-[![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/traduora)
-
-### 👤 Default Admin User
-
-When user signups are disabled (`TR_SIGNUPS_ENABLED=false`), a default admin user is required to access the platform.
-
-Traduora provides a seed function that creates this default admin user. You can use it to log in and perform administrative tasks such as inviting other users.
-
-**🆔 Default Admin Credentials:**
-
-- **Email:** `local.admin@ever.co`
-- **Password:** `sTr0ngP@ssw0rd!2025`
-- **Name:** `Admin`
-
-You can override these credentials by setting the following environment variables:
-
-- `TR_ADMIN_EMAIL` – Admin user email (default: `local.admin@ever.co`)
-- `TR_ADMIN_PASSWORD` – Admin user password (default: `sTr0ngP@ssw0rd!2025`)
-- `TR_ADMIN_NAME` – Admin username (default: `Admin`)
-
-> 🔐 After logging in for the first time, you can easily update these admin credentials (email, password, name) directly via the user settings in the web interface.
-
-**⚙️ Seeding Options:**
-
-To manually seed the default admin user:
-
+1. Navigate to the backend directory:
 ```bash
-# From the monorepo root
-yarn seed:default
-
-# Or from the API package directory
-yarn seed:default
+cd backend
 ```
 
-To run all seeds (including the default admin user and other demo data):
-
+2. Install dependencies:
 ```bash
-# From the monorepo root
-yarn seed
-
-# Or from the API package directory
-yarn seed
+yarn install
 ```
 
-**🚀 Automatic Seeding at Startup:**
-If the environment variable `TR_SEED_DATA=true` is set, Traduora will automatically run the seed scripts during application startup. This ensures that the default admin user is available without any manual intervention.
+3. Configure environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your database settings
+```
 
-## 🔗 Frequently Asked Questions
+4. Run database migrations:
+```bash
+yarn typeorm migration:run
+```
 
-Some questions come up over and over again. Be sure to check out our [FAQ](https://docs.traduora.co/docs/faq) first!
+5. Start the backend server:
+```bash
+yarn start
+```
 
-## 💌 Contact Us
+The API will be available at `http://localhost:3000`
 
-- [Ever.co Website Contact Us page](https://ever.co/contacts)
-- [CodeMentor](https://www.codementor.io/evereq)
-- For business inquiries: <mailto:traduora@ever.co>
-- Please report security vulnerabilities to <mailto:security@ever.co>
+### Frontend Setup
 
-## 🔐 Security
+1. Navigate to the frontend directory:
+```bash
+cd frontend
+```
 
-Security is very important to us.
-Ever® Traduora Platform follows good security practices, but 100% security cannot be guaranteed in any software!
-Ever® Traduora Platform is provided AS IS without any warranty. Use at your own risk!
-See more details in the [LICENSE](https://github.com/ever-co/ever-traduora/blob/master/LICENSE).
+2. Install dependencies:
+```bash
+yarn install
+```
 
-In a production setup, all client-side to server-side (backend, APIs) communications should be encrypted using HTTPS/SSL (REST APIs).
+3. Configure the API URL in `src/environments/environment.ts`:
+```typescript
+export const environment = {
+  production: false,
+  apiUrl: 'http://localhost:3000/api',
+};
+```
 
-If you discover any issue regarding security, please disclose the information responsibly by sending an email to <mailto:security@ever.co> and not by creating a GitHub issue.
+4. Start the frontend development server:
+```bash
+yarn start
+```
 
-## Internationalization
+The application will be available at `http://localhost:4200`
 
-Of course, we'd like Traduora to be available in as many languages as possible, so feel free to contribute!
+## Features
 
-## Changelog
+### Core Features
+- **Project Management**: Create and manage translation projects
+- **Multi-format Support**: Import/export in 20+ formats (JSON, XLIFF, PO, CSV, etc.)
+- **Team Collaboration**: Invite team members with different roles
+- **API Access**: Generate API keys for programmatic access
+- **Labels & Context**: Organize translations with labels and context
+- **Statistics**: Track translation progress and completion rates
 
-You can check our [changelog](https://docs.traduora.co/docs/changelog) for information about releases.
+### Supported Formats
+- JSON (flat and nested)
+- XLIFF 1.2 and 2.0
+- Gettext PO files
+- Android XML
+- iOS Strings
+- .NET RESX
+- CSV
+- Properties files
+- YAML (flat and nested)
+- PHP arrays
 
-## 🛡️ License
+## Technology Stack
 
-See [LICENSE](https://github.com/ever-co/ever-traduora/blob/master/LICENSE).
+### Backend
+- **Framework**: NestJS
+- **Language**: TypeScript
+- **Database**: TypeORM with PostgreSQL/MySQL/SQLite support
+- **Authentication**: JWT + Passport
+- **Validation**: Class Validator
+- **Documentation**: Swagger/OpenAPI
+- **Testing**: Jest
 
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora?ref=badge_large)
+### Frontend
+- **Framework**: Angular 16
+- **Language**: TypeScript
+- **UI Library**: Bootstrap 4 + ng-bootstrap
+- **State Management**: NGXS
+- **Styling**: SCSS
+- **Build Tool**: Angular CLI
 
-Traduora was created by https://github.com/anthonynsimon (https://anthonynsimon.com) and [contributors](https://github.com/ever-co/ever-traduora/graphs/contributors). In April 2021 it was moved to [Ever](https://ever.co) company for future development.
+## Development
 
-## ™️ Trademarks
+### Backend Development
+```bash
+cd backend
+yarn start          # Start development server
+yarn build          # Build for production
+yarn test           # Run unit tests
+yarn test:e2e       # Run e2e tests
+yarn lint           # Run linter
+yarn fmt            # Format code
+```
 
-**Ever**® is a registered trademark of [Ever Co. LTD](https://ever.co).  
-**Ever® Traduora™**, **Ever® Demand™**, **Ever® Gauzy™**, **Ever® Teams™** and **Ever® OpenSaaS™** are all trademarks of [Ever Co. LTD](https://ever.co).
-The trademarks may only be used with the written permission of Ever Co. LTD. and may not be used to promote or otherwise market competitive products or services.
+### Frontend Development
+```bash
+cd frontend
+yarn start          # Start development server
+yarn build          # Build for production
+yarn build:prod     # Build for production (optimized)
+yarn test           # Run unit tests
+yarn lint           # Run linter
+yarn e2e            # Run e2e tests
+```
 
-All other brand and product names are trademarks, registered trademarks, or service marks of their respective holders.
+## Configuration
 
-## 🍺 Contribute
+### Backend Environment Variables
+- `TR_DB_TYPE`: Database type (postgres, mysql, sqlite)
+- `TR_DB_HOST`: Database host
+- `TR_DB_PORT`: Database port
+- `TR_DB_USERNAME`: Database username
+- `TR_DB_PASSWORD`: Database password
+- `TR_DB_DATABASE`: Database name
+- `TR_JWT_SECRET`: JWT secret key
+- `TR_MAIL_HOST`: SMTP host for emails
+- `TR_CORS_ENABLED`: Enable CORS (true/false)
 
-We think it's great that you'd like to contribute to Traduora.
+### Frontend Environment
+Edit `frontend/src/environments/environment.ts` to configure:
+- API base URL
+- Production settings
+- Feature flags
 
-- Please give us :star: on Github, it **helps**!
-- You are more than welcome to submit feature requests in the [separate repo](https://github.com/ever-co/feature-requests/issues).
-- Pull requests are always welcome! Please base pull requests against the _develop_ branch and follow the [contribution guidelines](https://docs.traduora.co/docs/contributing).
+## API Documentation
 
-## 💪 Thanks to our Contributors
+Once the backend is running, visit `http://localhost:3000/api` for interactive Swagger documentation.
 
-See our contributors list in [CONTRIBUTORS.md](https://github.com/ever-co/ever-traduora/blob/develop/.github/CONTRIBUTORS.md).  
-You can also view a full list of our [contributors tracked by Github](https://github.com/ever-co/ever-traduora/graphs/contributors).
+## Database Setup
 
-<img src="https://contributors-img.web.app/image?repo=ever-co/ever-traduora" />
+The application supports multiple databases:
 
-## ⭐ Star History
+### PostgreSQL
+```bash
+# Install PostgreSQL and create database
+createdb traduora
+```
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ever-co/ever-traduora&type=Date)](https://star-history.com/#ever-co/ever-traduora&Date)
+### MySQL
+```bash
+# Install MySQL and create database
+mysql -u root -p
+CREATE DATABASE traduora;
+```
 
-## ❤️ Powered By
+### SQLite
+```bash
+# SQLite will create the database file automatically
+# No additional setup required
+```
 
-<p>
-  <a href="https://www.digitalocean.com/?utm_medium=opensource&utm_source=ever-co">
-    <img src="https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/PoweredByDO/DO_Powered_by_Badge_blue.svg" width="201px">
-  </a>
-</p>
+## Deployment
 
----
+### Backend Deployment
+1. Build the application: `yarn build`
+2. Set production environment variables
+3. Run database migrations: `yarn typeorm migration:run`
+4. Start the application: `node dist/main.js`
 
-![visitors](https://visitor-badge.laobi.icu/badge?page_id=ever-co.traduora-platform)
-[![Circle CI](https://circleci.com/gh/ever-co/ever-traduora.svg?style=svg)](https://circleci.com/gh/ever-co/ever-traduora)
-[![codecov](https://codecov.io/gh/ever-co/ever-traduora/branch/master/graph/badge.svg)](https://codecov.io/gh/ever-co/ever-traduora)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/0d5e1c68dc1e44c79249241b4abb15b8)](https://www.codacy.com/gh/ever-co/ever-traduora/dashboard?utm_source=github.com&utm_medium=referral&utm_content=ever-co/ever-traduora&utm_campaign=Badge_Grade)
-[![DeepScan grade](https://deepscan.io/api/teams/3293/projects/16761/branches/365112/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=3293&pid=16761&bid=365112)
-[![Known Vulnerabilities](https://snyk.io/test/github/ever-co/ever-traduora/badge.svg)](https://snyk.io/test/github/ever-co/ever-traduora)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora?ref=badge_shield)
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ever-co/ever-traduora?utm_source=oss&utm_medium=github&utm_campaign=ever-co%2Fever-traduora&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+### Frontend Deployment
+1. Build the application: `yarn build:prod`
+2. Serve the `dist/` directory with any web server
+3. Configure the API URL for production
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the AGPL-3.0-only License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support and questions:
+- Check the documentation in the `docs/` directory
+- Review the API documentation at `/api` when running
+- Open an issue on the repository
+
+## Acknowledgments
+
+This project is based on the original Traduora project by Ever Co. LTD.

@@ -1,0 +1,43 @@
+<div *ngIf="errorMessage" class="mb-3">
+  <div class="alert alert-warning d-flex justify-content-start mb-0">
+    <i class="material-icons mr-3">warning</i>
+    <p class="m-0">{{ errorMessage }}</p>
+  </div>
+</div>
+
+<div class="form-group">
+  <label>Select the locale to export</label>
+  <app-select-locale class="mb-5" [locales]="locales" [limit]="5" [loading]="loading" (selectLocale)="selectLocale($event)"></app-select-locale>
+</div>
+
+<div class="form-group">
+  <label>Select the fallback locale (optional)</label>
+  <app-select-locale
+    class="mb-5"
+    [locales]="locales"
+    [limit]="5"
+    [loading]="loading"
+    (selectLocale)="selectFallbackLocale($event)"
+  ></app-select-locale>
+</div>
+
+<div class="form-group">
+  <label for="exportFormat">Select an export format</label>
+  <div class="input-group">
+    <select id="exportFormat" class="custom-select" [(ngModel)]="selectedFormat">
+      <option selected [value]="undefined">Export format...</option>
+      <option *ngFor="let format of availableFormats" [ngValue]="format">{{ format.displayName }}</option>
+    </select>
+  </div>
+</div>
+
+<div class="form-check text-sm mr-3 d-flex justify-content-end">
+  <input class="form-check-input" type="checkbox" [value]="false" [(ngModel)]="untranslated" id="untranslated" />
+  <label class="form-check-label pr-3" for="untranslated">Export not translated keys</label>
+</div>
+
+<hr />
+
+<div class="d-flex align-content-center justify-content-end">
+  <button type="button" class="btn btn-primary" (click)="export()" [disabled]="!validInputs() || loading">Download</button>
+</div>
