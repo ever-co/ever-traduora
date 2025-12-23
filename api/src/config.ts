@@ -60,7 +60,7 @@ export const config = {
       port: parseInt(env.TR_DB_PORT, 10) || 3306,
       username: env.TR_DB_USER || 'root',
       password: env.TR_DB_PASSWORD || '',
-      database: env.TR_DB_DATABASE || 'tr_dev',
+      database: env.TR_DB_DATABASE || 'data/tr_dev.sqlite3',
       // forcing typeorm to use (mysql2) if both (mysql/mysql2) packages found, it prioritize to load (mysql)
       connectorPackage: 'mysql2',
       charset: 'utf8mb4',
