@@ -31,7 +31,7 @@
     "@angular/animations": "^16.2.12",
     "@angular/common": "^16.2.12",
     "@angular/compiler": "^16.2.12",
-    "@angular/core": "^16.2.12",
+    "@angular/core": "^19.2.18",
     "@angular/forms": "^16.2.12",
     "@angular/localize": "^16.2.12",
     "@angular/platform-browser": "^16.2.12",
