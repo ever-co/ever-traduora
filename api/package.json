@@ -62,7 +62,7 @@
     "mysql2": "^3.14.0",
     "better-sqlite3": "^9.6.0",
     "node-native2ascii": "^0.2.0",
-    "nodemailer": "^7.0.7",
+    "nodemailer": "^8.0.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.14.1",
