@@ -16,9 +16,15 @@ export class AuthCallbackComponent implements OnInit {
   ) {}
   ngOnInit(): void {
     this.activatedRoute.queryParams.subscribe(params => {
-      if (!params.code) {
+      const expectedState = sessionStorage.getItem('oauth_state');
+
+      if (!params.code || !params.state || !expectedState || params.state !== expectedState) {
+        sessionStorage.removeItem('oauth_state');
         this.router.navigate(['/']);
+        return;
       }
+
+      sessionStorage.removeItem('oauth_state');
       this.store.dispatch(new ReceiveAuthProviderCode(params.code));
     });
   }
