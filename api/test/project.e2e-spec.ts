@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import './util';
 import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
+import { config } from '../src/config';
 
 describe('ProjectController (e2e)', () => {
   let app: INestApplication;
@@ -222,6 +223,31 @@ describe('ProjectController (e2e)', () => {
         name: 'My project',
       })
       .expect(429);
+  });
+
+  it('/api/v1/projects (POST) should not create a project if the project limit is zero', async () => {
+    const maxProjectsPerUser = config.maxProjectsPerUser;
+    config.maxProjectsPerUser = 0;
+
+    try {
+      await request(app.getHttpServer())
+        .post('/api/v1/projects')
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({
+          name: 'My project',
+        })
+        .expect(429);
+
+      await request(app.getHttpServer())
+        .get('/api/v1/projects')
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200)
+        .expect(res => {
+          expect(res.body.data).toHaveLength(0);
+        });
+    } finally {
+      config.maxProjectsPerUser = maxProjectsPerUser;
+    }
   });
 
   it('/api/v1/projects/:projectId (PATCH) should update a project', async () => {

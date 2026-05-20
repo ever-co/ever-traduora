@@ -24,7 +24,7 @@ export const config = {
   accessLogsEnabled: getBoolOrDefault(env.TR_ACCESS_LOGS_ENABLED, true),
   authTokenExpires: parseInt(env.TR_AUTH_TOKEN_EXPIRES, 10) || 86400,
   signupsEnabled: getBoolOrDefault(env.TR_SIGNUPS_ENABLED, true),
-  maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
+  maxProjectsPerUser: getNumberOrDefault(env.TR_MAX_PROJECTS_PER_USER, 100),
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
   seedData: getBoolOrDefault(env.TR_SEED_DATA, true),
