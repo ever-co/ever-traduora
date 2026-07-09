@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+# ever-traduora-docs — Docusaurus v1 static docs site
+# Build context = repo root (the site in docs-website/ resolves its content from ../docs).
+# Output of docusaurus-build (projectName "traduora") -> docs-website/build/traduora
+# Served as static files by nginx.
+
+# ---- Build stage ----
+FROM node:20-alpine AS builder
+
+# git + build toolchain: docusaurus v1 deps (jpegtran-bin, etc.) may compile native binaries
+RUN apk add --no-cache git python3 make g++ bash libc6-compat
+
+WORKDIR /app
+
+# Docusaurus v1 reads docs content from ../docs relative to the website dir.
+# Copy both so the relative resolution works.
+COPY docs ./docs
+COPY docs-website ./docs-website
+
+WORKDIR /app/docs-website
+
+# Install deps (fall back to a non-frozen install if the lockfile drifts)
+RUN yarn install --frozen-lockfile --non-interactive \
+    || yarn install --non-interactive
+
+# Build the static site -> /app/docs-website/build/traduora
+RUN yarn build
+
+# ---- Runtime stage ----
+FROM nginx:alpine
+
+# Multi-page site: custom conf handles docusaurus v1 cleanUrl (page -> page.html)
+COPY docs-website/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy the generated static site (projectName = "traduora")
+COPY --from=builder /app/docs-website/build/traduora /usr/share/nginx/html
+
+EXPOSE 80
+
+STOPSIGNAL SIGQUIT
+
+CMD ["nginx", "-g", "daemon off;"]
