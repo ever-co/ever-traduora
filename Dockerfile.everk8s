@@ -19,6 +19,16 @@ COPY docs-website ./docs-website
 
 WORKDIR /app/docs-website
 
+# Configure the npm/yarn registry: prefer the internal Verdaccio cache (VERDACCIO_REGISTRY build-arg,
+# anonymous), else public npm (empty, e.g. a fork). The yarn.lock rewrite is best-effort (non-fatal) so a
+# path mismatch degrades to public downloads rather than breaking the build.
+ARG VERDACCIO_REGISTRY=""
+RUN if [ -n "$VERDACCIO_REGISTRY" ]; then \
+        echo "registry=${VERDACCIO_REGISTRY}" >> "$HOME/.npmrc" && \
+        printf 'registry "%s"\n' "${VERDACCIO_REGISTRY}" >> "$HOME/.yarnrc" && \
+        { sed -i "s|https://registry.yarnpkg.com|${VERDACCIO_REGISTRY%/}|g; s|https://registry.npmjs.org|${VERDACCIO_REGISTRY%/}|g" yarn.lock 2>/dev/null || true; }; \
+    fi
+
 # Install deps (fall back to a non-frozen install if the lockfile drifts)
 RUN yarn install --frozen-lockfile --non-interactive \
     || yarn install --non-interactive
