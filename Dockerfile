@@ -40,6 +40,19 @@ COPY webapp webapp
 
 RUN dos2unix bin/* && chmod +x bin/*.sh
 
+# Configure the npm/yarn registry: prefer the internal Verdaccio cache (VERDACCIO_REGISTRY build-arg,
+# anonymous), else public npm (empty, e.g. a fork). Writing to the home-level .npmrc/.yarnrc makes it
+# apply to all installs run by bin/install-deps.sh (root, webapp and api). The yarn.lock rewrites are
+# best-effort (non-fatal) so a path mismatch degrades to public downloads rather than breaking the build.
+ARG VERDACCIO_REGISTRY=""
+RUN if [ -n "$VERDACCIO_REGISTRY" ]; then \
+		echo "registry=${VERDACCIO_REGISTRY}" >> "$HOME/.npmrc" && \
+		printf 'registry "%s"\n' "${VERDACCIO_REGISTRY}" >> "$HOME/.yarnrc" && \
+		for lock in yarn.lock webapp/yarn.lock api/yarn.lock; do \
+			sed -i "s|https://registry.yarnpkg.com|${VERDACCIO_REGISTRY%/}|g; s|https://registry.npmjs.org|${VERDACCIO_REGISTRY%/}|g" "$lock" 2>/dev/null || true; \
+		done; \
+	fi
+
 RUN bin/build.sh
 
 # Runtime stage

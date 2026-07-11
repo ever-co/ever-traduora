@@ -1,0 +1,52 @@
+name: k8s-build
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop, stage, main, master]
+concurrency:
+  group: k8s-build-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ${{ vars.RUNNER_LINUX_X64_8 || vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: ever-traduora
+            dockerfile: Dockerfile
+            context: .
+          - image: ever-traduora-docs
+            dockerfile: Dockerfile.everk8s
+            context: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: t
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            develop) echo "tag=dev" >> "$GITHUB_OUTPUT" ;;
+            stage) echo "tag=stage" >> "$GITHUB_OUTPUT" ;;
+            main|master) echo "tag=prod" >> "$GITHUB_OUTPUT" ;;
+            *) echo "tag=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          build-args: |
+            VERDACCIO_REGISTRY=${{ vars.VERDACCIO_REGISTRY }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.t.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache,mode=max

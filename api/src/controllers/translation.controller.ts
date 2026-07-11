@@ -143,7 +143,7 @@ export default class TranslationController {
           },
           relations: ['term', 'labels'],
         });
-        const result = translations.map(t => ({ termId: t.term.id, value: t.value, labels: t.labels, date: t.date }));
+        const result = translations.filter(t => !!t.term).map(t => ({ termId: t.term.id, value: t.value, labels: t.labels, date: t.date }));
         return { data: result };
       } catch (error) {
         throw new NotFoundException('project translation not found');
