@@ -11,7 +11,7 @@ permissions:
   packages: write
 jobs:
   build:
-    runs-on: ${{ vars.RUNNER_LINUX_X64_8 || vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -23,9 +23,9 @@ jobs:
             dockerfile: Dockerfile.everk8s
             context: .
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -38,7 +38,7 @@ jobs:
             main|master) echo "tag=prod" >> "$GITHUB_OUTPUT" ;;
             *) echo "tag=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT" ;;
           esac
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
