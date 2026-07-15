@@ -1,39 +1,77 @@
 {
-  "name": "@ever-traduora/docs",
-  "version": "0.21.0",
-  "license": "AGPL-3.0-only",
-  "homepage": "https://traduora.co",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ever-co/ever-traduora.git"
-  },
-  "bugs": {
-    "url": "https://github.com/ever-co/ever-traduora/issues"
-  },
-  "private": true,
-  "author": {
-    "name": "Ever Co. LTD",
-    "email": "ever@ever.co",
-    "url": "https://ever.co"
-  },
-  "scripts": {
-    "start": "docusaurus-start",
-    "build": "docusaurus-build",
-    "publish": "docusaurus-publish",
-    "write-translations": "docusaurus-write-translations",
-    "version": "docusaurus-version",
-    "rename-version": "docusaurus-rename-version"
-  },
-  "devDependencies": {
-    "docusaurus": "^1.14.7"
-  },
-  "dependencies": {
-    "bootstrap": "^4.6.2",
-    "jpegtran-bin": "^7.0.0"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "yarn": ">=1.13.0"
-  },
-  "snyk": true
+	"name": "@ever-traduora/docs",
+	"version": "0.21.0",
+	"description": "Ever® Traduora documentation — Docusaurus site for docs.traduora.co",
+	"homepage": "https://traduora.co",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ever-co/ever-traduora.git"
+	},
+	"bugs": {
+		"url": "https://github.com/ever-co/ever-traduora/issues"
+	},
+	"license": "AGPL-3.0-only",
+	"private": true,
+	"author": {
+		"name": "Ever Co. LTD",
+		"email": "ever@ever.co",
+		"url": "https://ever.co"
+	},
+	"scripts": {
+		"docusaurus": "docusaurus",
+		"dev": "docusaurus start",
+		"start": "docusaurus start",
+		"build": "docusaurus build",
+		"swizzle": "docusaurus swizzle",
+		"deploy": "docusaurus deploy",
+		"clear": "docusaurus clear",
+		"serve": "docusaurus serve",
+		"write-translations": "docusaurus write-translations",
+		"write-heading-ids": "docusaurus write-heading-ids",
+		"typecheck": "tsc"
+	},
+	"dependencies": {
+		"@docusaurus/core": "^3.9.2",
+		"@docusaurus/plugin-client-redirects": "^3.9.2",
+		"@docusaurus/plugin-content-docs": "^3.9.2",
+		"@docusaurus/preset-classic": "^3.9.2",
+		"@docusaurus/theme-common": "^3.9.2",
+		"@docusaurus/theme-mermaid": "^3.9.2",
+		"@docusaurus/theme-search-algolia": "^3.9.2",
+		"@easyops-cn/docusaurus-search-local": "^0.54.1",
+		"@mdx-js/react": "^3.0.0",
+		"clsx": "^2.0.0",
+		"docusaurus-plugin-sentry": "^2.0.0",
+		"dotenv": "^16.4.5",
+		"prism-react-renderer": "^2.3.0",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1"
+	},
+	"devDependencies": {
+		"@docusaurus/module-type-aliases": "^3.9.2",
+		"@docusaurus/tsconfig": "^3.9.2",
+		"@docusaurus/types": "^3.9.2",
+		"@tailwindcss/postcss": "^4.0.0",
+		"@types/react": "^18.3.12",
+		"@types/react-dom": "^18.3.1",
+		"postcss": "^8.5.3",
+		"tailwind-merge": "^3.0.1",
+		"tailwindcss": "^4.0.0",
+		"typescript": "~5.6.2"
+	},
+	"browserslist": {
+		"production": [
+			">0.5%",
+			"not dead",
+			"not op_mini all"
+		],
+		"development": [
+			"last 3 chrome version",
+			"last 3 firefox version",
+			"last 5 safari version"
+		]
+	},
+	"engines": {
+		"node": ">=20.0"
+	}
 }

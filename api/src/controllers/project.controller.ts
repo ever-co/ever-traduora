@@ -83,7 +83,7 @@ export default class ProjectController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async findOne(@Req() req, @Param('projectId') projectId: string) {
-    const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
+    const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewProject);
     return {
       data: {

@@ -192,3 +192,4 @@ You can also view a full list of our [contributors tracked by Github](https://gi
 [![DeepScan grade](https://deepscan.io/api/teams/3293/projects/16761/branches/365112/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=3293&pid=16761&bid=365112)
 [![Known Vulnerabilities](https://snyk.io/test/github/ever-co/ever-traduora/badge.svg)](https://snyk.io/test/github/ever-co/ever-traduora)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fever-co%2Fever-traduora?ref=badge_shield)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ever-co/ever-traduora?utm_source=oss&utm_medium=github&utm_campaign=ever-co%2Fever-traduora&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)

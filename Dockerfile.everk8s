@@ -1,49 +1,45 @@
 # syntax=docker/dockerfile:1
-# ever-traduora-docs — Docusaurus v1 static docs site
-# Build context = repo root (the site in docs-website/ resolves its content from ../docs).
-# Output of docusaurus-build (projectName "traduora") -> docs-website/build/traduora
-# Served as static files by nginx.
+# ever-traduora-docs — Docusaurus v3 static docs site (docs.traduora.co)
+# Build context = repo root. The site in docs-website/ resolves its content from
+# ../docs (docusaurus.config.ts -> presets.docs.path = '../docs/').
+# Output of `docusaurus build` -> docs-website/build. Served as static files by nginx.
 
 # ---- Build stage ----
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
-# git + build toolchain: docusaurus v1 deps (jpegtran-bin, etc.) may compile native binaries
+# git + build toolchain for any native deps pulled by the Docusaurus toolchain.
 RUN apk add --no-cache git python3 make g++ bash libc6-compat
 
 WORKDIR /app
 
-# Docusaurus v1 reads docs content from ../docs relative to the website dir.
-# Copy both so the relative resolution works.
+# Docusaurus reads docs content from ../docs relative to the website dir, so copy both.
 COPY docs ./docs
 COPY docs-website ./docs-website
 
 WORKDIR /app/docs-website
 
-# Configure the npm/yarn registry: prefer the internal Verdaccio cache (VERDACCIO_REGISTRY build-arg,
-# anonymous), else public npm (empty, e.g. a fork). The yarn.lock rewrite is best-effort (non-fatal) so a
-# path mismatch degrades to public downloads rather than breaking the build.
+# Prefer the internal Verdaccio cache (VERDACCIO_REGISTRY build-arg, anonymous) when provided,
+# else fall back to the public npm registry pinned in .npmrc (e.g. a fork). Appending wins over
+# the committed default because the last registry line in .npmrc takes precedence.
 ARG VERDACCIO_REGISTRY=""
 RUN if [ -n "$VERDACCIO_REGISTRY" ]; then \
-        echo "registry=${VERDACCIO_REGISTRY}" >> "$HOME/.npmrc" && \
-        printf 'registry "%s"\n' "${VERDACCIO_REGISTRY}" >> "$HOME/.yarnrc" && \
-        { sed -i "s|https://registry.yarnpkg.com|${VERDACCIO_REGISTRY%/}|g; s|https://registry.npmjs.org|${VERDACCIO_REGISTRY%/}|g" yarn.lock 2>/dev/null || true; }; \
+        echo "registry=${VERDACCIO_REGISTRY}" >> .npmrc; \
     fi
 
-# Install deps (fall back to a non-frozen install if the lockfile drifts)
-RUN yarn install --frozen-lockfile --non-interactive \
-    || yarn install --non-interactive
+# Install deps (reproducible when the lockfile is present; tolerate drift on a fork).
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
-# Build the static site -> /app/docs-website/build/traduora
-RUN yarn build
+# Build the static site -> /app/docs-website/build
+RUN npm run build
 
 # ---- Runtime stage ----
 FROM nginx:alpine
 
-# Multi-page site: custom conf handles docusaurus v1 cleanUrl (page -> page.html)
+# Docusaurus v3 emits per-route directories with index.html; nginx.conf handles clean URLs.
 COPY docs-website/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy the generated static site (projectName = "traduora")
-COPY --from=builder /app/docs-website/build/traduora /usr/share/nginx/html
+# Copy the generated static site (v3 output dir = build/)
+COPY --from=builder /app/docs-website/build /usr/share/nginx/html
 
 EXPOSE 80
 

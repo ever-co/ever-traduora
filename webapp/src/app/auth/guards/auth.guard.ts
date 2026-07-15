@@ -16,6 +16,7 @@ export class AuthGuard {
       map(ok => {
         if (!ok) {
           this.store.dispatch(new MustLogin(state.url));
+          return false;
         }
         return true;
       }),
