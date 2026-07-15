@@ -5,7 +5,7 @@ import { ApiExcludeEndpoint } from '@nestjs/swagger';
 
 @Controller()
 export default class IndexController {
-  @Get('*')
+  @Get('{*splat}')
   @ApiExcludeEndpoint()
   async index(@Res() res) {
     res.sendFile(resolve(config.publicDir, 'index.html'));
