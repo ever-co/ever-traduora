@@ -184,8 +184,8 @@ const config: Config = {
 				'traduora is an open-source translation management platform — import and export in multiple formats, translate through the UI or the API, and automate your localization workflow.',
 			socialLinks: [
 				{ title: 'GitHub', href: GITHUB_REPO_URL, icon: 'github' },
-				{ title: 'Twitter', href: 'https://twitter.com/everhq', icon: 'twitter' },
-				{ title: 'Discord', href: 'https://discord.gg/ever', icon: 'discord' }
+				{ title: 'X', href: 'https://x.com/everplatform', icon: 'twitter' },
+				{ title: 'Discord', href: 'https://discord.gg/msqRJ4w', icon: 'discord' }
 			],
 			systemStatus: {
 				status: 'normal',

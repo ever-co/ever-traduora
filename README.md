@@ -117,6 +117,7 @@ Some questions come up over and over again. Be sure to check out our [FAQ](https
 ## 💌 Contact Us
 
 - [Ever.co Website Contact Us page](https://ever.co/contacts)
+- [Discord Chat](https://discord.gg/msqRJ4w)
 - [CodeMentor](https://www.codementor.io/evereq)
 - For business inquiries: <mailto:traduora@ever.co>
 - Please report security vulnerabilities to <mailto:security@ever.co>
