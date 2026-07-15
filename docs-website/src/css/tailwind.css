@@ -1,0 +1,75 @@
+@import 'tailwindcss' layer(utilities);
+
+/*
+ * Tailwind v4 CSS-based configuration
+ *
+ * Note: @import "tailwindcss" layer(utilities) disables Preflight
+ * to avoid conflicts with Docusaurus/Infima styles.
+ *
+ * Content detection is automatic in v4 — no "content" config needed.
+ */
+
+/* Override dark mode detection for Docusaurus (uses data-theme="dark" instead of .dark class) */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+	/* Font families */
+	--font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+	--font-mono: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+	/* Primary color palette */
+	--color-primary-50: #f0f9ff;
+	--color-primary-100: #e0f2fe;
+	--color-primary-200: #bae6fd;
+	--color-primary-300: #7dd3fc;
+	--color-primary-400: #38bdf8;
+	--color-primary-500: #0ea5e9;
+	--color-primary-600: #0284c7;
+	--color-primary-700: #0369a1;
+	--color-primary-800: #075985;
+	--color-primary-900: #0c4a6e;
+
+	/* Docusaurus theme integration */
+	--color-docusaurus-primary: var(--ifm-color-primary);
+	--color-docusaurus-secondary: var(--ifm-color-secondary);
+
+	/* Custom spacing */
+	--spacing-18: 4.5rem;
+	--spacing-88: 22rem;
+
+	/* Animations */
+	--animate-fade-in: fadeIn 0.5s ease-in-out;
+	--animate-slide-up: slideUp 0.3s ease-out;
+	--animate-pulse-scale: pulseScale 2s ease-in-out infinite;
+	--animate-spin-slow: spin 9s linear infinite;
+}
+
+@keyframes fadeIn {
+	0% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+@keyframes slideUp {
+	0% {
+		transform: translateY(10px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@keyframes pulseScale {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(1.5);
+	}
+}

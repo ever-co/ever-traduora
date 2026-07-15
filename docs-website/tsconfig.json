@@ -1,0 +1,24 @@
+{
+	// This file is not used in compilation. It is here just for a nice editor experience.
+	"extends": "@docusaurus/tsconfig",
+	"compilerOptions": {
+		"baseUrl": ".",
+		"types": ["@docusaurus/module-type-aliases"],
+		// Force @types/react / @types/react-dom resolution to the 18.x copy pinned
+		// in this app's devDependencies. Several Docusaurus 3 packages (e.g.
+		// @docusaurus/module-type-aliases, @docusaurus/react-loadable,
+		// @docusaurus/theme-common) transitively pull @types/react@19, which leaks
+		// the React-19 ReactNode (includes `bigint`) into types for `Link` etc.
+		// At the JSX call site tsc resolves to the 18.x ReactNode, producing
+		// TS2786 "'Link' cannot be used as a JSX component" (Footer/FooterLinks,
+		// Navbar/DesktopMenu). Pinning paths keeps every consumer in this app on
+		// 18.x without affecting apps/web (React 19).
+		"paths": {
+			"@site/*": ["./*"],
+			"react": ["./node_modules/@types/react"],
+			"react/*": ["./node_modules/@types/react/*"],
+			"react-dom": ["./node_modules/@types/react-dom"],
+			"react-dom/*": ["./node_modules/@types/react-dom/*"]
+		}
+	}
+}
