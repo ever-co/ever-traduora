@@ -50,7 +50,7 @@ const config: Config = {
 				}
 			]
 	],
-	title: 'traduora',
+	title: 'Ever Traduora',
 	tagline: 'Ever® Traduora — Open-source translation management platform',
 	favicon: 'img/favicon.ico',
 	url: 'https://docs.traduora.co',
