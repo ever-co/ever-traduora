@@ -5,9 +5,9 @@ sidebar_label: Introduction
 slug: /
 ---
 
-# traduora
+# Ever Traduora
 
-**traduora** is an open-source translation management platform. Once you import your
+**Ever Traduora** is an open-source translation management platform. Once you import your
 translation files you can use the web interface, the REST API, or the CLI to collaborate
 on translations, keep everything in sync, and automate your localization workflow.
 
