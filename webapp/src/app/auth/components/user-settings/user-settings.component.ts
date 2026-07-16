@@ -7,6 +7,7 @@ import { User } from '../../models/user';
 import { AuthState, ChangePassword, ClearMessages, DeleteAccount, UpdateUserSelf } from '../../stores/auth.state';
 
 @Component({
+  standalone: false,
   selector: 'app-user-settings',
   templateUrl: './user-settings.component.html',
   styleUrls: ['./user-settings.component.css'],

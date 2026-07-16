@@ -4,6 +4,7 @@ import { Store } from '@ngxs/store';
 import { ReceiveAuthProviderCode } from '../../stores/auth.state';
 
 @Component({
+  standalone: false,
   selector: 'app-callback',
   templateUrl: './callback.component.html',
   styleUrls: ['./callback.component.css'],

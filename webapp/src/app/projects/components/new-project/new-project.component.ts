@@ -6,6 +6,7 @@ import { Observable } from 'rxjs';
 import { ClearMessages, CreateProject } from '../../stores/projects.state';
 
 @Component({
+  standalone: false,
   selector: 'app-new-project',
   templateUrl: './new-project.component.html',
   styleUrls: ['./new-project.component.css'],

@@ -15,6 +15,7 @@ import {
 import { ProjectsState } from '../../stores/projects.state';
 import { TAG_COLORS } from '../../models/label';
 @Component({
+  standalone: false,
   selector: 'app-labels-list',
   templateUrl: './labels-list.component.html',
   styleUrls: ['./labels-list.component.css'],

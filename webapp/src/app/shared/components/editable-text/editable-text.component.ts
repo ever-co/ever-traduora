@@ -1,6 +1,7 @@
 import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, ViewChild } from '@angular/core';
 
 @Component({
+  standalone: false,
   selector: 'app-editable-text',
   templateUrl: './editable-text.component.html',
   styleUrls: ['./editable-text.component.css'],

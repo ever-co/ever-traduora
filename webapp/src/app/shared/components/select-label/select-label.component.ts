@@ -4,6 +4,7 @@ import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { Label } from '../../../projects/models/label';
 
 @Component({
+  standalone: false,
   selector: 'app-select-label',
   templateUrl: './select-label.component.html',
   styleUrls: ['./select-label.component.css'],

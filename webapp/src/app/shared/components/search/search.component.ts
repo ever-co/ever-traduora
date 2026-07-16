@@ -3,6 +3,7 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { debounceTime, distinctUntilChanged, mergeMap, map } from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-search',
   templateUrl: './search.component.html',
   styleUrls: ['./search.component.css'],

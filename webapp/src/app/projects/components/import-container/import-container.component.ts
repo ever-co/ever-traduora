@@ -10,6 +10,7 @@ import { ProjectsState } from '../../stores/projects.state';
 import { ClearMessages, GetKnownLocales, GetProjectLocales, TranslationsState } from '../../stores/translations.state';
 
 @Component({
+  standalone: false,
   selector: 'app-import-container',
   templateUrl: './import-container.component.html',
   styleUrls: ['./import-container.component.css'],

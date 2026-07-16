@@ -3,6 +3,7 @@ import { ProjectClient } from '../../models/project-client';
 import { ProjectRole } from '../../models/project-role';
 
 @Component({
+  standalone: false,
   selector: 'app-api-client',
   templateUrl: './api-client.component.html',
   styleUrls: ['./api-client.component.css'],

@@ -2,6 +2,7 @@ import { animate, state, style, transition, trigger } from '@angular/animations'
 import { Component, Input } from '@angular/core';
 
 @Component({
+  standalone: false,
   selector: 'app-loading-indicator',
   templateUrl: './loading-indicator.component.html',
   styleUrls: ['./loading-indicator.component.css'],

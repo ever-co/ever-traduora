@@ -6,6 +6,7 @@ import { Provider } from '../../models/provider';
 import { ClearMessages, GetProviders, Login } from '../../stores/auth.state';
 
 @Component({
+  standalone: false,
   selector: 'app-login',
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css'],

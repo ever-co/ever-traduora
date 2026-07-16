@@ -3,6 +3,7 @@ import { Label } from '../../../projects/models/label';
 import { hexToHSL } from '../../util/color-utils';
 
 @Component({
+  standalone: false,
   selector: 'app-label',
   templateUrl: './label.component.html',
   styleUrls: ['./label.component.css'],

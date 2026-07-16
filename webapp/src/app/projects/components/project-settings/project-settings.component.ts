@@ -8,6 +8,7 @@ import { Project } from '../../models/project';
 import { ClearMessages, DeleteProject, ProjectsState, ReloadCurrentProject, UpdateProject } from '../../stores/projects.state';
 
 @Component({
+  standalone: false,
   selector: 'app-project-settings',
   templateUrl: './project-settings.component.html',
   styleUrls: ['./project-settings.component.css'],
