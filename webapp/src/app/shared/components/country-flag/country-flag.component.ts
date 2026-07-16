@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { Locale } from '../../../projects/models/locale';
 
 @Component({
+  standalone: false,
   selector: 'app-country-flag',
   templateUrl: './country-flag.component.html',
   styleUrls: ['./country-flag.component.css'],

@@ -34,6 +34,7 @@ interface TranslationView {
 }
 
 @Component({
+  standalone: false,
   selector: 'app-translations-list',
   templateUrl: './translations-list.component.html',
   styleUrls: ['./translations-list.component.css'],

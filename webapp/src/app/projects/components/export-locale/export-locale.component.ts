@@ -8,6 +8,7 @@ import { Project } from '../../models/project';
 import { ExportService } from '../../services/export.service';
 
 @Component({
+  standalone: false,
   selector: 'app-export-locale',
   templateUrl: './export-locale.component.html',
   styleUrls: ['./export-locale.component.css'],

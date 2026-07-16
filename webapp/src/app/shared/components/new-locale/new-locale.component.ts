@@ -3,6 +3,7 @@ import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Locale } from '../../../projects/models/locale';
 
 @Component({
+  standalone: false,
   selector: 'app-new-locale',
   templateUrl: './new-locale.component.html',
   styleUrls: ['./new-locale.component.css'],

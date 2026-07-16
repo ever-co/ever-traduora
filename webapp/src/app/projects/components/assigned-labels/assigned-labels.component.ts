@@ -8,6 +8,7 @@ import { Project } from '../../models/project';
 import { ProjectsState } from '../../stores/projects.state';
 
 @Component({
+  standalone: false,
   selector: 'app-assigned-labels',
   templateUrl: './assigned-labels.component.html',
   styleUrls: ['./assigned-labels.component.css'],

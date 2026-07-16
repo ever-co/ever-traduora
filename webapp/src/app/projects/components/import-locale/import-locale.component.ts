@@ -10,6 +10,7 @@ import { ImportService } from '../../services/import.service';
 import { RefreshProjectStats } from '../../stores/projects.state';
 
 @Component({
+  standalone: false,
   selector: 'app-import-locale',
   templateUrl: './import-locale.component.html',
   styleUrls: ['./import-locale.component.css'],

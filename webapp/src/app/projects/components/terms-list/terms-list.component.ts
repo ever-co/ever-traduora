@@ -12,6 +12,7 @@ import { FormControl } from '@angular/forms';
 import { ProjectTermsService } from '../../services/terms.service';
 
 @Component({
+  standalone: false,
   selector: 'app-terms-list',
   templateUrl: './terms-list.component.html',
   styleUrls: ['./terms-list.component.css'],

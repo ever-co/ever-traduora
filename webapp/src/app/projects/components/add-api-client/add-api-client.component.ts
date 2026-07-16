@@ -9,6 +9,7 @@ import { ProjectRole } from '../../models/project-role';
 import { AddProjectClient, ClearMessages } from '../../stores/project-client.state';
 
 @Component({
+  standalone: false,
   selector: 'app-add-api-client',
   templateUrl: './add-api-client.component.html',
   styleUrls: ['./add-api-client.component.css'],
