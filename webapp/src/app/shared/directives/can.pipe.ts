@@ -8,7 +8,9 @@ import { ProjectUserState } from '../../projects/stores/project-user.state';
 import { isAuthorized, ProjectAction } from '../models/actions';
 
 @Pipe({
-  standalone: false, name: 'can' })
+  standalone: false,
+  name: 'can',
+})
 export class CanPipe implements PipeTransform {
   user$: Observable<ProjectUser>;
 
