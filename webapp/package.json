@@ -29,9 +29,9 @@
   },
   "dependencies": {
     "@angular/animations": "^16.2.12",
-    "@angular/common": "^16.2.12",
-    "@angular/compiler": "^16.2.12",
-    "@angular/core": "^16.2.12",
+    "@angular/common": "^20.3.25",
+    "@angular/compiler": "^20.3.25",
+    "@angular/core": "^20.3.25",
     "@angular/forms": "^16.2.12",
     "@angular/localize": "^16.2.12",
     "@angular/platform-browser": "^16.2.12",
