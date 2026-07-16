@@ -112,7 +112,7 @@ export class AppModule {
   configure(consumer: MiddlewareConsumer): void {
     if (config.accessLogsEnabled) {
       MorganMiddleware.configure('short');
-      consumer.apply(MorganMiddleware).forRoutes('*');
+      consumer.apply(MorganMiddleware).forRoutes('{*splat}');
     }
   }
 }
@@ -128,6 +128,11 @@ export const addPipesAndFilters = (app: NestExpressApplication): void => {
   app.disable('x-powered-by');
 
   app.set('etag', false);
+
+  // Express 5 (bundled with NestJS 11) changed the default query parser to 'simple',
+  // which no longer parses nested objects/arrays. Restore the Express 4 'extended'
+  // (qs-based) behavior so existing query-string parsing keeps working.
+  app.set('query parser', 'extended');
 
   if (config.corsEnabled) {
     app.enableCors({ origin: '*' });
