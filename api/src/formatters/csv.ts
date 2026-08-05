@@ -42,14 +42,11 @@ export const csvParser: Parser = async (data: string) => {
  * @returns
  */
 const csvInjectionProtector = (str: string) => {
-  const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll', '|'];
+  const riskyChars = ['=', '+', '-', '@', ',', ';'];
   if (!str) return '';
 
-  /**
-   * Check first character of string
-   */
   if (riskyChars.includes(str.charAt(0))) {
-    return str.replace(str.charAt(0), '');
+    return `'${str}`;
   }
   return str;
 };
