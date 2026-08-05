@@ -8,9 +8,8 @@
 
 ## 💡 What's New
 
-We released [Ever Gauzy Teams](https://github.com/ever-co/ever-gauzy-teams) platform for Work & Project Management.  
-Please check <https://github.com/ever-co/ever-gauzy-teams> and make it ⭐ on GitHub!  
-It's built with React / ReactNative stack and connects to headless [Ever Gauzy Platform](https://github.com/ever-co/ever-gauzy) APIs.
+- 🔥🔥🔥 we just released [Ever Works](https://github.com/ever-works/ever-works) - An open agentic runtime that autonomously researches, ships, and maintains entire businesses, 24/7. Please grab it now from <https://github.com/ever-works/ever-works> and make it ⭐⭐⭐ on GitHub!
+- if you like Ever Traduora, you should also check [Ever Gauzy](https://github.com/ever-co/ever-gauzy) - Open Business Management Platform (ERP/CRM/HRM/ATS/PM). Please review <https://github.com/ever-co/ever-gauzy> and make it ⭐ on GitHub!
 
 ## 🌟 What is it
 
