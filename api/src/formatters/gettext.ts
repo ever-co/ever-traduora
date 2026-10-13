@@ -37,7 +37,7 @@ export const gettextParser: Parser = async (data: string) => {
 };
 
 export const gettextExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-  const asObj = data.translations.reduce((acc, item) => ({ ...acc, [item.term]: { msgid: item.term, msgstr: item.translation } }), {});
+  const asObj = Object.fromEntries(data.translations.map(item => [item.term, { msgid: item.term, msgstr: item.translation }]));
   const out = {
     charset: 'utf-8',
     headers: {
