@@ -23,4 +23,4 @@ export const yamlFlatParser: Parser = async (data: string) => {
 };
 
 export const yamlFlatExporter: Exporter = async (data: IntermediateTranslationFormat) =>
-  yaml.dump(data.translations.reduce((acc, x) => ({ ...acc, [x.term]: x.translation }), {}));
+  yaml.dump(Object.fromEntries(data.translations.map(x => [x.term, x.translation])));

@@ -8,7 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- TODO
+- [PR-555:](https://github.com/ever-co/ever-traduora/pull/555) Fix slow imports and flat exports for projects with many terms (thanks @joelsoedito)
 
 ## 0.19.4
 
