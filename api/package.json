@@ -130,7 +130,7 @@
     "testEnvironment": "node"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=22",
     "yarn": ">=1.13.0"
   },
   "snyk": true

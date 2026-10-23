@@ -25,7 +25,7 @@ RUN npm --version
 # Output Python3 version
 RUN python3 --version
 
-RUN npm install --quiet node-gyp@9.3.1 -g
+RUN npm install --quiet node-gyp@13.1.0 -g
 RUN npm install yarn -g --force
 
 COPY wait docker-entrypoint.compose.sh docker-entrypoint.sh /

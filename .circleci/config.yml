@@ -21,19 +21,19 @@ jobs:
       - run: node --version
       - restore_cache:
           keys:
-            - api-deps-{{ checksum "api/yarn.lock" }}
-            - webapp-deps-{{ checksum "webapp/yarn.lock" }}
+            - node-26.12.1-api-deps-{{ checksum "api/yarn.lock" }}
+            - node-26.12.1-webapp-deps-{{ checksum "webapp/yarn.lock" }}
       - run:
           name: Install deps
           command: bin/install-deps.sh
       - save_cache:
           paths:
             - ~/workspace/api/node_modules
-          key: api-deps-{{ checksum "api/yarn.lock" }}
+          key: node-26.12.1-api-deps-{{ checksum "api/yarn.lock" }}
       - save_cache:
           paths:
             - ~/workspace/webapp/node_modules
-          key: webapp-deps-{{ checksum "webapp/yarn.lock" }}
+          key: node-26.12.1-webapp-deps-{{ checksum "webapp/yarn.lock" }}
       - run:
           name: Run Lint checks
           command: bin/check_lint.sh
@@ -54,19 +54,19 @@ jobs:
       - run: node --version
       - restore_cache:
           keys:
-            - api-deps-{{ checksum "api/yarn.lock" }}
-            - webapp-deps-{{ checksum "webapp/yarn.lock" }}
+            - node-26.12.1-api-deps-{{ checksum "api/yarn.lock" }}
+            - node-26.12.1-webapp-deps-{{ checksum "webapp/yarn.lock" }}
       - run:
           name: Install deps
           command: bin/install-deps.sh
       - save_cache:
           paths:
             - ~/workspace/api/node_modules
-          key: api-deps-{{ checksum "api/yarn.lock" }}
+          key: node-26.12.1-api-deps-{{ checksum "api/yarn.lock" }}
       - save_cache:
           paths:
             - ~/workspace/webapp/node_modules
-          key: webapp-deps-{{ checksum "webapp/yarn.lock" }}
+          key: node-26.12.1-webapp-deps-{{ checksum "webapp/yarn.lock" }}
       - run:
           name: Wait for DB
           command: dockerize -wait tcp://127.0.0.1:3306 -timeout 120s
@@ -90,19 +90,19 @@ jobs:
       - run: node --version
       - restore_cache:
           keys:
-            - api-deps-{{ checksum "api/yarn.lock" }}
-            - webapp-deps-{{ checksum "webapp/yarn.lock" }}
+            - node-26.12.1-api-deps-{{ checksum "api/yarn.lock" }}
+            - node-26.12.1-webapp-deps-{{ checksum "webapp/yarn.lock" }}
       - run:
           name: Install deps
           command: bin/install-deps.sh
       - save_cache:
           paths:
             - ~/workspace/api/node_modules
-          key: api-deps-{{ checksum "api/yarn.lock" }}
+          key: node-26.12.1-api-deps-{{ checksum "api/yarn.lock" }}
       - save_cache:
           paths:
             - ~/workspace/webapp/node_modules
-          key: webapp-deps-{{ checksum "webapp/yarn.lock" }}
+          key: node-26.12.1-webapp-deps-{{ checksum "webapp/yarn.lock" }}
       - run:
           name: Wait for DB
           command: dockerize -wait tcp://127.0.0.1:3306 -timeout 120s
