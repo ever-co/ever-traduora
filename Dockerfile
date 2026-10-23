@@ -4,7 +4,7 @@ ARG NODE_OPTIONS
 ARG NODE_ENV
 
 # Build stage
-FROM node:20.19.0-alpine3.21 as builder
+FROM node:26.12.1-alpine3.23 as builder
 
 LABEL maintainer="ever@ever.co"
 LABEL org.opencontainers.image.source https://github.com/ever-co/ever-traduora
@@ -56,7 +56,7 @@ RUN if [ -n "$VERDACCIO_REGISTRY" ]; then \
 RUN bin/build.sh
 
 # Runtime stage
-FROM node:20.19.0-alpine3.21
+FROM node:26.12.1-alpine3.23
 
 ENV NODE_OPTIONS=${NODE_OPTIONS:-"--max-old-space-size=12288"}
 ENV NODE_ENV=${NODE_ENV:-production}
@@ -69,8 +69,9 @@ COPY --from=builder /wait /docker-entrypoint.sh /docker-entrypoint.compose.sh ./
 
 COPY --from=builder /opt/traduora/dist/ /opt/traduora/
 
-# Clean up
-RUN yarn cache clean
+# Clean up. node:26 images no longer bundle Yarn, and this stage installs nothing with it,
+# so only clean when a yarn binary is present.
+RUN if command -v yarn >/dev/null 2>&1; then yarn cache clean; fi
 
 EXPOSE 8080
 
