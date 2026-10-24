@@ -67,6 +67,10 @@ export class AddTeamMemberComponent implements OnDestroy {
   }
 
   async addTeamMember() {
+    // The link is showing: submitting again would send a new link and invalidate this one
+    if (this.inviteUrl) {
+      return;
+    }
     const email = this.email.value as string;
     const roleString = this.role.value as string;
     const role = ProjectRole[$enum(ProjectRole).getKeyOrThrow(roleString)];
@@ -81,10 +85,15 @@ export class AddTeamMemberComponent implements OnDestroy {
     }
   }
 
-  copyInviteUrl() {
-    if (this.inviteUrl && navigator.clipboard) {
-      // The link stays selectable in the field if the browser refuses
-      navigator.clipboard.writeText(this.inviteUrl).catch(() => undefined);
+  copyInviteUrl(input: HTMLInputElement) {
+    // Selecting the link also lets the admin copy it by hand if the browser refuses
+    input.select();
+    // The Clipboard API only exists on HTTPS, self-hosted instances often run on plain HTTP
+    const copySelection = () => document.execCommand('copy');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(input.value).catch(copySelection);
+    } else {
+      copySelection();
     }
   }
 

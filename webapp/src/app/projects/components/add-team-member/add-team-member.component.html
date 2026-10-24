@@ -11,9 +11,17 @@
       <p>You can also send it to them yourself. It only works for that email, so do not share it with anyone else.</p>
       <label for="inviteUrlInput" class="sr-only">Invitation link</label>
       <div class="input-group">
-        <input id="inviteUrlInput" class="form-control" type="text" [value]="inviteUrl" readonly (focus)="$any($event.target).select()" />
+        <input
+          #inviteUrlInput
+          id="inviteUrlInput"
+          class="form-control"
+          type="text"
+          [value]="inviteUrl"
+          readonly
+          (focus)="$any($event.target).select()"
+        />
         <div class="input-group-append">
-          <button type="button" class="btn btn-light" (click)="copyInviteUrl()">Copy</button>
+          <button type="button" class="btn btn-light" (click)="copyInviteUrl(inviteUrlInput)">Copy</button>
         </div>
       </div>
     </div>
