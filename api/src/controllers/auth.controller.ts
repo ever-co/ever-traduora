@@ -86,13 +86,12 @@ export class AuthController {
       relations: ['project'],
     });
 
-    // Nothing proves that the caller owns this email, except the token from the invitation link sent to it. Without it
-    // anyone could claim the invitation, or take the email so that the real invitee can never accept it.
-    if (invites.length > 0) {
-      const tokenHash = inviteToken ? hashInviteToken(inviteToken) : undefined;
-      if (!invites.some(invite => invite.tokenHash && invite.tokenHash === tokenHash)) {
-        throw new UnauthorizedException('A valid invite token is required to sign up with this email.');
-      }
+    // Nothing proves that the caller owns this email. The token from an invitation link only proves that they received
+    // that one invitation, by email or from the admin who sent it, so it accepts that invitation and no other.
+    const tokenHash = inviteToken ? hashInviteToken(inviteToken) : undefined;
+    const acceptedInvites = invites.filter(invite => invite.tokenHash && invite.tokenHash === tokenHash);
+    if (invites.length > 0 && acceptedInvites.length === 0) {
+      throw new UnauthorizedException('A valid invite token is required to sign up with this email.');
     }
 
     // Early exit if the user has no invitation and sign up is disabled.
@@ -102,16 +101,16 @@ export class AuthController {
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...signup });
 
-    if (invites.length > 0) {
+    if (acceptedInvites.length > 0) {
       // accept project invites
       await this.inviteRepo.manager.transaction(async entityManager => {
-        invites.forEach(invite => {
+        acceptedInvites.forEach(invite => {
           invite.status = InviteStatus.Accepted;
           invite.tokenHash = null;
         });
-        await entityManager.save(invites);
+        await entityManager.save(acceptedInvites);
 
-        const projectUsers = invites.map(invite => {
+        const projectUsers = acceptedInvites.map(invite => {
           return entityManager.create(ProjectUser, {
             project: { id: invite.project.id },
             user: user,

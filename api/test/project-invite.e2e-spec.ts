@@ -306,6 +306,31 @@ describe('ProjectInviteController (e2e)', () => {
       expect(await pendingInvites()).toHaveLength(0);
     });
 
+    it('should not accept invites of other projects with a link from your own project', async () => {
+      // testingUser2 invites the same email to their own project and receives that invite's link
+      const testProject2 = await createTestProject(app, testingUser2);
+      let ownUrl: string;
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject2.id}/invites`)
+        .set('Authorization', `Bearer ${testingUser2.accessToken}`)
+        .send({ email: inviteeEmail, role: 'viewer' })
+        .expect(201)
+        .expect(res => {
+          ownUrl = res.body.data.inviteUrl;
+        });
+
+      const {
+        body: { data: account },
+      } = await signup(inviteeEmail, inviteToken(ownUrl)).expect(200);
+
+      await request(app.getHttpServer()).get(`/api/v1/projects/${testProject2.id}`).set('Authorization', `Bearer ${account.accessToken}`).expect(200);
+      await request(app.getHttpServer()).get(`/api/v1/projects/${testProject1.id}`).set('Authorization', `Bearer ${account.accessToken}`).expect(404);
+
+      const invites = await pendingInvites();
+      expect(invites).toHaveLength(1);
+      expect(invites[0].role).toEqual('admin');
+    });
+
     it('should replace the invite link when inviting the same email again', async () => {
       const firstUrl = inviteUrl;
       let secondUrl: string;

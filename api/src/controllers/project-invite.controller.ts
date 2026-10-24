@@ -85,6 +85,14 @@ export default class ProjectInviteController {
 
       this.mail.invitedToProject(newProjectUser);
 
+      // An invite sent before they had an account is no longer needed
+      const staleInvite = await this.inviteRepo.findOne({
+        where: { project: { id: projectId }, email: normalizeEmail(inviteUserRequest.email) },
+      });
+      if (staleInvite) {
+        await this.inviteRepo.remove(staleInvite);
+      }
+
       return {
         data: {
           userId: newProjectUser.user.id,

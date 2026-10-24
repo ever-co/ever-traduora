@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 import { config } from '../config';
 import { DbType } from '../utils/database-type-helper';
 
-export class addInviteToken1761300000000 implements MigrationInterface {
+export class addInviteToken1792872000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     switch (config.db.default.type) {
       case DbType.POSTGRES:

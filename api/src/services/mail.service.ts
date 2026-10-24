@@ -110,12 +110,17 @@ export default class MailService {
   }
 
   private async send(message: SendMailOptions): Promise<any> {
-    if (this.transporter) {
-      await this.transporter.sendMail(message);
-    }
-    if (config.mail.debug) {
-      // createTransport({jsonTransport: true})
-      await previewEmail(message);
+    // Callers do not wait for emails, so a failure must not become an unhandled rejection that stops the server
+    try {
+      if (this.transporter) {
+        await this.transporter.sendMail(message);
+      }
+      if (config.mail.debug) {
+        // createTransport({jsonTransport: true})
+        await previewEmail(message);
+      }
+    } catch (error) {
+      console.error(`Could not send the email '${message.subject}'`, error);
     }
   }
 

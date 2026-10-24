@@ -73,7 +73,7 @@ export class AddTeamMemberComponent implements OnDestroy {
     if (this.projectId && email && role) {
       await this.store.dispatch(new AddProjectInvite(this.projectId, email, role)).toPromise();
       const [invite] = this.store.selectSnapshot(ProjectInviteState.invites);
-      if (invite && invite.inviteUrl) {
+      if (invite?.inviteUrl) {
         this.inviteUrl = invite.inviteUrl;
       } else {
         this.modal.close();
@@ -83,7 +83,8 @@ export class AddTeamMemberComponent implements OnDestroy {
 
   copyInviteUrl() {
     if (this.inviteUrl && navigator.clipboard) {
-      navigator.clipboard.writeText(this.inviteUrl);
+      // The link stays selectable in the field if the browser refuses
+      navigator.clipboard.writeText(this.inviteUrl).catch(() => undefined);
     }
   }
 
