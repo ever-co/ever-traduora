@@ -389,6 +389,32 @@ describe('ProjectInviteController (e2e)', () => {
       expect(await pendingInvites()).toHaveLength(1);
     });
 
+    it('should keep the invite link when changing the role of the invite', async () => {
+      const [invite] = await pendingInvites();
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/projects/${testProject1.id}/invites/${invite.id}`)
+        .set('Authorization', `Bearer ${testingUser1.accessToken}`)
+        .send({ role: 'editor' })
+        .expect(200)
+        .expect(res => {
+          expect(res.body.data).toHaveExactProperties(['id', 'email', 'status', 'role']);
+          expect(res.body.data.role).toEqual('editor');
+        });
+
+      const {
+        body: { data: invitee },
+      } = await signup(inviteeEmail, inviteToken(inviteUrl)).expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject1.id}`)
+        .set('Authorization', `Bearer ${invitee.accessToken}`)
+        .expect(200)
+        .expect(res => {
+          expect(res.body.data.role).toEqual('editor');
+        });
+    });
+
     it('should replace the invite link when inviting the same email again', async () => {
       const firstUrl = inviteUrl;
       let secondUrl: string;

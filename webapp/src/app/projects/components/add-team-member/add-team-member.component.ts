@@ -77,6 +77,7 @@ export class AddTeamMemberComponent implements OnDestroy {
     const roleString = this.role.value as string;
     const role = ProjectRole[$enum(ProjectRole).getKeyOrThrow(roleString)];
     if (this.projectId && email && role) {
+      const modal = this.modal;
       this.isSubmitting = true;
       try {
         await this.store.dispatch(new AddProjectInvite(this.projectId, email, role)).toPromise();
@@ -85,6 +86,10 @@ export class AddTeamMemberComponent implements OnDestroy {
         return;
       } finally {
         this.isSubmitting = false;
+      }
+      // The modal was closed while sending: do not show this link the next time it opens
+      if (this.modal !== modal) {
+        return;
       }
       const [invite] = this.store.selectSnapshot(ProjectInviteState.invites);
       if (invite?.inviteUrl) {
@@ -108,6 +113,7 @@ export class AddTeamMemberComponent implements OnDestroy {
   }
 
   reset() {
+    this.modal = undefined;
     this.inviteUrl = undefined;
     this.form.reset({
       email: '',

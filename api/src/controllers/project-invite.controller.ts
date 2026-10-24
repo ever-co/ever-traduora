@@ -149,12 +149,11 @@ export default class ProjectInviteController {
 
     const targetInvite = await this.inviteRepo.findOneOrFail({
       where: { project: { id: projectId }, id: inviteId },
-      relations: ['project'],
     });
 
-    targetInvite.role = updateProjectInviteRequest.role;
-
-    const updated = await this.inviteRepo.save(targetInvite, { reload: true });
+    // Persist only the role: saving the loaded invite would write back a link or status changed in the meantime
+    await this.inviteRepo.update({ id: targetInvite.id }, { role: updateProjectInviteRequest.role });
+    const updated = await this.inviteRepo.findOneByOrFail({ id: targetInvite.id });
 
     return {
       data: {
