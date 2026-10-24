@@ -12,21 +12,43 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## 0.22.0
 
-**Security** (please upgrade; advisories on [GitHub](https://github.com/ever-co/ever-traduora/security/advisories)):
+### Security
 
-- [PR-560:](https://github.com/ever-co/ever-traduora/pull/560) A project admin could change or delete invitations of another project, e.g. raise a pending invite to admin ([GHSA-cx96-m99q-j695](https://github.com/ever-co/ever-traduora/security/advisories/GHSA-cx96-m99q-j695), thanks @kats1123, @lighthousekeeper1212 and @Tike00)
-- [PR-562:](https://github.com/ever-co/ever-traduora/pull/562) Auth tokens were signed with the publicly known secret `secret` when `TR_SECRET` was not set, which let anyone forge them ([GHSA-w5wm-pf8g-hmgc](https://github.com/ever-co/ever-traduora/security/advisories/GHSA-w5wm-pf8g-hmgc), thanks @EQSTLab)
-- [PR-563:](https://github.com/ever-co/ever-traduora/pull/563) Signing up with an invited email accepted the invitation without proof of owning that email ([GHSA-pfvf-33wh-gwwr](https://github.com/ever-co/ever-traduora/security/advisories/GHSA-pfvf-33wh-gwwr), thanks @Tike00)
+Please upgrade. The advisories are on
+[GitHub](https://github.com/ever-co/ever-traduora/security/advisories).
 
-**Upgrade notes**
+- [PR-560:](https://github.com/ever-co/ever-traduora/pull/560) A project
+  admin could change or delete invitations of another project, e.g. raise a
+  pending invite to admin (GHSA-cx96-m99q-j695, thanks @kats1123,
+  @lighthousekeeper1212 and @Tike00)
+- [PR-562:](https://github.com/ever-co/ever-traduora/pull/562) Auth tokens
+  were signed with the publicly known secret `secret` when `TR_SECRET` was
+  not set, which let anyone forge them (GHSA-w5wm-pf8g-hmgc, thanks
+  @EQSTLab)
+- [PR-563:](https://github.com/ever-co/ever-traduora/pull/563) Signing up
+  with an invited email accepted the invitation without proof of owning that
+  email (GHSA-pfvf-33wh-gwwr, thanks @Tike00)
 
-- `TR_SECRET` is now **required** when `NODE_ENV=production` (the Docker image default), and the example values published in this repository are refused everywhere. Generate one with `openssl rand -hex 32` and keep it; setting it signs everyone out once. Without it, outside production a random secret is used per process.
-- Invitations are now accepted through the link in the invitation email. Admins also get the link when they invite someone, to share it themselves if the server cannot send email, and people who already have an account open the same link after signing in. Invitations sent before this release have no link: invite those people again to send them one (signing in with Google still accepts them).
-- A new database migration adds a column to `invite`; it runs automatically on start unless `TR_DB_AUTOMIGRATE=false`.
+### Upgrade notes
 
-**Also in this release**
+- `TR_SECRET` is now **required** when `NODE_ENV=production` (the Docker
+  image default), and the example values published in this repository are
+  refused everywhere. Generate one with `openssl rand -hex 32` and keep it;
+  setting it signs everyone out once. Without it, outside production a
+  random secret is used per process.
+- Invitations are now accepted through the link in the invitation email.
+  Admins also get the link when they invite someone, to share it themselves
+  if the server cannot send email, and people who already have an account
+  open the same link after signing in. Invitations sent before this release
+  have no link: invite those people again to send them one (signing in with
+  Google still accepts them).
+- A new database migration adds a column to `invite`; it runs automatically
+  on start unless `TR_DB_AUTOMIGRATE=false`.
 
-- Node 26.12.1, NestJS 11, Angular 19, TypeORM 0.3 and many dependency updates
+### Also in this release
+
+- Node 26.12.1, NestJS 11, Angular 19, TypeORM 0.3 and many dependency
+  updates
 - Requests for missing resources return 404 again instead of 500
 - A failure to send an email no longer stops the API process
 
