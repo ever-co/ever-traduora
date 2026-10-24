@@ -17,7 +17,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Throttle } from '@nestjs/throttler';
 import { config } from '../config';
 import {
@@ -40,6 +40,7 @@ import { normalizeEmail } from '../domain/validators';
 import { Invite, InviteStatus } from '../entity/invite.entity';
 import { ProjectClient } from '../entity/project-client.entity';
 import { ProjectUser } from '../entity/project-user.entity';
+import { User } from '../entity/user.entity';
 import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
@@ -104,25 +105,7 @@ export class AuthController {
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...signup });
 
-    if (acceptedInvites.length > 0) {
-      // accept project invites
-      await this.inviteRepo.manager.transaction(async entityManager => {
-        acceptedInvites.forEach(invite => {
-          invite.status = InviteStatus.Accepted;
-          invite.tokenHash = null;
-        });
-        await entityManager.save(acceptedInvites);
-
-        const projectUsers = acceptedInvites.map(invite => {
-          return entityManager.create(ProjectUser, {
-            project: { id: invite.project.id },
-            user: user,
-            role: invite.role,
-          });
-        });
-        await entityManager.save(projectUsers);
-      });
-    }
+    await this.acceptInvites(acceptedInvites, user);
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
@@ -168,25 +151,7 @@ export class AuthController {
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
-    if (invites.length > 0) {
-      // accept project invites
-      await this.inviteRepo.manager.transaction(async entityManager => {
-        invites.forEach(invite => {
-          invite.status = InviteStatus.Accepted;
-          invite.tokenHash = null;
-        });
-        await entityManager.save(invites);
-
-        const projectUsers = invites.map(invite => {
-          return entityManager.create(ProjectUser, {
-            project: { id: invite.project.id },
-            user: user,
-            role: invite.role,
-          });
-        });
-        await entityManager.save(projectUsers);
-      });
-    }
+    await this.acceptInvites(invites, user);
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
@@ -360,19 +325,42 @@ export class AuthController {
       throw new NotFoundException('invite not found');
     }
 
-    await this.inviteRepo.manager.transaction(async entityManager => {
-      invite.status = InviteStatus.Accepted;
-      invite.tokenHash = null;
-      await entityManager.save(invite);
-
-      const membership = await entityManager.findOne(ProjectUser, {
-        where: { project: { id: invite.project.id }, user: { id: requestingUser.id } },
-      });
-      if (!membership) {
-        await entityManager.save(entityManager.create(ProjectUser, { project: { id: invite.project.id }, user: requestingUser, role: invite.role }));
-      }
-    });
+    const accepted = await this.acceptInvites([invite], requestingUser);
+    if (accepted.length === 0) {
+      throw new NotFoundException('invite not found');
+    }
 
     return { data: { projectId: invite.project.id, role: invite.role } };
+  }
+
+  /**
+   * Turns pending invites into project memberships. An invite is accepted only if it is still exactly as the caller
+   * checked it, since an admin may have sent a new link, changed the role or deleted it in the meantime.
+   */
+  private async acceptInvites(invites: Invite[], user: User): Promise<Invite[]> {
+    if (invites.length === 0) {
+      return [];
+    }
+    return this.inviteRepo.manager.transaction(async entityManager => {
+      const accepted: Invite[] = [];
+      for (const invite of invites) {
+        const { affected } = await entityManager.update(
+          Invite,
+          { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() },
+          { status: InviteStatus.Accepted, tokenHash: null },
+        );
+        if (!affected) {
+          continue;
+        }
+        const membership = await entityManager.findOne(ProjectUser, {
+          where: { project: { id: invite.project.id }, user: { id: user.id } },
+        });
+        if (!membership) {
+          await entityManager.save(entityManager.create(ProjectUser, { project: { id: invite.project.id }, user, role: invite.role }));
+        }
+        accepted.push(invite);
+      }
+      return accepted;
+    });
   }
 }

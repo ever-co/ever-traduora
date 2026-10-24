@@ -5,8 +5,7 @@ import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { $enum } from 'ts-enum-util';
 import { ProjectRole } from '../../models/project-role';
-import { ClearMessages } from '../../stores/project-user.state';
-import { AddProjectInvite, ProjectInviteState } from '../../stores/project-invite.state';
+import { AddProjectInvite, ClearMessages, ProjectInviteState } from '../../stores/project-invite.state';
 
 @Component({
   standalone: false,
@@ -21,11 +20,14 @@ export class AddTeamMemberComponent implements OnDestroy {
   @Input()
   projectId: string;
 
-  @Select(state => state.projectUsers.errorMessage)
+  // Inviting goes through the invite state, so its errors and progress are the ones to show
+  @Select(state => state.projectInvites.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
-  @Select(state => state.projectUsers.isLoading)
+  @Select(ProjectInviteState.isLoading)
   isLoading$: Observable<boolean>;
+
+  private isSubmitting = false;
 
   modal: NgbModalRef | undefined;
 
@@ -67,15 +69,23 @@ export class AddTeamMemberComponent implements OnDestroy {
   }
 
   async addTeamMember() {
-    // The link is showing: submitting again would send a new link and invalidate this one
-    if (this.inviteUrl) {
+    // Submitting again, while sending or once the link is showing, would send a new link and invalidate the previous one
+    if (this.inviteUrl || this.isSubmitting) {
       return;
     }
     const email = this.email.value as string;
     const roleString = this.role.value as string;
     const role = ProjectRole[$enum(ProjectRole).getKeyOrThrow(roleString)];
     if (this.projectId && email && role) {
-      await this.store.dispatch(new AddProjectInvite(this.projectId, email, role)).toPromise();
+      this.isSubmitting = true;
+      try {
+        await this.store.dispatch(new AddProjectInvite(this.projectId, email, role)).toPromise();
+      } catch {
+        // The invite state holds the error message shown in the modal
+        return;
+      } finally {
+        this.isSubmitting = false;
+      }
       const [invite] = this.store.selectSnapshot(ProjectInviteState.invites);
       if (invite?.inviteUrl) {
         this.inviteUrl = invite.inviteUrl;
