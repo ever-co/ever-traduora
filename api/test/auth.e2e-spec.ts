@@ -1,5 +1,6 @@
 import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import * as request from 'supertest';
 import MailService from '../src/services/mail.service';
 import './util';
@@ -447,6 +448,13 @@ describe('AuthController (e2e)', () => {
         password: 'mynewerpassword',
       })
       .expect(401);
+  });
+
+  it('should reject a token signed with the former default secret', async () => {
+    const forgedToken = new JwtService({ secret: 'secret' }).sign({ sub: testingUser.id, type: 'user' });
+
+    await request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${forgedToken}`).expect(401);
+    await request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${testingUser.accessToken}`).expect(200);
   });
 
   afterEach(async () => {
