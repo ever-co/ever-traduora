@@ -73,6 +73,10 @@
     </div>
   </div>
   <div class="text-center mt-3">
-    <p class="text-sm">Already have an account? <a class="btn btn-link text-sm p-0" routerLink="/login">Sign in </a></p>
+    <p *ngIf="inviteToken" class="text-sm">
+      Already have an account?
+      <a class="btn btn-link text-sm p-0" routerLink="/accept-invite" [queryParams]="{ invite: inviteToken }">Sign in to accept the invitation</a>
+    </p>
+    <p *ngIf="!inviteToken" class="text-sm">Already have an account? <a class="btn btn-link text-sm p-0" routerLink="/login">Sign in </a></p>
   </div>
 </div>

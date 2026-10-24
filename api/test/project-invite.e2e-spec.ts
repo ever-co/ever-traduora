@@ -331,6 +331,64 @@ describe('ProjectInviteController (e2e)', () => {
       expect(invites[0].role).toEqual('admin');
     });
 
+    it('should accept another pending invite with its link once the account exists', async () => {
+      const testProject2 = await createTestProject(app, testingUser2);
+      let secondUrl: string;
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject2.id}/invites`)
+        .set('Authorization', `Bearer ${testingUser2.accessToken}`)
+        .send({ email: inviteeEmail, role: 'viewer' })
+        .expect(201)
+        .expect(res => {
+          secondUrl = res.body.data.inviteUrl;
+        });
+
+      const {
+        body: { data: invitee },
+      } = await signup(inviteeEmail, inviteToken(inviteUrl)).expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/accept-invite')
+        .send({ inviteToken: inviteToken(secondUrl) })
+        .expect(401);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/accept-invite')
+        .set('Authorization', `Bearer ${invitee.accessToken}`)
+        .send({ inviteToken: inviteToken(secondUrl) })
+        .expect(200)
+        .expect(res => {
+          expect(res.body.data).toEqual({ projectId: testProject2.id, role: 'viewer' });
+        });
+
+      await request(app.getHttpServer()).get(`/api/v1/projects/${testProject2.id}`).set('Authorization', `Bearer ${invitee.accessToken}`).expect(200);
+
+      // A used link does not work again
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/accept-invite')
+        .set('Authorization', `Bearer ${invitee.accessToken}`)
+        .send({ inviteToken: inviteToken(secondUrl) })
+        .expect(404);
+    });
+
+    it('should not accept an invite for another email with its link', async () => {
+      const {
+        body: { data: someoneElse },
+      } = await signup('someone-else@test.com').expect(200);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/accept-invite')
+        .set('Authorization', `Bearer ${someoneElse.accessToken}`)
+        .send({ inviteToken: inviteToken(inviteUrl) })
+        .expect(404);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject1.id}`)
+        .set('Authorization', `Bearer ${someoneElse.accessToken}`)
+        .expect(404);
+      expect(await pendingInvites()).toHaveLength(1);
+    });
+
     it('should replace the invite link when inviting the same email again', async () => {
       const firstUrl = inviteUrl;
       let secondUrl: string;

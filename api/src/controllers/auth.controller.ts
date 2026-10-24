@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Post,
   Req,
   UnauthorizedException,
@@ -20,6 +21,8 @@ import { Repository } from 'typeorm';
 import { Throttle } from '@nestjs/throttler';
 import { config } from '../config';
 import {
+  AcceptInviteRequest,
+  AcceptInviteResponse,
   AccessTokenDTO,
   AuthenticateRequest,
   ChangePasswordRequest,
@@ -334,5 +337,42 @@ export class AuthController {
     const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     const user = await this.userService.changePassword(requestingUser.id, payload.oldPassword, payload.newPassword);
     this.mailService.passwordChanged(user);
+  }
+
+  @Post('accept-invite')
+  @UseGuards(AuthGuard())
+  @ApiOAuth2([])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept a pending project invite with the token from its invitation link' })
+  @ApiResponse({ status: HttpStatus.OK, type: AcceptInviteResponse, description: 'Invite accepted' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No pending invite for this token and the signed-in email' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async acceptInvite(@Req() req, @Body() payload: AcceptInviteRequest) {
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+
+    const invite = await this.inviteRepo.findOne({
+      where: { tokenHash: hashInviteToken(payload.inviteToken), status: InviteStatus.Sent },
+      relations: ['project'],
+    });
+
+    // The token proves that the caller received this invitation, and the link only works for the email it was sent to
+    if (!invite || invite.email !== normalizeEmail(requestingUser.email)) {
+      throw new NotFoundException('invite not found');
+    }
+
+    await this.inviteRepo.manager.transaction(async entityManager => {
+      invite.status = InviteStatus.Accepted;
+      invite.tokenHash = null;
+      await entityManager.save(invite);
+
+      const membership = await entityManager.findOne(ProjectUser, {
+        where: { project: { id: invite.project.id }, user: { id: requestingUser.id } },
+      });
+      if (!membership) {
+        await entityManager.save(entityManager.create(ProjectUser, { project: { id: invite.project.id }, user: requestingUser, role: invite.role }));
+      }
+    });
+
+    return { data: { projectId: invite.project.id, role: invite.role } };
   }
 }

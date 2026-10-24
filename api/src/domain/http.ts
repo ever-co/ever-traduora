@@ -408,6 +408,25 @@ export class SignupRequest {
   inviteToken?: string;
 }
 
+export class AcceptInviteRequest {
+  @ApiProperty({ description: 'Token from the invitation link' })
+  @IsString()
+  @Length(1, 255)
+  inviteToken: string;
+}
+
+export class AcceptedInviteDto {
+  @ApiProperty()
+  projectId: string;
+  @ApiProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
+export class AcceptInviteResponse extends ServiceApiResponse<AcceptedInviteDto> {
+  @ApiProperty()
+  data: AcceptedInviteDto;
+}
+
 export class AuthenticateRequest {
   @ApiProperty({ enum: GrantType })
   @IsEnum(GrantType)

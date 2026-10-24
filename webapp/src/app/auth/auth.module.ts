@@ -3,6 +3,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { NgxsModule } from '@ngxs/store';
 import { SharedModule } from '../shared/shared.module';
+import { AcceptInviteComponent } from './components/accept-invite/accept-invite.component';
 import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
 import { LoginComponent } from './components/login/login.component';
 import { AuthCallbackComponent } from './components/callback/callback.component';
@@ -16,6 +17,7 @@ import { SignInWithComponent } from './components/sign-in-with/sign-in-with.comp
 
 @NgModule({
   declarations: [
+    AcceptInviteComponent,
     LoginComponent,
     SignupComponent,
     ForgotPasswordComponent,
@@ -38,6 +40,11 @@ import { SignInWithComponent } from './components/sign-in-with/sign-in-with.comp
         path: 'auth/callback',
         component: AuthCallbackComponent,
         canActivate: [NoAuthGuard],
+      },
+      {
+        path: 'accept-invite',
+        component: AcceptInviteComponent,
+        canActivate: [AuthGuard],
       },
       {
         path: 'login',

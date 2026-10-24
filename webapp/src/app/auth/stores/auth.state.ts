@@ -280,7 +280,11 @@ export class AuthState implements NgxsOnInit {
     if (redirect) {
       ctx.patchState({ redirectTo: undefined });
     }
-    ctx.dispatch(new Navigate([redirect || '/']));
+    // The redirect is a URL: keep its query (e.g. an invitation link's token) out of the path
+    const [path, query] = (redirect || '/').split('?');
+    const queryParams: { [key: string]: string } = {};
+    new URLSearchParams(query).forEach((value, key) => (queryParams[key] = value));
+    ctx.dispatch(new Navigate([path], queryParams));
   }
 
   @Action(RedirectToAuthProvider)
