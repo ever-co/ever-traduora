@@ -116,7 +116,8 @@ metadata:
   labels:
     app: traduora
 stringData:
-  TR_SECRET: tJW4Js889dxjr3KLueEQ4cfSTfm0JfiabLpX/ouBrd0=
+  # REQUIRED: set to a unique random value, e.g. the output of `openssl rand -hex 32` (the API refuses to start without it)
+  TR_SECRET: ''
   TR_DB_PASSWORD: pNGWiZR6dRI/MEgdRsk4976ucuVwRT0WhChTihe5nDQ=
   MYSQL_ROOT_PASSWORD: pNGWiZR6dRI/MEgdRsk4976ucuVwRT0WhChTihe5nDQ=
   MYSQL_DATABASE: traduora_preview
