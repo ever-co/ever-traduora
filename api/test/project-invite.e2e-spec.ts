@@ -1,6 +1,10 @@
 import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import * as request from 'supertest';
+import { Invite } from '../src/entity/invite.entity';
+import { AuthService } from '../src/services/auth.service';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 
@@ -413,6 +417,40 @@ describe('ProjectInviteController (e2e)', () => {
         .expect(res => {
           expect(res.body.data.role).toEqual('editor');
         });
+    });
+
+    describe('with a provider sign-in', () => {
+      // Stands in for Google's token endpoint: signup-provider only decodes the id_token it returns
+      const signInWithProvider = (claims: object) => {
+        const idToken = new JwtService({ secret: 'provider-test' }).sign({ email: inviteeEmail, name: 'Invitee', ...claims });
+        jest.spyOn(app.get(AuthService), 'getTokenFromGoogle').mockResolvedValue({ id_token: idToken });
+        return request(app.getHttpServer()).post('/api/v1/auth/signup-provider').send({ code: 'provider-code' });
+      };
+
+      it('should not accept the invite when the provider has not verified the email', async () => {
+        await signInWithProvider({ email_verified: false }).expect(401);
+        await signInWithProvider({}).expect(401);
+
+        expect(await pendingInvites()).toHaveLength(1);
+      });
+
+      it('should accept the invite, even one without a link, when the provider verified the email', async () => {
+        // Invites created before invite links existed have no token
+        await app.get(getRepositoryToken(Invite)).update({ email: inviteeEmail }, { tokenHash: null });
+
+        const {
+          body: { data: invitee },
+        } = await signInWithProvider({ email_verified: true }).expect(201);
+
+        await request(app.getHttpServer())
+          .get(`/api/v1/projects/${testProject1.id}`)
+          .set('Authorization', `Bearer ${invitee.accessToken}`)
+          .expect(200)
+          .expect(res => {
+            expect(res.body.data.role).toEqual('admin');
+          });
+        expect(await pendingInvites()).toHaveLength(0);
+      });
     });
 
     it('should replace the invite link when inviting the same email again', async () => {
