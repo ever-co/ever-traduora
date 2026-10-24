@@ -33,6 +33,7 @@ export class AddTeamMemberComponent implements OnDestroy {
 
   // Set after inviting someone without an account, so the admin can share the link if the email does not arrive
   inviteUrl: string | undefined;
+  invitedEmail: string | undefined;
 
   defaultRole = ProjectRole.Editor;
   projectRoles = [ProjectRole.Admin, ProjectRole.Editor, ProjectRole.Viewer];
@@ -91,9 +92,10 @@ export class AddTeamMemberComponent implements OnDestroy {
       if (this.modal !== modal) {
         return;
       }
-      const [invite] = this.store.selectSnapshot(ProjectInviteState.invites);
-      if (invite?.inviteUrl) {
-        this.inviteUrl = invite.inviteUrl;
+      const added = this.store.selectSnapshot(ProjectInviteState.lastAdded);
+      if (added && 'inviteUrl' in added && added.inviteUrl) {
+        this.invitedEmail = added.email;
+        this.inviteUrl = added.inviteUrl;
       } else {
         this.modal.close();
       }
@@ -115,6 +117,7 @@ export class AddTeamMemberComponent implements OnDestroy {
   reset() {
     this.modal = undefined;
     this.inviteUrl = undefined;
+    this.invitedEmail = undefined;
     this.form.reset({
       email: '',
       role: this.defaultRole,
