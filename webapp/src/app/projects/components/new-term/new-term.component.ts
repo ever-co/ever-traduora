@@ -7,6 +7,7 @@ import { Project } from '../../models/project';
 import { ClearMessages, CreateTerm } from '../../stores/terms.state';
 
 @Component({
+  standalone: false,
   selector: 'app-new-term',
   templateUrl: './new-term.component.html',
   styleUrls: ['./new-term.component.css'],

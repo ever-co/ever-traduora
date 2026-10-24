@@ -6,6 +6,7 @@ import { Observable } from 'rxjs';
 import { ClearMessages, ResetPassword } from '../../stores/auth.state';
 
 @Component({
+  standalone: false,
   selector: 'app-reset-password',
   templateUrl: './reset-password.component.html',
   styleUrls: ['./reset-password.component.css'],

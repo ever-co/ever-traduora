@@ -3,6 +3,7 @@ import { ProjectRole } from '../../models/project-role';
 import { ProjectUser } from '../../models/project-user';
 
 @Component({
+  standalone: false,
   selector: 'app-team-member',
   templateUrl: './team-member.component.html',
   styleUrls: ['./team-member.component.css'],

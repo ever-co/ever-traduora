@@ -5,6 +5,7 @@ import { User } from '../../../auth/models/user';
 import { AuthState, Logout } from '../../../auth/stores/auth.state';
 
 @Component({
+  standalone: false,
   selector: 'app-bar',
   templateUrl: './app-bar.component.html',
   styleUrls: ['./app-bar.component.css'],

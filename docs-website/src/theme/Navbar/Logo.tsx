@@ -51,10 +51,16 @@ export const Logo: React.FC<LogoProps> = ({ className = '' }) => {
 				</defs>
 			</svg>
 
-			<span className="text-[22px] leading-none tracking-tight text-[#231645] dark:text-white">
-				<span className="font-extrabold lowercase">ever</span>
-				<span className="mx-[1px] align-top text-[10px] font-semibold opacity-60">®</span>
-				<span className="font-light lowercase opacity-70">traduora</span>
+			{/* Wordmark — Baloo 2 (rounded-geometric) approximation of the
+			    ever.works vector "ever®" letterform: "ever" bold, a small raised
+			    ® superscript, then "traduora" medium/muted. Dark-theme aware. */}
+			<span
+				className="text-[22px] lowercase leading-none tracking-tight text-[#231645] dark:text-white"
+				style={{ fontFamily: "'Baloo 2', ui-rounded, ui-sans-serif, system-ui, sans-serif" }}
+			>
+				<span className="font-bold">ever</span>
+				<span className="align-super text-[0.5em] font-semibold leading-none opacity-60">®</span>
+				<span className="ml-[0.12em] font-medium opacity-70">traduora</span>
 			</span>
 		</a>
 	);

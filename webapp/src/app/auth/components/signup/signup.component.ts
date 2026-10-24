@@ -7,6 +7,7 @@ import { Provider } from '../../models/provider';
 import { ClearMessages, GetProviders, Signup } from '../../stores/auth.state';
 
 @Component({
+  standalone: false,
   selector: 'app-signup',
   templateUrl: './signup.component.html',
   styleUrls: ['./signup.component.css'],

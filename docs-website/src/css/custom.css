@@ -4,6 +4,9 @@
  * work well for content-centric websites.
  */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Baloo 2 — rounded-geometric brand face for the "ever®traduora" navbar wordmark
+   (matches the ever.works / gauzy.co "ever" letterform). */
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&display=swap');
 
 /* Tailwind CSS imports */
 @import './tailwind.css';

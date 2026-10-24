@@ -9,6 +9,7 @@ import { Project } from '../../models/project';
 import { ClearMessages, CreateProjectLabel } from '../../stores/project-label.state';
 
 @Component({
+  standalone: false,
   selector: 'app-new-label',
   templateUrl: './new-label.component.html',
   styleUrls: ['./new-label.component.css'],

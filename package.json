@@ -116,5 +116,9 @@
     "node": ">=18.0.0",
     "yarn": ">=1.13.0"
   },
-  "snyk": true
+  "snyk": true,
+  "resolutions": {
+    "browserslist": "^4.28.0",
+    "caniuse-lite": "^1.0.30001805"
+  }
 }

@@ -10,6 +10,7 @@ import { TermsState } from './projects/stores/terms.state';
 import { TranslationsState } from './projects/stores/translations.state';
 
 @Component({
+  standalone: false,
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],

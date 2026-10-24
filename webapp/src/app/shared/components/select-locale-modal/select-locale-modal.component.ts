@@ -3,6 +3,7 @@ import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Locale } from '../../../projects/models/locale';
 
 @Component({
+  standalone: false,
   selector: 'app-select-locale-modal',
   templateUrl: './select-locale-modal.component.html',
   styleUrls: ['./select-locale-modal.component.css'],
