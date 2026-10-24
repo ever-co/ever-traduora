@@ -6,15 +6,14 @@ import { AuthService } from '../../services/auth.service';
   standalone: false,
   selector: 'app-accept-invite',
   templateUrl: './accept-invite.component.html',
-  styleUrls: ['./accept-invite.component.css'],
 })
 export class AcceptInviteComponent implements OnInit {
   errorMessage: string | undefined;
 
   constructor(
-    private activatedRoute: ActivatedRoute,
-    private authService: AuthService,
-    private router: Router,
+    private readonly activatedRoute: ActivatedRoute,
+    private readonly authService: AuthService,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {

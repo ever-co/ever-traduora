@@ -321,7 +321,7 @@ export class AuthController {
     });
 
     // The token proves that the caller received this invitation, and the link only works for the email it was sent to
-    if (!invite || invite.email !== normalizeEmail(requestingUser.email)) {
+    if (invite?.email !== normalizeEmail(requestingUser.email)) {
       throw new NotFoundException('invite not found');
     }
 
@@ -337,9 +337,9 @@ export class AuthController {
    * Turns pending invites into project memberships. An invite is accepted only if it is still exactly as the caller
    * checked it, since an admin may have sent a new link, changed the role or deleted it in the meantime.
    */
-  private async acceptInvites(invites: Invite[], user: User): Promise<Invite[]> {
+  private acceptInvites(invites: Invite[], user: User): Promise<Invite[]> {
     if (invites.length === 0) {
-      return [];
+      return Promise.resolve([]);
     }
     return this.inviteRepo.manager.transaction(async entityManager => {
       const accepted: Invite[] = [];

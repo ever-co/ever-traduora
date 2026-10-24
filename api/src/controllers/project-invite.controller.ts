@@ -117,7 +117,8 @@ export default class ProjectInviteController {
       const newInvite = await this.inviteRepo.save(record, { reload: true });
       const inviteUrl = inviteSignupUrl(token);
 
-      this.mail.invitedToPlatform({ ...newInvite, project }, inviteUrl);
+      // Not awaited: the admin also gets the link, and MailService logs delivery failures
+      void this.mail.invitedToPlatform({ ...newInvite, project }, inviteUrl);
 
       return {
         data: {
