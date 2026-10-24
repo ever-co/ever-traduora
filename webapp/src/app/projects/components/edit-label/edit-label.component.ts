@@ -9,6 +9,7 @@ import { Project } from '../../models/project';
 import { ClearMessages, UpdateProjectLabel } from '../../stores/project-label.state';
 
 @Component({
+  standalone: false,
   selector: 'app-edit-label',
   templateUrl: './edit-label.component.html',
   styleUrls: ['./edit-label.component.css'],

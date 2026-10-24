@@ -9,6 +9,7 @@ import { ClearMessages } from '../../stores/project-user.state';
 import { AddProjectInvite } from '../../stores/project-invite.state';
 
 @Component({
+  standalone: false,
   selector: 'app-add-team-member',
   templateUrl: './add-team-member.component.html',
   styleUrls: ['./add-team-member.component.css'],

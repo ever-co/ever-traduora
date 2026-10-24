@@ -12,6 +12,7 @@ import { GetProjectUsers, ProjectUserState as ProjectUsersState, RemoveProjectUs
 import { ClearMessages, ProjectsState } from '../../stores/projects.state';
 
 @Component({
+  standalone: false,
   selector: 'app-team-overview',
   templateUrl: './team-overview.component.html',
   styleUrls: ['./team-overview.component.css'],

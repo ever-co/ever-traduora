@@ -3,6 +3,7 @@ import { ProjectRole } from '../../models/project-role';
 import { ProjectInvite } from '../../models/project-invite';
 
 @Component({
+  standalone: false,
   selector: 'app-team-invite',
   templateUrl: './team-invite.component.html',
   styleUrls: ['./team-invite.component.css'],

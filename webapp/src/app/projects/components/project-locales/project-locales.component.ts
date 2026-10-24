@@ -11,6 +11,7 @@ import { ProjectsState } from '../../stores/projects.state';
 import { AddProjectLocale, ClearMessages, GetKnownLocales, GetProjectLocales, TranslationsState } from '../../stores/translations.state';
 
 @Component({
+  standalone: false,
   selector: 'app-project-locales',
   templateUrl: './project-locales.component.html',
   styleUrls: ['./project-locales.component.css'],

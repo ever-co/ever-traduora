@@ -9,6 +9,7 @@ import { ProjectsState } from '../../stores/projects.state';
 import { ClearMessages, GetProjectLocales, TranslationsState } from '../../stores/translations.state';
 
 @Component({
+  standalone: false,
   selector: 'app-export-container',
   templateUrl: './export-container.component.html',
   styleUrls: ['./export-container.component.css'],

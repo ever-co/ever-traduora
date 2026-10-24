@@ -1,6 +1,7 @@
 import { AfterViewChecked, Directive, ElementRef, HostListener, Input } from '@angular/core';
 
 @Directive({
+  standalone: false,
   selector: 'textarea[appAutowidth]',
 })
 export class AutowidthDirective implements AfterViewChecked {

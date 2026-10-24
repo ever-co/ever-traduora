@@ -9,6 +9,7 @@ import { ClearMessages, GetProjectClients, ProjectClientState, RemoveProjectClie
 import { ProjectsState } from '../../stores/projects.state';
 
 @Component({
+  standalone: false,
   selector: 'app-api-clients-overview',
   templateUrl: './api-clients-overview.component.html',
   styleUrls: ['./api-clients-overview.component.css'],

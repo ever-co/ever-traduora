@@ -4,6 +4,7 @@ import { RedirectToAuthProvider } from '../../stores/auth.state';
 import { Store } from '@ngxs/store';
 
 @Component({
+  standalone: false,
   selector: 'app-sign-in-with',
   templateUrl: './sign-in-with.component.html',
   styleUrls: ['./sign-in-with.component.css'],

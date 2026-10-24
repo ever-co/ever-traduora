@@ -4,6 +4,7 @@ import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { Locale } from '../../../projects/models/locale';
 
 @Component({
+  standalone: false,
   selector: 'app-select-locale',
   templateUrl: './select-locale.component.html',
   styleUrls: ['./select-locale.component.css'],

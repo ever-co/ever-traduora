@@ -8,6 +8,7 @@ import { ProjectStats } from '../../models/project-stats';
 import { map } from 'rxjs/operators';
 
 @Component({
+  standalone: false,
   selector: 'app-project-container',
   templateUrl: './project-container.component.html',
   styleUrls: ['./project-container.component.css'],
