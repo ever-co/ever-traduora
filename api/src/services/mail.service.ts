@@ -96,25 +96,31 @@ export default class MailService {
     });
   }
 
-  async invitedToPlatform(invite: Invite) {
+  async invitedToPlatform(invite: Invite, inviteUrl: string) {
     await this.send({
       from: this.from,
       to: invite.email,
       subject: 'You have been invited to a project on Traduora',
       text: this.knownTemplates.invitedToPlatform({
         invite: invite,
+        inviteUrl: inviteUrl,
         virtualHost: config.virtualHost,
       }),
     });
   }
 
   private async send(message: SendMailOptions): Promise<any> {
-    if (this.transporter) {
-      await this.transporter.sendMail(message);
-    }
-    if (config.mail.debug) {
-      // createTransport({jsonTransport: true})
-      await previewEmail(message);
+    // Callers do not wait for emails, so a failure must not become an unhandled rejection that stops the server
+    try {
+      if (this.transporter) {
+        await this.transporter.sendMail(message);
+      }
+      if (config.mail.debug) {
+        // createTransport({jsonTransport: true})
+        await previewEmail(message);
+      }
+    } catch (error) {
+      console.error(`Could not send the email '${message.subject}'`, error);
     }
   }
 

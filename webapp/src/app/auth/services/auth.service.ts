@@ -17,6 +17,12 @@ export class AuthService {
 
   constructor(private http: HttpClient) {}
 
+  acceptInvite(inviteToken: string): Observable<{ projectId: string; role: string }> {
+    return this.http
+      .post<Payload<{ projectId: string; role: string }>>(`${this.endpoint}/auth/accept-invite`, { inviteToken })
+      .pipe(map(res => res.data));
+  }
+
   getUserSelf(): Observable<User> {
     return this.http.get<Payload<User>>(`${this.endpoint}/users/me`).pipe(map(res => res.data));
   }
