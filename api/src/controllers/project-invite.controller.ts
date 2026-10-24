@@ -130,7 +130,7 @@ export default class ProjectInviteController {
     await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.EditProjectInvites);
 
     const targetInvite = await this.inviteRepo.findOneOrFail({
-      where: { id: inviteId },
+      where: { project: { id: projectId }, id: inviteId },
       relations: ['project'],
     });
 
@@ -160,7 +160,7 @@ export default class ProjectInviteController {
     await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.DeleteProjectInvites);
 
     const targetInvite = await this.inviteRepo.findOneOrFail({
-      where: { id: inviteId },
+      where: { project: { id: projectId }, id: inviteId },
     });
 
     await this.inviteRepo.remove(targetInvite);
