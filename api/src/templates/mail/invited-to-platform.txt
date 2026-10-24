@@ -2,6 +2,10 @@ Hi {{invite.email}},
 
 You've been invited to join '{{invite.project.name}}' on Traduora with the role '{{invite.role}}'.
 
-To get started, go to {{virtualHost}}/signup and sign up with your email and password.
+To accept, sign up with your email and a password using this link:
+
+{{{inviteUrl}}}
+
+The link only works for {{invite.email}}. Please do not share it.
 
 Traduora's Team

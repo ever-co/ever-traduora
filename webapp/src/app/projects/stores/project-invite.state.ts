@@ -104,7 +104,7 @@ export class ProjectInviteState implements NgxsOnInit {
   addProjectInvite(ctx: StateContext<ProjectInviteStateModel>, action: AddProjectInvite) {
     ctx.patchState({ isLoading: true });
     return this.projectInviteService.create(action.projectId, action.email, action.role).pipe(
-      tap(invites => ctx.patchState({ invites: [invites, ...ctx.getState().invites] })),
+      tap(invite => ctx.patchState({ invites: [invite, ...ctx.getState().invites.filter(i => i.id !== invite.id)] })),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error, 'AddProjectInvite') });
         return throwError(error);

@@ -4,7 +4,7 @@
     <div class="card-body">
       <div *ngIf="errorMessage$ | async as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
-      <div *ngIf="inviteOnly" class="alert alert-warning">Traduora is currently invite-only.</div>
+      <div *ngIf="inviteOnly && !inviteToken" class="alert alert-warning">Traduora is currently invite-only.</div>
 
       <h4 class="card-title font-serif">Create an account</h4>
 
@@ -12,7 +12,7 @@
         <div class="form-group">
           <label for="nameInput">Name</label>
           <input
-            [disabled]="inviteOnly"
+            [disabled]="inviteOnly && !inviteToken"
             id="nameInput"
             class="form-control"
             type="text"
@@ -29,7 +29,7 @@
         <div class="form-group">
           <label for="emailInput">Email Address</label>
           <input
-            [disabled]="inviteOnly"
+            [disabled]="inviteOnly && !inviteToken"
             id="emailInput"
             class="form-control"
             type="email"
@@ -47,7 +47,7 @@
         <div class="form-group">
           <label for="newPasswordInput">Password</label>
           <input
-            [disabled]="inviteOnly"
+            [disabled]="inviteOnly && !inviteToken"
             id="newPasswordInput"
             class="form-control"
             type="password"

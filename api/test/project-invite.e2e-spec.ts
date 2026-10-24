@@ -234,6 +234,114 @@ describe('ProjectInviteController (e2e)', () => {
     });
   });
 
+  describe('accepting an invite by signing up', () => {
+    const inviteeEmail = 'invitee@test.com';
+    let inviteUrl: string;
+
+    const inviteToken = (url: string) => new URL(url).searchParams.get('invite');
+
+    const signup = (email: string, token?: string) =>
+      request(app.getHttpServer())
+        .post('/api/v1/auth/signup')
+        .send({ name: 'Invitee', email, password: 'mysupersecretpassword', ...(token ? { inviteToken: token } : {}) });
+
+    const pendingInvites = () =>
+      request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject1.id}/invites`)
+        .set('Authorization', `Bearer ${testingUser1.accessToken}`)
+        .expect(200)
+        .then(res => res.body.data);
+
+    beforeEach(async () => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject1.id}/invites`)
+        .set('Authorization', `Bearer ${testingUser1.accessToken}`)
+        .send({ email: inviteeEmail, role: 'admin' })
+        .expect(201)
+        .expect(res => {
+          expect(res.body.data).toHaveExactProperties(['id', 'email', 'status', 'role', 'inviteUrl']);
+          inviteUrl = res.body.data.inviteUrl;
+        });
+      expect(inviteToken(inviteUrl)).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('should not sign up an invited email without the invite token', async () => {
+      await signup(inviteeEmail).expect(401);
+      await signup(inviteeEmail, 'not-the-token').expect(401);
+
+      const invites = await pendingInvites();
+      expect(invites).toHaveLength(1);
+      expect(invites[0].email).toEqual(inviteeEmail);
+    });
+
+    it('should not accept an invite with a token issued for another email', async () => {
+      await signup('someone-else@test.com', inviteToken(inviteUrl))
+        .expect(200)
+        .expect(res => {
+          expect(res.body.data.email).toEqual('someone-else@test.com');
+        })
+        .then(res =>
+          request(app.getHttpServer())
+            .get(`/api/v1/projects/${testProject1.id}`)
+            .set('Authorization', `Bearer ${res.body.data.accessToken}`)
+            .expect(404),
+        );
+
+      expect(await pendingInvites()).toHaveLength(1);
+    });
+
+    it('should accept the invite when signing up with its token', async () => {
+      const {
+        body: { data: invitee },
+      } = await signup(inviteeEmail, inviteToken(inviteUrl)).expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject1.id}`)
+        .set('Authorization', `Bearer ${invitee.accessToken}`)
+        .expect(200)
+        .expect(res => {
+          expect(res.body.data.role).toEqual('admin');
+        });
+
+      expect(await pendingInvites()).toHaveLength(0);
+    });
+
+    it('should replace the invite link when inviting the same email again', async () => {
+      const firstUrl = inviteUrl;
+      let secondUrl: string;
+
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject1.id}/invites`)
+        .set('Authorization', `Bearer ${testingUser1.accessToken}`)
+        .send({ email: inviteeEmail, role: 'viewer' })
+        .expect(201)
+        .expect(res => {
+          expect(res.body.data.role).toEqual('viewer');
+          secondUrl = res.body.data.inviteUrl;
+        });
+
+      expect(secondUrl).not.toEqual(firstUrl);
+
+      const invites = await pendingInvites();
+      expect(invites).toHaveLength(1);
+      expect(invites[0].role).toEqual('viewer');
+
+      await signup(inviteeEmail, inviteToken(firstUrl)).expect(401);
+
+      const {
+        body: { data: invitee },
+      } = await signup(inviteeEmail, inviteToken(secondUrl)).expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject1.id}`)
+        .set('Authorization', `Bearer ${invitee.accessToken}`)
+        .expect(200)
+        .expect(res => {
+          expect(res.body.data.role).toEqual('viewer');
+        });
+    });
+  });
+
   afterEach(async () => {
     await app.get(Connection).close();
     await app.close();

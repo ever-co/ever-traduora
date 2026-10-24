@@ -6,7 +6,7 @@ import { Observable } from 'rxjs';
 import { $enum } from 'ts-enum-util';
 import { ProjectRole } from '../../models/project-role';
 import { ClearMessages } from '../../stores/project-user.state';
-import { AddProjectInvite } from '../../stores/project-invite.state';
+import { AddProjectInvite, ProjectInviteState } from '../../stores/project-invite.state';
 
 @Component({
   standalone: false,
@@ -28,6 +28,9 @@ export class AddTeamMemberComponent implements OnDestroy {
   isLoading$: Observable<boolean>;
 
   modal: NgbModalRef | undefined;
+
+  // Set after inviting someone without an account, so the admin can share the link if the email does not arrive
+  inviteUrl: string | undefined;
 
   defaultRole = ProjectRole.Editor;
   projectRoles = [ProjectRole.Admin, ProjectRole.Editor, ProjectRole.Viewer];
@@ -69,11 +72,23 @@ export class AddTeamMemberComponent implements OnDestroy {
     const role = ProjectRole[$enum(ProjectRole).getKeyOrThrow(roleString)];
     if (this.projectId && email && role) {
       await this.store.dispatch(new AddProjectInvite(this.projectId, email, role)).toPromise();
-      this.modal.close();
+      const [invite] = this.store.selectSnapshot(ProjectInviteState.invites);
+      if (invite && invite.inviteUrl) {
+        this.inviteUrl = invite.inviteUrl;
+      } else {
+        this.modal.close();
+      }
+    }
+  }
+
+  copyInviteUrl() {
+    if (this.inviteUrl && navigator.clipboard) {
+      navigator.clipboard.writeText(this.inviteUrl);
     }
   }
 
   reset() {
+    this.inviteUrl = undefined;
     this.form.reset({
       email: '',
       role: this.defaultRole,

@@ -41,6 +41,7 @@ import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { hashInviteToken } from '../utils/invite-token';
 
 @Controller('api/v1/auth')
 @ApiTags('Authentication')
@@ -74,8 +75,10 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'A user with this email already exists' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'The email has a pending invitation and the invite token is missing or invalid' })
   async signup(@Body() payload: SignupRequest) {
     const normalizedEmail = normalizeEmail(payload.email);
+    const { inviteToken, ...signup } = payload;
 
     // check for invite
     const invites = await this.inviteRepo.find({
@@ -83,17 +86,29 @@ export class AuthController {
       relations: ['project'],
     });
 
+    // Nothing proves that the caller owns this email, except the token from the invitation link sent to it. Without it
+    // anyone could claim the invitation, or take the email so that the real invitee can never accept it.
+    if (invites.length > 0) {
+      const tokenHash = inviteToken ? hashInviteToken(inviteToken) : undefined;
+      if (!invites.some(invite => invite.tokenHash && invite.tokenHash === tokenHash)) {
+        throw new UnauthorizedException('A valid invite token is required to sign up with this email.');
+      }
+    }
+
     // Early exit if the user has no invitation and sign up is disabled.
     if (invites.length === 0 && !config.signupsEnabled) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
-    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...payload });
+    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...signup });
 
     if (invites.length > 0) {
       // accept project invites
       await this.inviteRepo.manager.transaction(async entityManager => {
-        invites.forEach(invite => (invite.status = InviteStatus.Accepted));
+        invites.forEach(invite => {
+          invite.status = InviteStatus.Accepted;
+          invite.tokenHash = null;
+        });
         await entityManager.save(invites);
 
         const projectUsers = invites.map(invite => {
@@ -127,7 +142,7 @@ export class AuthController {
   @Post('signup-provider')
   async signupWithProvider(@Body() { code }: { code: string }): Promise<{ data: { id: string; email: string; name: string; accessToken: string } }> {
     const { id_token } = await this.authService.getTokenFromGoogle(code);
-    const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
+    const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string; email_verified?: boolean };
 
     const normalizedEmail = normalizeEmail(decodedToken.email);
 
@@ -136,6 +151,11 @@ export class AuthController {
       where: { email: normalizedEmail, status: InviteStatus.Sent },
       relations: ['project'],
     });
+
+    // The provider vouches for the email only when it reports it as verified
+    if (invites.length > 0 && decodedToken.email_verified !== true) {
+      throw new UnauthorizedException('The email must be verified with the provider to accept an invitation.');
+    }
 
     // This endpoint can be used for signing in too in the case of providers.
     // Ensure that we forbid a new account if we have disabled signups.
@@ -149,7 +169,10 @@ export class AuthController {
     if (invites.length > 0) {
       // accept project invites
       await this.inviteRepo.manager.transaction(async entityManager => {
-        invites.forEach(invite => (invite.status = InviteStatus.Accepted));
+        invites.forEach(invite => {
+          invite.status = InviteStatus.Accepted;
+          invite.tokenHash = null;
+        });
         await entityManager.save(invites);
 
         const projectUsers = invites.map(invite => {

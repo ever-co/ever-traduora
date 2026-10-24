@@ -17,6 +17,7 @@ import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
+import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
@@ -93,15 +94,22 @@ export default class ProjectInviteController {
         },
       };
     } else {
-      const record = this.inviteRepo.create({
-        email: normalizeEmail(inviteUserRequest.email),
-        project: { id: projectId },
-        role: inviteUserRequest.role,
+      const email = normalizeEmail(inviteUserRequest.email);
+      const token = generateInviteToken();
+
+      // Inviting the same email again sends a new link and invalidates the previous one
+      const existingInvite = await this.inviteRepo.findOne({
+        where: { project: { id: projectId }, email },
       });
+      const record = existingInvite ?? this.inviteRepo.create({ email, project: { id: projectId } });
+      record.role = inviteUserRequest.role;
+      record.status = InviteStatus.Sent;
+      record.tokenHash = hashInviteToken(token);
 
       const newInvite = await this.inviteRepo.save(record, { reload: true });
+      const inviteUrl = inviteSignupUrl(token);
 
-      this.mail.invitedToPlatform({ ...record, project });
+      this.mail.invitedToPlatform({ ...newInvite, project }, inviteUrl);
 
       return {
         data: {
@@ -109,6 +117,7 @@ export default class ProjectInviteController {
           role: newInvite.role,
           email: newInvite.email,
           status: newInvite.status,
+          inviteUrl,
         },
       };
     }

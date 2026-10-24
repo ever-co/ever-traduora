@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
@@ -16,6 +17,9 @@ export class SignupComponent implements OnInit, OnDestroy {
   passwordMinLength = 8;
 
   inviteOnly = environment.inviteOnly;
+
+  // From the invitation link: proves that the person signing up received the invitation
+  inviteToken = this.route.snapshot.queryParamMap.get('invite') || undefined;
 
   signupForm = this.fb.group({
     name: ['', Validators.required],
@@ -34,6 +38,7 @@ export class SignupComponent implements OnInit, OnDestroy {
 
   constructor(
     private fb: FormBuilder,
+    private route: ActivatedRoute,
     private store: Store,
   ) {}
 
@@ -49,7 +54,7 @@ export class SignupComponent implements OnInit, OnDestroy {
     if (!this.signupForm.valid) {
       return;
     }
-    this.store.dispatch(new Signup(this.name.value as string, this.email.value as string, this.password.value as string));
+    this.store.dispatch(new Signup(this.name.value as string, this.email.value as string, this.password.value as string, this.inviteToken));
   }
 
   get name() {

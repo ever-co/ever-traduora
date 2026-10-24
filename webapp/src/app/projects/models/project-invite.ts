@@ -4,4 +4,5 @@ export class ProjectInvite {
   id: string;
   email: string;
   role: ProjectRole;
+  inviteUrl?: string;
 }

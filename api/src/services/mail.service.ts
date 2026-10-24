@@ -96,13 +96,14 @@ export default class MailService {
     });
   }
 
-  async invitedToPlatform(invite: Invite) {
+  async invitedToPlatform(invite: Invite, inviteUrl: string) {
     await this.send({
       from: this.from,
       to: invite.email,
       subject: 'You have been invited to a project on Traduora',
       text: this.knownTemplates.invitedToPlatform({
         invite: invite,
+        inviteUrl: inviteUrl,
         virtualHost: config.virtualHost,
       }),
     });
