@@ -12,7 +12,7 @@ jobs:
   check_lint:
     <<: *defaults
     docker:
-      - image: 'cimg/base:stable'
+      - image: 'cimg/base:current'
     steps:
       - checkout
       - node/install:
@@ -41,7 +41,7 @@ jobs:
   test_unit:
     <<: *defaults
     docker:
-      - image: 'cimg/base:stable'
+      - image: 'cimg/base:current'
       - image: mysql:5.7
         environment:
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
@@ -77,7 +77,7 @@ jobs:
   test_e2e:
     <<: *defaults
     docker:
-      - image: 'cimg/base:stable'
+      - image: 'cimg/base:current'
       - image: mysql:5.7
         environment:
           MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
@@ -113,7 +113,7 @@ jobs:
   build:
     <<: *defaults
     docker:
-      - image: 'cimg/base:stable'
+      - image: 'cimg/base:current'
     steps:
       - checkout
       - node/install:
@@ -128,7 +128,7 @@ jobs:
   build_old:
     <<: *defaults
     docker:
-      - image: 'cimg/base:stable'
+      - image: 'cimg/base:current'
     steps:
       - checkout
       - node/install:
