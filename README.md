@@ -84,7 +84,7 @@ environment variables:
 > interface.
 >
 > ⚠️ Versions 0.21.0 and 0.22.0 created this user with a default password
-> published in this README. Since 0.22.1 that password no longer signs in:
+> published in this README. Since 0.23.0 that password no longer signs in:
 > the first sign-in attempt with it fails and removes it from the account.
 > To set a new one, use "Forgot password". Without email: try to sign in
 > once with the old password (it fails and is removed), then set
