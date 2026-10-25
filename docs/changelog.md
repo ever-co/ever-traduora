@@ -51,6 +51,8 @@ Please upgrade. The advisories are on
   updates
 - Requests for missing resources return 404 again instead of 500
 - A failure to send an email no longer stops the API process
+- The Docker entrypoint no longer prints environment values, secrets
+  included, to the container logs (set `ENV_SECRETS_DEBUG` to trace it)
 
 ## 0.19.4
 
