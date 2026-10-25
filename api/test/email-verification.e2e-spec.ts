@@ -6,6 +6,7 @@ import { Invite, InviteStatus } from '../src/entity/invite.entity';
 import { User } from '../src/entity/user.entity';
 import { AuthService } from '../src/services/auth.service';
 import MailService from '../src/services/mail.service';
+import { UserService } from '../src/services/user.service';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 
@@ -219,6 +220,19 @@ describe('Email verification (e2e)', () => {
       } = await signInWithProvider('other-provider-user@test.com', { email_verified: true }).expect(201);
       expect(await emailVerified(verified)).toBe(true);
       expect(lastVerifyUrl).toBeUndefined();
+    });
+
+    it('should not sign in with an unverified email to an account whose sessions ended during sign-in', async () => {
+      // The mailbox owner recovers the account right after the provider sign-in created it
+      const userService = app.get(UserService);
+      const create = userService.create.bind(userService);
+      jest.spyOn(userService, 'create').mockImplementation(async args => {
+        const created = await create(args);
+        await users().increment({ id: created.user.id }, 'sessionVersion', 1);
+        return created;
+      });
+
+      await signInWithProvider('provider-user@test.com', {}).expect(401);
     });
 
     it('should not sign in to an existing account when the provider has not verified the email', async () => {

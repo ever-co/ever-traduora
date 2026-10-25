@@ -183,9 +183,11 @@ export class AuthController {
     // Reload: claiming the account ended its earlier sessions, and it must still have the provider's email (verified,
     // if the provider vouched for it) before it gets the email's invites, e.g. if its email changed in the meantime
     // An unverified provider email only creates accounts: an existing one (e.g. a password signup that finished since
-    // the check above) is not signed in to
+    // the check above) is not signed in to, nor the new one once its sessions were ended (e.g. its mailbox owner reset
+    // its password in the meantime)
     const account = await this.userService.findById(user.id);
-    if (!account || account.email !== normalizedEmail || (emailVerified && !account.emailVerified) || (!emailVerified && !isNewUser)) {
+    const unverifiedButNotFresh = !emailVerified && (!isNewUser || account?.sessionVersion !== (user.sessionVersion ?? 0));
+    if (!account || account.email !== normalizedEmail || (emailVerified && !account.emailVerified) || unverifiedButNotFresh) {
       throw new UnauthorizedException('The account changed during sign-in, please try again.');
     }
 
