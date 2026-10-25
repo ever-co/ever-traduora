@@ -197,9 +197,23 @@ export class UserService {
   async verifyEmailWithProvider(userId: string, email: string): Promise<boolean> {
     const { affected } = await this.userRepo.update(
       { id: userId, email: normalizeEmail(email), emailVerified: false },
-      { emailVerified: true, ...noEmailVerificationToken, encryptedPassword: null, sessionsValidAfter: new Date() },
+      { emailVerified: true, ...noEmailVerificationToken, encryptedPassword: null },
     );
+    if (affected) {
+      await this.endSessions(userId);
+    }
     return !!affected;
+  }
+
+  async findById(userId: string): Promise<User | null> {
+    return this.userRepo.findOneBy({ id: userId });
+  }
+
+  /**
+   * Ends all sessions of the user: access tokens issued before no longer work.
+   */
+  private async endSessions(userId: string): Promise<void> {
+    await this.userRepo.increment({ id: userId }, 'sessionVersion', 1);
   }
 
   async deleteAccount(user: User) {
@@ -252,10 +266,18 @@ export class UserService {
       throw new UnauthorizedException('invalid credentials');
     }
 
+    const checkedPassword = user.encryptedPassword;
     user.encryptedPassword = Buffer.from(await bcrypt.hash(newPassword, 10), 'utf-8');
 
-    // Write only the password: saving the loaded user would put back anything changed in the meantime
-    await this.userRepo.update({ id: user.id }, { encryptedPassword: user.encryptedPassword });
+    // Write only the password, and only over the one that was checked: a password reset or provider sign-in that
+    // replaced or removed it in the meantime must not be undone
+    const { affected } = await this.userRepo.update(
+      { id: user.id, encryptedPassword: checkedPassword },
+      { encryptedPassword: user.encryptedPassword },
+    );
+    if (!affected) {
+      throw new UnauthorizedException('invalid credentials');
+    }
     return user;
   }
 
@@ -290,11 +312,9 @@ export class UserService {
     const changes: Partial<User> = {
       encryptedPassword: Buffer.from(await bcrypt.hash(newPassword, 10), 'utf-8'),
       encryptedPasswordResetToken: Buffer.from('', 'utf-8'),
-      // The token was emailed to this address, so its owner reads it and now holds the account: sessions opened with
-      // the previous password end, e.g. those of someone who registered this email first
+      // The token was emailed to this address, so its owner reads it and now holds the account
       emailVerified: true,
       ...noEmailVerificationToken,
-      sessionsValidAfter: new Date(),
     };
 
     // Only while the account still has the email the token was sent to
@@ -302,7 +322,9 @@ export class UserService {
     if (!affected) {
       throw new UnauthorizedException('token is not valid');
     }
-    return { ...user, ...changes };
+    // Sessions opened with the previous password end, e.g. those of someone who registered this email first
+    await this.endSessions(user.id);
+    return { ...user, ...changes, sessionVersion: user.sessionVersion + 1 };
   }
 
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {

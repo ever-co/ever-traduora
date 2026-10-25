@@ -35,9 +35,9 @@ export class User {
   @Column({ ...TimeColumnType.date(), nullable: true })
   emailVerificationExpires: Date | null;
 
-  // Access tokens issued before this time are rejected, e.g. after a password reset
-  @Column({ ...TimeColumnType.date(), nullable: true })
-  sessionsValidAfter: Date | null;
+  // Access tokens carry the version they were issued for: incrementing it ends all sessions, e.g. after a password reset
+  @Column(NumberColumnType.integer(0))
+  sessionVersion: number;
 
   @Column(NumberColumnType.integer(0))
   loginAttempts: number;

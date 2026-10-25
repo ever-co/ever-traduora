@@ -36,16 +36,15 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       case 'user': {
         const found = await this.userRepository.findOne({
           where: { id: payload.sub },
-          select: ['id', 'name', 'email', 'emailVerified', 'numProjectsCreated', 'sessionsValidAfter'],
+          select: ['id', 'name', 'email', 'emailVerified', 'numProjectsCreated', 'sessionVersion'],
         });
-        // Tokens issued before the account's sessions were ended (e.g. by a password reset) no longer work.
-        // iat has second precision, so a token issued in the same second still does.
-        if (found?.sessionsValidAfter && (payload.iat ?? 0) < Math.floor(found.sessionsValidAfter.getTime() / 1000)) {
+        // Tokens of an ended session version no longer work, e.g. after a password reset
+        if (found && (payload.sv ?? 0) !== found.sessionVersion) {
           throw new UnauthorizedException();
         }
         if (found) {
           // Keep the User instance (authorization checks instanceof), but not this field: /users/me returns the object
-          delete found.sessionsValidAfter;
+          delete found.sessionVersion;
           user = found;
         }
         break;

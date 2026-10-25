@@ -110,8 +110,7 @@ export class AuthController {
 
     await this.acceptInvites(acceptedInvites, user);
 
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
+    const token = this.signUserToken(user);
 
     if (isNewUser) {
       await this.welcomeNewUser(user);
@@ -125,6 +124,11 @@ export class AuthController {
         accessToken: token,
       },
     };
+  }
+
+  private signUserToken(user: User): string {
+    const tokenPayload: JwtPayload = { sub: user.id, type: 'user', sv: user.sessionVersion ?? 0 };
+    return this.jwtService.sign(tokenPayload);
   }
 
   /**
@@ -171,15 +175,20 @@ export class AuthController {
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
-    // Before the access token below is signed: claiming an account ends its earlier sessions
     if (emailVerified) {
       await this.userService.verifyEmailWithProvider(user.id, normalizedEmail);
     }
 
-    await this.acceptInvites(invites, user);
+    // Reload: claiming the account ended its earlier sessions, and it must still have the provider's email (verified,
+    // if the provider vouched for it) before it gets the email's invites, e.g. if its email changed in the meantime
+    const account = await this.userService.findById(user.id);
+    if (!account || account.email !== normalizedEmail || (emailVerified && !account.emailVerified)) {
+      throw new UnauthorizedException('The account changed during sign-in, please try again.');
+    }
 
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
+    await this.acceptInvites(invites, account);
+
+    const token = this.signUserToken(account);
 
     if (isNewUser) {
       await this.welcomeNewUser(user, emailVerified);
@@ -254,9 +263,7 @@ export class AuthController {
 
   private async authenticateUser(email, password) {
     const user = await this.userService.authenticate({ grantType: GrantType.Password, email, password });
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
-    return token;
+    return this.signUserToken(user);
   }
 
   private async authenticateClient(clientId: string, password: string) {
@@ -286,10 +293,7 @@ export class AuthController {
     const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
 
     const user = await this.userService.authenticate({ grantType: GrantType.Provider, email: decodedToken.email });
-
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
-    return token;
+    return this.signUserToken(user);
   }
 
   @Post('forgot-password')
@@ -424,8 +428,13 @@ export class AuthController {
       return Promise.resolve([]);
     }
     return this.inviteRepo.manager.transaction(async entityManager => {
+      // Invites belong to the email they were sent to, so only while the account still has it
+      const current = await entityManager.findOne(User, { where: { id: user.id }, select: ['id', 'email'] });
       const accepted: Invite[] = [];
       for (const invite of invites) {
+        if (current?.email !== invite.email) {
+          continue;
+        }
         const { affected } = await entityManager.update(
           Invite,
           { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() },

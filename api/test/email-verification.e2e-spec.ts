@@ -40,11 +40,6 @@ describe('Email verification (e2e)', () => {
       resetToken = token;
     });
 
-  // A session opened a minute ago, i.e. before anything this test does to the account
-  const earlierSession = (user: { id: string }) => ({
-    accessToken: app.get(JwtService).sign({ sub: user.id, type: 'user', iat: Math.floor(Date.now() / 1000) - 60 }),
-  });
-
   const me = (user: { accessToken: string }) =>
     request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${user.accessToken}`);
   const verify = (user: { accessToken: string }, token: string) =>
@@ -186,18 +181,27 @@ describe('Email verification (e2e)', () => {
 
   it('should verify the email, accept pending invites and end earlier sessions with a password reset', async () => {
     const user = await signupTestUser(app, 'new-user@test.com', false);
-    const earlier = earlierSession(user);
     await invite('new-user@test.com', 'viewer').expect(201);
 
     await resetPassword(user.email, 'a-new-password');
 
-    // e.g. the sessions of someone who registered this email before its owner
-    await me(earlier).expect(401);
+    // e.g. the sessions of someone who registered this email before its owner, even one opened just before
+    await me(user).expect(401);
     const {
       body: { access_token: accessToken },
     } = await login(user.email, 'a-new-password').expect(200);
     expect(await emailVerified({ accessToken })).toBe(true);
     expect(await projectRole({ accessToken })).toEqual('viewer');
+  });
+
+  it('should accept tokens from before session versions until the sessions end', async () => {
+    const user = await signupTestUser(app, 'new-user@test.com');
+    // Issued by an earlier version, without a session version
+    const legacySession = { accessToken: app.get(JwtService).sign({ sub: user.id, type: 'user' }) };
+    await me(legacySession).expect(200);
+
+    await resetPassword(user.email, 'a-new-password');
+    await me(legacySession).expect(401);
   });
 
   describe('with a provider sign-in', () => {
@@ -233,7 +237,6 @@ describe('Email verification (e2e)', () => {
     it('should remove the password and end the sessions of an unverified account it claims', async () => {
       // Someone registered the owner's email with a password they chose
       const squatter = await signupTestUser(app, 'member@test.com', false);
-      const squatterSession = earlierSession(squatter);
       await invite('member@test.com').expect(201);
 
       const {
@@ -241,7 +244,7 @@ describe('Email verification (e2e)', () => {
       } = await signInWithProvider('member@test.com', { email_verified: true }).expect(201);
       expect(owner.id).toEqual(squatter.id);
 
-      await me(squatterSession).expect(401);
+      await me(squatter).expect(401);
       await login('member@test.com').expect(422);
       expect(await emailVerified(owner)).toBe(true);
       expect(await projectRole(owner)).toEqual('editor');
