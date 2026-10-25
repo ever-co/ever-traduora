@@ -70,15 +70,25 @@ When user signups are disabled (`TR_SIGNUPS_ENABLED=false`), a default admin use
 
 Traduora provides a seed function that creates this default admin user. You can use it to log in and perform administrative tasks such as inviting other users.
 
-The admin user is created only when you choose its password, with these environment variables:
+The admin user is created only when you choose its password, with these
+environment variables:
 
 - `TR_ADMIN_EMAIL` – Admin user email (default: `local.admin@ever.co`)
-- `TR_ADMIN_PASSWORD` – Admin user password (**required**, no default; for example the output of `openssl rand -base64 24`)
+- `TR_ADMIN_PASSWORD` – Admin user password (**required**, no default;
+  for example the output of `openssl rand -base64 24`)
 - `TR_ADMIN_NAME` – Admin username (default: `Admin`)
 
-> 🔐 After logging in for the first time, you can update these admin credentials (email, password, name) via the user settings in the web interface.
-
-> ⚠️ Versions 0.21.0 and 0.22.0 created this user with a default password published in this README. Since 0.22.1 that password no longer signs in: the first sign-in attempt with it fails and removes it from the account. To set a new one, use "Forgot password". Without email: try to sign in once with the old password (it fails and is removed), then set `TR_ADMIN_PASSWORD` and restart Traduora (with `TR_SEED_DATA` left at `true`) to give the admin user that password.
+> 🔐 After logging in for the first time, you can update these admin
+> credentials (email, password, name) via the user settings in the web
+> interface.
+>
+> ⚠️ Versions 0.21.0 and 0.22.0 created this user with a default password
+> published in this README. Since 0.22.1 that password no longer signs in:
+> the first sign-in attempt with it fails and removes it from the account.
+> To set a new one, use "Forgot password". Without email: try to sign in
+> once with the old password (it fails and is removed), then set
+> `TR_ADMIN_PASSWORD` and restart Traduora (with `TR_SEED_DATA` left at
+> `true`) to give the admin user that password.
 
 **⚙️ Seeding Options:**
 
@@ -103,7 +113,10 @@ yarn seed
 ```
 
 **🚀 Automatic Seeding at Startup:**
-If the environment variable `TR_SEED_DATA=true` is set (the default), Traduora will automatically run the seed scripts during application startup. With `TR_ADMIN_PASSWORD` set, this ensures that the default admin user is available without any manual intervention.
+If the environment variable `TR_SEED_DATA=true` is set (the default), Traduora
+will automatically run the seed scripts during application startup. With
+`TR_ADMIN_PASSWORD` set, this ensures that the default admin user is available
+without any manual intervention.
 
 ## 🔗 Frequently Asked Questions
 
