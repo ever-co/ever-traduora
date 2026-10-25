@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
@@ -195,14 +195,18 @@ export class UserService {
    * Returns whether the account was verified now.
    */
   async verifyEmailWithProvider(userId: string, email: string): Promise<boolean> {
-    const { affected } = await this.userRepo.update(
-      { id: userId, email: normalizeEmail(email), emailVerified: false },
-      { emailVerified: true, ...noEmailVerificationToken, encryptedPassword: null },
-    );
-    if (affected) {
-      await this.endSessions(userId);
-    }
-    return !!affected;
+    // One transaction: a claim that removed the password but kept the sessions could not be completed by a retry
+    return this.userRepo.manager.transaction(async entityManager => {
+      const { affected } = await entityManager.update(
+        User,
+        { id: userId, email: normalizeEmail(email), emailVerified: false },
+        { emailVerified: true, ...noEmailVerificationToken, encryptedPassword: null },
+      );
+      if (affected) {
+        await this.endSessions(userId, entityManager);
+      }
+      return !!affected;
+    });
   }
 
   async findById(userId: string): Promise<User | null> {
@@ -212,8 +216,8 @@ export class UserService {
   /**
    * Ends all sessions of the user: access tokens issued before no longer work.
    */
-  private async endSessions(userId: string): Promise<void> {
-    await this.userRepo.increment({ id: userId }, 'sessionVersion', 1);
+  private async endSessions(userId: string, entityManager: EntityManager): Promise<void> {
+    await entityManager.increment(User, { id: userId }, 'sessionVersion', 1);
   }
 
   async deleteAccount(user: User) {
@@ -318,12 +322,15 @@ export class UserService {
     };
 
     // Only while the account still has the email the token was sent to
-    const { affected } = await this.userRepo.update({ id: user.id, email: normalizedEmail }, changes);
-    if (!affected) {
-      throw new UnauthorizedException('token is not valid');
-    }
-    // Sessions opened with the previous password end, e.g. those of someone who registered this email first
-    await this.endSessions(user.id);
+    // Together with the new password, sessions opened with the previous one end, e.g. those of someone who registered
+    // this email first: one transaction, since the used token cannot be retried
+    await this.userRepo.manager.transaction(async entityManager => {
+      const { affected } = await entityManager.update(User, { id: user.id, email: normalizedEmail }, changes);
+      if (!affected) {
+        throw new UnauthorizedException('token is not valid');
+      }
+      await this.endSessions(user.id, entityManager);
+    });
     return { ...user, ...changes, sessionVersion: user.sessionVersion + 1 };
   }
 

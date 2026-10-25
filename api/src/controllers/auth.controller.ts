@@ -47,6 +47,7 @@ import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
 
@@ -181,8 +182,10 @@ export class AuthController {
 
     // Reload: claiming the account ended its earlier sessions, and it must still have the provider's email (verified,
     // if the provider vouched for it) before it gets the email's invites, e.g. if its email changed in the meantime
+    // An unverified provider email only creates accounts: an existing one (e.g. a password signup that finished since
+    // the check above) is not signed in to
     const account = await this.userService.findById(user.id);
-    if (!account || account.email !== normalizedEmail || (emailVerified && !account.emailVerified)) {
+    if (!account || account.email !== normalizedEmail || (emailVerified && !account.emailVerified) || (!emailVerified && !isNewUser)) {
       throw new UnauthorizedException('The account changed during sign-in, please try again.');
     }
 
@@ -428,8 +431,13 @@ export class AuthController {
       return Promise.resolve([]);
     }
     return this.inviteRepo.manager.transaction(async entityManager => {
-      // Invites belong to the email they were sent to, so only while the account still has it
-      const current = await entityManager.findOne(User, { where: { id: user.id }, select: ['id', 'email'] });
+      // Invites belong to the email they were sent to, so only while the account still has it. The row lock holds an
+      // email change until this commits (SQLite runs one write transaction at a time and has no row locks).
+      const current = await entityManager.findOne(User, {
+        where: { id: user.id },
+        select: ['id', 'email'],
+        ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+      });
       const accepted: Invite[] = [];
       for (const invite of invites) {
         if (current?.email !== invite.email) {
