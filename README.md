@@ -75,7 +75,8 @@ environment variables:
 
 - `TR_ADMIN_EMAIL` – Admin user email (default: `local.admin@ever.co`)
 - `TR_ADMIN_PASSWORD` – Admin user password (**required**, no default;
-  for example the output of `openssl rand -base64 24`)
+  for example the output of `openssl rand -base64 24`). Publicly known
+  passwords, such as the former default, are refused.
 - `TR_ADMIN_NAME` – Admin username (default: `Admin`)
 
 > 🔐 After logging in for the first time, you can update these admin
@@ -89,6 +90,10 @@ environment variables:
 > once with the old password (it fails and is removed), then set
 > `TR_ADMIN_PASSWORD` and restart Traduora (with `TR_SEED_DATA` left at
 > `true`) to give the admin user that password.
+>
+> Anyone could sign in with that password before you upgraded. Change
+> `TR_SECRET` to end all existing sessions (everyone signs in again), and
+> review the members and API clients of the admin user's projects.
 
 **⚙️ Seeding Options:**
 
@@ -115,8 +120,8 @@ yarn seed
 **🚀 Automatic Seeding at Startup:**
 If the environment variable `TR_SEED_DATA=true` is set (the default), Traduora
 will automatically run the seed scripts during application startup. With
-`TR_ADMIN_PASSWORD` set, this ensures that the default admin user is available
-without any manual intervention.
+`TR_ADMIN_PASSWORD` set to a password that is not publicly known, this ensures
+that the default admin user is available without any manual intervention.
 
 ## 🔗 Frequently Asked Questions
 

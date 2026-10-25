@@ -100,7 +100,12 @@ export class UserService {
 
     user.passwordResetExpires = moment().add(4, 'hours').toDate();
 
-    await this.userRepo.update(user.id, user);
+    // Write only the reset token: writing the loaded user would put back anything changed meanwhile, e.g. a published
+    // password removed by a concurrent sign-in
+    await this.userRepo.update(
+      { id: user.id },
+      { encryptedPasswordResetToken: user.encryptedPasswordResetToken, passwordResetExpires: user.passwordResetExpires },
+    );
 
     return { user, token };
   }
