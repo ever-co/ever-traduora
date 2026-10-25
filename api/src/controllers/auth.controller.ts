@@ -150,22 +150,30 @@ export class AuthController {
     });
 
     // The provider vouches for the email only when it reports it as verified
-    if (invites.length > 0 && decodedToken.email_verified !== true) {
+    const emailVerified = decodedToken.email_verified === true;
+    if (invites.length > 0 && !emailVerified) {
       throw new UnauthorizedException('The email must be verified with the provider to accept an invitation.');
+    }
+
+    // Signing in to an existing account by its email needs the same proof, or anyone with a provider account showing
+    // that address could take it over
+    const accountExists = await this.userService.userExists(decodedToken.email);
+    if (accountExists && !emailVerified) {
+      throw new UnauthorizedException('The email must be verified with the provider to sign in to an existing account.');
     }
 
     // This endpoint can be used for signing in too in the case of providers.
     // Ensure that we forbid a new account if we have disabled signups.
     // But still allow logging in in case the account had already been created.
-    if (!config.signupsEnabled && invites.length === 0 && !(await this.userService.userExists(decodedToken.email))) {
+    if (!config.signupsEnabled && invites.length === 0 && !accountExists) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
-    const emailVerified = decodedToken.email_verified === true;
+    // Before the access token below is signed: claiming an account ends its earlier sessions
     if (emailVerified) {
-      await this.userService.markEmailVerified(user.id, normalizedEmail);
+      await this.userService.verifyEmailWithProvider(user.id, normalizedEmail);
     }
 
     await this.acceptInvites(invites, user);
@@ -303,6 +311,8 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async resetPassword(@Body() payload: ResetPasswordRequest) {
     const user = await this.userService.resetPassword(payload.email, payload.token, payload.newPassword);
+    // The reset proved that the owner reads this email, which also verifies it
+    await this.acceptPendingInvites(user);
     this.mailService.passwordChanged(user);
   }
 
@@ -322,21 +332,33 @@ export class AuthController {
   }
 
   @Post('verify-email')
+  @UseGuards(AuthGuard())
+  @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify the email of an account with the token from its verification link' })
+  @ApiOperation({ summary: `Verify the signed-in user's email with the token from its verification link` })
   @ApiResponse({ status: HttpStatus.OK, type: VerifyEmailResponse, description: 'Email verified' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'The link is invalid, expired, already used, or for an email the account no longer has' })
-  async verifyEmail(@Body() payload: VerifyEmailRequest) {
-    const user = await this.userService.verifyEmail(payload.token);
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'The link is invalid, expired, already used, for another account, or for an email the account no longer has',
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async verifyEmail(@Req() req, @Body() payload: VerifyEmailRequest) {
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+    const user = await this.userService.verifyEmail(payload.token, requestingUser.id);
+    await this.acceptPendingInvites(user);
+    return { data: { email: user.email, emailVerified: true } };
+  }
 
-    // The owner proved they read this email, like with a provider that verified it, so its invitations are theirs
+  /**
+   * Accepts the pending invites of a user who just proved that they read their email, like a provider sign-in that
+   * verified it: the invitations were sent to that mailbox.
+   */
+  private async acceptPendingInvites(user: User) {
     const invites = await this.inviteRepo.find({
       where: { email: user.email, status: InviteStatus.Sent },
       relations: ['project'],
     });
     await this.acceptInvites(invites, user);
-
-    return { data: { email: user.email, emailVerified: true } };
   }
 
   @Throttle({

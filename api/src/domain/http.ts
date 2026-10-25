@@ -9,6 +9,8 @@ import { IsValidLabel } from '../validators/IsValidLabel';
 export interface JwtPayload {
   sub: string;
   type: string;
+  // Issued at, in seconds: set when the token is signed
+  iat?: number;
 }
 
 export enum GrantType {

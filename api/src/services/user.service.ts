@@ -142,7 +142,12 @@ export class UserService {
       });
     }
 
-    await this.userRepo.update({ id: userId }, changes);
+    // Only if the email is still the one compared above: a concurrent change could otherwise keep a verification
+    // that belongs to another address
+    const { affected } = await this.userRepo.update({ id: userId, email: current.email }, changes);
+    if (!affected) {
+      throw new ConflictException('the account changed in the meantime, please try again');
+    }
     return { user: await this.userRepo.findOneByOrFail({ id: userId }), emailChanged };
   }
 
@@ -162,9 +167,13 @@ export class UserService {
     return affected ? token : null;
   }
 
-  async verifyEmail(token: string): Promise<User> {
+  /**
+   * Verifies the email of the signed-in user. The token proves that they read the mailbox, and the session that they
+   * own the account: whoever reads the mailbox of an account someone else registered must not verify it for them.
+   */
+  async verifyEmail(token: string, userId: string): Promise<User> {
     const tokenHash = hashEmailVerificationToken(token);
-    const user = await this.userRepo.findOneBy({ emailVerificationTokenHash: tokenHash });
+    const user = await this.userRepo.findOneBy({ id: userId, emailVerificationTokenHash: tokenHash });
     if (!user || !user.emailVerificationExpires || moment(user.emailVerificationExpires).isBefore(Date.now())) {
       throw new NotFoundException('verification link not found');
     }
@@ -180,10 +189,17 @@ export class UserService {
   }
 
   /**
-   * Marks the email as verified if the account still has it, e.g. when a sign-in provider vouches for it.
+   * Verifies the email when a sign-in provider vouches that the caller reads it, if the account still has that email
+   * and had not proved it yet. Then whoever set the account's password may not be its owner, since anyone can sign up
+   * with any email: the password is removed and existing sessions end. The owner can set a new password with a reset.
+   * Returns whether the account was verified now.
    */
-  async markEmailVerified(userId: string, email: string): Promise<void> {
-    await this.userRepo.update({ id: userId, email: normalizeEmail(email) }, { emailVerified: true, ...noEmailVerificationToken });
+  async verifyEmailWithProvider(userId: string, email: string): Promise<boolean> {
+    const { affected } = await this.userRepo.update(
+      { id: userId, email: normalizeEmail(email), emailVerified: false },
+      { emailVerified: true, ...noEmailVerificationToken, encryptedPassword: null, sessionsValidAfter: new Date() },
+    );
+    return !!affected;
   }
 
   async deleteAccount(user: User) {
@@ -274,9 +290,11 @@ export class UserService {
     const changes: Partial<User> = {
       encryptedPassword: Buffer.from(await bcrypt.hash(newPassword, 10), 'utf-8'),
       encryptedPasswordResetToken: Buffer.from('', 'utf-8'),
-      // The token was emailed to this address, so its owner reads it
+      // The token was emailed to this address, so its owner reads it and now holds the account: sessions opened with
+      // the previous password end, e.g. those of someone who registered this email first
       emailVerified: true,
       ...noEmailVerificationToken,
+      sessionsValidAfter: new Date(),
     };
 
     // Only while the account still has the email the token was sent to

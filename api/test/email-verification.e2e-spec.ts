@@ -34,38 +34,77 @@ describe('Email verification (e2e)', () => {
   };
   const tokenOf = (url: string) => new URL(url).searchParams.get('token');
 
-  const me = (user: TestingUser) => request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${user.accessToken}`);
-  const verify = (token: string) => request(app.getHttpServer()).post('/api/v1/auth/verify-email').send({ token });
+  let resetToken: string | undefined;
+  const capturePasswordResetTokens = () =>
+    jest.spyOn(app.get(MailService), 'passwordResetToken').mockImplementation(async (_, token) => {
+      resetToken = token;
+    });
+
+  // A session opened a minute ago, i.e. before anything this test does to the account
+  const earlierSession = (user: { id: string }) => ({
+    accessToken: app.get(JwtService).sign({ sub: user.id, type: 'user', iat: Math.floor(Date.now() / 1000) - 60 }),
+  });
+
+  const me = (user: { accessToken: string }) =>
+    request(app.getHttpServer()).get('/api/v1/users/me').set('Authorization', `Bearer ${user.accessToken}`);
+  const verify = (user: { accessToken: string }, token: string) =>
+    request(app.getHttpServer()).post('/api/v1/auth/verify-email').set('Authorization', `Bearer ${user.accessToken}`).send({ token });
   const resend = (user: TestingUser) =>
     request(app.getHttpServer()).post('/api/v1/auth/resend-verification-email').set('Authorization', `Bearer ${user.accessToken}`);
+  const login = (email: string, password = 'mysupersecretpassword') =>
+    request(app.getHttpServer()).post('/api/v1/auth/token').send({ grant_type: 'password', username: email, password });
+  const resetPassword = async (email: string, newPassword: string) => {
+    capturePasswordResetTokens();
+    await request(app.getHttpServer()).post('/api/v1/auth/forgot-password').send({ email }).expect(200);
+    await request(app.getHttpServer()).post('/api/v1/auth/reset-password').send({ email, token: resetToken, newPassword }).expect(200);
+  };
+  const signInWithProvider = (email: string, claims: object) => {
+    const idToken = new JwtService({ secret: 'provider-test' }).sign({ email, name: 'Provider User', ...claims });
+    jest.spyOn(app.get(AuthService), 'getTokenFromGoogle').mockResolvedValue({ id_token: idToken });
+    return request(app.getHttpServer()).post('/api/v1/auth/signup-provider').send({ code: 'provider-code' });
+  };
   const invite = (email: string, role = 'editor') =>
     request(app.getHttpServer())
       .post(`/api/v1/projects/${project.id}/invites`)
       .set('Authorization', `Bearer ${admin.accessToken}`)
       .send({ email, role });
-  const projectRole = async (user: TestingUser) => {
+  const projectRole = async (user: { accessToken: string }) => {
     const res = await request(app.getHttpServer()).get(`/api/v1/projects/${project.id}`).set('Authorization', `Bearer ${user.accessToken}`);
     return res.status === 200 ? res.body.data.role : undefined;
   };
+  const emailVerified = async (user: { accessToken: string }) => (await me(user).expect(200)).body.data.emailVerified;
   const users = () => app.get(Connection).getRepository(User);
 
   it('should start unverified and be verified by the link from the welcome email, once', async () => {
     captureVerificationLinks();
     const user = await signupTestUser(app, 'new-user@test.com', false);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(false));
+    expect(await emailVerified(user)).toBe(false);
 
     expect(lastVerifyUrl).toMatch(/\/verify-email\?token=[0-9a-f]{64}$/);
-    await verify(tokenOf(lastVerifyUrl))
+    await verify(user, tokenOf(lastVerifyUrl))
       .expect(200)
       .expect(res => expect(res.body.data).toEqual({ email: 'new-user@test.com', emailVerified: true }));
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(true));
+    expect(await emailVerified(user)).toBe(true);
 
-    await verify(tokenOf(lastVerifyUrl)).expect(404);
-    await verify('0'.repeat(64)).expect(404);
+    await verify(user, tokenOf(lastVerifyUrl)).expect(404);
+    await verify(user, '0'.repeat(64)).expect(404);
+  });
+
+  it('should only verify the account the link was sent for, while signed in to it', async () => {
+    captureVerificationLinks();
+    const user = await signupTestUser(app, 'new-user@test.com', false);
+    const link = lastVerifyUrl;
+
+    // e.g. the owner of a mailbox that someone else registered an account with
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/verify-email')
+      .send({ token: tokenOf(link) })
+      .expect(401);
+    await verify(admin, tokenOf(link)).expect(404);
+    expect(await emailVerified(user)).toBe(false);
+    expect(await emailVerified(admin)).toBe(true);
+
+    await verify(user, tokenOf(link)).expect(200);
   });
 
   it('should refuse an expired link', async () => {
@@ -73,10 +112,8 @@ describe('Email verification (e2e)', () => {
     const user = await signupTestUser(app, 'new-user@test.com', false);
     await users().update({ id: user.id }, { emailVerificationExpires: new Date(Date.now() - 1000) });
 
-    await verify(tokenOf(lastVerifyUrl)).expect(404);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(false));
+    await verify(user, tokenOf(lastVerifyUrl)).expect(404);
+    expect(await emailVerified(user)).toBe(false);
   });
 
   it('should send a new link on request and stop the previous one', async () => {
@@ -88,8 +125,8 @@ describe('Email verification (e2e)', () => {
     await resend(user).expect(204);
     expect(lastVerifyUrl).not.toEqual(firstUrl);
 
-    await verify(tokenOf(firstUrl)).expect(404);
-    await verify(tokenOf(lastVerifyUrl)).expect(200);
+    await verify(user, tokenOf(firstUrl)).expect(404);
+    await verify(user, tokenOf(lastVerifyUrl)).expect(200);
 
     // Nothing to send once verified
     lastVerifyUrl = undefined;
@@ -102,10 +139,7 @@ describe('Email verification (e2e)', () => {
     const user = await signupTestUser(app, 'new-user@test.com', false);
     const linkForOldEmail = lastVerifyUrl;
 
-    let resetToken: string;
-    jest.spyOn(app.get(MailService), 'passwordResetToken').mockImplementation(async (_, token) => {
-      resetToken = token;
-    });
+    capturePasswordResetTokens();
     await request(app.getHttpServer()).post('/api/v1/auth/forgot-password').send({ email: 'new-user@test.com' }).expect(200);
 
     await request(app.getHttpServer())
@@ -116,29 +150,23 @@ describe('Email verification (e2e)', () => {
       .expect(res => expect(res.body.data).toEqual({ id: user.id, name: user.name, email: 'changed@test.com', emailVerified: false }));
 
     // Neither link sent to the old email may vouch for the new one
-    await verify(tokenOf(linkForOldEmail)).expect(404);
+    await verify(user, tokenOf(linkForOldEmail)).expect(404);
     await request(app.getHttpServer())
       .post('/api/v1/auth/reset-password')
       .send({ email: 'changed@test.com', token: resetToken, newPassword: 'a-new-password' })
       .expect(401);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(false));
+    expect(await emailVerified(user)).toBe(false);
 
     // The new email gets its own link
     expect(lastVerifyUrl).not.toEqual(linkForOldEmail);
-    await verify(tokenOf(lastVerifyUrl)).expect(200);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(true));
+    await verify(user, tokenOf(lastVerifyUrl)).expect(200);
+    expect(await emailVerified(user)).toBe(true);
   });
 
   it('should make a verified email unverified when it changes', async () => {
     captureVerificationLinks();
     const user = await signupTestUser(app, 'new-user@test.com');
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(true));
+    expect(await emailVerified(user)).toBe(true);
 
     // Saving the same email again is not a change
     await request(app.getHttpServer())
@@ -146,57 +174,78 @@ describe('Email verification (e2e)', () => {
       .set('Authorization', `Bearer ${user.accessToken}`)
       .send({ email: 'new-user@test.com' })
       .expect(200);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(true));
+    expect(await emailVerified(user)).toBe(true);
 
     await request(app.getHttpServer())
       .patch('/api/v1/users/me')
       .set('Authorization', `Bearer ${user.accessToken}`)
       .send({ email: 'other@test.com' })
       .expect(200);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(false));
+    expect(await emailVerified(user)).toBe(false);
   });
 
-  it('should verify the email with a password reset', async () => {
+  it('should verify the email, accept pending invites and end earlier sessions with a password reset', async () => {
     const user = await signupTestUser(app, 'new-user@test.com', false);
-    let resetToken: string;
-    jest.spyOn(app.get(MailService), 'passwordResetToken').mockImplementation(async (_, token) => {
-      resetToken = token;
-    });
-    await request(app.getHttpServer()).post('/api/v1/auth/forgot-password').send({ email: user.email }).expect(200);
-    await request(app.getHttpServer())
-      .post('/api/v1/auth/reset-password')
-      .send({ email: user.email, token: resetToken, newPassword: 'a-new-password' })
-      .expect(200);
+    const earlier = earlierSession(user);
+    await invite('new-user@test.com', 'viewer').expect(201);
 
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(true));
+    await resetPassword(user.email, 'a-new-password');
+
+    // e.g. the sessions of someone who registered this email before its owner
+    await me(earlier).expect(401);
+    const {
+      body: { access_token: accessToken },
+    } = await login(user.email, 'a-new-password').expect(200);
+    expect(await emailVerified({ accessToken })).toBe(true);
+    expect(await projectRole({ accessToken })).toEqual('viewer');
   });
 
-  it('should verify the email with a provider that verified it, and not otherwise', async () => {
-    captureVerificationLinks();
-    const signInWithProvider = (claims: object) => {
-      const idToken = new JwtService({ secret: 'provider-test' }).sign({ email: 'provider-user@test.com', name: 'Provider User', ...claims });
-      jest.spyOn(app.get(AuthService), 'getTokenFromGoogle').mockResolvedValue({ id_token: idToken });
-      return request(app.getHttpServer()).post('/api/v1/auth/signup-provider').send({ code: 'provider-code' });
-    };
+  describe('with a provider sign-in', () => {
+    it('should verify a new account only when the provider verified the email', async () => {
+      captureVerificationLinks();
+      const {
+        body: { data: unverified },
+      } = await signInWithProvider('provider-user@test.com', {}).expect(201);
+      expect(await emailVerified(unverified)).toBe(false);
+      expect(lastVerifyUrl).toBeDefined();
 
-    const {
-      body: { data: user },
-    } = await signInWithProvider({}).expect(201);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(false));
-    expect(lastVerifyUrl).toBeDefined();
+      lastVerifyUrl = undefined;
+      const {
+        body: { data: verified },
+      } = await signInWithProvider('other-provider-user@test.com', { email_verified: true }).expect(201);
+      expect(await emailVerified(verified)).toBe(true);
+      expect(lastVerifyUrl).toBeUndefined();
+    });
 
-    await signInWithProvider({ email_verified: true }).expect(201);
-    await me(user)
-      .expect(200)
-      .expect(res => expect(res.body.data.emailVerified).toBe(true));
+    it('should not sign in to an existing account when the provider has not verified the email', async () => {
+      await signupTestUser(app, 'member@test.com');
+      await signInWithProvider('member@test.com', {}).expect(401);
+      await signInWithProvider('member@test.com', { email_verified: false }).expect(401);
+      await login('member@test.com').expect(200);
+    });
+
+    it('should keep the password of an account whose email was verified already', async () => {
+      await signupTestUser(app, 'member@test.com');
+      await signInWithProvider('member@test.com', { email_verified: true }).expect(201);
+      await login('member@test.com').expect(200);
+    });
+
+    it('should remove the password and end the sessions of an unverified account it claims', async () => {
+      // Someone registered the owner's email with a password they chose
+      const squatter = await signupTestUser(app, 'member@test.com', false);
+      const squatterSession = earlierSession(squatter);
+      await invite('member@test.com').expect(201);
+
+      const {
+        body: { data: owner },
+      } = await signInWithProvider('member@test.com', { email_verified: true }).expect(201);
+      expect(owner.id).toEqual(squatter.id);
+
+      await me(squatterSession).expect(401);
+      await login('member@test.com').expect(422);
+      expect(await emailVerified(owner)).toBe(true);
+      expect(await projectRole(owner)).toEqual('editor');
+    });
   });
 
   describe('inviting an existing account', () => {
@@ -241,7 +290,7 @@ describe('Email verification (e2e)', () => {
       await invite('member@test.com', 'viewer').expect(201);
       expect(await projectRole(user)).toBeUndefined();
 
-      await verify(tokenOf(linkFromWelcomeEmail)).expect(200);
+      await verify(user, tokenOf(linkFromWelcomeEmail)).expect(200);
       expect(await projectRole(user)).toEqual('viewer');
       const invites = await app
         .get(Connection)

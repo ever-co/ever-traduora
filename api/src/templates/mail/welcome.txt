@@ -6,7 +6,7 @@ You're one step closer to bringing your project to a wider audience.
 To get started, go to {{virtualHost}}/login and login with your email and password.
 {{#if verifyEmailUrl}}
 
-Please also confirm that this is your email address by opening this link:
+Please also confirm that this is your email address by opening this link (sign in if asked):
 
 {{{verifyEmailUrl}}}
 

@@ -6,10 +6,9 @@
       Your email is confirmed. Pending invitations to it have been accepted, and project admins can now add you directly.
     </div>
     <div *ngIf="status === 'failed'" class="alert alert-danger">
-      This link does not work: it may have expired, been used already, or been replaced by a newer one. Sign in and send a new link from your account
-      settings.
+      This link does not work for this account: it only works for the account it was sent to, and only until it expires, is used, or is replaced by a
+      newer one. You can send a new link from your account settings.
     </div>
-    <a *ngIf="isAuthenticated$ | async; else signIn" class="btn btn-link p-0" routerLink="/">Go to your projects</a>
-    <ng-template #signIn><a class="btn btn-link p-0" routerLink="/login">Sign in</a></ng-template>
+    <a class="btn btn-link p-0" routerLink="/">Go to your projects</a>
   </div>
 </div>

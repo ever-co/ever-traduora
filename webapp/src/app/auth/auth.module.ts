@@ -49,9 +49,10 @@ import { SignInWithComponent } from './components/sign-in-with/sign-in-with.comp
         canActivate: [AuthGuard],
       },
       {
-        // No guard: the link works signed in or out
+        // Signed-out users sign in first and come back to the link
         path: 'verify-email',
         component: VerifyEmailComponent,
+        canActivate: [AuthGuard],
       },
       {
         path: 'login',
