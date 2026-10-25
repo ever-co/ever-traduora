@@ -4,7 +4,7 @@ import { catchError, finalize, tap } from 'rxjs/operators';
 import { Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
 import { ProjectRole } from '../models/project-role';
-import { ClearCurrentProject, SetCurrentProject } from './projects.state';
+import { ClearCurrentProject, ProjectsState, SetCurrentProject } from './projects.state';
 import { GetProjectUsers } from './project-user.state';
 import { ProjectInvite, ProjectInviteAddedUser } from '../models/project-invite';
 import { ProjectInviteService } from '../services/project-invite.service';
@@ -114,6 +114,11 @@ export class ProjectInviteState implements NgxsOnInit {
     ctx.patchState({ isLoading: true, lastAdded: undefined });
     return this.projectInviteService.create(action.projectId, action.email, action.role).pipe(
       tap(added => {
+        ctx.patchState({ lastAdded: added });
+        // The lists belong to the open project, which may have changed while this was sending
+        if (this.store.selectSnapshot(ProjectsState.currentProject)?.id !== action.projectId) {
+          return;
+        }
         const invites = ctx.getState().invites;
         if ('userId' in added) {
           // A member now, and the API removed any invite sent to them before they had an account
