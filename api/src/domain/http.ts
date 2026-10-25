@@ -9,6 +9,8 @@ import { IsValidLabel } from '../validators/IsValidLabel';
 export interface JwtPayload {
   sub: string;
   type: string;
+  // Session version of the user when the token was issued; tokens from before versions existed have none (0)
+  sv?: number;
 }
 
 export enum GrantType {
@@ -41,6 +43,9 @@ export class UserInfoDTO {
 
   @ApiProperty()
   email: string;
+
+  @ApiProperty({ description: 'Whether the owner confirmed this email, e.g. through the link emailed at signup' })
+  emailVerified: boolean;
 }
 
 export class AccessTokenDTO {
@@ -413,6 +418,25 @@ export class AcceptInviteRequest {
   @IsString()
   @Length(1, 255)
   inviteToken: string;
+}
+
+export class VerifyEmailRequest {
+  @ApiProperty({ description: 'Token from the email verification link' })
+  @IsString()
+  @Length(1, 255)
+  token: string;
+}
+
+export class VerifiedEmailDto {
+  @ApiProperty()
+  email: string;
+  @ApiProperty()
+  emailVerified: boolean;
+}
+
+export class VerifyEmailResponse extends ServiceApiResponse<VerifiedEmailDto> {
+  @ApiProperty()
+  data: VerifiedEmailDto;
 }
 
 export class AcceptedInviteDto {

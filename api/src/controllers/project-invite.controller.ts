@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -57,7 +57,12 @@ export default class ProjectInviteController {
   @Post(':projectId/invites')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a new project invite' })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectInviteCreatedResponse })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Created: a project user for an account with a verified email, otherwise an invite with its link',
+    type: ProjectInviteCreatedResponse,
+  })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'The user is already part of the project' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -69,7 +74,16 @@ export default class ProjectInviteController {
       where: { email: normalizeEmail(inviteUserRequest.email) },
     });
 
-    if (targetUser) {
+    // Anyone can create an account with any email, so only an account that proved it reads this email joins directly.
+    // Any other account gets an invite like a new user, accepted with the link sent to the email.
+    if (targetUser && !targetUser.emailVerified) {
+      const membership = await this.projectUserRepo.findOne({ where: { project: { id: projectId }, user: { id: targetUser.id } } });
+      if (membership) {
+        throw new ConflictException('this user is already part of the project');
+      }
+    }
+
+    if (targetUser?.emailVerified) {
       const record = this.projectUserRepo.create({
         project: { id: projectId },
         user: targetUser,

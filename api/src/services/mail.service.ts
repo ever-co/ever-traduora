@@ -20,6 +20,7 @@ export default class MailService {
     passwordResetToken: this.mustCompileTemplate('password-reset-token.txt'),
     invitedToProject: this.mustCompileTemplate('invited-to-project.txt'),
     invitedToPlatform: this.mustCompileTemplate('invited-to-platform.txt'),
+    verifyEmail: this.mustCompileTemplate('verify-email.txt'),
   };
 
   constructor() {
@@ -47,7 +48,7 @@ export default class MailService {
     this.from = config.mail.sender;
   }
 
-  async welcomeNewUser(user: User) {
+  async welcomeNewUser(user: User, verifyEmailUrl?: string) {
     await this.send({
       from: this.from,
       to: user.email,
@@ -55,6 +56,19 @@ export default class MailService {
       text: this.knownTemplates.welcome({
         user: user,
         virtualHost: config.virtualHost,
+        verifyEmailUrl: verifyEmailUrl,
+      }),
+    });
+  }
+
+  async verifyEmail(user: User, verifyEmailUrl: string) {
+    await this.send({
+      from: this.from,
+      to: user.email,
+      subject: 'Confirm your email address for Traduora',
+      text: this.knownTemplates.verifyEmail({
+        user: user,
+        verifyEmailUrl: verifyEmailUrl,
       }),
     });
   }
