@@ -8,14 +8,14 @@ import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
-import { TooManyRequestsException } from '../errors';
+import { PublishedPasswordException, TooManyRequestsException } from '../errors';
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 import { config } from '../config';
 import { isPublishedPassword } from '../utils/published-passwords';
 
 const assertNotPublishedPassword = (password: string) => {
   if (isPublishedPassword(password)) {
-    throw new BadRequestException('this password is publicly known, please choose a different one');
+    throw new PublishedPasswordException();
   }
 };
 
@@ -258,7 +258,8 @@ export class UserService {
     // Anyone can sign in with a published password, such as the former default admin one, so it is removed from the
     // account. The owner sets a new one with a password reset, or the seed sets TR_ADMIN_PASSWORD on the admin account.
     if (isPublishedPassword(password)) {
-      await this.userRepo.update({ id: user.id }, { encryptedPassword: null });
+      // Only the hash just checked: a password reset that finished during bcrypt.compare must not be undone
+      await this.userRepo.update({ id: user.id, encryptedPassword: user.encryptedPassword }, { encryptedPassword: null });
       throw new UnprocessableEntityException('this account used a publicly known password, please reset it');
     }
   }
@@ -274,9 +275,11 @@ export class UserService {
     return !!affected;
   }
 
+  // Login attempts write only their own columns: saving the loaded user would put back anything changed meanwhile,
+  // e.g. a published password removed by a concurrent sign-in
   private async incrementLoginAttempts(user: User, loginAttempts: number, userKey: string): Promise<void> {
     user.lastLogin = new Date();
-    await this.saveUser(user);
+    await this.userRepo.update({ id: user.id }, { lastLogin: user.lastLogin });
 
     if (this.loginAttemptsStorage.getRedisClient()) {
       await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, this.loginAttemptsTTL);
@@ -284,15 +287,11 @@ export class UserService {
     await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
   }
 
-  private async saveUser(user: User): Promise<void> {
-    await this.userRepo.save(user);
-  }
-
   private async resetLoginAttempts(userKey: string, user: User): Promise<void> {
     if (this.loginAttemptsStorage.getRedisClient()) {
       await this.loginAttemptsStorage.setUserAttempts(userKey, 0, this.loginAttemptsTTL); // Reset attempts in Redis
     }
     user.loginAttempts = 0;
-    await this.saveUser(user);
+    await this.userRepo.update({ id: user.id }, { loginAttempts: 0 });
   }
 }

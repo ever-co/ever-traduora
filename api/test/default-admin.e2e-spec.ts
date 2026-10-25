@@ -55,7 +55,14 @@ describe('Published passwords and the default admin (e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/v1/auth/signup')
       .send({ name: 'Someone', email: 'someone@test.com', password: PUBLISHED_PASSWORD })
-      .expect(400);
+      .expect(400)
+      .expect(res => expect(res.body.error.code).toEqual('PublishedPassword'));
+    // Other invalid input keeps the generic code
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/signup')
+      .send({ name: 'Someone', email: 'someone@test.com', password: 'short' })
+      .expect(400)
+      .expect(res => expect(res.body.error.code).toEqual('BadRequest'));
 
     const user = await signupTestUser(app);
     await request(app.getHttpServer())

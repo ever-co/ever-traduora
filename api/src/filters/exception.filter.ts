@@ -1,4 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
+import { PublishedPasswordException } from '../errors';
 
 @Catch()
 export class CustomExceptionFilter implements ExceptionFilter {
@@ -50,6 +51,13 @@ export class CustomExceptionFilter implements ExceptionFilter {
         error: {
           code: 'Unauthorized',
           message: 'You are not authorized to access this resource',
+        },
+      });
+    } else if (exception instanceof PublishedPasswordException) {
+      response.status(400).json({
+        error: {
+          code: 'PublishedPassword',
+          message: 'This password is publicly known, please choose a different one',
         },
       });
     } else if (exception.status === 400 || exception.code === 'ER_DATA_TOO_LONG') {

@@ -78,7 +78,7 @@ The admin user is created only when you choose its password, with these environm
 
 > 🔐 After logging in for the first time, you can update these admin credentials (email, password, name) via the user settings in the web interface.
 
-> ⚠️ Versions 0.21.0 and 0.22.0 created this user with a default password published in this README. Since 0.22.1 that password no longer signs in: it is removed from the account at the next sign-in attempt. Reset it with "Forgot password", or set `TR_ADMIN_PASSWORD` and restart Traduora to give the admin user that password.
+> ⚠️ Versions 0.21.0 and 0.22.0 created this user with a default password published in this README. Since 0.22.1 that password no longer signs in: the first sign-in attempt with it fails and removes it from the account. To set a new one, use "Forgot password". Without email: try to sign in once with the old password (it fails and is removed), then set `TR_ADMIN_PASSWORD` and restart Traduora (with `TR_SEED_DATA` left at `true`) to give the admin user that password.
 
 **⚙️ Seeding Options:**
 

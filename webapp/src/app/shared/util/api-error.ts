@@ -18,15 +18,13 @@ export function errorToMessage(error: any, action = ''): string {
       default:
         return 'Payload too large';
     }
+  } else if (domainCode === 'PublishedPassword') {
+    return 'This password is publicly known, for example a former default password. Please choose a different one.';
   } else if (domainCode === 'BadRequest') {
     switch (action) {
       case 'ImportLocale':
         // tslint:disable-next-line:max-line-length
         return 'The file that you are trying to import is either malformed or not the right format, please check that it is valid before trying again.';
-      case 'Signup':
-      case 'ChangePassword':
-      case 'ResetPassword':
-        return 'Bad request, please check your values and try again. Publicly known passwords are not accepted.';
       default:
         return 'Bad request, please check your values and try again.';
     }
