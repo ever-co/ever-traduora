@@ -325,7 +325,12 @@ export class UserService {
     // Together with the new password, sessions opened with the previous one end, e.g. those of someone who registered
     // this email first: one transaction, since the used token cannot be retried
     await this.userRepo.manager.transaction(async entityManager => {
-      const { affected } = await entityManager.update(User, { id: user.id, email: normalizedEmail }, changes);
+      // Only with the token that was checked: a reset that already used it, or a newer forgot-password, replaced it
+      const { affected } = await entityManager.update(
+        User,
+        { id: user.id, email: normalizedEmail, encryptedPasswordResetToken: user.encryptedPasswordResetToken },
+        changes,
+      );
       if (!affected) {
         throw new UnauthorizedException('token is not valid');
       }
