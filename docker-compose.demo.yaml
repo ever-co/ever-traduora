@@ -7,6 +7,7 @@ services:
     ports:
       - '8080:8080'
     environment:
+      TR_SECRET: ${TR_SECRET:-}
       TR_DB_TYPE: better-sqlite3
       TR_DB_SQLITE_PATH: ${TR_DB_SQLITE_PATH:-api/data/tr_dev.sqlite3}
       NODE_ENV: ${NODE_ENV:-development}
