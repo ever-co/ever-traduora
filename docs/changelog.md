@@ -10,6 +10,52 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - TODO
 
+## 0.23.0
+
+### Security
+
+Please upgrade. The advisories are on
+[GitHub](https://github.com/ever-co/ever-traduora/security/advisories).
+
+- [PR-571:](https://github.com/ever-co/ever-traduora/pull/571) Since 0.21.0
+  the startup seed created the admin account `local.admin@ever.co` with a
+  default password published in the README whenever `TR_ADMIN_PASSWORD` was
+  not set, so anyone could sign in to it (GHSA-vjr4-28gx-35p8)
+- [PR-572:](https://github.com/ever-co/ever-traduora/pull/572) An account
+  registered with an email its owner had not verified was added to every
+  project that later invited that email (GHSA-gp83-wv43-h962)
+
+### Upgrade notes
+
+- **The default admin account has no default password anymore.** It is
+  created only when `TR_ADMIN_PASSWORD` is set. If an instance created it
+  with the former default password, that password no longer signs in: the
+  first attempt removes it. Set a new one with "Forgot password", or without
+  email: try to sign in once, then restart with `TR_ADMIN_PASSWORD` set.
+  Anyone could have used that account before the upgrade: change
+  `TR_SECRET` to end all sessions and review the members and API clients of
+  its projects.
+- **Account emails are now verified.** New accounts get a link in their
+  welcome email; existing accounts start unverified and can send a new link
+  from their account settings. A password reset or a Google sign-in that
+  reports the email as verified also verifies it. Inviting an account whose
+  email is not verified sends an invitation link instead of adding it
+  directly; verifying the email accepts its pending invitations.
+- A Google sign-in to an existing account needs Google to report the email
+  as verified. If it verifies an account that had not proved its email, it
+  removes that account's password and ends its other sessions; a password
+  reset also ends other sessions.
+- Database migrations add columns to `user` and make its password column
+  nullable on PostgreSQL. They run automatically unless
+  `TR_DB_AUTOMIGRATE=false`.
+
+### Also
+
+- Google sign-up works on PostgreSQL: the password column had never been
+  made nullable there
+- The login page shows "Bad credentials" for a wrong password instead of a
+  generic error
+
 ## 0.22.0
 
 ### Security
