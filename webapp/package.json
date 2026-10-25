@@ -71,7 +71,7 @@
     "@types/jasminewd2": "^2.0.10",
     "@types/jwt-decode": "^3.1.0",
     "@types/lodash": "^4.14.172",
-    "@types/node": "^16.9.1",
+    "@types/node": "^26.6.5",
     "@types/popper.js": "^1.11.0",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
