@@ -3,14 +3,21 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
-import { TooManyRequestsException } from '../errors';
+import { PublishedPasswordException, TooManyRequestsException } from '../errors';
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 import { config } from '../config';
+import { isPublishedPassword } from '../utils/published-passwords';
+
+const assertNotPublishedPassword = (password: string) => {
+  if (isPublishedPassword(password)) {
+    throw new PublishedPasswordException();
+  }
+};
 
 @Injectable()
 export class UserService {
@@ -64,6 +71,7 @@ export class UserService {
       if (!password) {
         throw new BadRequestException('you need a password to create an account');
       }
+      assertNotPublishedPassword(password);
 
       user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
     }
@@ -92,7 +100,12 @@ export class UserService {
 
     user.passwordResetExpires = moment().add(4, 'hours').toDate();
 
-    await this.userRepo.update(user.id, user);
+    // Write only the reset token: writing the loaded user would put back anything changed meanwhile, e.g. a published
+    // password removed by a concurrent sign-in
+    await this.userRepo.update(
+      { id: user.id },
+      { encryptedPasswordResetToken: user.encryptedPasswordResetToken, passwordResetExpires: user.passwordResetExpires },
+    );
 
     return { user, token };
   }
@@ -135,6 +148,7 @@ export class UserService {
   }
 
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<User> {
+    assertNotPublishedPassword(newPassword);
     const user = await this.userRepo.findOneByOrFail({ id: userId });
 
     const valid = await new Promise((resolve, reject) => {
@@ -157,6 +171,7 @@ export class UserService {
   }
 
   async resetPassword(email: string, token: string, newPassword: string): Promise<User> {
+    assertNotPublishedPassword(newPassword);
     const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneByOrFail({ email: normalizedEmail });
 
@@ -244,11 +259,32 @@ export class UserService {
       await this.incrementLoginAttempts(user, loginAttempts, userKey);
       throw new UnauthorizedException('invalid credentials');
     }
+
+    // Anyone can sign in with a published password, such as the former default admin one, so it is removed from the
+    // account. The owner sets a new one with a password reset, or the seed sets TR_ADMIN_PASSWORD on the admin account.
+    if (isPublishedPassword(password)) {
+      // Only the hash just checked: a password reset that finished during bcrypt.compare must not be undone
+      await this.userRepo.update({ id: user.id, encryptedPassword: user.encryptedPassword }, { encryptedPassword: null });
+      throw new UnprocessableEntityException('this account used a publicly known password, please reset it');
+    }
   }
 
+  /**
+   * Sets a password on an account that has none, e.g. after a published password was removed from it.
+   * Returns whether the password was set.
+   */
+  async setMissingPassword(email: string, password: string): Promise<boolean> {
+    assertNotPublishedPassword(password);
+    const encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
+    const { affected } = await this.userRepo.update({ email: normalizeEmail(email), encryptedPassword: IsNull() }, { encryptedPassword });
+    return !!affected;
+  }
+
+  // Login attempts write only their own columns: saving the loaded user would put back anything changed meanwhile,
+  // e.g. a published password removed by a concurrent sign-in
   private async incrementLoginAttempts(user: User, loginAttempts: number, userKey: string): Promise<void> {
     user.lastLogin = new Date();
-    await this.saveUser(user);
+    await this.userRepo.update({ id: user.id }, { lastLogin: user.lastLogin });
 
     if (this.loginAttemptsStorage.getRedisClient()) {
       await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, this.loginAttemptsTTL);
@@ -256,15 +292,11 @@ export class UserService {
     await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
   }
 
-  private async saveUser(user: User): Promise<void> {
-    await this.userRepo.save(user);
-  }
-
   private async resetLoginAttempts(userKey: string, user: User): Promise<void> {
     if (this.loginAttemptsStorage.getRedisClient()) {
       await this.loginAttemptsStorage.setUserAttempts(userKey, 0, this.loginAttemptsTTL); // Reset attempts in Redis
     }
     user.loginAttempts = 0;
-    await this.saveUser(user);
+    await this.userRepo.update({ id: user.id }, { loginAttempts: 0 });
   }
 }

@@ -18,6 +18,8 @@ export function errorToMessage(error: any, action = ''): string {
       default:
         return 'Payload too large';
     }
+  } else if (domainCode === 'PublishedPassword') {
+    return 'This password is publicly known, for example a former default password. Please choose a different one.';
   } else if (domainCode === 'BadRequest') {
     switch (action) {
       case 'ImportLocale':
@@ -51,6 +53,11 @@ export function errorToMessage(error: any, action = ''): string {
         return (
           `We are unable to delete your account as you are the last admin for one or more projects. ` +
           `Please assign another admin for those projects or delete the projects first and try again.`
+        );
+      case 'Login':
+        return (
+          `This account has no password to sign in with: it was created through a sign-in provider, ` +
+          `or its password was publicly known and has been removed. Use "Forgot password" to set a new one.`
         );
       default:
         return 'The server was unable to process the request, please check your request.';

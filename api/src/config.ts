@@ -120,7 +120,8 @@ export const config = {
 
   defaultAdminCredentialConfig: {
     adminEmail: process.env.TR_ADMIN_EMAIL || `local.admin@ever.co`,
-    adminPassword: process.env.TR_ADMIN_PASSWORD || `sTr0ngP@ssw0rd!2025`,
+    // No default: the seed creates the admin only when a password is configured
+    adminPassword: process.env.TR_ADMIN_PASSWORD || '',
     adminName: process.env.TR_ADMIN_NAME || 'Admin',
   },
 };
