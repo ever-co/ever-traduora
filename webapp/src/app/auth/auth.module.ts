@@ -10,6 +10,7 @@ import { AuthCallbackComponent } from './components/callback/callback.component'
 import { ResetPasswordComponent } from './components/reset-password/reset-password.component';
 import { SignupComponent } from './components/signup/signup.component';
 import { UserSettingsComponent } from './components/user-settings/user-settings.component';
+import { VerifyEmailComponent } from './components/verify-email/verify-email.component';
 import { AuthGuard } from './guards/auth.guard';
 import { NoAuthGuard } from './guards/no-auth.guard';
 import { AuthState } from './stores/auth.state';
@@ -25,6 +26,7 @@ import { SignInWithComponent } from './components/sign-in-with/sign-in-with.comp
     ResetPasswordComponent,
     AuthCallbackComponent,
     SignInWithComponent,
+    VerifyEmailComponent,
   ],
   imports: [
     CommonModule,
@@ -45,6 +47,11 @@ import { SignInWithComponent } from './components/sign-in-with/sign-in-with.comp
         path: 'accept-invite',
         component: AcceptInviteComponent,
         canActivate: [AuthGuard],
+      },
+      {
+        // No guard: the link works signed in or out
+        path: 'verify-email',
+        component: VerifyEmailComponent,
       },
       {
         path: 'login',

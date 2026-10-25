@@ -229,10 +229,13 @@ export class AuthState implements NgxsOnInit {
     ctx.patchState({ isLoading: true });
     return this.authService.updateUserSelf(action.updates).pipe(
       map(user => {
+        const emailChanged = ctx.getState().user?.email !== user.email;
         ctx.patchState({
           user: user,
           errorMessage: undefined,
-          statusMessage: 'Successfully updated your information.',
+          statusMessage: emailChanged
+            ? 'Successfully updated your information. Please confirm your new email with the link we sent to it.'
+            : 'Successfully updated your information.',
         });
       }),
       catchError(error => {

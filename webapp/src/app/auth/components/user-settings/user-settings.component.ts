@@ -4,6 +4,7 @@ import { Select, Store } from '@ngxs/store';
 import { Observable, Subscription } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { User } from '../../models/user';
+import { AuthService } from '../../services/auth.service';
 import { AuthState, ChangePassword, ClearMessages, DeleteAccount, UpdateUserSelf } from '../../stores/auth.state';
 
 @Component({
@@ -35,12 +36,23 @@ export class UserSettingsComponent implements OnInit, OnDestroy {
   @Select(state => state.auth.isLoading)
   isLoading$: Observable<boolean>;
 
+  verificationEmail: 'unsent' | 'sending' | 'sent' | 'failed' = 'unsent';
+
   private sub: Subscription;
 
   constructor(
     private fb: FormBuilder,
     private store: Store,
+    private authService: AuthService,
   ) {}
+
+  resendVerificationEmail() {
+    this.verificationEmail = 'sending';
+    this.authService.resendVerificationEmail().subscribe({
+      next: () => (this.verificationEmail = 'sent'),
+      error: () => (this.verificationEmail = 'failed'),
+    });
+  }
 
   ngOnInit() {
     this.sub = this.user$

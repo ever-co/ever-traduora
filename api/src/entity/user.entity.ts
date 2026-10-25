@@ -25,6 +25,16 @@ export class User {
   @Column({ ...TimeColumnType.date(), nullable: true })
   passwordResetExpires: Date;
 
+  // Set once the owner proved that they read this email: a verification link, a password reset or a provider sign-in
+  @Column({ default: false })
+  emailVerified: boolean;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  emailVerificationTokenHash: string | null;
+
+  @Column({ ...TimeColumnType.date(), nullable: true })
+  emailVerificationExpires: Date | null;
+
   @Column(NumberColumnType.integer(0))
   loginAttempts: number;
 

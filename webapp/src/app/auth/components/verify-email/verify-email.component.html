@@ -1,0 +1,15 @@
+<div class="d-flex flex-column justify-content-center align-items-center h-100">
+  <app-logo class="mb-4"></app-logo>
+  <div *ngIf="status === 'verifying'">Confirming your email...</div>
+  <div *ngIf="status !== 'verifying'" style="width: 380px">
+    <div *ngIf="status === 'verified'" class="alert alert-success">
+      Your email is confirmed. Pending invitations to it have been accepted, and project admins can now add you directly.
+    </div>
+    <div *ngIf="status === 'failed'" class="alert alert-danger">
+      This link does not work: it may have expired, been used already, or been replaced by a newer one. Sign in and send a new link from your account
+      settings.
+    </div>
+    <a *ngIf="isAuthenticated$ | async; else signIn" class="btn btn-link p-0" routerLink="/">Go to your projects</a>
+    <ng-template #signIn><a class="btn btn-link p-0" routerLink="/login">Sign in</a></ng-template>
+  </div>
+</div>

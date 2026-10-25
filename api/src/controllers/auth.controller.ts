@@ -35,6 +35,8 @@ import {
   ListAuthProvidersResponse,
   AuthProviderDTO,
   ServiceApiResponse,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
 } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { Invite, InviteStatus } from '../entity/invite.entity';
@@ -45,6 +47,7 @@ import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
 
 @Controller('api/v1/auth')
@@ -111,7 +114,7 @@ export class AuthController {
     const token = this.jwtService.sign(tokenPayload);
 
     if (isNewUser) {
-      this.mailService.welcomeNewUser(user);
+      await this.welcomeNewUser(user);
     }
 
     return {
@@ -122,6 +125,15 @@ export class AuthController {
         accessToken: token,
       },
     };
+  }
+
+  /**
+   * Sends the welcome email, with a link to verify the email unless it is verified already. Not awaited: MailService
+   * logs delivery failures.
+   */
+  private async welcomeNewUser(user: User, emailVerified = false) {
+    const verificationToken = emailVerified ? null : await this.userService.startEmailVerification(user);
+    void this.mailService.welcomeNewUser(user, verificationToken ? verifyEmailUrl(verificationToken) : undefined);
   }
 
   @Post('signup-provider')
@@ -151,13 +163,18 @@ export class AuthController {
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
+    const emailVerified = decodedToken.email_verified === true;
+    if (emailVerified) {
+      await this.userService.markEmailVerified(user.id, normalizedEmail);
+    }
+
     await this.acceptInvites(invites, user);
 
     const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
     const token = this.jwtService.sign(tokenPayload);
 
     if (isNewUser) {
-      this.mailService.welcomeNewUser(user);
+      await this.welcomeNewUser(user, emailVerified);
     }
 
     return {
@@ -302,6 +319,49 @@ export class AuthController {
     const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     const user = await this.userService.changePassword(requestingUser.id, payload.oldPassword, payload.newPassword);
     this.mailService.passwordChanged(user);
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify the email of an account with the token from its verification link' })
+  @ApiResponse({ status: HttpStatus.OK, type: VerifyEmailResponse, description: 'Email verified' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'The link is invalid, expired, already used, or for an email the account no longer has' })
+  async verifyEmail(@Body() payload: VerifyEmailRequest) {
+    const user = await this.userService.verifyEmail(payload.token);
+
+    // The owner proved they read this email, like with a provider that verified it, so its invitations are theirs
+    const invites = await this.inviteRepo.find({
+      where: { email: user.email, status: InviteStatus.Sent },
+      relations: ['project'],
+    });
+    await this.acceptInvites(invites, user);
+
+    return { data: { email: user.email, emailVerified: true } };
+  }
+
+  @Throttle({
+    default: {
+      limit: config.throttle.auth.limit,
+      ttl: config.throttle.auth.ttl,
+    },
+  })
+  @Post('resend-verification-email')
+  @UseGuards(AuthGuard())
+  @ApiOAuth2([])
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: `Email a new verification link for the current user's email` })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Sent, or nothing to do because the email is verified already' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async resendVerificationEmail(@Req() req) {
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+    if (requestingUser.emailVerified) {
+      return;
+    }
+    // Replaces the previous link, which stops working
+    const token = await this.userService.startEmailVerification(requestingUser);
+    if (token) {
+      void this.mailService.verifyEmail(requestingUser, verifyEmailUrl(token));
+    }
   }
 
   @Post('accept-invite')

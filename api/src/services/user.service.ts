@@ -1,4 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -12,6 +19,9 @@ import { PublishedPasswordException, TooManyRequestsException } from '../errors'
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 import { config } from '../config';
 import { isPublishedPassword } from '../utils/published-passwords';
+import { EMAIL_VERIFICATION_VALID_DAYS, generateEmailVerificationToken, hashEmailVerificationToken } from '../utils/email-verification-token';
+
+const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
 
 const assertNotPublishedPassword = (password: string) => {
   if (isPublishedPassword(password)) {
@@ -100,22 +110,80 @@ export class UserService {
 
     user.passwordResetExpires = moment().add(4, 'hours').toDate();
 
-    // Write only the reset token: writing the loaded user would put back anything changed meanwhile, e.g. a published
-    // password removed by a concurrent sign-in
-    await this.userRepo.update(
-      { id: user.id },
+    // Write only the reset token, and only for the email it is sent to: writing the loaded user would put back
+    // anything changed meanwhile (e.g. a published password removed by a concurrent sign-in), and changing the email
+    // in the meantime discards the token
+    const { affected } = await this.userRepo.update(
+      { id: user.id, email: user.email },
       { encryptedPasswordResetToken: user.encryptedPasswordResetToken, passwordResetExpires: user.passwordResetExpires },
     );
+    if (!affected) {
+      throw new NotFoundException('user not found');
+    }
 
     return { user, token };
   }
 
-  async updateUserData(userId: string, updates: { name?: string; email?: string }): Promise<User> {
+  async updateUserData(userId: string, updates: { name?: string; email?: string }): Promise<{ user: User; emailChanged: boolean }> {
+    const current = await this.userRepo.findOneByOrFail({ id: userId });
+    const changes: Partial<User> = { ...updates };
     if (updates.email) {
-      updates.email = normalizeEmail(updates.email);
+      changes.email = normalizeEmail(updates.email);
     }
-    await this.userRepo.update(userId, updates);
-    return await this.userRepo.findOneByOrFail({ id: userId });
+
+    // Nothing proves that the owner reads the new address, and links sent to the old one must not count for it
+    const emailChanged = changes.email !== undefined && changes.email !== current.email;
+    if (emailChanged) {
+      Object.assign(changes, {
+        emailVerified: false,
+        ...noEmailVerificationToken,
+        encryptedPasswordResetToken: Buffer.from('', 'utf-8'),
+        passwordResetExpires: null,
+      });
+    }
+
+    await this.userRepo.update({ id: userId }, changes);
+    return { user: await this.userRepo.findOneByOrFail({ id: userId }), emailChanged };
+  }
+
+  /**
+   * Stores a new email verification token for the user's current email and returns it, or returns null if the email
+   * changed since the user was loaded.
+   */
+  async startEmailVerification(user: User): Promise<string | null> {
+    const token = generateEmailVerificationToken();
+    const { affected } = await this.userRepo.update(
+      { id: user.id, email: user.email },
+      {
+        emailVerificationTokenHash: hashEmailVerificationToken(token),
+        emailVerificationExpires: moment().add(EMAIL_VERIFICATION_VALID_DAYS, 'days').toDate(),
+      },
+    );
+    return affected ? token : null;
+  }
+
+  async verifyEmail(token: string): Promise<User> {
+    const tokenHash = hashEmailVerificationToken(token);
+    const user = await this.userRepo.findOneBy({ emailVerificationTokenHash: tokenHash });
+    if (!user || !user.emailVerificationExpires || moment(user.emailVerificationExpires).isBefore(Date.now())) {
+      throw new NotFoundException('verification link not found');
+    }
+
+    const { affected } = await this.userRepo.update(
+      { id: user.id, email: user.email, emailVerificationTokenHash: tokenHash },
+      { emailVerified: true, ...noEmailVerificationToken },
+    );
+    if (!affected) {
+      throw new NotFoundException('verification link not found');
+    }
+    return { ...user, emailVerified: true, ...noEmailVerificationToken };
+  }
+
+  /**
+   * Marks the email as verified if the account still has it, e.g. when a sign-in provider vouches for it.
+   */
+  async markEmailVerified(userId: string, email: string): Promise<void> {
+    await this.userRepo.update({ id: userId, email: normalizeEmail(email) }, { emailVerified: true, ...noEmailVerificationToken });
   }
 
   async deleteAccount(user: User) {
@@ -150,6 +218,9 @@ export class UserService {
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<User> {
     assertNotPublishedPassword(newPassword);
     const user = await this.userRepo.findOneByOrFail({ id: userId });
+    if (!user.encryptedPassword) {
+      throw new UnauthorizedException('invalid credentials');
+    }
 
     const valid = await new Promise((resolve, reject) => {
       bcrypt.compare(oldPassword, user.encryptedPassword.toString('utf8'), (err, same) => {
@@ -167,13 +238,18 @@ export class UserService {
 
     user.encryptedPassword = Buffer.from(await bcrypt.hash(newPassword, 10), 'utf-8');
 
-    return await this.userRepo.save(user);
+    // Write only the password: saving the loaded user would put back anything changed in the meantime
+    await this.userRepo.update({ id: user.id }, { encryptedPassword: user.encryptedPassword });
+    return user;
   }
 
   async resetPassword(email: string, token: string, newPassword: string): Promise<User> {
     assertNotPublishedPassword(newPassword);
     const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneByOrFail({ email: normalizedEmail });
+    if (!user.encryptedPasswordResetToken?.length) {
+      throw new UnauthorizedException('token is not valid');
+    }
 
     const valid = await new Promise((resolve, reject) => {
       bcrypt.compare(token, user.encryptedPasswordResetToken.toString('utf8'), (err, same) => {
@@ -195,10 +271,20 @@ export class UserService {
       throw new UnauthorizedException('token is expired');
     }
 
-    user.encryptedPassword = Buffer.from(await bcrypt.hash(newPassword, 10), 'utf-8');
-    user.encryptedPasswordResetToken = Buffer.from('', 'utf-8');
+    const changes: Partial<User> = {
+      encryptedPassword: Buffer.from(await bcrypt.hash(newPassword, 10), 'utf-8'),
+      encryptedPasswordResetToken: Buffer.from('', 'utf-8'),
+      // The token was emailed to this address, so its owner reads it
+      emailVerified: true,
+      ...noEmailVerificationToken,
+    };
 
-    return await this.userRepo.save(user);
+    // Only while the account still has the email the token was sent to
+    const { affected } = await this.userRepo.update({ id: user.id, email: normalizedEmail }, changes);
+    if (!affected) {
+      throw new UnauthorizedException('token is not valid');
+    }
+    return { ...user, ...changes };
   }
 
   async authenticate({ grantType, email, password }: { grantType: GrantType; email: string; password?: string }): Promise<User> {

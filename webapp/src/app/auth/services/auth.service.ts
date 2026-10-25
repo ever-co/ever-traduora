@@ -23,6 +23,16 @@ export class AuthService {
       .pipe(map(res => res.data));
   }
 
+  verifyEmail(token: string): Observable<{ email: string; emailVerified: boolean }> {
+    return this.http
+      .post<Payload<{ email: string; emailVerified: boolean }>>(`${this.endpoint}/auth/verify-email`, { token })
+      .pipe(map(res => res.data));
+  }
+
+  resendVerificationEmail(): Observable<any> {
+    return this.http.post(`${this.endpoint}/auth/resend-verification-email`, {}, { responseType: 'text' });
+  }
+
   getUserSelf(): Observable<User> {
     return this.http.get<Payload<User>>(`${this.endpoint}/users/me`).pipe(map(res => res.data));
   }

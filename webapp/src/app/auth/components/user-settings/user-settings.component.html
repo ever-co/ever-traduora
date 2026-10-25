@@ -43,6 +43,18 @@
                 <div *ngIf="email.getError('required')">Email is required.</div>
                 <div *ngIf="email.getError('email')">Must be a valid email</div>
               </div>
+
+              <small *ngIf="user.emailVerified === false" class="form-text text-muted">
+                <ng-container *ngIf="verificationEmail === 'unsent'">
+                  Not confirmed yet: open the link we emailed to you.
+                  <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="resendVerificationEmail()">Send a new link</button>
+                </ng-container>
+                <ng-container *ngIf="verificationEmail === 'sending'">Sending a new link...</ng-container>
+                <ng-container *ngIf="verificationEmail === 'sent'"
+                  >We sent a new link to {{ user.email }}. It replaces the previous one.</ng-container
+                >
+                <ng-container *ngIf="verificationEmail === 'failed'">Could not send a new link, please try again later.</ng-container>
+              </small>
             </div>
 
             <button class="btn btn-primary w-100" [disabled]="!userDataForm.dirty || !userDataForm.valid || (isLoading$ | async)" type="submit">
