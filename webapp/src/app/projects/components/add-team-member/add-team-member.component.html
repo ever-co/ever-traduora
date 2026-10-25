@@ -6,7 +6,26 @@
         <i class="material-icons">close</i>
       </button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" *ngIf="inviteUrl">
+      <p>{{ invitedEmail }} is invited. They need this link to sign up, and it is emailed to them if this server can send email.</p>
+      <p>You can also send it to them yourself. It only works for that email, so do not share it with anyone else.</p>
+      <label for="inviteUrlInput" class="sr-only">Invitation link</label>
+      <div class="input-group">
+        <input
+          #inviteUrlInput
+          id="inviteUrlInput"
+          class="form-control"
+          type="text"
+          [value]="inviteUrl"
+          readonly
+          (focus)="$any($event.target).select()"
+        />
+        <div class="input-group-append">
+          <button type="button" class="btn btn-light" (click)="copyInviteUrl(inviteUrlInput)">Copy</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body" *ngIf="!inviteUrl">
       <app-error-message *ngIf="errorMessage$ | async as errorMessage" [message]="errorMessage"></app-error-message>
       <div class="form-group">
         <label for="emailInput">Email address</label>
@@ -35,7 +54,10 @@
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="modal-footer" *ngIf="inviteUrl">
+      <button type="button" class="btn btn-primary" (click)="modal.close()">Done</button>
+    </div>
+    <div class="modal-footer" *ngIf="!inviteUrl">
       <button type="button" class="btn btn-link no-underline" (click)="modal.close()" ngbAutofocus>Cancel</button>
       <button type="submit" [disabled]="!form.valid || (isLoading$ | async)" class="btn btn-primary">Save</button>
     </div>

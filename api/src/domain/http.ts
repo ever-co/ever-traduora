@@ -138,6 +138,11 @@ export class ProjectInviteDto {
   role: ProjectRole;
 }
 
+export class ProjectInviteCreatedDto extends ProjectInviteDto {
+  @ApiProperty({ description: 'Sign-up link for the invitee, also sent by email. Share it only with the invited person.' })
+  inviteUrl: string;
+}
+
 export class ProjectInviteAddedUserDto {
   @ApiProperty()
   userId: string;
@@ -377,9 +382,9 @@ export class ProjectInviteResponse extends ServiceApiResponse<ProjectInviteDto> 
   data: ProjectInviteDto;
 }
 
-export class ProjectInviteCreatedResponse extends ServiceApiResponse<ProjectInviteDto | ProjectInviteAddedUserDto> {
+export class ProjectInviteCreatedResponse extends ServiceApiResponse<ProjectInviteCreatedDto | ProjectInviteAddedUserDto> {
   @ApiProperty()
-  data: ProjectInviteDto | ProjectInviteAddedUserDto;
+  data: ProjectInviteCreatedDto | ProjectInviteAddedUserDto;
 }
 
 export class SignupRequest {
@@ -395,6 +400,31 @@ export class SignupRequest {
   @ApiProperty({ minLength: 8, maxLength: 255 })
   @Length(8, 255)
   password: string;
+
+  @ApiPropertyOptional({ description: 'Token from the invitation link, required when the email has a pending invitation' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  inviteToken?: string;
+}
+
+export class AcceptInviteRequest {
+  @ApiProperty({ description: 'Token from the invitation link' })
+  @IsString()
+  @Length(1, 255)
+  inviteToken: string;
+}
+
+export class AcceptedInviteDto {
+  @ApiProperty()
+  projectId: string;
+  @ApiProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
+export class AcceptInviteResponse extends ServiceApiResponse<AcceptedInviteDto> {
+  @ApiProperty()
+  data: AcceptedInviteDto;
 }
 
 export class AuthenticateRequest {

@@ -66,6 +66,8 @@ export function errorToMessage(error: any, action = ''): string {
         return 'Bad credentials.';
       case 'ChangePassword':
         return 'Could not change your password, it appears that you entered the wrong current password.';
+      case 'Signup':
+        return 'This email has a pending invitation. Please sign up with the link from your invitation email, or ask the project admin to send the invitation again.';
       default:
         return 'Error, unauthorized.';
     }

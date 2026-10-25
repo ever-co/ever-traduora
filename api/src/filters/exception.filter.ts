@@ -6,8 +6,8 @@ export class CustomExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
 
-    // Re-map forbidden to not found
-    if (exception.name === 'EntityNotFound' || exception.status === 404 || exception.status === 403) {
+    // Re-map forbidden to not found (TypeORM 0.3 names the error 'EntityNotFoundError', older versions 'EntityNotFound')
+    if (exception.name === 'EntityNotFoundError' || exception.name === 'EntityNotFound' || exception.status === 404 || exception.status === 403) {
       response.status(404).json({
         error: {
           code: 'NotFound',
