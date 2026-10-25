@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import { Connection } from 'typeorm';
 import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { ProjectRole } from '../src/entity/project-user.entity';
+import { User } from '../src/entity/user.entity';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 
 export interface TestingUser {
@@ -27,7 +28,11 @@ export interface TestingProjectClient {
   accessToken: string;
 }
 
-export async function signupTestUser(app: INestApplication, email: string = 'e2e@test.com'): Promise<TestingUser> {
+/**
+ * Signs up a user. Their email counts as verified unless `verifyEmail` is false, as if they had opened the link from
+ * the welcome email, so that invites add them to projects directly.
+ */
+export async function signupTestUser(app: INestApplication, email: string = 'e2e@test.com', verifyEmail = true): Promise<TestingUser> {
   const res = await request(app.getHttpServer())
     .post('/api/v1/auth/signup')
     .send({
@@ -38,6 +43,9 @@ export async function signupTestUser(app: INestApplication, email: string = 'e2e
   const result = res.body.data as TestingUser;
   if (!result.id || !result.name || !result.email || !result.accessToken) {
     throw new Error('Malformed signup user response! Maybe fields need updating?');
+  }
+  if (verifyEmail) {
+    await app.get(Connection).getRepository(User).update({ id: result.id }, { emailVerified: true });
   }
   return result;
 }

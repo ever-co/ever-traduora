@@ -35,6 +35,8 @@ import {
   ListAuthProvidersResponse,
   AuthProviderDTO,
   ServiceApiResponse,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
 } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { Invite, InviteStatus } from '../entity/invite.entity';
@@ -45,6 +47,8 @@ import { AuthService } from '../services/auth.service';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { DbType, isDbType } from '../utils/database-type-helper';
+import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
 
 @Controller('api/v1/auth')
@@ -107,11 +111,10 @@ export class AuthController {
 
     await this.acceptInvites(acceptedInvites, user);
 
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
+    const token = this.signUserToken(user);
 
     if (isNewUser) {
-      this.mailService.welcomeNewUser(user);
+      await this.welcomeNewUser(user);
     }
 
     return {
@@ -122,6 +125,20 @@ export class AuthController {
         accessToken: token,
       },
     };
+  }
+
+  private signUserToken(user: User): string {
+    const tokenPayload: JwtPayload = { sub: user.id, type: 'user', sv: user.sessionVersion ?? 0 };
+    return this.jwtService.sign(tokenPayload);
+  }
+
+  /**
+   * Sends the welcome email, with a link to verify the email unless it is verified already. Not awaited: MailService
+   * logs delivery failures.
+   */
+  private async welcomeNewUser(user: User, emailVerified = false) {
+    const verificationToken = emailVerified ? null : await this.userService.startEmailVerification(user);
+    void this.mailService.welcomeNewUser(user, verificationToken ? verifyEmailUrl(verificationToken) : undefined);
   }
 
   @Post('signup-provider')
@@ -138,26 +155,48 @@ export class AuthController {
     });
 
     // The provider vouches for the email only when it reports it as verified
-    if (invites.length > 0 && decodedToken.email_verified !== true) {
+    const emailVerified = decodedToken.email_verified === true;
+    if (invites.length > 0 && !emailVerified) {
       throw new UnauthorizedException('The email must be verified with the provider to accept an invitation.');
+    }
+
+    // Signing in to an existing account by its email needs the same proof, or anyone with a provider account showing
+    // that address could take it over
+    const accountExists = await this.userService.userExists(decodedToken.email);
+    if (accountExists && !emailVerified) {
+      throw new UnauthorizedException('The email must be verified with the provider to sign in to an existing account.');
     }
 
     // This endpoint can be used for signing in too in the case of providers.
     // Ensure that we forbid a new account if we have disabled signups.
     // But still allow logging in in case the account had already been created.
-    if (!config.signupsEnabled && invites.length === 0 && !(await this.userService.userExists(decodedToken.email))) {
+    if (!config.signupsEnabled && invites.length === 0 && !accountExists) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
 
-    await this.acceptInvites(invites, user);
+    if (emailVerified) {
+      await this.userService.verifyEmailWithProvider(user.id, normalizedEmail);
+    }
 
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
+    // Reload: claiming the account ended its earlier sessions, and it must still have the provider's email (verified,
+    // if the provider vouched for it) before it gets the email's invites, e.g. if its email changed in the meantime
+    // An unverified provider email only creates accounts: an existing one (e.g. a password signup that finished since
+    // the check above) is not signed in to, nor the new one once its sessions were ended (e.g. its mailbox owner reset
+    // its password in the meantime)
+    const account = await this.userService.findById(user.id);
+    const unverifiedButNotFresh = !emailVerified && (!isNewUser || account?.sessionVersion !== (user.sessionVersion ?? 0));
+    if (!account || account.email !== normalizedEmail || (emailVerified && !account.emailVerified) || unverifiedButNotFresh) {
+      throw new UnauthorizedException('The account changed during sign-in, please try again.');
+    }
+
+    await this.acceptInvites(invites, account);
+
+    const token = this.signUserToken(account);
 
     if (isNewUser) {
-      this.mailService.welcomeNewUser(user);
+      await this.welcomeNewUser(user, emailVerified);
     }
 
     return {
@@ -229,9 +268,7 @@ export class AuthController {
 
   private async authenticateUser(email, password) {
     const user = await this.userService.authenticate({ grantType: GrantType.Password, email, password });
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
-    return token;
+    return this.signUserToken(user);
   }
 
   private async authenticateClient(clientId: string, password: string) {
@@ -261,10 +298,7 @@ export class AuthController {
     const decodedToken = this.jwtService.decode(id_token, { json: true }) as { email: string; name: string };
 
     const user = await this.userService.authenticate({ grantType: GrantType.Provider, email: decodedToken.email });
-
-    const tokenPayload: JwtPayload = { sub: user.id, type: 'user' };
-    const token = this.jwtService.sign(tokenPayload);
-    return token;
+    return this.signUserToken(user);
   }
 
   @Post('forgot-password')
@@ -286,6 +320,8 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async resetPassword(@Body() payload: ResetPasswordRequest) {
     const user = await this.userService.resetPassword(payload.email, payload.token, payload.newPassword);
+    // The reset proved that the owner reads this email, which also verifies it
+    await this.acceptPendingInvites(user);
     this.mailService.passwordChanged(user);
   }
 
@@ -302,6 +338,61 @@ export class AuthController {
     const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     const user = await this.userService.changePassword(requestingUser.id, payload.oldPassword, payload.newPassword);
     this.mailService.passwordChanged(user);
+  }
+
+  @Post('verify-email')
+  @UseGuards(AuthGuard())
+  @ApiOAuth2([])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: `Verify the signed-in user's email with the token from its verification link` })
+  @ApiResponse({ status: HttpStatus.OK, type: VerifyEmailResponse, description: 'Email verified' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'The link is invalid, expired, already used, for another account, or for an email the account no longer has',
+  })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async verifyEmail(@Req() req, @Body() payload: VerifyEmailRequest) {
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+    const user = await this.userService.verifyEmail(payload.token, requestingUser.id);
+    await this.acceptPendingInvites(user);
+    return { data: { email: user.email, emailVerified: true } };
+  }
+
+  /**
+   * Accepts the pending invites of a user who just proved that they read their email, like a provider sign-in that
+   * verified it: the invitations were sent to that mailbox.
+   */
+  private async acceptPendingInvites(user: User) {
+    const invites = await this.inviteRepo.find({
+      where: { email: user.email, status: InviteStatus.Sent },
+      relations: ['project'],
+    });
+    await this.acceptInvites(invites, user);
+  }
+
+  @Throttle({
+    default: {
+      limit: config.throttle.auth.limit,
+      ttl: config.throttle.auth.ttl,
+    },
+  })
+  @Post('resend-verification-email')
+  @UseGuards(AuthGuard())
+  @ApiOAuth2([])
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: `Email a new verification link for the current user's email` })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Sent, or nothing to do because the email is verified already' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async resendVerificationEmail(@Req() req) {
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+    if (requestingUser.emailVerified) {
+      return;
+    }
+    // Replaces the previous link, which stops working
+    const token = await this.userService.startEmailVerification(requestingUser);
+    if (token) {
+      void this.mailService.verifyEmail(requestingUser, verifyEmailUrl(token));
+    }
   }
 
   @Post('accept-invite')
@@ -342,8 +433,18 @@ export class AuthController {
       return Promise.resolve([]);
     }
     return this.inviteRepo.manager.transaction(async entityManager => {
+      // Invites belong to the email they were sent to, so only while the account still has it. The row lock holds an
+      // email change until this commits (SQLite runs one write transaction at a time and has no row locks).
+      const current = await entityManager.findOne(User, {
+        where: { id: user.id },
+        select: ['id', 'email'],
+        ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+      });
       const accepted: Invite[] = [];
       for (const invite of invites) {
+        if (current?.email !== invite.email) {
+          continue;
+        }
         const { affected } = await entityManager.update(
           Invite,
           { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() },

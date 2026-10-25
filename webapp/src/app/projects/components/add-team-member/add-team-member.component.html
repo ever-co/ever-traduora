@@ -7,7 +7,10 @@
       </button>
     </div>
     <div class="modal-body" *ngIf="inviteUrl">
-      <p>{{ invitedEmail }} is invited. They need this link to sign up, and it is emailed to them if this server can send email.</p>
+      <p>
+        {{ invitedEmail }} is invited. They need this link to sign up, or to join if they have an account whose email is not confirmed yet. It is
+        emailed to them if this server can send email.
+      </p>
       <p>You can also send it to them yourself. It only works for that email, so do not share it with anyone else.</p>
       <label for="inviteUrlInput" class="sr-only">Invitation link</label>
       <div class="input-group">
