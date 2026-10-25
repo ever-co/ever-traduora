@@ -1,0 +1,9 @@
+Hi {{user.name}},
+
+Please confirm that {{user.email}} is your email address for Traduora by opening this link (sign in if asked):
+
+{{{verifyEmailUrl}}}
+
+The link is valid for 7 days. If you did not ask for it, you can ignore this email.
+
+Traduora's Team

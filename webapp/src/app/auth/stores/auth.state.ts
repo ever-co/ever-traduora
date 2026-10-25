@@ -229,10 +229,13 @@ export class AuthState implements NgxsOnInit {
     ctx.patchState({ isLoading: true });
     return this.authService.updateUserSelf(action.updates).pipe(
       map(user => {
+        const emailChanged = ctx.getState().user?.email !== user.email;
         ctx.patchState({
           user: user,
           errorMessage: undefined,
-          statusMessage: 'Successfully updated your information.',
+          statusMessage: emailChanged
+            ? 'Successfully updated your information. Please confirm your new email with the link we sent to it.'
+            : 'Successfully updated your information.',
         });
       }),
       catchError(error => {
@@ -249,7 +252,7 @@ export class AuthState implements NgxsOnInit {
     return this.authService.login(action).pipe(
       tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
-        ctx.dispatch(new AuthError('login', error));
+        ctx.dispatch(new AuthError('Login', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -262,7 +265,7 @@ export class AuthState implements NgxsOnInit {
     return this.authService.signInWithProvider(action).pipe(
       tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
-        ctx.dispatch(new AuthError('login', error));
+        ctx.dispatch(new AuthError('Login', error));
         return throwError(error);
       }),
       finalize(() => {

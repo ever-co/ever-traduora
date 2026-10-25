@@ -6,6 +6,8 @@ To accept, sign up with your email and a password using this link:
 
 {{{inviteUrl}}}
 
+If you already have an account with this email, sign in and then open the link.
+
 The link only works for {{invite.email}}. Please do not share it.
 
 Traduora's Team

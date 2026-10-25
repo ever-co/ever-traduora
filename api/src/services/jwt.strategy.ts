@@ -33,12 +33,22 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     let user: User | ProjectClient | null = null;
 
     switch (payload.type) {
-      case 'user':
-        user = await this.userRepository.findOne({
+      case 'user': {
+        const found = await this.userRepository.findOne({
           where: { id: payload.sub },
-          select: ['id', 'name', 'email', 'numProjectsCreated'],
+          select: ['id', 'name', 'email', 'emailVerified', 'numProjectsCreated', 'sessionVersion'],
         });
+        // Tokens of an ended session version no longer work, e.g. after a password reset
+        if (found && (payload.sv ?? 0) !== found.sessionVersion) {
+          throw new UnauthorizedException();
+        }
+        if (found) {
+          // Keep the User instance (authorization checks instanceof), but not this field: /users/me returns the object
+          delete found.sessionVersion;
+          user = found;
+        }
         break;
+      }
 
       case 'client':
         user = await this.projectClientRepository.findOne({
