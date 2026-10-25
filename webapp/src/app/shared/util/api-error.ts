@@ -23,6 +23,10 @@ export function errorToMessage(error: any, action = ''): string {
       case 'ImportLocale':
         // tslint:disable-next-line:max-line-length
         return 'The file that you are trying to import is either malformed or not the right format, please check that it is valid before trying again.';
+      case 'Signup':
+      case 'ChangePassword':
+      case 'ResetPassword':
+        return 'Bad request, please check your values and try again. Publicly known passwords are not accepted.';
       default:
         return 'Bad request, please check your values and try again.';
     }
@@ -51,6 +55,11 @@ export function errorToMessage(error: any, action = ''): string {
         return (
           `We are unable to delete your account as you are the last admin for one or more projects. ` +
           `Please assign another admin for those projects or delete the projects first and try again.`
+        );
+      case 'Login':
+        return (
+          `This account has no password to sign in with: it was created through a sign-in provider, ` +
+          `or its password was publicly known and has been removed. Use "Forgot password" to set a new one.`
         );
       default:
         return 'The server was unable to process the request, please check your request.';

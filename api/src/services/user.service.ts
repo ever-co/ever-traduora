@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
@@ -11,6 +11,13 @@ import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 import { config } from '../config';
+import { isPublishedPassword } from '../utils/published-passwords';
+
+const assertNotPublishedPassword = (password: string) => {
+  if (isPublishedPassword(password)) {
+    throw new BadRequestException('this password is publicly known, please choose a different one');
+  }
+};
 
 @Injectable()
 export class UserService {
@@ -64,6 +71,7 @@ export class UserService {
       if (!password) {
         throw new BadRequestException('you need a password to create an account');
       }
+      assertNotPublishedPassword(password);
 
       user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
     }
@@ -135,6 +143,7 @@ export class UserService {
   }
 
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<User> {
+    assertNotPublishedPassword(newPassword);
     const user = await this.userRepo.findOneByOrFail({ id: userId });
 
     const valid = await new Promise((resolve, reject) => {
@@ -157,6 +166,7 @@ export class UserService {
   }
 
   async resetPassword(email: string, token: string, newPassword: string): Promise<User> {
+    assertNotPublishedPassword(newPassword);
     const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneByOrFail({ email: normalizedEmail });
 
@@ -244,6 +254,24 @@ export class UserService {
       await this.incrementLoginAttempts(user, loginAttempts, userKey);
       throw new UnauthorizedException('invalid credentials');
     }
+
+    // Anyone can sign in with a published password, such as the former default admin one, so it is removed from the
+    // account. The owner sets a new one with a password reset, or the seed sets TR_ADMIN_PASSWORD on the admin account.
+    if (isPublishedPassword(password)) {
+      await this.userRepo.update({ id: user.id }, { encryptedPassword: null });
+      throw new UnprocessableEntityException('this account used a publicly known password, please reset it');
+    }
+  }
+
+  /**
+   * Sets a password on an account that has none, e.g. after a published password was removed from it.
+   * Returns whether the password was set.
+   */
+  async setMissingPassword(email: string, password: string): Promise<boolean> {
+    assertNotPublishedPassword(password);
+    const encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
+    const { affected } = await this.userRepo.update({ email: normalizeEmail(email), encryptedPassword: IsNull() }, { encryptedPassword });
+    return !!affected;
   }
 
   private async incrementLoginAttempts(user: User, loginAttempts: number, userKey: string): Promise<void> {

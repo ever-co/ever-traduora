@@ -249,7 +249,7 @@ export class AuthState implements NgxsOnInit {
     return this.authService.login(action).pipe(
       tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
-        ctx.dispatch(new AuthError('login', error));
+        ctx.dispatch(new AuthError('Login', error));
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -262,7 +262,7 @@ export class AuthState implements NgxsOnInit {
     return this.authService.signInWithProvider(action).pipe(
       tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
-        ctx.dispatch(new AuthError('login', error));
+        ctx.dispatch(new AuthError('Login', error));
         return throwError(error);
       }),
       finalize(() => {
