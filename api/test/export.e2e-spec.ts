@@ -111,6 +111,45 @@ describe('ExportController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/exports (GET) should fill untranslated terms from the fallback locale', async () => {
+    const authorized = (req: request.Test) => req.set('Authorization', `Bearer ${testingUser.accessToken}`);
+
+    const createTerm = async (value: string): Promise<string> => {
+      const res = await authorized(request(app.getHttpServer()).post(`/api/v1/projects/${testProject.id}/terms`))
+        .send({ value })
+        .expect(201);
+      return res.body.data.id;
+    };
+
+    const translate = (localeCode: string, termId: string, value: string) =>
+      authorized(request(app.getHttpServer()).patch(`/api/v1/projects/${testProject.id}/translations/${localeCode}`))
+        .send({ termId, value })
+        .expect(200);
+
+    const exportLocale = async (params: string): Promise<any> => {
+      const res = await authorized(request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/exports?${params}`)).expect(200);
+      return JSON.parse(Buffer.from(res.body).toString('utf-8'));
+    };
+
+    const nestedTermId = await createTerm('group.term');
+    await authorized(request(app.getHttpServer()).post(`/api/v1/projects/${testProject.id}/translations`))
+      .send({ code: 'nl' })
+      .expect(201);
+    await translate('nl', termTwoId, 'twee');
+    await translate('de_DE', nestedTermId, 'gruppe');
+
+    const flat = await exportLocale('locale=nl&format=jsonflat&fallbackLocale=de_DE');
+    expect(Object.keys(flat)).toEqual(['group.term', 'term.one', 'term.two']);
+    expect(flat['group.term']).toEqual('gruppe');
+    expect(flat['term.one']).toEqual('eins');
+    expect(flat['term.two']).toEqual('twee');
+
+    const nested = await exportLocale('locale=nl&format=jsonnested&fallbackLocale=de_DE');
+    expect(nested.group.term).toEqual('gruppe');
+    expect(nested.term.one).toEqual('eins');
+    expect(nested.term.two).toEqual('twee');
+  });
+
   it('/api/v1/projects/:projectId/exports (GET) should export terms in lexical order', async () => {
     const input = ['app.login', 'should be before base terms', '1 goes first', 'app.logout', 'app.exit', 'menu.start', 'a term', '2 goes second'];
 
