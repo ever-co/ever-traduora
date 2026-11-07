@@ -36,6 +36,21 @@ export class AuthProviderException extends HttpException {
   }
 }
 
+/**
+ * An answer of the optional Ever Platform settings routes (anonymous usage statistics) that the webapp acts on: its own
+ * status (for example 403 for a user who does not operate the installation, 409 while the statistics are switched off)
+ * and a stable `code`.
+ */
+export class EverPlatformException extends HttpException {
+  constructor(
+    status: HttpStatus,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message, status);
+  }
+}
+
 export class PaymentRequiredException extends HttpException {
   constructor(message?: string | object | any, error: string = 'PaymentRequired') {
     super(HttpException.createBody(message, error, HttpStatus.PAYMENT_REQUIRED), HttpStatus.PAYMENT_REQUIRED);
