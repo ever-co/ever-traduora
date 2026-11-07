@@ -16,6 +16,15 @@ services:
       TR_DB_TYPE: better-sqlite3
       TR_DB_SQLITE_PATH: ${TR_DB_SQLITE_PATH:-api/data/tr_dev.sqlite3}
       NODE_ENV: ${NODE_ENV:-development}
+      # Optional sign-in with Ever ID or any other OpenID Connect issuer (off unless 'true'), see docs/configuration.md
+      # TR_AUTH_EVERID_ENABLED: 'true'
+      # TR_AUTH_EVERID_ISSUER: https://idp.example.com
+      # TR_AUTH_EVERID_CLIENT_ID: ${TR_AUTH_EVERID_CLIENT_ID:-}
+      # TR_AUTH_EVERID_CLIENT_SECRET: ${TR_AUTH_EVERID_CLIENT_SECRET:-}
+      # TR_AUTH_EVERID_REDIRECT_URL: http://localhost:8080/auth/callback
+      # TR_AUTH_EVERID_ALLOWED_ISSUERS: ''
+      # TR_AUTH_EVERID_PLATFORM_PROJECT_ID: ''
+      # TR_AUTH_EVERID_BACKCHANNEL_LOGOUT_ENABLED: 'true'
     entrypoint: './docker-entrypoint.compose.sh'
     restart: on-failure
     volumes:

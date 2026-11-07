@@ -2,12 +2,28 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { stringify, unescape } from 'querystring';
 import { config } from '../config';
+import { OidcProviderService } from './oidc-provider.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly oidcProviders: OidcProviderService,
+  ) {}
 
   async getTokenFromGoogle(code: string): Promise<any> {
+    return this.getTokenFromProvider('google', code);
+  }
+
+  /**
+   * Exchanges an authorization code at the provider's token endpoint. Google keeps its exact request; an OpenID
+   * Connect provider (e.g. Ever ID) also needs the PKCE verifier of the authorization request.
+   */
+  async getTokenFromProvider(slug: string, code: string, codeVerifier?: string): Promise<any> {
+    if (slug !== 'google') {
+      return this.oidcProviders.exchangeCode(slug, code, codeVerifier);
+    }
+
     const { active, apiUrl, clientId, clientSecret, redirectUrl } = config.providers.google;
 
     if (!active) {

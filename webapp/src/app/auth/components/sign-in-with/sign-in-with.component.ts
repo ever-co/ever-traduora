@@ -19,6 +19,16 @@ export class SignInWithComponent {
     this.store.dispatch(new RedirectToAuthProvider(provider));
   }
 
+  /** The text of a provider's button, for providers shown as text rather than an image. */
+  providerToLabel(provider: Provider): string | undefined {
+    switch (provider.slug) {
+      case 'everid':
+        return 'Continue with Ever ID';
+      default:
+        return undefined;
+    }
+  }
+
   providerToButton(provider: Provider): string {
     switch (provider.slug) {
       case 'google':

@@ -1,0 +1,94 @@
+name: ci
+on:
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  api-unit:
+    runs-on: ${{ vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.12.1'
+      - run: npm install --global --ignore-scripts yarn@1.22.22
+      - run: yarn install --frozen-lockfile --network-timeout 600000
+      - name: Lint API
+        run: yarn --cwd api lint
+      - name: API unit tests
+        run: yarn --cwd api test
+
+  api-e2e:
+    runs-on: ${{ vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [better-sqlite3, postgres, mysql]
+    # Throwaway databases of this job only, reachable from the job alone: no credentials needed
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: tr_e2e
+          POSTGRES_USER: tr
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tr -d tr_e2e" --health-interval 5s --health-timeout 5s --health-retries 20
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_DATABASE: tr_e2e
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1" --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      NODE_ENV: e2e
+      TR_DEFAULT_PROJECT_PLAN: default
+      TR_ACCESS_LOGS_ENABLED: 'false'
+      TR_DB_TYPE: ${{ matrix.db }}
+      TR_DB_HOST: 127.0.0.1
+      TR_DB_PORT: ${{ matrix.db == 'mysql' && '3306' || '5432' }}
+      TR_DB_USER: ${{ matrix.db == 'mysql' && 'root' || 'tr' }}
+      TR_DB_DATABASE: ${{ matrix.db == 'better-sqlite3' && 'data/tr_e2e.sqlite3' || 'tr_e2e' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.12.1'
+      - run: npm install --global --ignore-scripts yarn@1.22.22
+      - run: yarn install --frozen-lockfile --network-timeout 600000
+      # The whole existing suite, plus the Ever ID sign-in suite, on each database
+      - name: API e2e tests (${{ matrix.db }})
+        working-directory: api
+        run: yarn jest --config ./test/jest-e2e.json --runInBand --forceExit
+
+  webapp-unit:
+    runs-on: ${{ vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.12.1'
+      - run: npm install --global --ignore-scripts yarn@1.22.22
+      - run: yarn install --frozen-lockfile --network-timeout 600000
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+      - name: Webapp unit tests
+        working-directory: webapp
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: yarn test --watch=false --browsers=ChromeHeadlessCI --progress=false

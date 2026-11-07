@@ -35,12 +35,17 @@ import { Label } from './entity/label.entity';
 import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
 import { User } from './entity/user.entity';
+import { UserIdentity } from './entity/user-identity.entity';
+import { EverIdSession } from './entity/ever-id-session.entity';
+import { EverIdLogoutJti } from './entity/ever-id-logout-jti.entity';
 import { CustomExceptionFilter } from './filters/exception.filter';
 import { AuthService } from './services/auth.service';
 import AuthorizationService from './services/authorization.service';
 import { JwtStrategy } from './services/jwt.strategy';
 import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
+import { OidcProviderService } from './services/oidc-provider.service';
+import { EverIdSessionService } from './services/ever-id-session.service';
 import ProjectStatsController from './controllers/project-stats.controller';
 import { ConfigModule } from '@nestjs/config';
 import { RedisModule } from './redis/redis.module';
@@ -65,7 +70,22 @@ import { dataSourceOptions } from './connection/datasource';
     TypeOrmModule.forRootAsync({
       useFactory: async () => dataSourceOptions(),
     }),
-    TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Label]),
+    TypeOrmModule.forFeature([
+      User,
+      Invite,
+      ProjectUser,
+      Project,
+      Term,
+      Locale,
+      ProjectLocale,
+      Translation,
+      ProjectClient,
+      Plan,
+      Label,
+      UserIdentity,
+      EverIdSession,
+      EverIdLogoutJti,
+    ]),
     HttpModule,
   ],
   controllers: [
@@ -99,6 +119,8 @@ import { dataSourceOptions } from './connection/datasource';
     UserLoginAttemptsStorage,
     SeedDataService,
     UserSeed,
+    OidcProviderService,
+    EverIdSessionService,
   ],
 })
 export class AppModule {

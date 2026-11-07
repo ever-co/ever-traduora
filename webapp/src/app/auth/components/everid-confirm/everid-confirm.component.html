@@ -1,0 +1,44 @@
+<div class="d-flex flex-column justify-content-center align-items-center h-100">
+  <app-logo class="mb-4"></app-logo>
+  <div class="card" style="width: 420px">
+    <div class="card-body">
+      <h4 class="card-title font-serif">Create your Traduora account</h4>
+
+      <ng-container *ngIf="pendingSignup$ | async as pending; else expired">
+        <p class="text-muted">You signed in with Ever ID. Confirm to create your Traduora account with these details.</p>
+
+        <div class="form-group">
+          <label for="everIdNameInput">Name</label>
+          <input id="everIdNameInput" class="form-control" type="text" [value]="pending.name" readonly />
+        </div>
+
+        <div class="form-group">
+          <label for="everIdEmailInput">Email address</label>
+          <input id="everIdEmailInput" class="form-control" type="email" [value]="pending.email" readonly />
+        </div>
+
+        <div *ngIf="pending.invites?.length" class="form-group">
+          <p class="mb-2">You are invited to these projects. Tick the invitations you want to accept:</p>
+          <div class="form-check" *ngFor="let invite of pending.invites">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              [id]="'everIdInvite-' + invite.id"
+              [checked]="acceptedInvites.has(invite.id)"
+              (change)="toggleInvite(invite.id, $any($event.target).checked)"
+            />
+            <label class="form-check-label" [for]="'everIdInvite-' + invite.id">{{ invite.projectName }}</label>
+          </div>
+        </div>
+
+        <button class="btn btn-primary w-100" type="button" [disabled]="isLoading$ | async" (click)="confirm()">Create account</button>
+        <button class="btn btn-link w-100 mt-2" type="button" (click)="cancel()">Cancel</button>
+      </ng-container>
+
+      <ng-template #expired>
+        <p>This sign-up expired. Please sign in with Ever ID again.</p>
+        <a class="btn btn-primary w-100" routerLink="/login">Back to sign in</a>
+      </ng-template>
+    </div>
+  </div>
+</div>

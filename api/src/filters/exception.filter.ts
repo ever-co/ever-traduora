@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { PublishedPasswordException } from '../errors';
+import { AuthProviderException, PublishedPasswordException } from '../errors';
 
 @Catch()
 export class CustomExceptionFilter implements ExceptionFilter {
@@ -7,8 +7,23 @@ export class CustomExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
 
-    // Re-map forbidden to not found (TypeORM 0.3 names the error 'EntityNotFoundError', older versions 'EntityNotFound')
-    if (exception.name === 'EntityNotFoundError' || exception.name === 'EntityNotFound' || exception.status === 404 || exception.status === 403) {
+    if (exception instanceof AuthProviderException) {
+      // Sign-in flow outcomes keep their status and code; the details may hold a sealed sign-up or connect record
+      response.setHeader('Cache-Control', 'no-store');
+      response.status(exception.getStatus()).json({
+        error: {
+          code: exception.code,
+          message: exception.message,
+          ...(exception.details ? { details: exception.details } : {}),
+        },
+      });
+    } else if (
+      // Re-map forbidden to not found (TypeORM 0.3 names the error 'EntityNotFoundError', older versions 'EntityNotFound')
+      exception.name === 'EntityNotFoundError' ||
+      exception.name === 'EntityNotFound' ||
+      exception.status === 404 ||
+      exception.status === 403
+    ) {
       response.status(404).json({
         error: {
           code: 'NotFound',
