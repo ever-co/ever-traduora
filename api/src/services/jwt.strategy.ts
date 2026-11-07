@@ -7,12 +7,14 @@ import { config } from '../config';
 import { JwtPayload } from '../domain/http';
 import { ProjectClient } from '../entity/project-client.entity';
 import { User } from '../entity/user.entity';
+import { EverIdSessionService } from './ever-id-session.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(ProjectClient) private readonly projectClientRepository: Repository<ProjectClient>,
+    private readonly everIdSessions: EverIdSessionService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -30,6 +32,12 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * @throws {UnauthorizedException} - If no user or client is found for the provided payload.
    */
   async validate(payload: JwtPayload): Promise<User | ProjectClient> {
+    // Tokens of a sign-in with an OpenID Connect provider (e.g. Ever ID) end with the provider's session (back-channel
+    // logout). Tokens without a `sid` (password, API client, Google) never reach this check.
+    if (payload.sid && (await this.everIdSessions.isRevoked(payload.sid, payload.sub))) {
+      throw new UnauthorizedException();
+    }
+
     let user: User | ProjectClient | null = null;
 
     switch (payload.type) {

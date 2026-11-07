@@ -21,6 +21,21 @@ export class PublishedPasswordException extends HttpException {
   }
 }
 
+/**
+ * An error of the OpenID Connect sign-in flow (e.g. Ever ID) that the webapp acts on: answered with its own status and
+ * a stable `code`, plus optional `details` (e.g. what a sign-up confirmation screen shows). Never carries a token.
+ */
+export class AuthProviderException extends HttpException {
+  constructor(
+    status: HttpStatus,
+    readonly code: string,
+    message: string,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message, status);
+  }
+}
+
 export class PaymentRequiredException extends HttpException {
   constructor(message?: string | object | any, error: string = 'PaymentRequired') {
     super(HttpException.createBody(message, error, HttpStatus.PAYMENT_REQUIRED), HttpStatus.PAYMENT_REQUIRED);

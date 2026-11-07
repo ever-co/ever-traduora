@@ -25,6 +25,24 @@ const PUBLISHED_SECRET_HASHES = new Set([
 
 const isPublishedSecret = (secret: string) => PUBLISHED_SECRET_HASHES.has(createHash('sha256').update(secret).digest('hex'));
 
+const getListOrDefault = (value: string | undefined): string[] =>
+  (value || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+/**
+ * Scopes requested from the Ever ID (OpenID Connect) issuer. With an Ever Platform project id, the ID token is also
+ * issued for that project's audience; without one (e.g. another OpenID Connect issuer), that scope is left out.
+ */
+export const everIdScope = (platformProjectId?: string): string => {
+  const scopes = ['openid', 'profile', 'email', 'urn:zitadel:iam:user:resourceowner'];
+  if (platformProjectId && platformProjectId.trim()) {
+    scopes.push(`urn:zitadel:iam:org:project:id:${platformProjectId.trim()}:aud`);
+  }
+  return scopes.join(' ');
+};
+
 /**
  * Resolves the secret used to sign and verify auth tokens.
  * Published example values are refused everywhere, and production requires TR_SECRET. Elsewhere an unset TR_SECRET
@@ -68,6 +86,28 @@ export const config = {
       redirectUrl: env.TR_AUTH_GOOGLE_REDIRECT_URL,
       apiUrl: 'https://www.googleapis.com/oauth2/v4/token',
       url: 'https://accounts.google.com/o/oauth2/v2/auth',
+    },
+    // Optional sign-in with Ever ID or any other OpenID Connect issuer. Off unless TR_AUTH_EVERID_ENABLED is 'true';
+    // when off, nothing is requested from the issuer and the provider is not listed.
+    everid: {
+      kind: 'oidc' as const,
+      active: getBoolOrDefault(env.TR_AUTH_EVERID_ENABLED, false),
+      issuer: env.TR_AUTH_EVERID_ISSUER,
+      allowedIssuers: getListOrDefault(env.TR_AUTH_EVERID_ALLOWED_ISSUERS),
+      clientId: env.TR_AUTH_EVERID_CLIENT_ID,
+      clientSecret: env.TR_AUTH_EVERID_CLIENT_SECRET,
+      redirectUrl: env.TR_AUTH_EVERID_REDIRECT_URL,
+      platformProjectId: env.TR_AUTH_EVERID_PLATFORM_PROJECT_ID,
+      scope: everIdScope(env.TR_AUTH_EVERID_PLATFORM_PROJECT_ID),
+      pkce: true,
+      backchannelLogoutEnabled: getBoolOrDefault(env.TR_AUTH_EVERID_BACKCHANNEL_LOGOUT_ENABLED, true),
+      // An issuer on an Ever host is used only by an Ever-operated install ('cloud')
+      installSource: env.TR_EVER_INSTALL_SOURCE,
+      // Filled from the issuer's discovery document at boot, when the provider is enabled
+      url: undefined as string | undefined,
+      apiUrl: undefined as string | undefined,
+      jwksUri: undefined as string | undefined,
+      endSessionEndpoint: undefined as string | undefined,
     },
   },
   mail: {
