@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { config } from '../config';
-import IndexController, { DEMO_META_TAG, withDemoMarker } from './index.controller';
+import IndexController, { DEMO_META_TAG, redirectDemoIndexFile, withDemoMarker } from './index.controller';
 
 const INDEX_HTML =
   '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Traduora</title></head><body><app-root></app-root></body></html>';
@@ -88,5 +88,57 @@ describe('IndexController demo marker', () => {
       `<html><head data-x="1">${DEMO_META_TAG}<title>t</title></head></html>`,
     );
     expect(withDemoMarker('<html><header></header></html>')).toBe('<html><header></header></html>');
+  });
+});
+
+describe('redirectDemoIndexFile', () => {
+  const originalDemo = config.demo;
+
+  const run = (method: string, path: string) => {
+    let redirectedTo: string | undefined;
+    let passed = false;
+    redirectDemoIndexFile(
+      { method, path },
+      {
+        redirect: (url: string) => {
+          redirectedTo = url;
+        },
+      },
+      () => {
+        passed = true;
+      },
+    );
+    return { redirectedTo, passed };
+  };
+
+  afterEach(() => {
+    config.demo = originalDemo;
+  });
+
+  it('sends a direct /index.html request to / on a demo install, where the tagged page is served', () => {
+    config.demo = true;
+
+    expect(run('GET', '/index.html')).toEqual({ redirectedTo: '/', passed: false });
+    expect(run('HEAD', '/index.html')).toEqual({ redirectedTo: '/', passed: false });
+  });
+
+  it('passes every other request on a demo install', () => {
+    config.demo = true;
+
+    for (const [method, path] of [
+      ['GET', '/'],
+      ['GET', '/projects'],
+      ['GET', '/main.js'],
+      ['GET', '/api/v1/auth/providers'],
+      ['POST', '/index.html'],
+    ]) {
+      expect([method, path, run(method, path)]).toEqual([method, path, { redirectedTo: undefined, passed: true }]);
+    }
+  });
+
+  it('passes /index.html untouched on any other install', () => {
+    config.demo = false;
+
+    expect(run('GET', '/index.html')).toEqual({ redirectedTo: undefined, passed: true });
   });
 });
