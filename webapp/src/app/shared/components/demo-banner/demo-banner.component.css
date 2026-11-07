@@ -1,0 +1,7 @@
+/* An advisory strip, not a call to action: a light tint of the primary colour (#3b84f8) above the app bar. */
+.demo-banner {
+  background-color: rgba(59, 132, 248, 0.1);
+  border-bottom: 1px solid rgba(59, 132, 248, 0.25);
+  color: #495057;
+  line-height: 1.4;
+}
