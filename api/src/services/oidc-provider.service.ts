@@ -39,7 +39,7 @@ export const OIDC_SIGNING_ALGORITHMS = ['RS256', 'ES256', 'EdDSA'];
  * The event a back-channel logout token carries (OpenID Connect Back-Channel Logout 1.0, section 2.4). An identifier
  * compared as a string, never requested.
  */
-export const BACKCHANNEL_LOGOUT_EVENT = 'http://schemas.openid.net/event/backchannel-logout';
+export const BACKCHANNEL_LOGOUT_EVENT = 'http://schemas.openid.net/event/backchannel-logout'; // NOSONAR: an identifier, not a URL
 
 export type OidcErrorCode =
   | 'provider_disabled'
@@ -323,7 +323,8 @@ export class OidcProviderService implements OnModuleInit {
     } else {
       // client_secret_basic (RFC 6749, section 2.3.1): id and secret are form-encoded before they are joined
       const encode = (value: string) => new URLSearchParams({ v: value }).toString().slice(2);
-      headers.Authorization = `Basic ${Buffer.from(`${encode(provider.clientId)}:${encode(provider.clientSecret)}`).toString('base64')}`;
+      const credentials = Buffer.from(encode(provider.clientId) + ':' + encode(provider.clientSecret)).toString('base64');
+      headers.Authorization = `Basic ${credentials}`;
     }
 
     let status: number;
@@ -448,33 +449,11 @@ export class OidcProviderService implements OnModuleInit {
       return;
     }
 
-    const prefix = `TR_AUTH_${slug.toUpperCase()}`;
-    const missing = ['ISSUER', 'CLIENT_ID', 'CLIENT_SECRET', 'REDIRECT_URL'].filter(name => {
-      const key = { ISSUER: 'issuer', CLIENT_ID: 'clientId', CLIENT_SECRET: 'clientSecret', REDIRECT_URL: 'redirectUrl' }[name];
-      return !settings[key];
-    });
-    if (missing.length) {
-      this.logger.warn(`Sign-in provider ${slug} stays off: ${missing.map(name => `${prefix}_${name}`).join(', ')} not set.`);
+    const issuers = this.acceptedIssuers(slug, settings);
+    if (!issuers) {
       return;
     }
-
-    const issuer = stripTrailingSlashes(settings.issuer.trim());
-    const extra = (settings.allowedIssuers || []).map(value => stripTrailingSlashes(value)).filter(value => value !== issuer);
-    const issuers = [issuer, ...Array.from(new Set(extra))];
-    if (issuers.length > OIDC_MAX_ISSUERS) {
-      this.logger.warn(`Sign-in provider ${slug}: only the first ${OIDC_MAX_ISSUERS - 1} of ${prefix}_ALLOWED_ISSUERS are accepted.`);
-      issuers.length = OIDC_MAX_ISSUERS;
-    }
-    if (!issuers.every(isAcceptableIssuer)) {
-      this.logger.warn(`Sign-in provider ${slug} stays off: every issuer must use https (http only on the local machine).`);
-      return;
-    }
-    // An issuer on an Ever host is used only by an Ever-operated install. Decided from the configured URLs alone,
-    // before any request, so such an install makes no request to an Ever host for this provider.
-    if (issuers.some(isEverHost) && (settings.installSource || '').trim() !== 'cloud') {
-      this.logger.warn(`Sign-in provider ${slug} stays off: an Ever ID issuer is used only by the Ever-operated Traduora cloud.`);
-      return;
-    }
+    const issuer = issuers[0];
 
     let document: OidcDiscoveryDocument;
     try {
@@ -501,6 +480,45 @@ export class OidcProviderService implements OnModuleInit {
       endSessionEndpoint: document.end_session_endpoint,
     });
     this.logger.log(`Sign-in provider ${slug} is on (issuer ${issuer}).`);
+  }
+
+  /**
+   * The issuers of a provider's settings, the configured one first, or `undefined` (with one warning line) when the
+   * provider must stay off: a setting is missing, an issuer does not use https, or an Ever issuer is configured
+   * outside the Ever-operated cloud. Decided from the settings alone, before any request.
+   */
+  private acceptedIssuers(slug: string, settings: OidcProviderSettings): string[] | undefined {
+    const prefix = 'TR_AUTH_' + slug.toUpperCase();
+    const required: Array<[string, string | undefined]> = [
+      ['ISSUER', settings.issuer],
+      ['CLIENT_ID', settings.clientId],
+      ['CLIENT_SECRET', settings.clientSecret],
+      ['REDIRECT_URL', settings.redirectUrl],
+    ];
+    const missing = required.filter(([, value]) => !value).map(([name]) => prefix + '_' + name);
+    if (missing.length) {
+      this.logger.warn(`Sign-in provider ${slug} stays off: ${missing.join(', ')} not set.`);
+      return undefined;
+    }
+
+    const issuer = stripTrailingSlashes(settings.issuer.trim());
+    const extra = (settings.allowedIssuers || []).map(value => stripTrailingSlashes(value)).filter(value => value !== issuer);
+    const issuers = [issuer, ...Array.from(new Set(extra))];
+    if (issuers.length > OIDC_MAX_ISSUERS) {
+      this.logger.warn(`Sign-in provider ${slug}: only the first ${OIDC_MAX_ISSUERS - 1} of ${prefix}_ALLOWED_ISSUERS are accepted.`);
+      issuers.length = OIDC_MAX_ISSUERS;
+    }
+    if (!issuers.every(isAcceptableIssuer)) {
+      this.logger.warn(`Sign-in provider ${slug} stays off: every issuer must use https (http only on the local machine).`);
+      return undefined;
+    }
+    // An issuer on an Ever host is used only by an Ever-operated install, so another install makes no request to an
+    // Ever host for this provider
+    if (issuers.some(isEverHost) && (settings.installSource || '').trim() !== 'cloud') {
+      this.logger.warn(`Sign-in provider ${slug} stays off: an Ever ID issuer is used only by the Ever-operated Traduora cloud.`);
+      return undefined;
+    }
+    return issuers;
   }
 
   /** Verifies signature, `iss` (among the accepted issuers), `aud` (the client id) and `exp`. */

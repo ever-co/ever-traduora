@@ -13,8 +13,8 @@ import { NoAuthGuard } from './no-auth.guard';
 })
 export class ProviderCallbackGuard {
   constructor(
-    private authService: AuthService,
-    private noAuthGuard: NoAuthGuard,
+    private readonly authService: AuthService,
+    private readonly noAuthGuard: NoAuthGuard,
   ) {}
 
   canActivate(next: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<boolean> | Promise<boolean> | boolean {

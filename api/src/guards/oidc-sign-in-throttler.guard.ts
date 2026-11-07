@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { InjectThrottlerStorage, ThrottlerStorage } from '@nestjs/throttler';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { config } from '../config';
 import { TooManyRequestsException } from '../errors';
 

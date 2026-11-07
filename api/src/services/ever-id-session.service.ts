@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 import { IsNull, LessThan, Repository } from 'typeorm';
 import { config } from '../config';
 import { EverIdLogoutJti } from '../entity/ever-id-logout-jti.entity';

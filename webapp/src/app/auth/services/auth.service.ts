@@ -43,7 +43,8 @@ export function providerOfState(state: string | undefined): string | undefined {
 function base64Url(bytes: Uint8Array): string {
   let binary = '';
   bytes.forEach(byte => (binary += String.fromCharCode(byte)));
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  // Padding only ever ends base64 text
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 @Injectable({
@@ -139,10 +140,7 @@ export class AuthService {
   async oidcAuthorizeUrl(provider: Provider, intent: 'signin' | 'connect'): Promise<string> {
     const pending: PendingAuthorization = {
       provider: provider.slug,
-      state: btoa(JSON.stringify({ p: provider.slug, n: randomBase64Url(16) }))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, ''),
+      state: base64Url(new TextEncoder().encode(JSON.stringify({ p: provider.slug, n: randomBase64Url(16) }))),
       nonce: randomBase64Url(32),
       codeVerifier: randomBase64Url(32),
       intent,

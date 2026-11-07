@@ -3,12 +3,12 @@
  * token endpoint that checks the client credentials, the redirect URI and the PKCE verifier, and helpers to sign ID
  * tokens and back-channel logout tokens. Keys are generated when it starts.
  */
-import { createHash, randomBytes } from 'crypto';
-import { createServer, get as httpGet, IncomingMessage, Server, ServerResponse } from 'http';
-import { AddressInfo } from 'net';
+import { createHash, randomBytes } from 'node:crypto';
+import { createServer, get as httpGet, IncomingMessage, Server, ServerResponse } from 'node:http';
+import { AddressInfo } from 'node:net';
 import { exportJWK, generateKeyPair, JWK, JWTPayload, KeyLike, SignJWT } from 'jose';
 
-export const BACKCHANNEL_LOGOUT_EVENT = 'http://schemas.openid.net/event/backchannel-logout';
+export const BACKCHANNEL_LOGOUT_EVENT = 'http://schemas.openid.net/event/backchannel-logout'; // NOSONAR: an identifier, not a URL
 
 interface PendingCode {
   clientId: string;
@@ -201,7 +201,7 @@ export class MockOidcIssuer {
     const body = new URLSearchParams(rawBody);
     // client_secret_basic form-encodes id and secret before joining them (RFC 6749, section 2.3.1)
     const encode = (value: string) => new URLSearchParams({ v: value }).toString().slice(2);
-    const expected = `Basic ${Buffer.from(`${encode(this.clientId)}:${encode(this.clientSecret)}`).toString('base64')}`;
+    const expected = 'Basic ' + Buffer.from(encode(this.clientId) + ':' + encode(this.clientSecret)).toString('base64');
     if (req.headers.authorization !== expected) {
       return this.json(res, 401, { error: 'invalid_client' });
     }
