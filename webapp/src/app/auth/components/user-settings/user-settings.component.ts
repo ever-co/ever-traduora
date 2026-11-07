@@ -1,11 +1,25 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Select, Store } from '@ngxs/store';
-import { Observable, Subscription } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { combineLatest, Observable, Subscription } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
+import { Identity, IdentityConnection } from '../../models/identity';
+import { Provider } from '../../models/provider';
 import { User } from '../../models/user';
 import { AuthService } from '../../services/auth.service';
-import { AuthState, ChangePassword, ClearMessages, DeleteAccount, UpdateUserSelf } from '../../stores/auth.state';
+import {
+  AuthState,
+  CancelIdentityConnect,
+  ChangePassword,
+  ClearMessages,
+  ConfirmIdentityConnect,
+  DeleteAccount,
+  DeleteIdentity,
+  GetIdentities,
+  GetProviders,
+  RedirectToAuthProvider,
+  UpdateUserSelf,
+} from '../../stores/auth.state';
 
 @Component({
   standalone: false,
@@ -38,7 +52,24 @@ export class UserSettingsComponent implements OnInit, OnDestroy {
 
   verificationEmail: 'unsent' | 'sending' | 'sent' | 'failed' = 'unsent';
 
+  // Connected sign-in methods: shown only while Ever ID sign-in is on
+  @Select(state => state.auth.providers)
+  providers$: Observable<Provider[] | undefined>;
+
+  @Select(AuthState.identities)
+  identities$: Observable<Identity[] | undefined>;
+
+  @Select(AuthState.pendingConnect)
+  pendingConnect$: Observable<IdentityConnection | undefined>;
+
+  everIdProvider$: Observable<Provider | undefined>;
+
+  // "Connect Ever ID" shows while no identity is connected and no connection waits for confirmation
+  canConnectEverId$: Observable<boolean>;
+
   private sub: Subscription;
+
+  private providersSub: Subscription;
 
   constructor(
     private fb: FormBuilder,
@@ -55,6 +86,17 @@ export class UserSettingsComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    this.everIdProvider$ = this.providers$.pipe(map(providers => (providers || []).find(provider => provider.slug === 'everid')));
+    this.providersSub = this.everIdProvider$.subscribe(provider => {
+      if (provider) {
+        this.store.dispatch(new GetIdentities());
+      }
+    });
+    this.store.dispatch(new GetProviders());
+    this.canConnectEverId$ = combineLatest([this.identities$, this.pendingConnect$]).pipe(
+      map(([identities, pendingConnect]) => !identities?.length && !pendingConnect),
+    );
+
     this.sub = this.user$
       .pipe(
         tap(user => {
@@ -69,7 +111,28 @@ export class UserSettingsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.store.dispatch(new ClearMessages());
+    this.store.dispatch(new CancelIdentityConnect());
     this.sub.unsubscribe();
+    this.providersSub?.unsubscribe();
+  }
+
+  /** Connecting needs a fresh sign-in at Ever ID; the callback then asks to confirm both emails. */
+  connectEverId(provider: Provider) {
+    this.store.dispatch(new RedirectToAuthProvider(provider, { intent: 'connect' }));
+  }
+
+  confirmConnect() {
+    this.store.dispatch(new ConfirmIdentityConnect());
+  }
+
+  cancelConnect() {
+    this.store.dispatch(new CancelIdentityConnect());
+  }
+
+  disconnect(identity: Identity) {
+    if (confirm(`Disconnect the Ever ID ${identity.email} from your account? You will no longer be able to sign in with it.`)) {
+      this.store.dispatch(new DeleteIdentity(identity.id));
+    }
   }
 
   updateUserData() {

@@ -1,8 +1,10 @@
 import { Navigate } from '@ngxs/router-plugin';
 import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
-import { throwError } from 'rxjs';
+import { get } from 'lodash';
+import { EMPTY, throwError } from 'rxjs';
 import { catchError, finalize, map, tap } from 'rxjs/operators';
 import { errorToMessage } from '../../shared/util/api-error';
+import { Identity, IdentityConnection, ProviderSignupConfirmation } from '../models/identity';
 import { Provider } from '../models/provider';
 import { User } from '../models/user';
 import { AuthService } from '../services/auth.service';
@@ -50,7 +52,11 @@ export class Login {
 
 export class ReceiveAuthProviderCode {
   static readonly type = '[Auth] Receive provider auth code';
-  constructor(public code: string) {}
+  // `oidc` only for OpenID Connect providers (e.g. Ever ID); a Google callback sends the code alone
+  constructor(
+    public code: string,
+    public oidc?: { provider: string; state: string; nonce: string; code_verifier: string },
+  ) {}
 }
 
 export class ReceiveAPIAccessToken {
@@ -60,8 +66,51 @@ export class ReceiveAPIAccessToken {
 
 export class RedirectToAuthProvider {
   static readonly type = '[Auth] Redirect to auth provider sign in';
-  constructor(public provider: Provider) {}
+  constructor(
+    public provider: Provider,
+    public options: { intent?: 'signin' | 'connect' } = {},
+  ) {}
 }
+
+export class ConfirmProviderSignup {
+  static readonly type = '[Auth] Confirm provider signup';
+  constructor(public acceptInvites: string[]) {}
+}
+
+export class CancelProviderSignup {
+  static readonly type = '[Auth] Cancel provider signup';
+}
+
+export class ReceiveIdentityConnectCode {
+  static readonly type = '[Auth] Receive identity connect code';
+  constructor(public payload: { code: string; provider: string; state: string; nonce: string; code_verifier: string }) {}
+}
+
+export class ConfirmIdentityConnect {
+  static readonly type = '[Auth] Confirm identity connect';
+}
+
+export class CancelIdentityConnect {
+  static readonly type = '[Auth] Cancel identity connect';
+}
+
+export class GetIdentities {
+  static readonly type = '[Auth] Get identities';
+}
+
+export class DeleteIdentity {
+  static readonly type = '[Auth] Delete identity';
+  constructor(public id: string) {}
+}
+
+export class ProviderSignInFailed {
+  static readonly type = '[Auth] Provider sign in failed';
+  constructor(public message: string) {}
+}
+
+/** Shown when an Ever ID sign-in finds an account with the same email that it is not connected to. */
+export const ACCOUNT_EXISTS_MESSAGE =
+  'An account with this email already exists. Sign in the usual way, then connect Ever ID in your account settings (Connected sign-in methods).';
 
 export class ForgotPassword {
   static readonly type = '[Auth] Forgot password';
@@ -115,6 +164,11 @@ export interface AuthStateModel {
   errorMessage: string | undefined;
   redirectTo: string | undefined;
   providers: Provider[] | undefined;
+  // Ever ID (OpenID Connect) sign-in: the sign-up waiting for its confirmation screen, a connection waiting for the
+  // person to confirm both emails, and the connected identities. In memory only.
+  pendingSignup?: ProviderSignupConfirmation;
+  pendingConnect?: IdentityConnection;
+  identities?: Identity[];
 }
 
 @State<AuthStateModel>({
@@ -127,6 +181,9 @@ export interface AuthStateModel {
     errorMessage: undefined,
     redirectTo: undefined,
     providers: undefined,
+    pendingSignup: undefined,
+    pendingConnect: undefined,
+    identities: undefined,
   },
 })
 @Injectable({ providedIn: 'root' })
@@ -154,6 +211,21 @@ export class AuthState implements NgxsOnInit {
   @Selector()
   static user(state: AuthStateModel) {
     return state.user;
+  }
+
+  @Selector()
+  static pendingSignup(state: AuthStateModel) {
+    return state.pendingSignup;
+  }
+
+  @Selector()
+  static pendingConnect(state: AuthStateModel) {
+    return state.pendingConnect;
+  }
+
+  @Selector()
+  static identities(state: AuthStateModel) {
+    return state.identities;
   }
 
   ngxsOnInit(ctx: StateContext<AuthStateModel>) {
@@ -262,9 +334,13 @@ export class AuthState implements NgxsOnInit {
   @Action(ReceiveAuthProviderCode)
   receiveProviderAuthCode(ctx: StateContext<AuthStateModel>, action: ReceiveAuthProviderCode) {
     ctx.patchState({ isLoading: true });
-    return this.authService.signInWithProvider(action).pipe(
+    const request = action.oidc ? { code: action.code, ...action.oidc } : action;
+    return this.authService.signInWithProvider(request).pipe(
       tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
       catchError(error => {
+        if (action.oidc) {
+          return this.onOidcSignInError(ctx, error);
+        }
         ctx.dispatch(new AuthError('Login', error));
         return throwError(error);
       }),
@@ -292,7 +368,127 @@ export class AuthState implements NgxsOnInit {
 
   @Action(RedirectToAuthProvider)
   redirectToAuthProvider(ctx: StateContext<AuthStateModel>, action: RedirectToAuthProvider) {
-    return this.authService.redirectWithProvider(action.provider);
+    return this.authService.redirectWithProvider(action.provider, action.options);
+  }
+
+  /**
+   * An Ever ID sign-in that did not sign in: a new account waits for the confirmation screen, an account with the
+   * same email is never signed in to (sign in the usual way, then connect), anything else shows its message.
+   */
+  private onOidcSignInError(ctx: StateContext<AuthStateModel>, error: any) {
+    const code = get(error, 'error.error.code');
+    if (error?.status === 409 && code === 'signup_confirmation_required') {
+      const details = get(error, 'error.error.details') as ProviderSignupConfirmation;
+      ctx.patchState({ pendingSignup: details, errorMessage: undefined });
+      ctx.dispatch(new Navigate(['/auth/everid/confirm']));
+      return EMPTY;
+    }
+    if (error?.status === 409 && code === 'account_exists') {
+      return ctx.dispatch(new ProviderSignInFailed(ACCOUNT_EXISTS_MESSAGE));
+    }
+    return ctx.dispatch(new ProviderSignInFailed(errorToMessage(error, 'ProviderSignIn')));
+  }
+
+  @Action(ProviderSignInFailed)
+  providerSignInFailed(ctx: StateContext<AuthStateModel>, action: ProviderSignInFailed) {
+    ctx.patchState({ errorMessage: action.message, pendingSignup: undefined });
+    ctx.dispatch(new Navigate(['/login']));
+  }
+
+  @Action(ConfirmProviderSignup)
+  confirmProviderSignup(ctx: StateContext<AuthStateModel>, action: ConfirmProviderSignup) {
+    const pending = ctx.getState().pendingSignup;
+    if (!pending) {
+      return ctx.dispatch(new ProviderSignInFailed('This sign-up expired. Please sign in with Ever ID again.'));
+    }
+    ctx.patchState({ isLoading: true });
+    return this.authService.confirmProviderSignup(pending.pending, action.acceptInvites).pipe(
+      tap(user => {
+        ctx.patchState({ pendingSignup: undefined });
+        ctx.dispatch(new ReceiveAPIAccessToken(user));
+      }),
+      catchError(error => {
+        const code = get(error, 'error.error.code');
+        const message = error?.status === 409 && code === 'account_exists' ? ACCOUNT_EXISTS_MESSAGE : errorToMessage(error, 'ProviderSignIn');
+        return ctx.dispatch(new ProviderSignInFailed(message));
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(CancelProviderSignup)
+  cancelProviderSignup(ctx: StateContext<AuthStateModel>) {
+    ctx.patchState({ pendingSignup: undefined, errorMessage: undefined });
+    ctx.dispatch(new Navigate(['/login']));
+  }
+
+  @Action(ReceiveIdentityConnectCode)
+  receiveIdentityConnectCode(ctx: StateContext<AuthStateModel>, action: ReceiveIdentityConnectCode) {
+    ctx.patchState({ isLoading: true, pendingConnect: undefined });
+    return this.authService.connectIdentity(action.payload).pipe(
+      tap(connection => {
+        ctx.patchState({ pendingConnect: connection, errorMessage: undefined, statusMessage: undefined });
+        ctx.dispatch(new Navigate(['/user-settings']));
+      }),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error, 'ConnectIdentity'), statusMessage: undefined });
+        ctx.dispatch(new Navigate(['/user-settings']));
+        return EMPTY;
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(ConfirmIdentityConnect)
+  confirmIdentityConnect(ctx: StateContext<AuthStateModel>) {
+    const pending = ctx.getState().pendingConnect;
+    if (!pending) {
+      return;
+    }
+    ctx.patchState({ isLoading: true });
+    return this.authService.confirmConnectIdentity(pending.pending).pipe(
+      tap(() => {
+        ctx.patchState({ pendingConnect: undefined, errorMessage: undefined, statusMessage: 'Ever ID is connected: you can now sign in with it.' });
+        ctx.dispatch(new GetIdentities());
+      }),
+      catchError(error => {
+        ctx.patchState({ pendingConnect: undefined, errorMessage: errorToMessage(error, 'ConnectIdentity'), statusMessage: undefined });
+        return EMPTY;
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
+  }
+
+  @Action(CancelIdentityConnect)
+  cancelIdentityConnect(ctx: StateContext<AuthStateModel>) {
+    ctx.patchState({ pendingConnect: undefined });
+  }
+
+  @Action(GetIdentities)
+  getIdentities(ctx: StateContext<AuthStateModel>) {
+    return this.authService.listIdentities().pipe(
+      tap(identities => ctx.patchState({ identities })),
+      catchError(() => {
+        ctx.patchState({ identities: undefined });
+        return EMPTY;
+      }),
+    );
+  }
+
+  @Action(DeleteIdentity)
+  deleteIdentity(ctx: StateContext<AuthStateModel>, action: DeleteIdentity) {
+    ctx.patchState({ isLoading: true });
+    return this.authService.deleteIdentity(action.id).pipe(
+      tap(() => {
+        ctx.patchState({ errorMessage: undefined, statusMessage: 'Ever ID is disconnected.' });
+        ctx.dispatch(new GetIdentities());
+      }),
+      catchError(error => {
+        ctx.patchState({ errorMessage: errorToMessage(error, 'DeleteIdentity'), statusMessage: undefined });
+        return EMPTY;
+      }),
+      finalize(() => ctx.patchState({ isLoading: false })),
+    );
   }
 
   @Action(ForgotPassword)
@@ -354,7 +550,7 @@ export class AuthState implements NgxsOnInit {
   @Action(Logout)
   logout(ctx: StateContext<AuthStateModel>, action: Logout) {
     this.tokenService.clearToken();
-    ctx.patchState({ user: undefined, isAuthenticated: false, errorMessage: action.reason });
+    ctx.patchState({ user: undefined, isAuthenticated: false, errorMessage: action.reason, pendingConnect: undefined, identities: undefined });
     ctx.dispatch(new Navigate(['/login']));
   }
 
