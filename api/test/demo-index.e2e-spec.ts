@@ -41,6 +41,7 @@ describe('Demo install index.html (e2e)', () => {
     config.demo = true;
 
     await request(app.getHttpServer()).get('/index.html').expect(302).expect('Location', '/');
+    await request(app.getHttpServer()).get('/%69ndex.html').expect(302).expect('Location', '/');
   });
 
   it('serves index.html as built on any other install', async () => {

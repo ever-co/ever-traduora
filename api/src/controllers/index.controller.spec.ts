@@ -120,6 +120,8 @@ describe('redirectDemoIndexFile', () => {
 
     expect(run('GET', '/index.html')).toEqual({ redirectedTo: '/', passed: false });
     expect(run('HEAD', '/index.html')).toEqual({ redirectedTo: '/', passed: false });
+    // Percent-encoded, as the static handler decodes it
+    expect(run('GET', '/%69ndex.html')).toEqual({ redirectedTo: '/', passed: false });
   });
 
   it('passes every other request on a demo install', () => {
@@ -131,6 +133,7 @@ describe('redirectDemoIndexFile', () => {
       ['GET', '/main.js'],
       ['GET', '/api/v1/auth/providers'],
       ['POST', '/index.html'],
+      ['GET', '/%E0%A4%A'],
     ]) {
       expect([method, path, run(method, path)]).toEqual([method, path, { redirectedTo: undefined, passed: true }]);
     }
