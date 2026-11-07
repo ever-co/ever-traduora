@@ -1,5 +1,5 @@
 import { Controller, Get, Res } from '@nestjs/common';
-import { readFile } from 'fs/promises';
+import { readFile } from 'node:fs/promises';
 import { resolve } from 'path';
 import { config } from '../config';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';

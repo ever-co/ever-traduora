@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { config } from '../config';
 import IndexController, { DEMO_META_TAG, redirectDemoIndexFile, withDemoMarker } from './index.controller';
 
