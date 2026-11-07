@@ -465,11 +465,11 @@ describe('Ever ID sign-in (e2e)', () => {
       await connection.runMigrations();
       expect(await hasTables(tables)).toEqual([true, true, true]);
       // Applying it twice is harmless (tables are created only if missing)
-      const runner = connection.createQueryRunner();
+      const queryRunner = connection.createQueryRunner();
       try {
-        await connection.migrations.find(migration => migration.constructor.name === 'everId1794009600000').up(runner);
+        await connection.migrations.find(migration => migration.constructor.name === 'everId1794009600000').up(queryRunner);
       } finally {
-        await runner.release();
+        await queryRunner.release();
       }
       expect(await repo(UserIdentity).count()).toBe(0);
     });

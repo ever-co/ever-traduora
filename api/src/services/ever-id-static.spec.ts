@@ -64,10 +64,14 @@ describe('Ever ID sign-in static checks', () => {
 
   it('never sends a login hint', () => {
     const webappAuth = join(src, '../../webapp/src/app/auth');
+    const isSource = (name: string) => name.endsWith('.ts') && !name.endsWith('.spec.ts');
     const files = (dir: string): string[] =>
-      readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
-        entry.isDirectory() ? files(join(dir, entry.name)) : entry.name.endsWith('.ts') && !entry.name.endsWith('.spec.ts') ? [join(dir, entry.name)] : [],
-      );
+      readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+        if (entry.isDirectory()) {
+          return files(join(dir, entry.name));
+        }
+        return isSource(entry.name) ? [join(dir, entry.name)] : [];
+      });
     for (const file of [...files(webappAuth), ...OIDC_FILES.map(path => join(src, path)), join(src, 'controllers/auth.controller.ts')]) {
       expect(readFileSync(file, 'utf-8')).not.toContain('login_hint');
     }

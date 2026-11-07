@@ -1,5 +1,6 @@
 import { join } from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import { config } from '../config';
 import { EverIdLogoutJti } from '../entity/ever-id-logout-jti.entity';
 import { EverIdSession } from '../entity/ever-id-session.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
@@ -8,7 +9,11 @@ import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
 import { EverIdSessionService, SESSION_RETENTION_MS } from './ever-id-session.service';
 import { OidcProviderService } from './oidc-provider.service';
 
-describe('EverIdSessionService', () => {
+// Runs the real migrations on an in-memory SQLite database: they follow TR_DB_TYPE, so only when it is SQLite (the
+// default); the e2e suite covers the other databases
+const describeOnSqlite = config.db.default.type === 'better-sqlite3' ? describe : describe.skip;
+
+describeOnSqlite('EverIdSessionService', () => {
   let dataSource: DataSource;
   let service: EverIdSessionService;
   let alice: User;
