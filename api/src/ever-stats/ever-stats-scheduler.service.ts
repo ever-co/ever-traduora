@@ -106,7 +106,13 @@ export class EverStatsSchedulerService implements OnModuleInit, OnModuleDestroy 
     if (row) {
       return row;
     }
-    await this.scheduleRepo.createQueryBuilder().insert().into(EverStatsSchedule).values({ id: EVER_STATS_SCHEDULE_ID, retryAttempt: 0 }).orIgnore().execute();
+    await this.scheduleRepo
+      .createQueryBuilder()
+      .insert()
+      .into(EverStatsSchedule)
+      .values({ id: EVER_STATS_SCHEDULE_ID, retryAttempt: 0 })
+      .orIgnore()
+      .execute();
     return this.scheduleRepo.findOneOrFail({ where: { id: EVER_STATS_SCHEDULE_ID } });
   }
 

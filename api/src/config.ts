@@ -173,7 +173,9 @@ export const readEverPlatformConfig = (
     if (!Number.isInteger(seconds) || seconds < 1 || seconds > EVER_STATS_MAX_INTERVAL_S) {
       warn(`TR_EVER_STATS_SEND_INTERVAL_S is not a whole number of seconds from 1 to ${EVER_STATS_MAX_INTERVAL_S}; using a day.`);
     } else if (seconds < EVER_STATS_MIN_PUBLIC_INTERVAL_S && !local && source.NODE_ENV !== 'test') {
-      warn(`TR_EVER_STATS_SEND_INTERVAL_S below ${EVER_STATS_MIN_PUBLIC_INTERVAL_S} is accepted only for a local TR_EVER_STATS_API_URL (tests); using a day.`);
+      warn(
+        `TR_EVER_STATS_SEND_INTERVAL_S below ${EVER_STATS_MIN_PUBLIC_INTERVAL_S} is accepted only for a local TR_EVER_STATS_API_URL (tests); using a day.`,
+      );
     } else {
       statsSendIntervalS = seconds;
     }

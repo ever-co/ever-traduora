@@ -138,10 +138,10 @@ export function strictParse(bytes: Uint8Array): Json {
     return Number(digits);
   };
 
-  const literal = (word: string, value: Json, path: string): Json => {
+  const literal = (word: string, result: Json, path: string): Json => {
     if (!text.startsWith(word, at)) fail(path);
     at += word.length;
-    return value;
+    return result;
   };
 
   const value = (path: string, depth: number): Json => {

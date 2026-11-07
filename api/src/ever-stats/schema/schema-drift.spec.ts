@@ -53,7 +53,7 @@ describe('vendored statistics contract (drift)', () => {
   it('notices one changed byte (control)', () => {
     const changed = driftedFiles(path => {
       const bytes = Buffer.from(readFileSync(join(DIR, path)));
-      if (path === 'ever.stats.v1.json') bytes[10] = bytes[10] ^ 0x01;
+      if (path === 'ever.stats.v1.json') bytes[10] = bytes[10] === 0x20 ? 0x21 : 0x20;
       return bytes;
     });
     expect(changed).toEqual(['ever.stats.v1.json']);

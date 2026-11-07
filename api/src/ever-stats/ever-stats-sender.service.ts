@@ -118,6 +118,30 @@ export class EverStatsSenderService {
     });
   }
 
+  /** Records why no report could be signed: no TR_SECRET, a key that cannot be read, or no identity at all. */
+  private async identityUnavailable(input: { period: string; final: boolean }, error: unknown): Promise<StatsSendResult> {
+    const code = error instanceof EverInstanceKeyError ? error.code : 'identity_unavailable';
+    this.logger.warn(`ever_stats.send outcome=failed reason=${code} final=${input.final}`);
+    const reasons: Record<string, { error: string; hint: string | null }> = {
+      secret_missing: { error: 'secret_missing', hint: 'set_secret' },
+      identity_unavailable: { error: 'identity_unavailable', hint: null },
+    };
+    const reason = reasons[code] ?? { error: 'key_unreadable', hint: 'reset_identity' };
+    const record = await this.instance.read().catch((): null => null);
+    const failed = this.newRow({
+      id: randomUUID(),
+      instanceId: record?.instanceId ?? '',
+      period: input.period,
+      final: input.final,
+      status: 'failed',
+      ...reason,
+    });
+    if (record) {
+      await this.insertFor(record.instanceId, failed);
+    }
+    return { row: failed, retry: 'next_day' };
+  }
+
   /** Builds, checks, signs, stores and sends the report of `period`. */
   async send(input: { period: string; final: boolean }): Promise<StatsSendResult> {
     const now = this.clock();
@@ -125,36 +149,22 @@ export class EverStatsSenderService {
     try {
       identity = await this.instance.signingIdentity();
     } catch (error) {
-      const code = error instanceof EverInstanceKeyError ? error.code : 'identity_unavailable';
-      this.logger.warn(`ever_stats.send outcome=failed reason=${code} final=${input.final}`);
-      const record = await this.instance.read().catch((): null => null);
-      const row = this.newRow({
-        id: randomUUID(),
-        instanceId: record?.instanceId ?? '',
-        period: input.period,
-        final: input.final,
-        status: 'failed',
-        error: code === 'secret_missing' ? 'secret_missing' : code === 'identity_unavailable' ? code : 'key_unreadable',
-        hint: code === 'secret_missing' ? 'set_secret' : code === 'identity_unavailable' ? null : 'reset_identity',
-      });
-      if (record) {
-        await this.insertFor(record.instanceId, row);
-      }
-      return { row, retry: 'next_day' };
+      return this.identityUnavailable(input, error);
     }
 
     const instanceId = identity.record.instanceId;
-    const built = await this.collector.build({ instanceId, period: input.period, final: input.final, now });
+    const { period, final } = input;
+    const built = await this.collector.build({ instanceId, period, final, now });
     const reportId = String(built.report.report_id);
     if (built.error) {
-      this.logger.warn(`ever_stats.schema_violation ${built.error} final=${input.final}`);
-      const row = this.newRow({ id: reportId, instanceId, period: input.period, final: input.final, payload: built.text, status: 'rejected', error: built.error });
-      await this.insertFor(instanceId, row);
-      return { row, retry: 'module_upgrade' };
+      this.logger.warn(`ever_stats.schema_violation ${built.error} final=${final}`);
+      const refused = this.newRow({ id: reportId, instanceId, period, final, payload: built.text, status: 'rejected', error: built.error });
+      await this.insertFor(instanceId, refused);
+      return { row: refused, retry: 'module_upgrade' };
     }
 
     const signature = signStatsReport(identity.privateKeyDer, built.bytes);
-    const row = this.newRow({ id: reportId, instanceId, period: input.period, final: input.final, payload: built.text, signature, status: 'pending', attempts: 1 });
+    const row = this.newRow({ id: reportId, instanceId, period, final, payload: built.text, signature, status: 'pending', attempts: 1 });
     // Stored before the request, so the exact bytes are on record whatever happens next
     await this.insertFor(instanceId, row);
 
@@ -186,11 +196,17 @@ export class EverStatsSenderService {
 
     const outcome = classifyAnswer(httpStatus);
     this.logger.log(`ever_stats.send outcome=${outcome.status} status=${httpStatus ?? 'connection_error'} final=${input.final}`);
+    let error: string | null = null;
+    if (httpStatus === null) {
+      error = 'connection_error';
+    } else if (outcome.status !== 'sent') {
+      error = `http_${httpStatus}`;
+    }
     Object.assign(row, {
       sentAt: outcome.status === 'sent' ? new Date(this.clock()) : null,
       httpStatus,
       status: outcome.status,
-      error: httpStatus === null ? 'connection_error' : outcome.status === 'sent' ? null : `http_${httpStatus}`,
+      error,
       hint: outcome.hint,
     });
     await this.updateFor(instanceId, row);

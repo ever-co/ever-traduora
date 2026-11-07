@@ -51,7 +51,14 @@ describe('ever.stats.v1 schema allow-list rules', () => {
 
   it('keeps the closed Traduora lists', () => {
     const traduora = (schema as any).$defs.traduora;
-    expect(Object.keys(traduora.counts.properties).sort(byText)).toEqual(['locales', 'project_clients', 'projects', 'terms', 'translations', 'users']);
+    expect(Object.keys(traduora.counts.properties).sort(byText)).toEqual([
+      'locales',
+      'project_clients',
+      'projects',
+      'terms',
+      'translations',
+      'users',
+    ]);
     expect(Object.keys(traduora.features.properties).sort(byText)).toEqual(['google_login', 'signups_enabled']);
     expect(Object.keys(traduora.aggregates.properties).sort(byText)).toEqual(['translations_changed']);
   });

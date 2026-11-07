@@ -81,7 +81,14 @@ export class EverStatsCollectorService {
   }
 
   /** The report body: the envelope, then `counts`, `features` and `aggregates` (allow-listed keys only). */
-  assemble(input: { instanceId: string; period: string; final: boolean; numbers: StatsNumbers; now: number; reportId?: string }): Record<string, unknown> {
+  assemble(input: {
+    instanceId: string;
+    period: string;
+    final: boolean;
+    numbers: StatsNumbers;
+    now: number;
+    reportId?: string;
+  }): Record<string, unknown> {
     const { numbers } = input;
     const features = this.settings.features();
     return {

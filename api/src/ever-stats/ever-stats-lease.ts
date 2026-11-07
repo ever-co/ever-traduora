@@ -38,7 +38,13 @@ export class EverStatsLeaseLock {
     if (exists) {
       return false;
     }
-    await this.repo.createQueryBuilder().insert().into(EverStatsLease).values({ owner: EVER_STATS_LEASE_OWNER, leasedBy: null, leaseUntil: null }).orIgnore().execute();
+    await this.repo
+      .createQueryBuilder()
+      .insert()
+      .into(EverStatsLease)
+      .values({ owner: EVER_STATS_LEASE_OWNER, leasedBy: null, leaseUntil: null })
+      .orIgnore()
+      .execute();
     return this.compareAndSet(now);
   }
 

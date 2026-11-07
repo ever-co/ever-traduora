@@ -74,10 +74,9 @@ describe('Ever Platform settings', () => {
     });
 
     it('takes a comma-separated list over TR_ADMIN_EMAIL', () => {
-      expect(read({ TR_ADMIN_EMAIL: 'admin@example.test', TR_EVER_ADMIN_EMAILS: 'Ops@Example.test, second@example.test,' }).config.adminEmails).toEqual([
-        'ops@example.test',
-        'second@example.test',
-      ]);
+      expect(
+        read({ TR_ADMIN_EMAIL: 'admin@example.test', TR_EVER_ADMIN_EMAILS: 'Ops@Example.test, second@example.test,' }).config.adminEmails,
+      ).toEqual(['ops@example.test', 'second@example.test']);
     });
 
     it('normalizes e-mail addresses', () => {
