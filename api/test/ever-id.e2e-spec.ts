@@ -441,6 +441,40 @@ describe('Ever ID sign-in (e2e)', () => {
     });
   });
 
+  describe('migration', () => {
+    it('reverts and applies again, creating and dropping only its own tables', async () => {
+      app = await createAndMigrateApp();
+      const connection = app.get(Connection);
+      const tables = ['user_identity', 'ever_id_session', 'ever_id_logout_jti'];
+      const hasTables = async (names: string[]) => {
+        const runner = connection.createQueryRunner();
+        try {
+          return await Promise.all(names.map(name => runner.hasTable(name)));
+        } finally {
+          await runner.release();
+        }
+      };
+      const user = await signupTestUser(app, 'kept@example.test');
+      expect(await hasTables(tables)).toEqual([true, true, true]);
+
+      await connection.undoLastMigration();
+      expect(await hasTables(tables)).toEqual([false, false, false]);
+      expect(await hasTables(['user', 'project', 'invite'])).toEqual([true, true, true]);
+      expect(await repo(User).count({ where: { id: user.id } })).toBe(1);
+
+      await connection.runMigrations();
+      expect(await hasTables(tables)).toEqual([true, true, true]);
+      // Applying it twice is harmless (tables are created only if missing)
+      const runner = connection.createQueryRunner();
+      try {
+        await connection.migrations.find(migration => migration.constructor.name === 'everId1794009600000').up(runner);
+      } finally {
+        await runner.release();
+      }
+      expect(await repo(UserIdentity).count()).toBe(0);
+    });
+  });
+
   describe('Google sign-in', () => {
     it('sends the same token request as before and still finds the account by email', async () => {
       Object.assign(google, {

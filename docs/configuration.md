@@ -40,3 +40,28 @@ The API server can be configured via the following environment variables:
 | TR_AUTH_GOOGLE_CLIENT_ID     | Your Google OAuth client ID                                                                                                                                                            | not set               |
 | TR_AUTH_GOOGLE_CLIENT_SECRET | Your Google OAuth client secret                                                                                                                                                        | not set               |
 | TR_AUTH_GOOGLE_REDIRECT_URL  | The redirect url, should be 'https://$YOUR_TRADUORA_HOST/auth/callback' and also be set in the allowed redirect URI's in the Google API console when you created the OAuth integration | not set               |
+| TR_AUTH_EVERID_ENABLED       | Set to 'true' to enable sign-in with Ever ID (or any other OpenID Connect issuer). Anything else keeps it off: no button, its routes answer 400 and nothing is requested from the issuer | false                 |
+| TR_AUTH_EVERID_ISSUER        | The OpenID Connect issuer URL, e.g. `https://auth.ever.co`. It must use https. Its discovery document is read once at startup; if that fails, the provider stays off                   | not set               |
+| TR_AUTH_EVERID_CLIENT_ID     | The client ID registered at the issuer                                                                                                                                                 | not set               |
+| TR_AUTH_EVERID_CLIENT_SECRET | The client secret registered at the issuer. Used only by the API to exchange sign-in codes; never sent to the browser                                                                  | not set               |
+| TR_AUTH_EVERID_REDIRECT_URL  | The redirect URL, should be 'https://$YOUR_TRADUORA_HOST/auth/callback' and be registered at the issuer                                                                                | not set               |
+| TR_AUTH_EVERID_ALLOWED_ISSUERS | Optional comma-separated list of up to two more issuers whose tokens sign in to accounts already connected to them                                                                     | not set               |
+| TR_AUTH_EVERID_PLATFORM_PROJECT_ID | The Ever Platform project ID: adds its audience scope to the sign-in request. Leave empty for other OpenID Connect issuers                                                             | not set               |
+| TR_AUTH_EVERID_BACKCHANNEL_LOGOUT_ENABLED | Accept OpenID Connect back-channel logout at 'https://$YOUR_TRADUORA_HOST/api/v1/auth/everid/backchannel-logout' (register it at the issuer)                                           | true                  |
+
+## Sign in with Ever ID (optional)
+
+Traduora can offer "Continue with Ever ID" next to email and password and Google. It works with Ever ID and with any other OpenID Connect issuer, and is off by default. To turn it on:
+
+1. Register a web application at the issuer, with the authorization code flow and PKCE, the redirect URL `https://$YOUR_TRADUORA_HOST/auth/callback` and, for back-channel logout, `https://$YOUR_TRADUORA_HOST/api/v1/auth/everid/backchannel-logout`. Traduora authenticates to the token endpoint with HTTP Basic (`client_secret_basic`), or with `client_secret_post` when the issuer supports only that.
+2. Set `TR_AUTH_EVERID_ENABLED=true`, `TR_AUTH_EVERID_ISSUER`, `TR_AUTH_EVERID_CLIENT_ID`, `TR_AUTH_EVERID_CLIENT_SECRET` and `TR_AUTH_EVERID_REDIRECT_URL`, then restart.
+
+How accounts are matched:
+
+- Traduora keeps issuing its own access tokens; the issuer only proves who signs in. ID tokens are verified with the issuer's published keys, and the request uses `state`, `nonce` and PKCE.
+- A person is recognized by the issuer and subject of their ID token, never by email. When an account already has the same email, the sign-in stops with "An account with this email already exists. Sign in the usual way, then connect Ever ID in your account settings." The owner of that account connects Ever ID from **Account Settings > Connected sign-in methods**, after signing in to Ever ID again.
+- A new person gets the "Create your Traduora account" screen first: nothing is created before they confirm. `TR_SIGNUPS_ENABLED` applies as for any sign-up: when it is `false`, only a person with a pending invitation can create an account, and each invitation is accepted only if they tick it.
+- Access tokens of an Ever ID sign-in end when the issuer ends that session (back-channel logout). Other access tokens are not affected.
+- An issuer on an Ever host (`ever.co`) is used only by the Ever-operated Traduora cloud (`TR_EVER_INSTALL_SOURCE=cloud`). Other installs can use any other OpenID Connect issuer.
+
+Outbound requests: the configured issuer is the only new destination, and only while `TR_AUTH_EVERID_ENABLED=true`: its discovery document at startup, its key set, and the code exchange when someone signs in. No Ever ID token is stored.
