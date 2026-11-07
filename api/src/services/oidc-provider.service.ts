@@ -236,6 +236,24 @@ const audienceList = (payload: JWTPayload): string[] => {
   return payload.aud ? [payload.aud] : [];
 };
 
+/** Maps a verification failure of `jose` to an OidcError. */
+function toOidcError(error: unknown): OidcError {
+  if (error instanceof OidcError) {
+    return error;
+  }
+  const { code, claim } = (error ?? {}) as { code?: string; claim?: string };
+  if (code === 'ERR_JWT_EXPIRED') {
+    return new OidcError('expired', 'The token expired');
+  }
+  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'iss') {
+    return new OidcError('issuer_rejected', 'The token issuer is not accepted');
+  }
+  if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'aud') {
+    return new OidcError('audience_rejected', 'The token audience is not accepted');
+  }
+  return new OidcError('token_invalid', code ? `The token is rejected (${code})` : 'The token is rejected');
+}
+
 const isJsonObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 
 /**
@@ -557,20 +575,7 @@ export class OidcProviderService implements OnModuleInit {
       });
       return payload;
     } catch (error) {
-      if (error instanceof OidcError) {
-        throw error;
-      }
-      const { code, claim } = (error ?? {}) as { code?: string; claim?: string };
-      if (code === 'ERR_JWT_EXPIRED') {
-        throw new OidcError('expired', 'The token expired');
-      }
-      if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'iss') {
-        throw new OidcError('issuer_rejected', 'The token issuer is not accepted');
-      }
-      if (code === 'ERR_JWT_CLAIM_VALIDATION_FAILED' && claim === 'aud') {
-        throw new OidcError('audience_rejected', 'The token audience is not accepted');
-      }
-      throw new OidcError('token_invalid', code ? `The token is rejected (${code})` : 'The token is rejected');
+      throw toOidcError(error);
     }
   }
 
@@ -609,9 +614,12 @@ export class OidcProviderService implements OnModuleInit {
     if (!force && cached && now - cached.fetchedAt < OIDC_JWKS_TTL_MS) {
       return { keys: cached.value, fresh: false };
     }
-    if (cached && now - cached.fetchedAt < OIDC_JWKS_MAX_STALE_MS && this.refreshFailedRecently(`jwks ${issuer}`, now)) {
-      // The issuer could not be reached moments ago: do not wait on it again for every request
-      return { keys: cached.value, fresh: false };
+    if (this.refreshFailedRecently(`jwks ${issuer}`, now)) {
+      // The issuer could not be reached moments ago: do not ask it again for every request
+      if (cached && now - cached.fetchedAt < OIDC_JWKS_MAX_STALE_MS) {
+        return { keys: cached.value, fresh: false };
+      }
+      throw new OidcError('jwks_unavailable', `No key set for ${issuer}`);
     }
     let pending = this.jwksInFlight.get(issuer);
     if (!pending) {
@@ -660,8 +668,11 @@ export class OidcProviderService implements OnModuleInit {
     if (cached && now - cached.fetchedAt < OIDC_DISCOVERY_TTL_MS) {
       return cached.value;
     }
-    if (cached && now - cached.fetchedAt < OIDC_DISCOVERY_MAX_STALE_MS && this.refreshFailedRecently(`discovery ${issuer}`, now)) {
-      return cached.value;
+    if (this.refreshFailedRecently(`discovery ${issuer}`, now)) {
+      if (cached && now - cached.fetchedAt < OIDC_DISCOVERY_MAX_STALE_MS) {
+        return cached.value;
+      }
+      throw new OidcError('discovery_failed', `Discovery failed for ${issuer}`);
     }
     try {
       const { status, data } = await this.get(`${stripTrailingSlashes(issuer)}/.well-known/openid-configuration`);

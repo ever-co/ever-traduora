@@ -351,6 +351,19 @@ describe('OidcProviderService', () => {
       expect(get).toHaveBeenCalledTimes(2);
     });
 
+    it('does not ask an unreachable issuer again for 30 s, also without a cached key set', async () => {
+      const get = jest.spyOn(http, 'get').mockImplementation(() => {
+        throw new Error('unreachable');
+      });
+      // Discovery is cached since the start; the key set was never fetched
+      await expect(service.verifyIdToken('everid', await tokenWithKid(issuer.kid), 'n')).rejects.toMatchObject({ code: 'jwks_unavailable' });
+      await expect(service.verifyIdToken('everid', await tokenWithKid(issuer.kid), 'n')).rejects.toMatchObject({ code: 'jwks_unavailable' });
+      expect(get).toHaveBeenCalledTimes(1);
+      get.mockRestore();
+      service.clock += OIDC_REFRESH_RETRY_MS + 1;
+      await expect(service.verifyIdToken('everid', await tokenWithKid(issuer.kid), 'n')).resolves.toBeDefined();
+    });
+
     it('keeps using a key set up to 6 h old when the issuer cannot be reached', async () => {
       const token = await tokenWithKid(issuer.kid);
       await service.verifyIdToken('everid', token, 'n');
