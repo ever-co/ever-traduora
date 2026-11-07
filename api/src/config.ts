@@ -32,13 +32,15 @@ const getListOrDefault = (value: string | undefined): string[] =>
     .filter(Boolean);
 
 /**
- * Scopes requested from the Ever ID (OpenID Connect) issuer. With an Ever Platform project id, the ID token is also
- * issued for that project's audience; without one (e.g. another OpenID Connect issuer), that scope is left out.
+ * Scopes requested from the Ever ID (OpenID Connect) issuer. With an Ever Platform project id (Ever ID), the token also
+ * names the account's organization and is issued for that project's audience. Without one (another OpenID Connect
+ * issuer), only the standard scopes are requested, which every issuer accepts.
  */
 export const everIdScope = (platformProjectId?: string): string => {
-  const scopes = ['openid', 'profile', 'email', 'urn:zitadel:iam:user:resourceowner'];
-  if (platformProjectId && platformProjectId.trim()) {
-    scopes.push(`urn:zitadel:iam:org:project:id:${platformProjectId.trim()}:aud`);
+  const scopes = ['openid', 'profile', 'email'];
+  const projectId = platformProjectId?.trim();
+  if (projectId) {
+    scopes.push('urn:zitadel:iam:user:resourceowner', `urn:zitadel:iam:org:project:id:${projectId}:aud`);
   }
   return scopes.join(' ');
 };

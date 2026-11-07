@@ -6,7 +6,7 @@ import { EverIdSession } from '../entity/ever-id-session.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
-import { EverIdSessionService, SESSION_RETENTION_MS } from './ever-id-session.service';
+import { EverIdSessionService, issuerScopedKey, SESSION_RETENTION_MS } from './ever-id-session.service';
 import { OidcProviderService } from './oidc-provider.service';
 
 // Runs the real migrations on an in-memory SQLite database: they follow TR_DB_TYPE, so only when it is SQLite (the
@@ -66,8 +66,10 @@ describeOnSqlite('EverIdSessionService', () => {
   describe('identities', () => {
     it('attaches an identity once: the issuer and subject are unique', async () => {
       const linked = await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit);
-      expect(linked).toBeDefined();
-      expect(await service.link(bob.id, identity('s1'), IdentityLinkMethod.Jit)).toBeUndefined();
+      expect(typeof linked).toBe('object');
+      expect(await service.link(bob.id, identity('s1'), IdentityLinkMethod.Jit)).toBe('subject_linked');
+      // One identity per provider and account
+      expect(await service.link(alice.id, identity('s3'), IdentityLinkMethod.Explicit)).toBe('already_linked');
 
       const found = await service.findIdentity('https://idp.example.test', 's1');
       expect(found.user.id).toBe(alice.id);
@@ -86,18 +88,18 @@ describeOnSqlite('EverIdSessionService', () => {
     });
 
     it('records the last sign-in', async () => {
-      const linked = await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit);
+      const linked = (await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit)) as UserIdentity;
       expect((await service.findIdentity(linked.issuer, linked.subject)).lastLoginAt).toBeNull();
       await service.touchLastLogin(linked.id);
       expect((await service.findIdentity(linked.issuer, linked.subject)).lastLoginAt).toBeInstanceOf(Date);
     });
 
     it('never removes the last way to sign in to an account', async () => {
-      const bobs = await service.link(bob.id, identity('s2'), IdentityLinkMethod.Jit);
+      const bobs = (await service.link(bob.id, identity('s2'), IdentityLinkMethod.Jit)) as UserIdentity;
       expect(await service.unlink(bob.id, bobs.id)).toBe('last_sign_in_method');
       expect(await service.unlink(alice.id, bobs.id)).toBe('not_found');
 
-      const alices = await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit);
+      const alices = (await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit)) as UserIdentity;
       expect(await service.unlink(alice.id, alices.id)).toBe('removed');
       expect(await service.listForUser(alice.id)).toEqual([]);
     });
@@ -130,65 +132,83 @@ describeOnSqlite('EverIdSessionService', () => {
   });
 
   describe('sessions and back-channel logout', () => {
+    const ISSUER = 'https://idp.example.test';
+    const key = (sid: string) => issuerScopedKey(ISSUER, sid);
+
     it('opens a session per provider session and ends it by sid', async () => {
-      const session = await service.openSession(alice.id, 'sid-1');
-      expect(session.sid).toBe('sid-1');
-      expect(await service.isRevoked('sid-1', alice.id)).toBe(false);
+      const session = await service.openSession(alice.id, ISSUER, 'sid-1');
+      expect(session.sid).toBe(key('sid-1'));
+      expect(session.sid).not.toContain('sid-1');
+      expect(await service.isRevoked(session.sid, alice.id)).toBe(false);
       // Another account never uses this session
-      expect(await service.isRevoked('sid-1', bob.id)).toBe(true);
+      expect(await service.isRevoked(session.sid, bob.id)).toBe(true);
       expect(await service.isRevoked('unknown-sid', alice.id)).toBe(true);
 
       // Signing in again with the same provider session keeps it
-      const again = await service.openSession(alice.id, 'sid-1');
-      expect(again.sid).toBe('sid-1');
+      const again = await service.openSession(alice.id, ISSUER, 'sid-1');
+      expect(again.sid).toBe(session.sid);
       expect(again.jti).not.toBe(session.jti);
 
-      expect(await service.revokeSid('sid-1')).toBe(1);
-      expect(await service.isRevoked('sid-1', alice.id)).toBe(true);
+      expect(await service.revokeSid(ISSUER, 'sid-1')).toBe(1);
+      expect(await service.isRevoked(session.sid, alice.id)).toBe(true);
       // An ended provider session cannot be opened again
-      expect(await service.openSession(alice.id, 'sid-1')).toBeUndefined();
+      expect(await service.openSession(alice.id, ISSUER, 'sid-1')).toBeUndefined();
+    });
+
+    it('keeps a provider session ended when the logout comes before its first sign-in here', async () => {
+      // e.g. while the sign-up confirmation screen is open
+      expect(await service.revokeSid(ISSUER, 'sid-early')).toBe(0);
+      expect(await service.openSession(alice.id, ISSUER, 'sid-early')).toBeUndefined();
+    });
+
+    it('scopes sessions by issuer', async () => {
+      const first = await service.openSession(alice.id, ISSUER, 'same-sid');
+      const second = await service.openSession(bob.id, 'https://other.example.test', 'same-sid');
+      expect(second).toBeDefined();
+      await service.revokeSid('https://other.example.test', 'same-sid');
+      expect(await service.isRevoked(first.sid, alice.id)).toBe(false);
+      expect(await service.isRevoked(second.sid, bob.id)).toBe(true);
     });
 
     it('leaves other sessions open', async () => {
-      await service.openSession(alice.id, 'sid-1');
-      await service.openSession(bob.id, 'sid-2');
-      await service.revokeSid('sid-1');
-      expect(await service.isRevoked('sid-2', bob.id)).toBe(false);
+      await service.openSession(alice.id, ISSUER, 'sid-1');
+      const bobs = await service.openSession(bob.id, ISSUER, 'sid-2');
+      await service.revokeSid(ISSUER, 'sid-1');
+      expect(await service.isRevoked(bobs.sid, bob.id)).toBe(false);
     });
 
     it('uses a local session id when the provider sends none, and ends it by subject', async () => {
       await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit);
-      const session = await service.openSession(alice.id, undefined);
+      const session = await service.openSession(alice.id, ISSUER, undefined);
       expect(session.sid).toMatch(/^local-[0-9a-f]{32}$/);
-      await service.openSession(bob.id, 'sid-bob');
-      expect(await service.revokeIdentity('https://idp.example.test', 's1')).toBe(1);
+      const bobs = await service.openSession(bob.id, ISSUER, 'sid-bob');
+      expect(await service.revokeIdentity(ISSUER, 's1')).toBe(1);
       expect(await service.isRevoked(session.sid, alice.id)).toBe(true);
-      expect(await service.isRevoked('sid-bob', bob.id)).toBe(false);
+      expect(await service.isRevoked(bobs.sid, bob.id)).toBe(false);
     });
 
-    it('accepts a logout token id once, and again after it was released', async () => {
-      expect(await service.rememberLogoutJti('jti-1')).toBe(true);
-      expect(await service.rememberLogoutJti('jti-1')).toBe(false);
-      await service.releaseLogoutJti('jti-1');
-      expect(await service.rememberLogoutJti('jti-1')).toBe(true);
+    it('accepts a logout token id once per issuer, and again after it was released', async () => {
+      expect(await service.rememberLogoutJti(ISSUER, 'jti-1')).toBe(true);
+      expect(await service.rememberLogoutJti(ISSUER, 'jti-1')).toBe(false);
+      expect(await service.rememberLogoutJti('https://other.example.test', 'jti-1')).toBe(true);
+      await service.releaseLogoutJti(ISSUER, 'jti-1');
+      expect(await service.rememberLogoutJti(ISSUER, 'jti-1')).toBe(true);
     });
 
     it('deletes sessions a day after they expire and expired logout token ids', async () => {
-      await service.openSession(alice.id, 'sid-old');
-      await service.openSession(alice.id, 'sid-new');
-      await dataSource
-        .getRepository(EverIdSession)
-        .update({ sid: 'sid-old' }, { expiresAt: new Date(Date.now() - SESSION_RETENTION_MS - 60 * 1000) });
-      await service.rememberLogoutJti('jti-old');
-      await dataSource.getRepository(EverIdLogoutJti).update({ jti: 'jti-old' }, { expiresAt: new Date(Date.now() - 1000) });
-      await service.rememberLogoutJti('jti-new');
+      const old = await service.openSession(alice.id, ISSUER, 'sid-old');
+      const recent = await service.openSession(alice.id, ISSUER, 'sid-new');
+      await dataSource.getRepository(EverIdSession).update({ sid: old.sid }, { expiresAt: new Date(Date.now() - SESSION_RETENTION_MS - 60 * 1000) });
+      await service.rememberLogoutJti(ISSUER, 'jti-old');
+      await dataSource.getRepository(EverIdLogoutJti).update({ jti: issuerScopedKey(ISSUER, 'jti-old') }, { expiresAt: new Date(Date.now() - 1000) });
+      await service.rememberLogoutJti(ISSUER, 'jti-new');
 
       await service.sweep();
 
       const sessions = await dataSource.getRepository(EverIdSession).find();
-      expect(sessions.map(session => session.sid)).toEqual(['sid-new']);
+      expect(sessions.map(session => session.sid)).toEqual([recent.sid]);
       const jtis = await dataSource.getRepository(EverIdLogoutJti).find();
-      expect(jtis.map(row => row.jti)).toEqual(['jti-new']);
+      expect(jtis.map(row => row.jti)).toEqual([issuerScopedKey(ISSUER, 'jti-new')]);
     });
   });
 });

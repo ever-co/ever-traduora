@@ -1,12 +1,13 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
-import { IsNull, LessThan, Repository } from 'typeorm';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
+import { EntityManager, IsNull, LessThan, Repository } from 'typeorm';
 import { config } from '../config';
 import { EverIdLogoutJti } from '../entity/ever-id-logout-jti.entity';
 import { EverIdSession } from '../entity/ever-id-session.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import { OidcIdentity, OidcProviderService } from './oidc-provider.service';
 
 /** A sign-up waits at most 10 minutes for its confirmation. */
@@ -53,6 +54,22 @@ export interface IdentitySummary {
 }
 
 const SEAL_VERSION = 'v1';
+
+/**
+ * The key of a provider session (or of a logout token id) in Traduora: scoped by issuer, since a session id or a token
+ * id is unique only within its issuer.
+ */
+export function issuerScopedKey(issuer: string, value: string): string {
+  return createHash('sha256').update(`${issuer}\n${value}`).digest('hex');
+}
+
+/** Locks the account's row until the transaction ends (SQLite runs one write transaction at a time instead). */
+const lockAccount = (entityManager: EntityManager, userId: string) =>
+  entityManager.findOne(User, {
+    where: { id: userId },
+    select: ['id', 'encryptedPassword'],
+    ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+  });
 
 /**
  * Identities attached to accounts, the sealed records a sign-up or a connect waits in until the person confirms, the
@@ -109,30 +126,38 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
   }
 
   /**
-   * Attaches an identity to an account. Returns `undefined` when the identity is attached already (to any account):
-   * the unique issuer and subject decide, even between concurrent requests.
+   * Attaches an identity to an account, which has at most one identity per provider. Returns 'subject_linked' when the
+   * identity is attached to an account already (the unique issuer and subject decide, even between concurrent
+   * requests), and 'already_linked' when the account has an identity of that provider. The account's row is locked
+   * meanwhile, so concurrent changes of its identities run one after the other.
    */
   async link(
     userId: string,
     identity: Omit<PendingIdentity, 'purpose' | 'exp' | 'userId'>,
     method: IdentityLinkMethod,
-  ): Promise<UserIdentity | undefined> {
-    const entity = this.identityRepo.create({
-      user: { id: userId },
-      provider: identity.provider,
-      issuer: identity.issuer,
-      subject: identity.subject,
-      everPersonId: identity.personId ?? null,
-      emailAtLink: identity.email,
-      linkMethod: method,
-      linkedAt: new Date(),
-      lastLoginAt: method === IdentityLinkMethod.Jit ? new Date() : null,
-    });
+  ): Promise<UserIdentity | 'subject_linked' | 'already_linked'> {
     try {
-      return await this.identityRepo.save(entity);
+      return await this.identityRepo.manager.transaction(async entityManager => {
+        await lockAccount(entityManager, userId);
+        if ((await entityManager.count(UserIdentity, { where: { user: { id: userId }, provider: identity.provider } })) > 0) {
+          return 'already_linked' as const;
+        }
+        const entity = entityManager.create(UserIdentity, {
+          user: { id: userId },
+          provider: identity.provider,
+          issuer: identity.issuer,
+          subject: identity.subject,
+          everPersonId: identity.personId ?? null,
+          emailAtLink: identity.email,
+          linkMethod: method,
+          linkedAt: new Date(),
+          lastLoginAt: method === IdentityLinkMethod.Jit ? new Date() : null,
+        });
+        return entityManager.save(entity);
+      });
     } catch (error) {
       if (isUniqueViolation(error)) {
-        return undefined;
+        return 'subject_linked';
       }
       throw error;
     }
@@ -147,17 +172,20 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
    * 'last_sign_in_method' when it would leave the account without any way to sign in (no password, no other identity).
    */
   async unlink(userId: string, identityId: string): Promise<'removed' | 'not_found' | 'last_sign_in_method'> {
-    const identity = await this.identityRepo.findOne({ where: { id: identityId, user: { id: userId } } });
-    if (!identity) {
-      return 'not_found';
-    }
-    const user = await this.userRepo.findOne({ where: { id: userId }, select: ['id', 'encryptedPassword'] });
-    const others = await this.identityRepo.count({ where: { user: { id: userId } } });
-    if (!user?.encryptedPassword?.length && others <= 1) {
-      return 'last_sign_in_method';
-    }
-    await this.identityRepo.delete({ id: identity.id });
-    return 'removed';
+    // With the account's row locked: two disconnects at once must not remove its last two ways to sign in
+    return this.identityRepo.manager.transaction(async entityManager => {
+      const user = await lockAccount(entityManager, userId);
+      const identity = await entityManager.findOne(UserIdentity, { where: { id: identityId, user: { id: userId } } });
+      if (!identity) {
+        return 'not_found' as const;
+      }
+      const identities = await entityManager.count(UserIdentity, { where: { user: { id: userId } } });
+      if (!user?.encryptedPassword?.length && identities <= 1) {
+        return 'last_sign_in_method' as const;
+      }
+      await entityManager.delete(UserIdentity, { id: identity.id });
+      return 'removed' as const;
+    });
   }
 
   // Sealed pending records
@@ -218,13 +246,17 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
   // Sessions
 
   /**
-   * Records a session opened with a provider. Keyed by the provider's session id; without one, a local id is used, so
-   * the session can still be ended by a logout that names the subject.
+   * Records a session opened with a provider. Keyed by the issuer and the provider's session id; without one, a local
+   * id is used, so the session can still be ended by a logout that names the subject.
    *
    * @returns The `sid` and `jti` the access token carries, or `undefined` when the provider already ended that session.
    */
-  async openSession(userId: string, providerSid: string | undefined): Promise<{ sid: string; jti: string } | undefined> {
-    const sid = providerSid || `local-${randomBytes(16).toString('hex')}`;
+  async openSession(userId: string, issuer: string, providerSid: string | undefined): Promise<{ sid: string; jti: string } | undefined> {
+    const sid = providerSid ? issuerScopedKey(issuer, providerSid) : `local-${randomBytes(16).toString('hex')}`;
+    return this.openSessionWithKey(userId, sid);
+  }
+
+  private async openSessionWithKey(userId: string, sid: string): Promise<{ sid: string; jti: string } | undefined> {
     const jti = randomBytes(16).toString('hex');
     const issuedAt = new Date();
     const expiresAt = new Date(issuedAt.getTime() + config.authTokenExpires * 1000);
@@ -242,7 +274,7 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
     } catch (error) {
       if (isUniqueViolation(error)) {
         // A concurrent sign-in with the same session: use it if it is still open for this account
-        return this.openSession(userId, sid);
+        return this.openSessionWithKey(userId, sid);
       }
       throw error;
     }
@@ -258,9 +290,25 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
     return !session || session.userId !== userId || !!session.revokedAt;
   }
 
-  /** Ends the sessions opened with a provider session. */
-  async revokeSid(sid: string): Promise<number> {
-    const { affected } = await this.sessionRepo.update({ sid, revokedAt: IsNull() }, { revokedAt: new Date() });
+  /**
+   * Ends the sessions opened with a provider session. A session not opened yet (e.g. a sign-up still waiting for its
+   * confirmation) is recorded as ended, so it can no longer be opened.
+   */
+  async revokeSid(issuer: string, providerSid: string): Promise<number> {
+    const sid = issuerScopedKey(issuer, providerSid);
+    const now = new Date();
+    const { affected } = await this.sessionRepo.update({ sid, revokedAt: IsNull() }, { revokedAt: now });
+    if (!affected && !(await this.sessionRepo.existsBy({ sid }))) {
+      try {
+        await this.sessionRepo.insert({ sid, userId: '', jti: '', issuedAt: now, expiresAt: now, revokedAt: now });
+      } catch (error) {
+        if (!isUniqueViolation(error)) {
+          throw error;
+        }
+        // Opened meanwhile: end it
+        return this.revokeSid(issuer, providerSid);
+      }
+    }
     return affected ?? 0;
   }
 
@@ -278,9 +326,9 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
   /**
    * Remembers the id of a logout token. Returns false when it was seen already: a copy of the token is refused.
    */
-  async rememberLogoutJti(jti: string): Promise<boolean> {
+  async rememberLogoutJti(issuer: string, jti: string): Promise<boolean> {
     try {
-      await this.logoutJtiRepo.insert({ jti, expiresAt: new Date(Date.now() + LOGOUT_JTI_TTL_SECONDS * 1000) });
+      await this.logoutJtiRepo.insert({ jti: issuerScopedKey(issuer, jti), expiresAt: new Date(Date.now() + LOGOUT_JTI_TTL_SECONDS * 1000) });
       return true;
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -291,8 +339,8 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
   }
 
   /** Forgets a logout token id, so the issuer can send the same logout again after a failure here. */
-  async releaseLogoutJti(jti: string): Promise<void> {
-    await this.logoutJtiRepo.delete({ jti });
+  async releaseLogoutJti(issuer: string, jti: string): Promise<void> {
+    await this.logoutJtiRepo.delete({ jti: issuerScopedKey(issuer, jti) });
   }
 
   /** Deletes sessions a day after they expired, and logout token ids once they expired. */

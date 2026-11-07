@@ -29,6 +29,9 @@ export const OIDC_LOGOUT_TOKEN_MAX_AGE_SECONDS = 300;
 /** At most this many issuers are accepted: the configured one and up to two more. */
 export const OIDC_MAX_ISSUERS = 3;
 
+/** After a failed refresh, a cached discovery document or key set is used without asking the issuer for this long. */
+export const OIDC_REFRESH_RETRY_MS = 30 * 1000;
+
 /** Requests to the issuer give up after this long, milliseconds. */
 export const OIDC_HTTP_TIMEOUT_MS = 10 * 1000;
 
@@ -252,6 +255,7 @@ export class OidcProviderService implements OnModuleInit {
   private readonly jwksCache = new Map<string, Cached<JWK[]>>();
   private readonly jwksInFlight = new Map<string, Promise<Cached<JWK[]>>>();
   private readonly lastForcedRefetch = new Map<string, number>();
+  private readonly lastFailedRefresh = new Map<string, number>();
 
   constructor(private readonly http: HttpService) {}
 
@@ -501,9 +505,14 @@ export class OidcProviderService implements OnModuleInit {
       return undefined;
     }
 
-    const issuer = stripTrailingSlashes(settings.issuer.trim());
-    const extra = (settings.allowedIssuers || []).map(value => stripTrailingSlashes(value)).filter(value => value !== issuer);
-    const issuers = [issuer, ...Array.from(new Set(extra))];
+    // Issuers are kept exactly as configured: the discovery document's `issuer` and the tokens' `iss` must equal them
+    const issuer = settings.issuer.trim();
+    const issuers = [issuer];
+    for (const value of settings.allowedIssuers || []) {
+      if (!issuers.some(known => stripTrailingSlashes(known) === stripTrailingSlashes(value))) {
+        issuers.push(value);
+      }
+    }
     if (issuers.length > OIDC_MAX_ISSUERS) {
       this.logger.warn(`Sign-in provider ${slug}: only the first ${OIDC_MAX_ISSUERS - 1} of ${prefix}_ALLOWED_ISSUERS are accepted.`);
       issuers.length = OIDC_MAX_ISSUERS;
@@ -600,14 +609,21 @@ export class OidcProviderService implements OnModuleInit {
     if (!force && cached && now - cached.fetchedAt < OIDC_JWKS_TTL_MS) {
       return { keys: cached.value, fresh: false };
     }
+    if (cached && now - cached.fetchedAt < OIDC_JWKS_MAX_STALE_MS && this.refreshFailedRecently(`jwks ${issuer}`, now)) {
+      // The issuer could not be reached moments ago: do not wait on it again for every request
+      return { keys: cached.value, fresh: false };
+    }
     let pending = this.jwksInFlight.get(issuer);
     if (!pending) {
       pending = this.fetchKeySet(issuer).finally(() => this.jwksInFlight.delete(issuer));
       this.jwksInFlight.set(issuer, pending);
     }
     try {
-      return { keys: (await pending).value, fresh: true };
+      const keySet = await pending;
+      this.lastFailedRefresh.delete(`jwks ${issuer}`);
+      return { keys: keySet.value, fresh: true };
     } catch (error) {
+      this.lastFailedRefresh.set(`jwks ${issuer}`, now);
       if (cached && now - cached.fetchedAt < OIDC_JWKS_MAX_STALE_MS) {
         this.logger.warn(`Using a cached key set for ${issuer}: the refresh failed.`);
         return { keys: cached.value, fresh: false };
@@ -644,21 +660,31 @@ export class OidcProviderService implements OnModuleInit {
     if (cached && now - cached.fetchedAt < OIDC_DISCOVERY_TTL_MS) {
       return cached.value;
     }
+    if (cached && now - cached.fetchedAt < OIDC_DISCOVERY_MAX_STALE_MS && this.refreshFailedRecently(`discovery ${issuer}`, now)) {
+      return cached.value;
+    }
     try {
-      const { status, data } = await this.get(`${issuer}/.well-known/openid-configuration`);
+      const { status, data } = await this.get(`${stripTrailingSlashes(issuer)}/.well-known/openid-configuration`);
       if (status !== 200 || !isJsonObject(data)) {
         throw new OidcError('discovery_failed', `Discovery answered ${status}`);
       }
       const document = this.validateDiscovery(issuer, data as unknown as OidcDiscoveryDocument);
       this.discoveryCache.set(issuer, { value: document, fetchedAt: this.now() });
+      this.lastFailedRefresh.delete(`discovery ${issuer}`);
       return document;
     } catch (error) {
+      this.lastFailedRefresh.set(`discovery ${issuer}`, now);
       if (cached && now - cached.fetchedAt < OIDC_DISCOVERY_MAX_STALE_MS) {
         this.logger.warn(`Using a cached discovery document for ${issuer}: the refresh failed.`);
         return cached.value;
       }
       throw error instanceof OidcError ? error : new OidcError('discovery_failed', `Discovery failed for ${issuer}`);
     }
+  }
+
+  private refreshFailedRecently(key: string, now: number): boolean {
+    const failedAt = this.lastFailedRefresh.get(key);
+    return failedAt !== undefined && now - failedAt < OIDC_REFRESH_RETRY_MS;
   }
 
   private validateDiscovery(issuer: string, document: OidcDiscoveryDocument): OidcDiscoveryDocument {

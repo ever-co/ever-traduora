@@ -537,7 +537,7 @@ export class AuthController {
       }
       await this.everIdSessions.touchLastLogin(linked.id);
       // Unlike the Google sign-in, no pending invite is accepted here: the account accepts them itself
-      const accessToken = await this.signOidcUserToken(user, identity.sid);
+      const accessToken = await this.signOidcUserToken(user, identity.issuer, identity.sid);
       return { data: { id: user.id, email: user.email, name: user.name, accessToken } };
     }
 
@@ -614,7 +614,7 @@ export class AuthController {
       );
     }
     const identity = await this.everIdSessions.link(user.id, pending, IdentityLinkMethod.Jit);
-    if (!identity) {
+    if (typeof identity === 'string') {
       // Attached to another account since the check above: the new account is not kept
       await this.userService.deleteAccount(user);
       throw new AuthProviderException(HttpStatus.CONFLICT, 'subject_linked', 'This identity is connected to an account already');
@@ -632,7 +632,7 @@ export class AuthController {
     );
 
     await this.welcomeNewUser(account, true);
-    const accessToken = await this.signOidcUserToken(account, pending.sid);
+    const accessToken = await this.signOidcUserToken(account, pending.issuer, pending.sid);
     return { data: { id: account.id, email: account.email, name: account.name, accessToken } };
   }
 
@@ -705,7 +705,10 @@ export class AuthController {
     await this.assertConnectable(requestingUser.id, pending.provider, pending.issuer, pending.subject);
 
     const identity = await this.everIdSessions.link(requestingUser.id, pending, IdentityLinkMethod.Explicit);
-    if (!identity) {
+    if (identity === 'already_linked') {
+      throw new AuthProviderException(HttpStatus.CONFLICT, 'already_linked', 'An Ever ID is connected to your account already');
+    }
+    if (identity === 'subject_linked') {
       throw new AuthProviderException(HttpStatus.CONFLICT, 'subject_linked', 'This identity is connected to an account already');
     }
     const identities = await this.everIdSessions.listForUser(requestingUser.id);
@@ -751,12 +754,9 @@ export class AuthController {
     }
   }
 
-  @Throttle({
-    default: {
-      limit: config.throttle.auth.limit,
-      ttl: config.throttle.auth.ttl,
-    },
-  })
+  // Not under the per-address auth rate limit: the issuer sends every logout from its own servers, and a mass sign-out
+  // must not leave sessions open. Each request is a signature check at most (unknown keys are refetched at most every
+  // 30 s); only verified, unseen logout tokens reach the database.
   @Post('everid/backchannel-logout')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -778,19 +778,19 @@ export class AuthController {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'invalid_request', 'The logout token is not valid');
     }
     // Reserved before anything ends, so that a copy of the token can never end sessions opened later
-    if (!(await this.everIdSessions.rememberLogoutJti(logout.jti))) {
+    if (!(await this.everIdSessions.rememberLogoutJti(logout.issuer, logout.jti))) {
       this.logger.warn('Back-channel logout refused: replayed token');
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'invalid_request', 'The logout token is not valid');
     }
     try {
       if (logout.sid) {
-        await this.everIdSessions.revokeSid(logout.sid);
+        await this.everIdSessions.revokeSid(logout.issuer, logout.sid);
       } else {
         await this.everIdSessions.revokeIdentity(logout.issuer, logout.subject);
       }
     } catch (error) {
       // Forget the token id, so the issuer can send the same logout again
-      await this.everIdSessions.releaseLogoutJti(logout.jti).catch(() => undefined);
+      await this.everIdSessions.releaseLogoutJti(logout.issuer, logout.jti).catch(() => undefined);
       this.logger.error(`Back-channel logout could not end the sessions: ${error?.message ?? 'unexpected error'}`);
       throw new AuthProviderException(HttpStatus.SERVICE_UNAVAILABLE, 'temporarily_unavailable', 'Please try again');
     }
@@ -847,8 +847,8 @@ export class AuthController {
    * Signs an access token for a sign-in with an OpenID Connect provider. Like any user token, plus the provider's
    * session (`sid`), which a back-channel logout ends, and the token's own id (`jti`).
    */
-  private async signOidcUserToken(user: User, providerSid: string | undefined): Promise<string> {
-    const session = await this.everIdSessions.openSession(user.id, providerSid);
+  private async signOidcUserToken(user: User, issuer: string, providerSid: string | undefined): Promise<string> {
+    const session = await this.everIdSessions.openSession(user.id, issuer, providerSid);
     if (!session) {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'session_ended', 'This Ever ID session has ended, please sign in again');
     }

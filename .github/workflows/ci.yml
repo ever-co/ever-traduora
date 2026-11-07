@@ -11,8 +11,10 @@ jobs:
   api-unit:
     runs-on: ${{ vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '26.12.1'
       - run: corepack enable || npm install -g yarn@1.22.22
@@ -59,8 +61,10 @@ jobs:
       TR_DB_USER: ${{ matrix.db == 'mysql' && 'root' || 'tr' }}
       TR_DB_DATABASE: ${{ matrix.db == 'better-sqlite3' && 'data/tr_e2e.sqlite3' || 'tr_e2e' }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '26.12.1'
       - run: corepack enable || npm install -g yarn@1.22.22
@@ -73,8 +77,10 @@ jobs:
   webapp-unit:
     runs-on: ${{ vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '26.12.1'
       - run: corepack enable || npm install -g yarn@1.22.22

@@ -8,6 +8,7 @@ import { EverIdSession } from '../src/entity/ever-id-session.entity';
 import { Invite, InviteStatus } from '../src/entity/invite.entity';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { UserIdentity } from '../src/entity/user-identity.entity';
+import { issuerScopedKey } from '../src/services/ever-id-session.service';
 import { User } from '../src/entity/user.entity';
 import MailService from '../src/services/mail.service';
 import { MockOidcIssuer, newAuthorizationRequest } from './mock-oidc/mock-oidc-issuer';
@@ -217,7 +218,7 @@ describe('Ever ID sign-in (e2e)', () => {
         url: `${issuer.issuer}/oauth/v2/authorize`,
         redirectUrl: REDIRECT_URL,
         clientId: CLIENT_ID,
-        scope: 'openid profile email urn:zitadel:iam:user:resourceowner',
+        scope: 'openid profile email',
         pkce: true,
       });
       expect(JSON.stringify(res.body)).not.toContain(CLIENT_SECRET);
@@ -248,7 +249,8 @@ describe('Ever ID sign-in (e2e)', () => {
       expect(welcome).toHaveBeenCalledTimes(1);
 
       const claims = decode(created.body.data.accessToken);
-      expect(claims).toMatchObject({ sub: created.body.data.id, type: 'user', sid: 'sid-new-person' });
+      // The session of the issuer, by an issuer-scoped key
+      expect(claims).toMatchObject({ sub: created.body.data.id, type: 'user', sid: issuerScopedKey(issuer.issuer, 'sid-new-person') });
       expect(typeof claims.jti).toBe('string');
       const profile = await me(created.body.data.accessToken).expect(200);
       expect(profile.body.data.emailVerified).toBe(true);
@@ -414,7 +416,7 @@ describe('Ever ID sign-in (e2e)', () => {
       await backchannelLogout(logoutToken)
         .expect(200)
         .expect(res => expect(res.headers['cache-control']).toBe('no-store'));
-      expect((await repo(EverIdSession).findOneBy({ sid: 'sid-alice' })).revokedAt).toBeInstanceOf(Date);
+      expect((await repo(EverIdSession).findOneBy({ sid: issuerScopedKey(issuer.issuer, 'sid-alice') })).revokedAt).toBeInstanceOf(Date);
 
       await me(alice.accessToken).expect(401);
       await me(bob.accessToken).expect(200);

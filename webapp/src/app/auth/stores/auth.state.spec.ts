@@ -4,7 +4,16 @@ import { TestBed } from '@angular/core/testing';
 import { Navigate } from '@ngxs/router-plugin';
 import { Actions, NgxsModule, ofActionDispatched, Store } from '@ngxs/store';
 import { environment } from '../../../environments/environment';
-import { ACCOUNT_EXISTS_MESSAGE, AuthError, AuthState, ConfirmProviderSignup, ReceiveAPIAccessToken, ReceiveAuthProviderCode } from './auth.state';
+import { AuthService } from '../services/auth.service';
+import {
+  ACCOUNT_EXISTS_MESSAGE,
+  AuthError,
+  AuthState,
+  ConfirmProviderSignup,
+  ReceiveAPIAccessToken,
+  ReceiveAuthProviderCode,
+  RedirectToAuthProvider,
+} from './auth.state';
 
 describe('AuthState provider sign-in', () => {
   let store: Store;
@@ -65,6 +74,14 @@ describe('AuthState provider sign-in', () => {
     expect(store.selectSnapshot(state => state.auth.errorMessage)).toBe(ACCOUNT_EXISTS_MESSAGE);
     expect(dispatched).toEqual([new Navigate(['/login'])]);
     expect(store.selectSnapshot(state => state.auth.isAuthenticated)).toBeFalse();
+  });
+
+  it('shows a message when the Ever ID request cannot be built (no secure context)', async () => {
+    const authService = TestBed.inject(AuthService);
+    spyOn(authService, 'redirectWithProvider').and.returnValue(Promise.reject(new TypeError('crypto.subtle is undefined')));
+    const provider = { slug: 'everid', url: 'https://idp.example.test/authorize', redirectUrl: 'r', clientId: 'c', pkce: true };
+    await store.dispatch(new RedirectToAuthProvider(provider)).toPromise();
+    expect(store.selectSnapshot(state => state.auth.errorMessage)).toContain('secure (https) connection');
   });
 
   it('creates the confirmed account with only the ticked invitations', () => {

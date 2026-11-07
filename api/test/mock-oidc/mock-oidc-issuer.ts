@@ -51,7 +51,12 @@ export class MockOidcIssuer {
     readonly clientId: string,
     readonly clientSecret: string,
     private readonly host = '127.0.0.1',
+    // Some issuers name themselves with a trailing slash (e.g. `https://tenant.example.com/`)
+    private readonly trailingSlash = false,
   ) {}
+
+  /** The issuer's origin, which its endpoints are under. */
+  private base = '';
 
   async start(): Promise<void> {
     await this.rotateKey(this.kid);
@@ -63,7 +68,8 @@ export class MockOidcIssuer {
     });
     await new Promise<void>(resolve => this.server.listen(0, this.host, resolve));
     const { port } = this.server.address() as AddressInfo;
-    this.issuer = `http://${this.host}:${port}`;
+    this.base = `http://${this.host}:${port}`;
+    this.issuer = this.trailingSlash ? `${this.base}/` : this.base;
   }
 
   async stop(): Promise<void> {
@@ -127,7 +133,7 @@ export class MockOidcIssuer {
    */
   async authorize(params: { redirectUri: string; nonce: string; codeChallenge: string; state?: string }, claims: JWTPayload = {}): Promise<string> {
     this.nextClaims = claims;
-    const url = new URL(`${this.issuer}/oauth/v2/authorize`);
+    const url = new URL(`${this.base}/oauth/v2/authorize`);
     url.search = new URLSearchParams({
       response_type: 'code',
       client_id: this.clientId,
@@ -158,10 +164,10 @@ export class MockOidcIssuer {
       }
       return this.json(res, 200, {
         issuer: this.issuer,
-        authorization_endpoint: `${this.issuer}/oauth/v2/authorize`,
-        token_endpoint: `${this.issuer}/oauth/v2/token`,
-        jwks_uri: `${this.issuer}/oauth/v2/keys`,
-        end_session_endpoint: `${this.issuer}/oidc/v1/end_session`,
+        authorization_endpoint: `${this.base}/oauth/v2/authorize`,
+        token_endpoint: `${this.base}/oauth/v2/token`,
+        jwks_uri: `${this.base}/oauth/v2/keys`,
+        end_session_endpoint: `${this.base}/oidc/v1/end_session`,
         token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post', 'private_key_jwt'],
       });
     }

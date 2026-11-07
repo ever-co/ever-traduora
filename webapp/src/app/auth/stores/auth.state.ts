@@ -368,7 +368,13 @@ export class AuthState implements NgxsOnInit {
 
   @Action(RedirectToAuthProvider)
   redirectToAuthProvider(ctx: StateContext<AuthStateModel>, action: RedirectToAuthProvider) {
-    return this.authService.redirectWithProvider(action.provider, action.options);
+    const redirect = this.authService.redirectWithProvider(action.provider, action.options);
+    // An OpenID Connect request (e.g. Ever ID) is built asynchronously and needs a secure context (https)
+    return redirect instanceof Promise
+      ? redirect.catch(() =>
+          ctx.patchState({ errorMessage: 'Sign-in with Ever ID could not start. It needs a secure (https) connection to Traduora.' }),
+        )
+      : redirect;
   }
 
   /**

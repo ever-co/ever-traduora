@@ -138,30 +138,33 @@ export class AuthService {
 
   /** Builds the authorization request of an OpenID Connect provider (state, nonce, PKCE S256). */
   async oidcAuthorizeUrl(provider: Provider, intent: 'signin' | 'connect'): Promise<string> {
+    const codeVerifier = randomBase64Url(32);
+    // Fails outside a secure context (crypto.subtle needs https or localhost): before anything is stored
+    const codeChallenge = await pkceChallenge(codeVerifier);
+    const url = new URL(provider.url);
     const pending: PendingAuthorization = {
       provider: provider.slug,
       state: base64Url(new TextEncoder().encode(JSON.stringify({ p: provider.slug, n: randomBase64Url(16) }))),
       nonce: randomBase64Url(32),
-      codeVerifier: randomBase64Url(32),
+      codeVerifier,
       intent,
       createdAt: Date.now(),
     };
-    sessionStorage.setItem(PENDING_AUTHORIZATION_KEY, JSON.stringify(pending));
 
-    const url = new URL(provider.url);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('client_id', provider.clientId);
     url.searchParams.set('redirect_uri', provider.redirectUrl);
     url.searchParams.set('scope', provider.scope || 'openid profile email');
     url.searchParams.set('state', pending.state);
     url.searchParams.set('nonce', pending.nonce);
-    url.searchParams.set('code_challenge', await pkceChallenge(pending.codeVerifier));
+    url.searchParams.set('code_challenge', codeChallenge);
     url.searchParams.set('code_challenge_method', 'S256');
     if (intent === 'connect') {
       // Connecting needs a fresh sign-in at the provider
       url.searchParams.set('prompt', 'login');
       url.searchParams.set('max_age', '300');
     }
+    sessionStorage.setItem(PENDING_AUTHORIZATION_KEY, JSON.stringify(pending));
     return url.toString();
   }
 

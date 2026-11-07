@@ -1,6 +1,6 @@
 import { HttpService } from '@nestjs/axios';
 import axios from 'axios';
-import { config } from '../config';
+import { config, everIdScope } from '../config';
 import { MockOidcIssuer } from '../../test/mock-oidc/mock-oidc-issuer';
 import * as claimExamples from '../../test/mock-oidc/id-token-claims.example.json';
 import {
@@ -9,6 +9,7 @@ import {
   OIDC_JWKS_MAX_STALE_MS,
   OIDC_JWKS_REFETCH_COOLDOWN_MS,
   OIDC_JWKS_TTL_MS,
+  OIDC_REFRESH_RETRY_MS,
   OidcProviderService,
 } from './oidc-provider.service';
 
@@ -143,6 +144,30 @@ describe('OidcProviderService', () => {
       enable({ issuer: 'https://auth.ever.co', installSource: 'cloud' });
       await start();
       expect(get).toHaveBeenCalledWith('https://auth.ever.co/.well-known/openid-configuration', expect.anything());
+    });
+
+    it('keeps an issuer that names itself with a trailing slash', async () => {
+      const slashed = new MockOidcIssuer(CLIENT_ID, CLIENT_SECRET, '127.0.0.1', true);
+      await slashed.start();
+      try {
+        expect(slashed.issuer.endsWith('/')).toBe(true);
+        enable({ issuer: slashed.issuer });
+        await start();
+        expect(service.isActive('everid')).toBe(true);
+        expect(service.primaryIssuer('everid')).toBe(slashed.issuer);
+        const token = await slashed.sign(slashed.idTokenClaims('person-1', { nonce: 'n' }));
+        await expect(service.verifyIdToken('everid', token, 'n')).resolves.toMatchObject({ issuer: slashed.issuer });
+      } finally {
+        await slashed.stop();
+      }
+    });
+
+    it('requests the standard scopes only from issuers other than Ever ID', () => {
+      expect(everIdScope(undefined)).toBe('openid profile email');
+      expect(everIdScope(' ')).toBe('openid profile email');
+      expect(everIdScope('330011223344550000')).toBe(
+        'openid profile email urn:zitadel:iam:user:resourceowner urn:zitadel:iam:org:project:id:330011223344550000:aud',
+      );
     });
 
     it('accepts any other https issuer without the cloud install source', () => {
@@ -310,6 +335,20 @@ describe('OidcProviderService', () => {
       service.clock += OIDC_JWKS_REFETCH_COOLDOWN_MS + 1;
       await expect(service.verifyIdToken('everid', await tokenWithKid('mock-key-3'), 'n')).rejects.toMatchObject({ code: 'token_invalid' });
       expect(keyRequests()).toBe(3);
+    });
+
+    it('does not wait on an unreachable issuer for every request after a failed refresh', async () => {
+      await service.verifyIdToken('everid', await tokenWithKid(issuer.kid), 'n');
+      const get = jest.spyOn(http, 'get').mockImplementation(() => {
+        throw new Error('unreachable');
+      });
+      service.clock += OIDC_JWKS_TTL_MS + 1;
+      await service.verifyIdToken('everid', await tokenWithKid(issuer.kid), 'n');
+      await service.verifyIdToken('everid', await tokenWithKid(issuer.kid), 'n');
+      expect(get).toHaveBeenCalledTimes(1);
+      service.clock += OIDC_REFRESH_RETRY_MS + 1;
+      await service.verifyIdToken('everid', await tokenWithKid(issuer.kid), 'n');
+      expect(get).toHaveBeenCalledTimes(2);
     });
 
     it('keeps using a key set up to 6 h old when the issuer cannot be reached', async () => {
