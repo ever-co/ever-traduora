@@ -1,0 +1,15 @@
+/*
+ * An advisory strip, not a call to action: a light tint of the primary colour (#3b84f8 at 10% on white, written
+ * opaque) above the app bar. Text #495057 is 7.3:1 on it; the link is a darker primary (#1a56b8, 6.1:1), because the
+ * primary itself is only 3.2:1 there.
+ */
+.demo-banner {
+  background-color: #ebf3fe;
+  border-bottom: 1px solid #c4dafd;
+  color: #495057;
+  line-height: 1.4;
+}
+
+.demo-banner a {
+  color: #1a56b8;
+}

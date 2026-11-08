@@ -13,7 +13,7 @@ import { AuthController } from './controllers/auth.controller';
 import { ExportsController } from './controllers/exports.controller';
 import HealthController from './controllers/health.controller';
 import { ImportController } from './controllers/import.controller';
-import IndexController from './controllers/index.controller';
+import IndexController, { redirectDemoIndexFile } from './controllers/index.controller';
 import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectInviteController from './controllers/project-invite.controller';
@@ -169,6 +169,9 @@ export const addPipesAndFilters = (app: NestExpressApplication): void => {
       whitelist: true,
     }),
   );
+
+  // Before the static files: a demo install's index.html must go through IndexController, which adds the demo tag
+  app.use(redirectDemoIndexFile);
 
   app.useStaticAssets(config.publicDir, { index: false, redirect: false });
 

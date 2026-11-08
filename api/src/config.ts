@@ -73,6 +73,8 @@ export const config = {
   accessLogsEnabled: getBoolOrDefault(env.TR_ACCESS_LOGS_ENABLED, true),
   authTokenExpires: parseInt(env.TR_AUTH_TOKEN_EXPIRES, 10) || 86400,
   signupsEnabled: getBoolOrDefault(env.TR_SIGNUPS_ENABLED, true),
+  // A public demo install (demo.traduora.co): the web app then shows a "you are using a demo account" banner
+  demo: getBoolOrDefault(env.TR_DEMO, false),
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
