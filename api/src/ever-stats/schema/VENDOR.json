@@ -1,0 +1,95 @@
+{
+  "description": "Where the vendored statistics contract comes from. Every file is a byte-for-byte copy from the public Ever Platform SDK at the commit below; schema-drift.spec.ts checks each sha256, and compares each file with an SDK checkout when EVER_CONNECT_SDK_DIR is set. To refresh, copy the files again from a newer SDK commit and update this file.",
+  "source": {
+    "repository": "ever-co/ever-connect-sdk",
+    "commit": "6fbb8daa2af074ed2c37f45f96ad0ae60aae1abc",
+    "contracts_version": "1.0.0-rc.8"
+  },
+  "files": [
+    {
+      "path": "constants.json",
+      "source": "contracts/constants.json",
+      "sha256": "c9cbed525bb4bdbaad2bd00b4c1de8061166f01f1380fb87122e3417009db43a"
+    },
+    {
+      "path": "ever.stats.v1.json",
+      "source": "contracts/schemas/ever.stats.v1.json",
+      "sha256": "0cd746f7dec75117a6b812b7a832f9ceca4c97a6ecf65d22d6967a6475efc6e5"
+    },
+    {
+      "path": "fixtures/expected.json",
+      "source": "contracts/fixtures/stats/expected.json",
+      "sha256": "b86a1340ac9516c86353eb889d5e18e323e92c269042ba3be461169f481e669a"
+    },
+    {
+      "path": "fixtures/invalid/01-extra-field.json",
+      "source": "contracts/fixtures/stats/invalid/01-extra-field.json",
+      "sha256": "74131374b3081c4f418a5becdacf39f82784b9e7daabcf124465363596149702"
+    },
+    {
+      "path": "fixtures/invalid/02-string-in-counts.json",
+      "source": "contracts/fixtures/stats/invalid/02-string-in-counts.json",
+      "sha256": "48b55e40e987eee6f84689d630438e7b4958f33e9ad391c77e312601d7eec0d1"
+    },
+    {
+      "path": "fixtures/invalid/03-per-record-array.json",
+      "source": "contracts/fixtures/stats/invalid/03-per-record-array.json",
+      "sha256": "572e8fab615f2404ccd3a17ba9ed6c9d141f4e6e0d634f86e739c0324f5f75f1"
+    },
+    {
+      "path": "fixtures/invalid/04-email-in-country.json",
+      "source": "contracts/fixtures/stats/invalid/04-email-in-country.json",
+      "sha256": "ceac87b844a32c1c083d726075c93cf47cb020adf25b276c1cb2200da4543b71"
+    },
+    {
+      "path": "fixtures/invalid/05-url-in-version.json",
+      "source": "contracts/fixtures/stats/invalid/05-url-in-version.json",
+      "sha256": "0b8b5a28cdc12e55b95f5254a5589ab73864945704672a876a07d6ec0551c8ef"
+    },
+    {
+      "path": "fixtures/invalid/06-decimal-amount.json",
+      "source": "contracts/fixtures/stats/invalid/06-decimal-amount.json",
+      "sha256": "e332c4e1d45ca2e7ec6ee925638ecb799910d9ad20c8a7c0eaeb188902e58f59"
+    },
+    {
+      "path": "fixtures/invalid/07-oversize.json",
+      "source": "contracts/fixtures/stats/invalid/07-oversize.json",
+      "sha256": "983f935f3f875859919636c3ae94d27ce8c7ea9d1242250a76c5fbf8abbd32f5"
+    },
+    {
+      "path": "fixtures/invalid/08-foreign-product-key.json",
+      "source": "contracts/fixtures/stats/invalid/08-foreign-product-key.json",
+      "sha256": "2c141ef2493f5c820bc242d40d5084e951c67ad68f94f8d6773e90534965256b"
+    },
+    {
+      "path": "fixtures/invalid/09-version-suffix.json",
+      "source": "contracts/fixtures/stats/invalid/09-version-suffix.json",
+      "sha256": "6823728bc99744fffd93b408d9e17b440654c42eb3979ffec5fd6ee79f85096f"
+    },
+    {
+      "path": "fixtures/invalid/10-open-map-key.json",
+      "source": "contracts/fixtures/stats/invalid/10-open-map-key.json",
+      "sha256": "06e82f78dc3d24a8139896001f242897971da12c7891c7b1990a031f2c1fd1c1"
+    },
+    {
+      "path": "fixtures/invalid/11-integral-float.json",
+      "source": "contracts/fixtures/stats/invalid/11-integral-float.json",
+      "sha256": "06352170d9b152d146a703248f5782e1c74cd8574c134d2eba5f1bac9f6c3922"
+    },
+    {
+      "path": "fixtures/invalid/12-duplicate-key.json",
+      "source": "contracts/fixtures/stats/invalid/12-duplicate-key.json",
+      "sha256": "dca4b8bbdf5a799f905a2cd8a49bafc2366d3e606d0ed606b278b8d594aa4d86"
+    },
+    {
+      "path": "fixtures/invalid/13-sent-at-with-time.json",
+      "source": "contracts/fixtures/stats/invalid/13-sent-at-with-time.json",
+      "sha256": "8ae8e336fe9f9c488df79c4b27510d1ec7a7f02166352722c7d5729403f7e3f5"
+    },
+    {
+      "path": "fixtures/valid/traduora.json",
+      "source": "contracts/fixtures/stats/valid/traduora.json",
+      "sha256": "bb238a08867e558849f6ded6f7774a5d3369782de0a4e033936e08a9e09df911"
+    }
+  ]
+}

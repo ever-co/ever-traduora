@@ -54,6 +54,8 @@ import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 import { SeedDataService } from './seeds/seed-data.service';
 import { UserSeed } from './seeds/user.seed';
 import { dataSourceOptions } from './connection/datasource';
+import { EverInstanceModule } from './ever-instance/ever-instance.module';
+import { EverStatsModule } from './ever-stats/ever-stats.module';
 
 @Module({
   imports: [
@@ -87,6 +89,9 @@ import { dataSourceOptions } from './connection/datasource';
       EverIdLogoutJti,
     ]),
     HttpModule,
+    // Optional anonymous usage statistics: not loaded at all (no route, no timer, no request) when
+    // TR_EVER_STATS_ENABLED is exactly 'false'. Their tables are registered inside the modules.
+    ...(config.everPlatform.statsEnabled ? [EverInstanceModule, EverStatsModule] : []),
   ],
   controllers: [
     HealthController,

@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { AuthProviderException, PublishedPasswordException } from '../errors';
+import { AuthProviderException, EverPlatformException, PublishedPasswordException } from '../errors';
 
 @Catch()
 export class CustomExceptionFilter implements ExceptionFilter {
@@ -15,6 +15,14 @@ export class CustomExceptionFilter implements ExceptionFilter {
           code: exception.code,
           message: exception.message,
           ...(exception.details ? { details: exception.details } : {}),
+        },
+      });
+    } else if (exception instanceof EverPlatformException) {
+      // The Ever Platform settings routes keep their status (403 included) and code
+      response.status(exception.getStatus()).json({
+        error: {
+          code: exception.code,
+          message: exception.message,
         },
       });
     } else if (

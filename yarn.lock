@@ -8547,6 +8547,16 @@ ajv@^8.11.0, ajv@^8.9.0:
     json-schema-traverse "^1.0.0"
     require-from-string "^2.0.2"
 
+ajv@^8.20.0:
+  version "8.20.0"
+  resolved "https://registry.yarnpkg.com/ajv/-/ajv-8.20.0.tgz#304b3636add88ba7d936760dd50ece006dea95f9"
+  integrity sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==
+  dependencies:
+    fast-deep-equal "^3.1.3"
+    fast-uri "^3.0.1"
+    json-schema-traverse "^1.0.0"
+    require-from-string "^2.0.2"
+
 alce@1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/alce/-/alce-1.2.0.tgz#a8be2dacaac42494612f18dc09db691f3dea4aab"
@@ -9469,7 +9479,7 @@ bser@2.1.1:
   dependencies:
     node-int64 "^0.4.0"
 
-buffer-equal-constant-time@1.0.1, buffer-equal-constant-time@^1.0.1:
+buffer-equal-constant-time@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/buffer-equal-constant-time/-/buffer-equal-constant-time-1.0.1.tgz#f8e71132f7ffe6e01a5c9697a4c6f3e48d5cc819"
   integrity sha1-+OcRMvf/5uAaXJaXpMbz5I1cyBk=

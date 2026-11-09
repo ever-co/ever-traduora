@@ -32,6 +32,173 @@ const getListOrDefault = (value: string | undefined): string[] =>
     .filter(Boolean);
 
 /**
+ * A strict switch: only the exact strings 'true' and 'false' change anything. Unset or empty keeps the default, and so
+ * does any other value ('FALSE', '0', 'off'...), which is reported through `onMalformed`. Unlike `getBoolOrDefault`, a
+ * typo never turns a switch that is on by default off.
+ */
+export const getStrictBoolOrDefault = (value: string | undefined, defaultValue: boolean, onMalformed?: (value: string) => void): boolean => {
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+  if (value !== undefined && value !== '' && onMalformed) {
+    onMalformed(value);
+  }
+  return defaultValue;
+};
+
+/** An e-mail address as the Ever Platform settings compare it: trimmed and lower-cased. */
+export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
+/** How this installation was set up, as its operator declares it in TR_EVER_INSTALL_SOURCE. Never inferred. */
+export type EverInstallSource = 'cloud' | 'self-hosted' | 'ever.sh' | 'works_app' | 'desktop' | `partner:${string}`;
+
+const EVER_INSTALL_SOURCE = /^(cloud|self-hosted|ever\.sh|works_app|desktop|partner:[a-z0-9-]{2,32})$/;
+
+/** The default and the shortest public interval between two statistics reports, in seconds. */
+export const EVER_STATS_DEFAULT_INTERVAL_S = 86400;
+export const EVER_STATS_MIN_PUBLIC_INTERVAL_S = 3600;
+const EVER_STATS_MAX_INTERVAL_S = 604800;
+
+/** The settings of the optional Ever Platform features (anonymous usage statistics), read once at startup. */
+export interface EverPlatformConfig {
+  /** TR_EVER_PLATFORM_API_URL: the Ever Platform API. */
+  apiUrl: string;
+  /** TR_EVER_INSTALL_SOURCE, `self-hosted` when unset or not one of the known values. */
+  installSource: EverInstallSource;
+  /** Whether the statistics are loaded: on unless TR_EVER_STATS_ENABLED is exactly 'false'. */
+  statsEnabled: boolean;
+  /**
+   * Where statistics reports go (TR_EVER_STATS_API_URL, then TR_EVER_PLATFORM_API_URL), or null when the configured
+   * address cannot be used: then no report is sent. It is never replaced by another address.
+   */
+  statsApiUrl: string | null;
+  /** TR_EVER_STATS_COUNTRY upper-cased (two letters), else `ZZ` (not declared). */
+  statsCountry: string;
+  /** Seconds between two reports: a day, unless a test with a local destination shortens it. */
+  statsSendIntervalS: number;
+  /** The operators of this installation (TR_EVER_ADMIN_EMAILS, default TR_ADMIN_EMAIL), normalized. */
+  adminEmails: string[];
+  /** Whether TR_SECRET is set: the statistics key is stored encrypted under a key derived from it. */
+  secretConfigured: boolean;
+}
+
+/** A configured value in a log line only when it is short and plain: anything else an operator typed stays out of logs. */
+const describeEnvValue = (value: string): string => (/^[A-Za-z0-9_-]{1,16}$/.test(value) ? `"${value}"` : 'an unrecognised value');
+
+const PRIVATE_IPV4 = [/^10\./, /^127\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./];
+
+/**
+ * A host plain http may reach: this machine (loopback), an address of a private range, or a single-label name such as a
+ * compose service (`mock-platform`). `metadata` (a cloud metadata service) is never one.
+ */
+export const isLocalHost = (hostname: string): boolean => {
+  const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (host === 'localhost' || host.endsWith('.localhost') || host === '::1') {
+    return true;
+  }
+  if (PRIVATE_IPV4.some(range => range.test(host))) {
+    return true;
+  }
+  return /^[a-z\d-]+$/.test(host) && !/^\d+$/.test(host) && host !== 'metadata';
+};
+
+/**
+ * A base URL Ever Platform requests may use: https, or plain http to a local host only; no credential, query or
+ * fragment. Answers the URL without a trailing slash, or null.
+ */
+export const usableEverApiUrl = (value: string): string | null => {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  const protocolOk = url.protocol === 'https:' || (url.protocol === 'http:' && isLocalHost(url.hostname));
+  if (!protocolOk || url.username || url.password || url.search || url.hash) {
+    return null;
+  }
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+};
+
+/**
+ * Reads the Ever Platform settings. A malformed value falls back to its default with one warning that names the
+ * variable (and the value only when it is short and plain); a malformed destination sends nothing.
+ */
+export const readEverPlatformConfig = (
+  source: Record<string, string | undefined>,
+  warn: (message: string) => void = message => console.warn(`[Ever Platform] ${message}`),
+): EverPlatformConfig => {
+  const value = (name: string) => (source[name] ?? '').trim();
+
+  const statsEnabled = getStrictBoolOrDefault(source.TR_EVER_STATS_ENABLED, true, raw =>
+    warn(`TR_EVER_STATS_ENABLED is ${describeEnvValue(raw)}, which is neither "true" nor "false"; the default (on) applies.`),
+  );
+
+  const apiUrl = value('TR_EVER_PLATFORM_API_URL') || 'https://api.ever.co';
+  const statsUrlName = value('TR_EVER_STATS_API_URL') ? 'TR_EVER_STATS_API_URL' : 'TR_EVER_PLATFORM_API_URL';
+  const statsApiUrl = usableEverApiUrl(value('TR_EVER_STATS_API_URL') || apiUrl);
+  if (statsApiUrl === null) {
+    warn(
+      `ever_stats.url_insecure: ${statsUrlName} must be https (plain http only for localhost, a private address or a container name) ` +
+        'and carry no credential, query or fragment; no statistics report is sent until it is corrected.',
+    );
+  }
+
+  let installSource: EverInstallSource = 'self-hosted';
+  if (value('TR_EVER_INSTALL_SOURCE')) {
+    if (EVER_INSTALL_SOURCE.test(value('TR_EVER_INSTALL_SOURCE'))) {
+      installSource = value('TR_EVER_INSTALL_SOURCE') as EverInstallSource;
+    } else {
+      warn('TR_EVER_INSTALL_SOURCE is not one of cloud, self-hosted, ever.sh, works_app, desktop or partner:<name>; using self-hosted.');
+    }
+  }
+
+  let statsCountry = 'ZZ';
+  if (value('TR_EVER_STATS_COUNTRY')) {
+    const country = value('TR_EVER_STATS_COUNTRY').toUpperCase();
+    if (/^[A-Z]{2}$/.test(country)) {
+      statsCountry = country;
+    } else {
+      warn('TR_EVER_STATS_COUNTRY is not a two-letter country code; using ZZ (not declared).');
+    }
+  }
+
+  let statsSendIntervalS = EVER_STATS_DEFAULT_INTERVAL_S;
+  if (value('TR_EVER_STATS_SEND_INTERVAL_S')) {
+    const seconds = Number(value('TR_EVER_STATS_SEND_INTERVAL_S'));
+    const local = statsApiUrl !== null && isLocalHost(new URL(statsApiUrl).hostname);
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > EVER_STATS_MAX_INTERVAL_S) {
+      warn(`TR_EVER_STATS_SEND_INTERVAL_S is not a whole number of seconds from 1 to ${EVER_STATS_MAX_INTERVAL_S}; using a day.`);
+    } else if (seconds < EVER_STATS_MIN_PUBLIC_INTERVAL_S && !local && source.NODE_ENV !== 'test') {
+      warn(
+        `TR_EVER_STATS_SEND_INTERVAL_S below ${EVER_STATS_MIN_PUBLIC_INTERVAL_S} is accepted only for a local TR_EVER_STATS_API_URL (tests); using a day.`,
+      );
+    } else {
+      statsSendIntervalS = seconds;
+    }
+  }
+
+  const adminEmails = (value('TR_EVER_ADMIN_EMAILS') || value('TR_ADMIN_EMAIL') || 'local.admin@ever.co')
+    .split(',')
+    .map(normalizeEmail)
+    .filter(Boolean);
+
+  return {
+    apiUrl,
+    installSource,
+    statsEnabled,
+    statsApiUrl,
+    statsCountry,
+    statsSendIntervalS,
+    adminEmails,
+    secretConfigured: Boolean(source.TR_SECRET),
+  };
+};
+
+/**
  * Scopes requested from the Ever ID (OpenID Connect) issuer. With an Ever Platform project id (Ever ID), the token also
  * names the account's organization and is issued for that project's audience. Without one (another OpenID Connect
  * issuer), only the standard scopes are requested, which every issuer accepts.
@@ -82,6 +249,9 @@ export const config = {
   import: {
     maxNestedLevels: parseInt(env.TR_IMPORT_MAX_NESTED_LEVELS, 10) || 100,
   },
+  // Optional Ever Platform features. Anonymous usage statistics are on unless TR_EVER_STATS_ENABLED is exactly 'false'
+  // (then not loaded at all); see docs/ever-platform/anonymous-usage-statistics.md
+  everPlatform: readEverPlatformConfig(env),
   providers: {
     google: {
       active: getBoolOrDefault(env.TR_AUTH_GOOGLE_ENABLED, false),

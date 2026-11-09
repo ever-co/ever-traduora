@@ -1,0 +1,13 @@
+{
+  "description": "Every inbound route of the anonymous usage statistics module. health answers anyone (it only says the module is loaded); every other route answers the operator of the installation only (TR_EVER_ADMIN_EMAILS, default TR_ADMIN_EMAIL) and 403 to any other user or API client. With TR_EVER_STATS_ENABLED=false none of them exists (404).",
+  "module": "ever-stats",
+  "routes": [
+    { "method": "GET", "path": "/api/v1/ever-stats/health", "access": "public", "purpose": "Whether the module is loaded" },
+    { "method": "GET", "path": "/api/v1/ever-stats/status", "access": "operator", "purpose": "State and reason, next and last send, instance id, key id, country, install source; the webapp shows the menu entry only when it answers 200" },
+    { "method": "POST", "path": "/api/v1/ever-stats/preview", "access": "operator", "purpose": "What is sent: the report built now, checked, never sent or stored" },
+    { "method": "GET", "path": "/api/v1/ever-stats/reports", "access": "operator", "purpose": "The last 12 reports: the exact bytes, date, status and HTTP answer" },
+    { "method": "POST", "path": "/api/v1/ever-stats/send", "access": "operator", "purpose": "Send now (409 while switched off or refused until an upgrade, 429 more than once per 10 minutes)" },
+    { "method": "PUT", "path": "/api/v1/ever-stats/enabled", "access": "operator", "purpose": "The operator's switch (409 cloud-managed when TR_EVER_INSTALL_SOURCE=cloud)" },
+    { "method": "POST", "path": "/api/v1/ever-stats/reset-identity", "access": "operator", "purpose": "A new instance id and statistics key; the report history is cleared" }
+  ]
+}
