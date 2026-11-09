@@ -22,7 +22,6 @@ import { phpExporter } from '../formatters/php';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nestjs/swagger';
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
-import { merge } from 'lodash';
 import { resolveColumnName } from '../utils/alias-helper';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
 
@@ -129,9 +128,17 @@ export class ExportsController {
           translation: t.translations.length === 1 ? t.translations[0].value : '',
         }));
 
+        // Merge by term. The requested locale only contains the translated
+        // terms at this point, so a positional merge would pair unrelated
+        // terms and drop entries (#420).
+        const translated = new Map(data.translations.map(t => [t.term, t.translation]));
+
         const dataWithFallback: IntermediateTranslationFormat = {
           iso: query.locale,
-          translations: merge(fallbackTermsWithTranslationsMapped, data.translations),
+          translations: fallbackTermsWithTranslationsMapped.map(t => ({
+            term: t.term,
+            translation: translated.get(t.term) ?? t.translation,
+          })),
         };
 
         serialized = await this.dump(query.format, dataWithFallback);
