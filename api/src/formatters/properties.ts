@@ -36,7 +36,7 @@ export const propertiesParser: Parser = async (data: string) => {
 };
 
 export const propertiesExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-  const out = data.translations.reduce((acc, obj) => ({ ...acc, [obj.term]: obj.translation }), {});
+  const out = Object.fromEntries(data.translations.map(obj => [obj.term, obj.translation]));
   const result = properties.stringify(out);
   return native2ascii(result);
 };

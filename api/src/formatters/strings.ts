@@ -19,6 +19,6 @@ export const stringsParser: Parser = async (data: string) => {
 };
 
 export const stringsExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-  const out = data.translations.reduce((acc, obj) => ({ ...acc, [obj.term]: obj.translation }), {});
+  const out = Object.fromEntries(data.translations.map(obj => [obj.term, obj.translation]));
   return strings.compile(out).replace(/^\s*$(?:\r\n?|\n)/gm, '');
 };

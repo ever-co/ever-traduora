@@ -145,12 +145,12 @@ export class ImportController {
   }
 
   private determineTermsToAdd(existing: Term[], incomingItems: IntermediateTranslation[], project: Project): Term[] {
-    const existingTermsByValue: { [value: string]: Term } = existing.reduce((acc, term) => ({ ...acc, [term.value]: term }), {});
+    const existingTermsByValue = new Map(existing.map(term => [term.value, term]));
 
     const termsToAdd: Term[] = [];
 
     for (const incoming of incomingItems) {
-      const existingTerm = existingTermsByValue[incoming.term];
+      const existingTerm = existingTermsByValue.get(incoming.term);
       if (!existingTerm) {
         // If no term exists yet, create it
         const term = this.termRepo.create({
@@ -165,13 +165,13 @@ export class ImportController {
   }
 
   private determineTranslationsToAdd(allTerms: Term[], incomingItems: IntermediateTranslation[], projectLocale: ProjectLocale): Translation[] {
-    const termsByValue: { [value: string]: Term } = allTerms.reduce((acc, term) => ({ ...acc, [term.value]: term }), {});
+    const termsByValue = new Map(allTerms.map(term => [term.value, term]));
 
     const translationsToAdd: Translation[] = [];
 
     // Overwrite term in translation with saved one
     for (const translation of incomingItems) {
-      const term = termsByValue[translation.term];
+      const term = termsByValue.get(translation.term);
       if (!term) {
         throw new Error('missing term for translation');
       }
