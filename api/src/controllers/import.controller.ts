@@ -145,14 +145,16 @@ export class ImportController {
   }
 
   private determineTermsToAdd(existing: Term[], incomingItems: IntermediateTranslation[], project: Project): Term[] {
-    const existingTermsByValue: { [value: string]: Term } = existing.reduce((acc, term) => ({ ...acc, [term.value]: term }), {});
+    // Maps (not plain objects) so keys such as "constructor" or "toString" are not mistaken for existing terms
+    const knownTerms = new Set<string>(existing.map(term => term.value));
 
     const termsToAdd: Term[] = [];
 
     for (const incoming of incomingItems) {
-      const existingTerm = existingTermsByValue[incoming.term];
-      if (!existingTerm) {
-        // If no term exists yet, create it
+      // Skip terms that exist already, and repeats of a term earlier in the same file
+      // (a duplicate would violate the unique (project, value) index and fail the whole import)
+      if (!knownTerms.has(incoming.term)) {
+        knownTerms.add(incoming.term);
         const term = this.termRepo.create({
           project: project,
           value: incoming.term,
@@ -165,18 +167,20 @@ export class ImportController {
   }
 
   private determineTranslationsToAdd(allTerms: Term[], incomingItems: IntermediateTranslation[], projectLocale: ProjectLocale): Translation[] {
-    const termsByValue: { [value: string]: Term } = allTerms.reduce((acc, term) => ({ ...acc, [term.value]: term }), {});
+    const termsByValue = new Map<string, Term>(allTerms.map(term => [term.value, term]));
 
-    const translationsToAdd: Translation[] = [];
+    // One translation per term; if a term is repeated in the file the last value wins
+    const translationsByTermId = new Map<string, Translation>();
 
     // Overwrite term in translation with saved one
     for (const translation of incomingItems) {
-      const term = termsByValue[translation.term];
+      const term = termsByValue.get(translation.term);
       if (!term) {
         throw new Error('missing term for translation');
       }
 
-      translationsToAdd.push(
+      translationsByTermId.set(
+        term.id,
         this.translationRepo.create({
           termId: term.id,
           projectLocaleId: projectLocale.id,
@@ -186,7 +190,7 @@ export class ImportController {
       );
     }
 
-    return translationsToAdd;
+    return Array.from(translationsByTermId.values());
   }
 
   private async parse(format: ImportExportFormat, contents): Promise<IntermediateTranslationFormat> {
