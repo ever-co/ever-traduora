@@ -39,6 +39,7 @@ import { androidXmlParser } from '../formatters/android-xml';
 import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
+import { arbParser } from '../formatters/arb';
 import { PaymentRequiredException } from './../errors';
 
 @Controller('api/v1/projects/:projectId/imports')
@@ -216,6 +217,8 @@ export class ImportController {
           return await phpParser(contents);
         case 'resx':
           return await resXParser(contents);
+        case 'arb':
+          return await arbParser(contents);
         default:
           throw new Error('Export format not implemented');
       }

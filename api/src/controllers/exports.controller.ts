@@ -22,6 +22,7 @@ import { phpExporter } from '../formatters/php';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nestjs/swagger';
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
+import { arbExporter } from '../formatters/arb';
 import { merge } from 'lodash';
 import { resolveColumnName } from '../utils/alias-helper';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
@@ -169,6 +170,8 @@ export class ExportsController {
         return await phpExporter(data);
       case 'resx':
         return await resXExporter(data);
+      case 'arb':
+        return await arbExporter(data);
       default:
         throw new Error('Export format not implemented');
     }

@@ -715,6 +715,7 @@ export enum ImportExportFormat {
   Strings = 'strings',
   Php = 'php',
   ResX = 'resx',
+  Arb = 'arb',
 }
 
 export class ExportQuery {
