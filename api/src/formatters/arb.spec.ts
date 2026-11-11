@@ -1,5 +1,5 @@
 import { simpleFormatFixture } from './fixtures';
-import { arbExporter, arbParser } from './arb';
+import { ArbReservedTermError, arbExporter, arbParser } from './arb';
 
 test('should parse arb files and skip metadata keys', async () => {
   const input = `{
@@ -70,15 +70,26 @@ test('should export arb files without a locale when none is given', async () => 
   expect(JSON.parse(result as string)).toEqual({ a: 'b' });
 });
 
-test('should leave terms starting with @ out of the export so they cannot clash with metadata', async () => {
-  const exported = await arbExporter({
+test('should reject a term named like the locale metadata key instead of overwriting the locale', async () => {
+  const data = { iso: 'en', translations: [{ term: '@@locale', translation: 'xx' }] };
+  await expect(arbExporter(data)).rejects.toBeInstanceOf(ArbReservedTermError);
+  await expect(arbExporter(data)).rejects.toThrow('@@locale');
+});
+
+test('should reject a term starting with @ instead of exporting a message lost on re-import', async () => {
+  const data = {
     iso: 'en',
     translations: [
-      { term: '@@locale', translation: 'xx' },
-      { term: '@greeting', translation: 'meta' },
-      { term: 'email@domain', translation: 'kept' },
+      { term: 'ok', translation: 'fine' },
+      { term: '@help', translation: 'meta' },
     ],
-  });
+  };
+  await expect(arbExporter(data)).rejects.toBeInstanceOf(ArbReservedTermError);
+  await expect(arbExporter(data)).rejects.toThrow('@help');
+});
+
+test('should still export terms that only contain @ after the first character', async () => {
+  const exported = await arbExporter({ iso: 'en', translations: [{ term: 'email@domain', translation: 'kept' }] });
   expect(JSON.parse(exported as string)).toEqual({ '@@locale': 'en', 'email@domain': 'kept' });
 });
 
