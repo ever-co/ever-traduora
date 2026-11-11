@@ -35,6 +35,11 @@ export const arbExporter: Exporter = async (data: IntermediateTranslationFormat)
   }
 
   for (const { term, translation } of data.translations) {
+    // A key starting with "@" is reserved for metadata: written out, it would be dropped on re-import and a term
+    // named "@@locale" would overwrite the locale of the file. Such terms are therefore left out of the export.
+    if (isMetadataKey(term)) {
+      continue;
+    }
     // defineProperty so that a term named "__proto__" stays an ordinary key
     Object.defineProperty(out, term, { value: translation, enumerable: true, writable: true, configurable: true });
   }

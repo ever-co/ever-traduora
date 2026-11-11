@@ -70,6 +70,18 @@ test('should export arb files without a locale when none is given', async () => 
   expect(JSON.parse(result as string)).toEqual({ a: 'b' });
 });
 
+test('should leave terms starting with @ out of the export so they cannot clash with metadata', async () => {
+  const exported = await arbExporter({
+    iso: 'en',
+    translations: [
+      { term: '@@locale', translation: 'xx' },
+      { term: '@greeting', translation: 'meta' },
+      { term: 'email@domain', translation: 'kept' },
+    ],
+  });
+  expect(JSON.parse(exported as string)).toEqual({ '@@locale': 'en', 'email@domain': 'kept' });
+});
+
 test('should round trip arb files', async () => {
   const exported = await arbExporter({ iso: 'en', translations: simpleFormatFixture.translations });
   const parsed = await arbParser(exported as string);
