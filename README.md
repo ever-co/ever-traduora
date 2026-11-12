@@ -64,6 +64,8 @@ Please check [deployment](https://docs.traduora.co/docs/deployment) documents fo
 
 [![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/traduora)
 
+[![Deploy to ZopDay](https://zop.dev/deploytozopday-inkhard.svg)](https://zop.dev/zopday/app/deploy?image=everco/ever-traduora&port=8080&name=traduora&utm_source=github&utm_medium=one_click&utm_content=ever-traduora)
+
 ### 👤 Default Admin User
 
 When user signups are disabled (`TR_SIGNUPS_ENABLED=false`), a default admin user is required to access the platform.
