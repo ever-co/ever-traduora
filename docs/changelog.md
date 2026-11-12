@@ -8,7 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- TODO
+- Support for Flutter ARB (`.arb`) files added: import and export with format `arb`. Export writes `@@locale`; import skips `@@…` and `@key` metadata entries (descriptions and placeholders are not kept), and export answers 400 when a term key starts with `@`, which ARB reserves for metadata
 
 ## 0.23.0
 
