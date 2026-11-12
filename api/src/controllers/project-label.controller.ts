@@ -11,6 +11,12 @@ import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
 
+/**
+ * Returns the labels with `label` included exactly once. Labelling is idempotent: the join tables
+ * have a composite primary key, so inserting the same pair twice would fail the whole request.
+ */
+export const withLabel = (labels: Label[], label: Label): Label[] => (labels.some(l => l.id === label.id) ? labels : [...labels, label]);
+
 @Controller('api/v1/projects/:projectId/labels')
 @UseGuards(AuthGuard())
 @ApiOAuth2([])
@@ -125,14 +131,14 @@ export default class ProjectLabelController {
     const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
     const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
 
-    term.labels.push(label);
+    term.labels = withLabel(term.labels, label);
 
     await this.termsRepo.save(term);
 
     const translations = await this.translationsRepo.find({ where: { termId: term.id }, relations: ['labels'] });
 
     translations.forEach(t => {
-      t.labels.push(label);
+      t.labels = withLabel(t.labels, label);
     });
 
     await this.translationsRepo.save(translations);
@@ -192,7 +198,7 @@ export default class ProjectLabelController {
       relations: ['labels'],
     });
 
-    translation.labels.push(label);
+    translation.labels = withLabel(translation.labels, label);
 
     await this.translationsRepo.save(translation);
   }
