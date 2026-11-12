@@ -13,7 +13,7 @@ export class ArbReservedTermError extends Error {
   }
 }
 
-const isMetadataKey =(key: string) => key.startsWith('@');
+const isMetadataKey = (key: string) => key.startsWith('@');
 
 export const arbParser: Parser = async (data: string) => {
   const parsed = JSON.parse(data);
