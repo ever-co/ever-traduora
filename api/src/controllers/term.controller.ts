@@ -121,7 +121,9 @@ export default class TermController {
       await lockProject(entityManager, membership.project.id);
       await entityManager.save(term);
 
-      const projectLocales = await this.projectLocaleRepo.find({
+      // Read through the transaction's manager: a read on another pooled connection while this
+      // transaction holds the project lock can stall once concurrent creates fill the pool.
+      const projectLocales = await entityManager.find(ProjectLocale, {
         where: {
           project: {
             id: membership.project.id,
