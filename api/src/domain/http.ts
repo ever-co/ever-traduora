@@ -250,6 +250,21 @@ export class TermTranslationDTO {
   date: AccessDatesDTO;
 }
 
+export class TranslationHistoryDTO {
+  @ApiProperty()
+  id: string;
+  @ApiProperty()
+  termId: string;
+  @ApiProperty({ description: 'The value before the change, empty when the term had no translation yet' })
+  previousValue: string;
+  @ApiProperty()
+  value: string;
+  @ApiPropertyOptional({ description: 'The user who made the change; absent for changes made with an API client or by a removed user' })
+  user?: { id: string; name: string };
+  @ApiProperty()
+  date: Date;
+}
+
 export class ProjectClientDTO {
   @ApiProperty()
   id: string;
@@ -342,6 +357,11 @@ export class ProjectPlanResponse extends ServiceApiResponse<ProjectPlanDTO> {
 export class ListTermTranslatonsResponse extends ServiceApiResponse<TermTranslationDTO[]> {
   @ApiProperty({ type: TermTranslationDTO, isArray: true })
   data: TermTranslationDTO[];
+}
+
+export class ListTranslationHistoryResponse extends ServiceApiResponse<TranslationHistoryDTO[]> {
+  @ApiProperty({ type: TranslationHistoryDTO, isArray: true })
+  data: TranslationHistoryDTO[];
 }
 
 export class TermTranslatonResponse extends ServiceApiResponse<TermTranslationDTO> {

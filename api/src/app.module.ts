@@ -34,6 +34,7 @@ import { Project } from './entity/project.entity';
 import { Label } from './entity/label.entity';
 import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
+import { TranslationHistory } from './entity/translation-history.entity';
 import { User } from './entity/user.entity';
 import { UserIdentity } from './entity/user-identity.entity';
 import { EverIdSession } from './entity/ever-id-session.entity';
@@ -79,6 +80,7 @@ import { dataSourceOptions } from './connection/datasource';
       Locale,
       ProjectLocale,
       Translation,
+      TranslationHistory,
       ProjectClient,
       Plan,
       Label,

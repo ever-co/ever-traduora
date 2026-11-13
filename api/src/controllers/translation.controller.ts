@@ -1,6 +1,22 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { Repository } from 'typeorm';
@@ -9,6 +25,7 @@ import {
   AddLocaleRequest,
   ListProjectLocalesResponse,
   ListTermTranslatonsResponse,
+  ListTranslationHistoryResponse,
   ProjectLocaleResponse,
   TermTranslatonResponse,
   UpdateTranslationRequest,
@@ -17,14 +34,30 @@ import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
+import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
+import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
+
+export const DEFAULT_HISTORY_LIMIT = 50;
+export const MAX_HISTORY_LIMIT = 100;
+
+/** The number of history entries to return: a whole number from 1 to the maximum, the default when absent or not a number */
+export function parseHistoryLimit(raw: unknown): number {
+  const value = typeof raw === 'string' && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+  if (!Number.isSafeInteger(value)) {
+    return DEFAULT_HISTORY_LIMIT;
+  }
+  return Math.min(Math.max(value, 1), MAX_HISTORY_LIMIT);
+}
 
 @Controller('api/v1/projects/:projectId/translations')
 @UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Translations')
 export default class TranslationController {
+  private readonly logger = new Logger(TranslationController.name);
+
   constructor(
     private auth: AuthorizationService,
     @InjectRepository(Translation) private translationRepo: Repository<Translation>,
@@ -32,6 +65,7 @@ export default class TranslationController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
     @InjectRepository(Project) private projectRepo: Repository<Project>,
+    @InjectRepository(TranslationHistory) private historyRepo: Repository<TranslationHistory>,
   ) {}
 
   @Get()
@@ -196,6 +230,7 @@ export default class TranslationController {
           },
           relations: ['labels'],
         });
+        const previousValue = translation?.value ?? '';
         if (translation) {
           translation.value = payload.value;
         } else {
@@ -208,6 +243,7 @@ export default class TranslationController {
         }
 
         await this.translationRepo.save(translation);
+        await this.recordHistory(term.id, projectLocale.id, previousValue, translation.value, user instanceof User ? user : null);
         return {
           data: {
             termId: term.id,
@@ -221,6 +257,69 @@ export default class TranslationController {
       }
     } catch (error) {
       throw new NotFoundException('project locale not found');
+    }
+  }
+
+  @Get(':localeCode/history')
+  @ApiOperation({ summary: `List the changes made to a term's translation, newest first` })
+  @ApiQuery({ name: 'termId', required: true })
+  @ApiQuery({ name: 'limit', required: false, description: `Between 1 and ${MAX_HISTORY_LIMIT}, ${DEFAULT_HISTORY_LIMIT} by default` })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListTranslationHistoryResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async history(
+    @Req() req,
+    @Param('projectId') projectId: string,
+    @Param('localeCode') localeCode: string,
+    @Query('termId') termId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const user = this.auth.getRequestUserOrClient(req);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
+
+    if (typeof termId !== 'string' || termId.length === 0) {
+      throw new BadRequestException('termId is required');
+    }
+
+    const projectLocale = await this.projectLocaleRepo.findOne({
+      where: { project: { id: membership.project.id }, locale: { code: localeCode } },
+    });
+    if (!projectLocale) {
+      throw new NotFoundException('project locale not found');
+    }
+
+    const entries = await this.historyRepo.find({
+      where: { termId, projectLocaleId: projectLocale.id },
+      relations: ['user'],
+      order: { date: { created: 'DESC' } },
+      take: parseHistoryLimit(limit),
+    });
+
+    return {
+      data: entries.map(entry => ({
+        id: entry.id,
+        termId: entry.termId,
+        previousValue: entry.previousValue,
+        value: entry.value,
+        user: entry.user ? { id: entry.user.id, name: entry.user.name } : undefined,
+        date: entry.date.created,
+      })),
+    };
+  }
+
+  /**
+   * Keeps a record of a changed translation. Saving the translation is what the caller asked for, so a failure to
+   * write the record is logged and never fails the request.
+   */
+  private async recordHistory(termId: string, projectLocaleId: string, previousValue: string, value: string, user: User | null) {
+    if (previousValue === value) {
+      return;
+    }
+    try {
+      await this.historyRepo.save(this.historyRepo.create({ termId, projectLocaleId, previousValue, value, user }));
+    } catch (error) {
+      this.logger.warn(`could not record translation history: ${error?.message}`);
     }
   }
 
