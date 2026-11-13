@@ -1,5 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProjectClient } from '../entity/project-client.entity';
+import { ProjectLocale } from '../entity/project-locale.entity';
+import { Term } from '../entity/term.entity';
 import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
@@ -33,7 +35,7 @@ describe('TranslationController translation history', () => {
   const yieldToOthers = () => new Promise(resolve => setImmediate(resolve));
 
   function setup(initial: string | null) {
-    const state = { stored: initial === null ? null : { value: initial }, history: [] as any[] };
+    const state = { stored: initial === null ? null : { value: initial }, history: [] as any[], deleted: [] as any[] };
 
     const manager: any = {
       transaction: jest.fn(async (work: (em: any) => Promise<any>) => work(manager)),
@@ -41,6 +43,10 @@ describe('TranslationController translation history', () => {
         await yieldToOthers();
         if (entity === Translation) {
           return state.stored ? { ...state.stored } : null;
+        }
+        // The locale and the term, read again in the transaction: present unless the test deleted them
+        if (entity === ProjectLocale || entity === Term) {
+          return state.deleted.includes(entity) ? null : { id: options.where.id };
         }
         expect(entity).toBe(TranslationHistory);
         expect(options.order).toEqual({ revision: 'DESC' });
@@ -203,6 +209,22 @@ describe('TranslationController translation history', () => {
 
       termRepo.findOneOrFail.mockRejectedValueOnce(new Error('none'));
       await expect(controller.update({ user }, 'project-1', 'de', { termId: 'nope', value: 'b' })).rejects.toThrow('project term not found');
+    });
+
+    it('is not found, and writes nothing, when the locale or the term is deleted before the edit runs', async () => {
+      for (const [entity, message] of [
+        [ProjectLocale, 'project locale not found'],
+        [Term, 'project term not found'],
+      ] as const) {
+        const { controller, manager, state } = setup('a');
+        state.deleted.push(entity);
+
+        await expect(controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'b' })).rejects.toThrow(message);
+
+        expect(manager.update).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
+        expect(state.history).toEqual([]);
+      }
     });
   });
 

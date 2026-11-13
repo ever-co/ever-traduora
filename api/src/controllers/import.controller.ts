@@ -35,6 +35,7 @@ import { xliffParser } from '../formatters/xliff';
 import { yamlFlatParser } from '../formatters/yaml-flat';
 import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
+import { isTransientDatabaseError, lockProject } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
@@ -93,6 +94,8 @@ export class ImportController {
       // lock, not as of the import's first read.
       const lockLocale = !isDbType(DbType.BETTER_SQLITE3);
       const run = async (entityManager: EntityManager) => {
+        await lockProject(entityManager, membership.project.id);
+
         let projectLocale: ProjectLocale | undefined = await entityManager.findOne(ProjectLocale, {
           where: { project: { id: membership.project.id }, locale: { code: locale.code } },
         });
@@ -162,6 +165,9 @@ export class ImportController {
     } catch (error) {
       if (error instanceof PaymentRequiredException) {
         throw new PaymentRequiredException('request would exceed plan limit');
+      } else if (isTransientDatabaseError(error)) {
+        // Answered as such (try again), not as a missing resource
+        throw error;
       } else {
         throw new NotFoundException();
       }

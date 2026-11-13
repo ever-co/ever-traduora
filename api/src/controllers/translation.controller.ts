@@ -37,6 +37,7 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
+import { lockProject } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
 
 const editLocks = new Map<string, Promise<unknown>>();
@@ -129,6 +130,7 @@ export default class TranslationController {
     });
 
     await this.termRepo.manager.transaction(async entityManager => {
+      await lockProject(entityManager, membership.project.id);
       await entityManager.save(projectLocale);
       const terms = await entityManager.find(Term, { where: { project: { id: projectId } }, relations: ['labels'] });
       const translations = terms.map(term =>
@@ -263,8 +265,9 @@ export default class TranslationController {
    * translation is locked. Within this process the lock is a queue per translation; on databases other than SQLite the
    * transaction also holds a row lock, which serializes edits across several API instances too. SQLite has a single
    * connection that TypeORM shares between transactions, so two transactions open at once would nest into each other:
-   * there, every edit waits for the one before it. Elsewhere the edit also holds its locale locked for share, so it
-   * waits for an import into that locale to commit, and an import waits for it.
+   * there, every edit waits for the one before it. Elsewhere the edit also holds its locale and its term locked for
+   * share, in that order and before the translation: it waits for an import into that locale and for a delete of the
+   * term to commit, and they wait for it. A locale or term deleted meanwhile is not found.
    */
   private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
     const where = { termId: term.id, projectLocaleId: projectLocale.id };
@@ -273,8 +276,12 @@ export default class TranslationController {
 
     return withEditLock(key, () =>
       this.translationRepo.manager.transaction(async (em: EntityManager) => {
-        if (useRowLock) {
-          await em.findOne(ProjectLocale, { where: { id: projectLocale.id }, lock: { mode: 'pessimistic_read' } });
+        const share = useRowLock ? { lock: { mode: 'pessimistic_read' as const } } : {};
+        if (!(await em.findOne(ProjectLocale, { where: { id: projectLocale.id }, ...share }))) {
+          throw new NotFoundException('project locale not found');
+        }
+        if (!(await em.findOne(Term, { where: { id: term.id }, ...share }))) {
+          throw new NotFoundException('project term not found');
         }
         const locked = await em.findOne(Translation, { where, ...(useRowLock ? { lock: { mode: 'pessimistic_write' as const } } : {}) });
         const previousValue = locked?.value ?? '';
@@ -363,6 +370,7 @@ export default class TranslationController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTranslation);
 
     await this.projectLocaleRepo.manager.transaction(async entityManager => {
+      await lockProject(entityManager, membership.project.id);
       const projectLocale = await entityManager.findOneOrFail(ProjectLocale, {
         where: {
           project: { id: membership.project.id },
