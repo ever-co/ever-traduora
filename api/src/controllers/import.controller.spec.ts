@@ -80,4 +80,56 @@ describe('ImportController term/translation resolution', () => {
       );
     });
   });
+
+  describe('determineHistoryToAdd', () => {
+    const projectLocale: any = { id: 'locale-1' };
+    const user: any = { id: 'user-1' };
+
+    function entityManager(stored: { termId: string; value: string }[], latest: { termId: string; revision: number | string }[]) {
+      const queryBuilder: any = {
+        select: jest.fn(() => queryBuilder),
+        addSelect: jest.fn(() => queryBuilder),
+        where: jest.fn(() => queryBuilder),
+        groupBy: jest.fn(() => queryBuilder),
+        getRawMany: jest.fn().mockResolvedValue(latest),
+      };
+      return { find: jest.fn().mockResolvedValue(stored), createQueryBuilder: jest.fn(() => queryBuilder), queryBuilder };
+    }
+
+    it('records each changed value after its latest change, and new translations from an empty value', async () => {
+      const em = entityManager(
+        [
+          { termId: 't1', value: 'eins' },
+          { termId: 't2', value: 'zwei' },
+        ],
+        [{ termId: 't1', revision: '3' }],
+      );
+
+      const result = await controller.determineHistoryToAdd(
+        em,
+        projectLocale,
+        [
+          { termId: 't1', value: 'EINS' },
+          { termId: 't2', value: 'zwei' },
+          { termId: 't3', value: 'drei' },
+        ],
+        user,
+      );
+
+      expect(result).toEqual([
+        { termId: 't1', projectLocaleId: 'locale-1', revision: 4, previousValue: 'eins', value: 'EINS', user },
+        { termId: 't3', projectLocaleId: 'locale-1', revision: 1, previousValue: '', value: 'drei', user },
+      ]);
+      expect(em.queryBuilder.where).toHaveBeenCalledWith('history.projectLocaleId = :projectLocaleId', { projectLocaleId: 'locale-1' });
+    });
+
+    it('records nothing, and reads no history, when the import changes no value', async () => {
+      const em = entityManager([{ termId: 't1', value: 'eins' }], []);
+
+      const result = await controller.determineHistoryToAdd(em, projectLocale, [{ termId: 't1', value: 'eins' }], null);
+
+      expect(result).toEqual([]);
+      expect(em.createQueryBuilder).not.toHaveBeenCalled();
+    });
+  });
 });

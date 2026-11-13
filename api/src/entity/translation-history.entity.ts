@@ -15,6 +15,7 @@ export class TranslationHistory {
   @Column()
   termId: string;
 
+  @Index('IDX_translation_history_project_locale_id')
   @Column()
   projectLocaleId: string;
 
@@ -29,6 +30,7 @@ export class TranslationHistory {
   value: string;
 
   /** Empty for changes made with an API client, and after the user's account was deleted */
+  @Index('IDX_translation_history_user_id')
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   user: User | null;
 

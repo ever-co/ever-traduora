@@ -66,7 +66,10 @@ describe('TranslationController translation history', () => {
     };
 
     const translationRepo = { manager };
-    const projectLocaleRepo = { findOneOrFail: jest.fn().mockResolvedValue({ id: 'locale-1' }), findOne: jest.fn().mockResolvedValue({ id: 'locale-1' }) };
+    const projectLocaleRepo = {
+      findOneOrFail: jest.fn().mockResolvedValue({ id: 'locale-1' }),
+      findOne: jest.fn().mockResolvedValue({ id: 'locale-1' }),
+    };
     const termRepo = { findOneOrFail: jest.fn().mockResolvedValue({ id: 'term-1', labels: [] }) };
     const historyRepo = { find: jest.fn().mockResolvedValue([]) };
     const auth = {
@@ -183,6 +186,14 @@ describe('TranslationController translation history', () => {
       await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'c' });
       expect(state.stored).toEqual({ value: 'c' });
       expect(state.history).toEqual([expect.objectContaining({ previousValue: 'a', value: 'c' })]);
+    });
+
+    it('saves the value and its history in one transaction on every database, SQLite included', async () => {
+      const { controller, manager } = setup('a');
+
+      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'b' });
+
+      expect(manager.transaction).toHaveBeenCalledTimes(1);
     });
 
     it('is not found for an unknown locale or term', async () => {

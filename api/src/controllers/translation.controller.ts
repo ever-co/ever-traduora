@@ -258,19 +258,20 @@ export default class TranslationController {
   }
 
   /**
-   * Saves the value and the record of the change as one step that no other edit of the same translation can
-   * interleave with: the previous value is read, the new one saved and the history written while the translation is
-   * locked. Within this process the lock is a queue per translation (the only protection SQLite needs, as it has
-   * one connection); on other databases the edit also runs in a transaction holding a row lock, which serializes
-   * edits across several API instances too.
+   * Saves the value and the record of the change in one transaction, as one step that no other edit of the same
+   * translation can interleave with: the previous value is read, the new one saved and the history written while the
+   * translation is locked. Within this process the lock is a queue per translation; on databases other than SQLite the
+   * transaction also holds a row lock, which serializes edits across several API instances too. SQLite has a single
+   * connection that TypeORM shares between transactions, so two transactions open at once would nest into each other:
+   * there, every edit waits for the one before it.
    */
   private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
-    const key = `${projectLocale.id}:${term.id}`;
     const where = { termId: term.id, projectLocaleId: projectLocale.id };
     const useRowLock = !isDbType(DbType.BETTER_SQLITE3);
+    const key = useRowLock ? `${projectLocale.id}:${term.id}` : 'sqlite';
 
-    return withEditLock(key, () => {
-      const run = async (em: EntityManager) => {
+    return withEditLock(key, () =>
+      this.translationRepo.manager.transaction(async (em: EntityManager) => {
         const locked = await em.findOne(Translation, { where, ...(useRowLock ? { lock: { mode: 'pessimistic_write' as const } } : {}) });
         const previousValue = locked?.value ?? '';
 
@@ -289,17 +290,12 @@ export default class TranslationController {
 
         if (previousValue !== value) {
           const latest = await em.findOne(TranslationHistory, { where, order: { revision: 'DESC' } });
-          await em.save(
-            em.create(TranslationHistory, { ...where, revision: (latest?.revision ?? 0) + 1, previousValue, value, user }),
-          );
+          await em.save(em.create(TranslationHistory, { ...where, revision: (latest?.revision ?? 0) + 1, previousValue, value, user }));
         }
 
         return em.findOneOrFail(Translation, { where, relations: ['labels'] });
-      };
-
-      const manager = this.translationRepo.manager;
-      return useRowLock ? manager.transaction(run) : run(manager);
-    });
+      }),
+    );
   }
 
   @Get(':localeCode/history')
