@@ -181,6 +181,75 @@ describe('TermController (e2e)', () => {
       });
   });
 
+  const countTranslationsForTerm = async (termId: string): Promise<number> => {
+    const row = await app
+      .get(Connection)
+      .createQueryBuilder()
+      .select('COUNT(*)', 'count')
+      .from('translation', 'translation')
+      .where('translation.term_id = :termId', { termId })
+      .getRawOne();
+    return Number(row.count);
+  };
+
+  const createTranslatedTerm = async (): Promise<string> => {
+    let termId = '';
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        value: 'term.one',
+      })
+      .expect(201)
+      .expect(res => {
+        termId = res.body.data.id;
+      });
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        code: 'de_DE',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({
+        termId,
+        value: 'eins',
+      })
+      .expect(200);
+
+    return termId;
+  };
+
+  it('/api/v1/projects/:projectId/terms/:termId (DELETE) should also delete related translations', async () => {
+    const termId = await createTranslatedTerm();
+    expect(await countTranslationsForTerm(termId)).toEqual(1);
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/projects/${testProject.id}/terms/${termId}`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(204);
+
+    expect(await countTranslationsForTerm(termId)).toEqual(0);
+  });
+
+  it('/api/v1/projects/:projectId/translations/:localeCode (DELETE) should also delete related translations', async () => {
+    const termId = await createTranslatedTerm();
+    expect(await countTranslationsForTerm(termId)).toEqual(1);
+
+    await request(app.getHttpServer())
+      .delete(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(204);
+
+    expect(await countTranslationsForTerm(termId)).toEqual(0);
+  });
+
   it('/api/v1/projects/:projectId/terms should not access terms resource if not authenticated', async () => {
     let termId: string;
 
