@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { renderFile } from 'ejs';
@@ -34,6 +35,7 @@ import { Project } from './entity/project.entity';
 import { Label } from './entity/label.entity';
 import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
+import { TranslationHistory } from './entity/translation-history.entity';
 import { User } from './entity/user.entity';
 import { UserIdentity } from './entity/user-identity.entity';
 import { EverIdSession } from './entity/ever-id-session.entity';
@@ -54,6 +56,8 @@ import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 import { SeedDataService } from './seeds/seed-data.service';
 import { UserSeed } from './seeds/user.seed';
 import { dataSourceOptions } from './connection/datasource';
+import { serializeTransactions } from './connection/serialize-transactions';
+import { DbType } from './utils/database-type-helper';
 
 @Module({
   imports: [
@@ -69,6 +73,10 @@ import { dataSourceOptions } from './connection/datasource';
     RedisModule,
     TypeOrmModule.forRootAsync({
       useFactory: async () => dataSourceOptions(),
+      dataSourceFactory: async options => {
+        const dataSource = new DataSource(options);
+        return options.type === DbType.BETTER_SQLITE3 ? serializeTransactions(dataSource) : dataSource;
+      },
     }),
     TypeOrmModule.forFeature([
       User,
@@ -79,6 +87,7 @@ import { dataSourceOptions } from './connection/datasource';
       Locale,
       ProjectLocale,
       Translation,
+      TranslationHistory,
       ProjectClient,
       Plan,
       Label,

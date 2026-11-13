@@ -9,6 +9,7 @@ import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Translation } from '../entity/translation.entity';
+import { lockProject } from '../utils/database-locks';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
 import { ProjectLocale } from '../entity/project-locale.entity';
 
@@ -117,9 +118,12 @@ export default class TermController {
     });
 
     await this.termRepo.manager.transaction(async entityManager => {
+      await lockProject(entityManager, membership.project.id);
       await entityManager.save(term);
 
-      const projectLocales = await this.projectLocaleRepo.find({
+      // Read through the transaction's manager: a read on another pooled connection while this
+      // transaction holds the project lock can stall once concurrent creates fill the pool.
+      const projectLocales = await entityManager.find(ProjectLocale, {
         where: {
           project: {
             id: membership.project.id,
@@ -191,6 +195,7 @@ export default class TermController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTerm);
     await this.termRepo.manager.transaction(async entityManager => {
+      await lockProject(entityManager, membership.project.id);
       const term = await entityManager.findOneOrFail(Term, { where: { id: termId, project: { id: membership.project.id } } });
       await entityManager.remove(term);
       await entityManager.decrement(Project, { id: membership.project.id }, 'termsCount', 1);

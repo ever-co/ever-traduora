@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as nock from 'nock';
 import * as request from 'supertest';
-import { Connection } from 'typeorm';
+import { Connection, QueryRunner } from 'typeorm';
 import { config } from '../src/config';
 import { EverIdSession } from '../src/entity/ever-id-session.entity';
 import { Invite, InviteStatus } from '../src/entity/invite.entity';
@@ -448,31 +448,29 @@ describe('Ever ID sign-in (e2e)', () => {
       app = await createAndMigrateApp();
       const connection = app.get(Connection);
       const tables = ['user_identity', 'ever_id_session', 'ever_id_logout_jti'];
-      const hasTables = async (names: string[]) => {
+      // This migration by name: newer migrations run after it, so it is not necessarily the last one
+      const migration = connection.migrations.find(candidate => candidate.constructor.name === 'everId1794009600000');
+      const withRunner = async <T>(work: (runner: QueryRunner) => Promise<T>): Promise<T> => {
         const runner = connection.createQueryRunner();
         try {
-          return await Promise.all(names.map(name => runner.hasTable(name)));
+          return await work(runner);
         } finally {
           await runner.release();
         }
       };
+      const hasTables = (names: string[]) => withRunner(runner => Promise.all(names.map(name => runner.hasTable(name))));
       const user = await signupTestUser(app, 'kept@example.test');
       expect(await hasTables(tables)).toEqual([true, true, true]);
 
-      await connection.undoLastMigration();
+      await withRunner(runner => migration.down(runner));
       expect(await hasTables(tables)).toEqual([false, false, false]);
       expect(await hasTables(['user', 'project', 'invite'])).toEqual([true, true, true]);
       expect(await repo(User).count({ where: { id: user.id } })).toBe(1);
 
-      await connection.runMigrations();
+      await withRunner(runner => migration.up(runner));
       expect(await hasTables(tables)).toEqual([true, true, true]);
       // Applying it twice is harmless (tables are created only if missing)
-      const queryRunner = connection.createQueryRunner();
-      try {
-        await connection.migrations.find(migration => migration.constructor.name === 'everId1794009600000').up(queryRunner);
-      } finally {
-        await queryRunner.release();
-      }
+      await withRunner(runner => migration.up(runner));
       expect(await repo(UserIdentity).count()).toBe(0);
     });
   });

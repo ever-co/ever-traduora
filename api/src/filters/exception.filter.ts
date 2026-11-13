@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
 import { AuthProviderException, PublishedPasswordException } from '../errors';
+import { isTransientDatabaseError } from '../utils/database-locks';
 
 @Catch()
 export class CustomExceptionFilter implements ExceptionFilter {
@@ -43,6 +44,15 @@ export class CustomExceptionFilter implements ExceptionFilter {
         error: {
           code: 'AlreadyExists',
           message: 'This resource already exists',
+        },
+      });
+    } else if (isTransientDatabaseError(exception)) {
+      // A deadlock or lock timeout with another request: nothing was changed, and the same request can be sent again
+      response.setHeader('Retry-After', '1');
+      response.status(503).json({
+        error: {
+          code: 'Busy',
+          message: 'The request conflicted with another change, please try again',
         },
       });
     } else if (this.isSqliteError(exception)) {
