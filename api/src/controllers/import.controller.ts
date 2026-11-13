@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
   NotFoundException,
   Param,
@@ -139,9 +140,11 @@ export class ImportController {
     } catch (error) {
       if (error instanceof PaymentRequiredException) {
         throw new PaymentRequiredException('request would exceed plan limit');
-      } else {
-        throw new NotFoundException();
       }
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new NotFoundException();
     }
   }
 
@@ -227,7 +230,8 @@ export class ImportController {
           throw new Error('Export format not implemented');
       }
     } catch (err) {
-      throw new BadRequestException('Malformed import file');
+      const detail = err instanceof Error && err.message ? `: ${err.message}` : '';
+      throw new BadRequestException(`Malformed import file${detail}`);
     }
   }
 }

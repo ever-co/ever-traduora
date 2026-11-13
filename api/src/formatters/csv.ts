@@ -25,10 +25,25 @@ export const csvParser: Parser = async (data: string) => {
   const reader = parse(data, {
     trim: true,
     skip_empty_lines: true,
-    columns: ['term', 'translation'],
+    relax_column_count: true,
+    info: true,
   });
 
-  const translations = await streamAsPromise(reader);
+  const rows: Array<{ record: string[]; info: { lines: number } }> = await streamAsPromise(reader);
+
+  // Spreadsheet exports commonly pad rows with trailing empty columns, so
+  // those are tolerated. Extra columns with content are still rejected, since
+  // they signal an unquoted delimiter and dropping them would corrupt the
+  // translation (#379).
+  const translations = rows.map(({ record, info }) => {
+    if (record.length < 2) {
+      throw new Error(`Expected a term and a translation column on line ${info.lines}, found ${record.length} column`);
+    }
+    if (record.slice(2).some(field => field !== '')) {
+      throw new Error(`Line ${info.lines} has content after the translation column. Values containing commas must be quoted.`);
+    }
+    return { term: record[0], translation: record[1] };
+  });
 
   return {
     translations,
