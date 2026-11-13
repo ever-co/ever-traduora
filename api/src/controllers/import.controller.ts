@@ -35,6 +35,7 @@ import { xliffParser } from '../formatters/xliff';
 import { yamlFlatParser } from '../formatters/yaml-flat';
 import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
 import { ApiOAuth2, ApiConsumes, ApiResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -86,10 +87,19 @@ export class ImportController {
 
       const incoming = await this.parse(query.format, contents);
 
-      return await this.termRepo.manager.transaction(async entityManager => {
+      // Other databases than SQLite (which runs one transaction at a time): the locale stays locked until the import
+      // commits, and edits of its translations wait for that, so the values and change numbers the import reads are
+      // still the latest when it writes its history. Read committed (Postgres' default) makes MySQL read them as of the
+      // lock, not as of the import's first read.
+      const lockLocale = !isDbType(DbType.BETTER_SQLITE3);
+      const run = async (entityManager: EntityManager) => {
         let projectLocale: ProjectLocale | undefined = await entityManager.findOne(ProjectLocale, {
           where: { project: { id: membership.project.id }, locale: { code: locale.code } },
         });
+
+        if (projectLocale && lockLocale) {
+          await entityManager.findOne(ProjectLocale, { where: { id: projectLocale.id }, lock: { mode: 'pessimistic_write' } });
+        }
 
         if (!projectLocale) {
           // Authorize if has access to project import and can add 1 locale
@@ -146,7 +156,9 @@ export class ImportController {
             },
           },
         };
-      });
+      };
+
+      return await (lockLocale ? this.termRepo.manager.transaction('READ COMMITTED', run) : this.termRepo.manager.transaction(run));
     } catch (error) {
       if (error instanceof PaymentRequiredException) {
         throw new PaymentRequiredException('request would exceed plan limit');

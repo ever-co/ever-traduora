@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { Connection, EntityManager } from 'typeorm';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { TranslationHistory } from '../src/entity/translation-history.entity';
+import { Translation } from '../src/entity/translation.entity';
 import './util';
 import { createAndMigrateApp, createTestProject, createTestProjectClient, signupTestUser, TestingProject, TestingUser } from './util';
 
@@ -111,6 +112,88 @@ describe('Translation history (e2e)', () => {
       .expect(200);
     expect(stored.body.data[0].value).toBe('vorher');
     expect(await changes()).toEqual([[1, '', 'vorher']]);
+  });
+
+  const importValue = (value: string) =>
+    request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(JSON.stringify({ 'term.one': value })), 'file');
+
+  const storedValue = async () =>
+    (
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200)
+    ).body.data[0].value;
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  it('records an import and an edit that overlap as one unbroken chain', async () => {
+    await edit('A').expect(200);
+
+    // The edit is sent right after the import has read the values it replaces, and gets time to finish before the import goes on
+    let editing: Promise<any>;
+    const find = EntityManager.prototype.find;
+    const pause = jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, ...args: any[]) {
+      const result = await (find as any).apply(this, args);
+      if (args[0] === Translation && args[1]?.select && !editing) {
+        editing = edit('B').then(res => res);
+        await sleep(500);
+      }
+      return result;
+    } as any);
+    try {
+      await importValue('C').expect(200);
+      await editing;
+    } finally {
+      pause.mockRestore();
+    }
+
+    const entries = (await changes()).reverse();
+    expect(entries.map(([revision]) => revision)).toEqual([1, 2, 3]);
+    entries.forEach(([, previousValue], index) => expect(previousValue).toBe(index === 0 ? '' : entries[index - 1][2]));
+    expect(await storedValue()).toBe(entries[2][2]);
+  });
+
+  it('keeps an import when an overlapping edit fails', async () => {
+    await edit('vorher').expect(200);
+
+    // The edit fails its history write after the import has finished, or after 1 s when the import waits for it
+    let reached: () => void;
+    const editReached = new Promise<void>(resolve => (reached = resolve));
+    let imported: () => void;
+    const importDone = new Promise<void>(resolve => (imported = resolve));
+    const findOne = EntityManager.prototype.findOne;
+    const save = EntityManager.prototype.save;
+    const pause = jest.spyOn(EntityManager.prototype, 'findOne').mockImplementation(async function (this: EntityManager, ...args: any[]) {
+      if (args[0] === TranslationHistory) {
+        reached();
+        await Promise.race([importDone, sleep(1000)]);
+      }
+      return (findOne as any).apply(this, args);
+    } as any);
+    const failHistory = jest.spyOn(EntityManager.prototype, 'save').mockImplementation(function (this: EntityManager, ...args: any[]) {
+      return args[0] instanceof TranslationHistory ? Promise.reject(new Error('history write failed')) : (save as any).apply(this, args);
+    } as any);
+    try {
+      const editing = edit('nachher').then(res => res);
+      await editReached;
+      await importValue('importiert')
+        .expect(200)
+        .then(() => imported());
+      expect((await editing).status).toBe(500);
+    } finally {
+      pause.mockRestore();
+      failHistory.mockRestore();
+    }
+
+    expect(await storedValue()).toBe('importiert');
+    expect(await changes()).toEqual([
+      [2, 'vorher', 'importiert'],
+      [1, '', 'vorher'],
+    ]);
   });
 
   it('lets viewers read, records no user for API clients, and hides the history from other users', async () => {

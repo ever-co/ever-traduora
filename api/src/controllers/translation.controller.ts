@@ -263,7 +263,8 @@ export default class TranslationController {
    * translation is locked. Within this process the lock is a queue per translation; on databases other than SQLite the
    * transaction also holds a row lock, which serializes edits across several API instances too. SQLite has a single
    * connection that TypeORM shares between transactions, so two transactions open at once would nest into each other:
-   * there, every edit waits for the one before it.
+   * there, every edit waits for the one before it. Elsewhere the edit also holds its locale locked for share, so it
+   * waits for an import into that locale to commit, and an import waits for it.
    */
   private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
     const where = { termId: term.id, projectLocaleId: projectLocale.id };
@@ -272,6 +273,9 @@ export default class TranslationController {
 
     return withEditLock(key, () =>
       this.translationRepo.manager.transaction(async (em: EntityManager) => {
+        if (useRowLock) {
+          await em.findOne(ProjectLocale, { where: { id: projectLocale.id }, lock: { mode: 'pessimistic_read' } });
+        }
         const locked = await em.findOne(Translation, { where, ...(useRowLock ? { lock: { mode: 'pessimistic_write' as const } } : {}) });
         const previousValue = locked?.value ?? '';
 
