@@ -7,7 +7,7 @@ import { User } from './user.entity';
  * Rows are removed together with their term or locale, and keep their place when the user is deleted.
  */
 @Entity()
-@Index(['termId', 'projectLocaleId'])
+@Index(['termId', 'projectLocaleId', 'revision'], { unique: true })
 export class TranslationHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -17,6 +17,10 @@ export class TranslationHistory {
 
   @Column()
   projectLocaleId: string;
+
+  /** The number of the change within its translation, 1 for the first: gives the order, which timestamps cannot (they can tie) */
+  @Column({ type: 'int' })
+  revision: number;
 
   @Column({ type: 'text' })
   previousValue: string;

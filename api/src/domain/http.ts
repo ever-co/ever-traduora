@@ -255,6 +255,8 @@ export class TranslationHistoryDTO {
   id: string;
   @ApiProperty()
   termId: string;
+  @ApiProperty({ description: 'The number of the change within the translation, 1 for the first; higher is newer' })
+  revision: number;
   @ApiProperty({ description: 'The value before the change, empty when the term had no translation yet' })
   previousValue: string;
   @ApiProperty()

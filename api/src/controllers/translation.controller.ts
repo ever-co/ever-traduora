@@ -1,13 +1,11 @@
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
   Get,
   HttpCode,
   HttpStatus,
-  Logger,
   NotFoundException,
   Param,
   Patch,
@@ -20,7 +18,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import {
   AddLocaleRequest,
@@ -39,8 +37,25 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
+import { DbType, isDbType } from '../utils/database-type-helper';
 
-const MAX_SAVE_ATTEMPTS = 3;
+const editLocks = new Map<string, Promise<unknown>>();
+
+/** Runs the work after every earlier work with the same key, one at a time, whether or not the earlier work failed */
+async function withEditLock<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const previous = editLocks.get(key) ?? Promise.resolve();
+  const run = previous.then(work);
+  const tail = run.catch(() => undefined);
+  editLocks.set(key, tail);
+  try {
+    return await run;
+  } finally {
+    if (editLocks.get(key) === tail) {
+      editLocks.delete(key);
+    }
+  }
+}
+
 export const DEFAULT_HISTORY_LIMIT = 50;
 export const MAX_HISTORY_LIMIT = 100;
 
@@ -58,8 +73,6 @@ export function parseHistoryLimit(raw: unknown): number {
 @ApiOAuth2([])
 @ApiTags('Translations')
 export default class TranslationController {
-  private readonly logger = new Logger(TranslationController.name);
-
   constructor(
     private auth: AuthorizationService,
     @InjectRepository(Translation) private translationRepo: Repository<Translation>,
@@ -204,8 +217,9 @@ export default class TranslationController {
     const user = this.auth.getRequestUserOrClient(req);
     await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTranslation);
 
+    let projectLocale: ProjectLocale;
     try {
-      const projectLocale = await this.projectLocaleRepo.findOneOrFail({
+      projectLocale = await this.projectLocaleRepo.findOneOrFail({
         where: {
           locale: {
             code: localeCode,
@@ -215,80 +229,77 @@ export default class TranslationController {
           },
         },
       });
-      try {
-        const term = await this.termRepo.findOneOrFail({
-          where: {
-            project: { id: projectId },
-            id: payload.termId,
-          },
-          relations: ['labels'],
-        });
-        const findTranslation = () =>
-          this.translationRepo.findOne({
-            where: {
-              termId: term.id,
-              projectLocale: {
-                id: projectLocale.id,
-              },
-            },
-            relations: ['labels'],
-          });
+    } catch (error) {
+      throw new NotFoundException('project locale not found');
+    }
 
-        // The new value only replaces the value that was read (compare-and-swap), so that two overlapping edits can
-        // never both claim the same previous value, and every change that really happened gets exactly one record
-        let translation: Translation | null = null;
-        let previousValue = '';
-        let saved = false;
-        for (let attempt = 0; attempt < MAX_SAVE_ATTEMPTS && !saved; attempt++) {
-          translation = await findTranslation();
-          previousValue = translation?.value ?? '';
-          if (!translation) {
-            translation = this.translationRepo.create({
-              value: payload.value,
+    let term: Term;
+    try {
+      term = await this.termRepo.findOneOrFail({
+        where: {
+          project: { id: projectId },
+          id: payload.termId,
+        },
+        relations: ['labels'],
+      });
+    } catch (error) {
+      throw new NotFoundException('project term not found');
+    }
+
+    const translation = await this.saveTranslation(projectLocale, term, payload.value, user instanceof User ? user : null);
+    return {
+      data: {
+        termId: term.id,
+        value: translation.value,
+        labels: translation.labels,
+        date: translation.date,
+      },
+    };
+  }
+
+  /**
+   * Saves the value and the record of the change as one step that no other edit of the same translation can
+   * interleave with: the previous value is read, the new one saved and the history written while the translation is
+   * locked. Within this process the lock is a queue per translation (the only protection SQLite needs, as it has
+   * one connection); on other databases the edit also runs in a transaction holding a row lock, which serializes
+   * edits across several API instances too.
+   */
+  private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
+    const key = `${projectLocale.id}:${term.id}`;
+    const where = { termId: term.id, projectLocaleId: projectLocale.id };
+    const useRowLock = !isDbType(DbType.BETTER_SQLITE3);
+
+    return withEditLock(key, () => {
+      const run = async (em: EntityManager) => {
+        const locked = await em.findOne(Translation, { where, ...(useRowLock ? { lock: { mode: 'pessimistic_write' as const } } : {}) });
+        const previousValue = locked?.value ?? '';
+
+        if (!locked) {
+          await em.save(
+            em.create(Translation, {
+              value,
               projectLocale,
               term,
               labels: term.labels, // Copy term labels on creation
-            });
-            await this.translationRepo.save(translation);
-            saved = true;
-          } else if (previousValue === payload.value) {
-            saved = true;
-          } else {
-            const result = await this.translationRepo.update(
-              { termId: term.id, projectLocaleId: projectLocale.id, value: previousValue },
-              { value: payload.value },
-            );
-            if (result.affected) {
-              translation = (await findTranslation()) ?? Object.assign(translation, { value: payload.value });
-              saved = true;
-            }
-          }
-        }
-        if (!saved || !translation) {
-          throw new ConflictException('the translation was changed by someone else, try again');
+            }),
+          );
+        } else if (previousValue !== value) {
+          await em.update(Translation, where, { value });
         }
 
-        await this.recordHistory(term.id, projectLocale.id, previousValue, payload.value, user instanceof User ? user : null);
-        return {
-          data: {
-            termId: term.id,
-            value: translation.value,
-            labels: translation.labels,
-            date: translation.date,
-          },
-        };
-      } catch (error) {
-        if (error instanceof ConflictException) {
-          throw error;
+        if (previousValue !== value) {
+          const latest = await em.findOne(TranslationHistory, { where, order: { revision: 'DESC' } });
+          await em.save(
+            em.create(TranslationHistory, { ...where, revision: (latest?.revision ?? 0) + 1, previousValue, value, user }),
+          );
         }
-        throw new NotFoundException('project term not found');
-      }
-    } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new NotFoundException('project locale not found');
-    }
+
+        return em.findOneOrFail(Translation, { where, relations: ['labels'] });
+      };
+
+      const manager = this.translationRepo.manager;
+      return useRowLock ? manager.transaction(run) : run(manager);
+    });
   }
 
   @Get(':localeCode/history')
@@ -323,7 +334,8 @@ export default class TranslationController {
     const entries = await this.historyRepo.find({
       where: { termId, projectLocaleId: projectLocale.id },
       relations: ['user'],
-      order: { date: { created: 'DESC' } },
+      // The change number, not the time: the time can tie for edits made within the same second
+      order: { revision: 'DESC' },
       take: parseHistoryLimit(limit),
     });
 
@@ -331,29 +343,13 @@ export default class TranslationController {
       data: entries.map(entry => ({
         id: entry.id,
         termId: entry.termId,
+        revision: entry.revision,
         previousValue: entry.previousValue,
         value: entry.value,
         user: entry.user ? { id: entry.user.id, name: entry.user.name } : undefined,
         date: entry.date.created,
       })),
     };
-  }
-
-  /**
-   * Keeps a record of a changed translation. Saving the translation is what the caller asked for, so a failure to
-   * write the record is logged and never fails the request.
-   */
-  private async recordHistory(termId: string, projectLocaleId: string, previousValue: string, value: string, user: User | null) {
-    if (previousValue === value) {
-      return;
-    }
-    try {
-      // The time is set here, with milliseconds: the database default of some databases only has whole seconds,
-      // which would leave quick successive edits tied and in the wrong order
-      await this.historyRepo.save(this.historyRepo.create({ termId, projectLocaleId, previousValue, value, user, date: { created: new Date() } }));
-    } catch (error) {
-      this.logger.warn(`could not record translation history: ${error?.message}`);
-    }
   }
 
   @Delete(':localeCode')

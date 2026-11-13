@@ -1,5 +1,7 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProjectClient } from '../entity/project-client.entity';
+import { TranslationHistory } from '../entity/translation-history.entity';
+import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import TranslationController, { DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, parseHistoryLimit } from './translation.controller';
 
@@ -27,28 +29,46 @@ describe('TranslationController translation history', () => {
   const user = Object.assign(new User(), { id: 'user-1', name: 'Ada' });
   const client = Object.assign(new ProjectClient(), { id: 'client-1' });
 
+  // Lets other pending work run, so that edits that are not serialized would interleave in these tests
+  const yieldToOthers = () => new Promise(resolve => setImmediate(resolve));
+
   function setup(initial: string | null) {
-    // A stored translation whose value is replaced only when the update's condition on the old value holds
-    const stored: { value: string } | null = initial === null ? null : { value: initial };
-    const translationRepo = {
-      findOne: jest.fn(async () => (stored ? { ...stored } : null)),
-      create: jest.fn((entity: any) => ({ ...entity })),
-      save: jest.fn().mockResolvedValue(undefined),
-      update: jest.fn(async (criteria: any, changes: any) => {
-        if (stored && stored.value === criteria.value) {
-          stored.value = changes.value;
-          return { affected: 1 };
+    const state = { stored: initial === null ? null : { value: initial }, history: [] as any[] };
+
+    const manager: any = {
+      transaction: jest.fn(async (work: (em: any) => Promise<any>) => work(manager)),
+      findOne: jest.fn(async (entity: any, options: any) => {
+        await yieldToOthers();
+        if (entity === Translation) {
+          return state.stored ? { ...state.stored } : null;
         }
-        return { affected: 0 };
+        expect(entity).toBe(TranslationHistory);
+        expect(options.order).toEqual({ revision: 'DESC' });
+        return state.history.length ? { ...state.history[state.history.length - 1] } : null;
+      }),
+      findOneOrFail: jest.fn(async () => {
+        await yieldToOthers();
+        return { ...state.stored, labels: [] };
+      }),
+      create: jest.fn((entity: any, data: any) => ({ __entity: entity, ...data })),
+      save: jest.fn(async (record: any) => {
+        await yieldToOthers();
+        if (record.__entity === TranslationHistory) {
+          state.history.push(record);
+        } else {
+          state.stored = { value: record.value };
+        }
+      }),
+      update: jest.fn(async (entity: any, where: any, changes: any) => {
+        await yieldToOthers();
+        state.stored = { value: changes.value };
       }),
     };
+
+    const translationRepo = { manager };
     const projectLocaleRepo = { findOneOrFail: jest.fn().mockResolvedValue({ id: 'locale-1' }), findOne: jest.fn().mockResolvedValue({ id: 'locale-1' }) };
     const termRepo = { findOneOrFail: jest.fn().mockResolvedValue({ id: 'term-1', labels: [] }) };
-    const historyRepo = {
-      create: jest.fn((entity: any) => entity),
-      save: jest.fn().mockResolvedValue(undefined),
-      find: jest.fn().mockResolvedValue([]),
-    };
+    const historyRepo = { find: jest.fn().mockResolvedValue([]) };
     const auth = {
       getRequestUserOrClient: jest.fn(req => req.user),
       authorizeProjectAction: jest.fn().mockResolvedValue({ project: { id: 'project-1' } }),
@@ -62,82 +82,116 @@ describe('TranslationController translation history', () => {
       null as any,
       historyRepo as any,
     );
-    return { controller, historyRepo, projectLocaleRepo, translationRepo, stored };
+    return { controller, historyRepo, projectLocaleRepo, termRepo, manager, state };
   }
 
   describe('update', () => {
-    it('records the previous value, the new value and the user', async () => {
-      const { controller, historyRepo } = setup('Hallo');
+    it('records the previous value, the new value, the user and the change number', async () => {
+      const { controller, state } = setup('Hallo');
 
-      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'Hallo Welt' });
+      const result = await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'Hallo Welt' });
 
-      expect(historyRepo.save).toHaveBeenCalledTimes(1);
-      expect(historyRepo.save).toHaveBeenCalledWith({
-        termId: 'term-1',
-        projectLocaleId: 'locale-1',
-        previousValue: 'Hallo',
-        value: 'Hallo Welt',
-        user,
-        date: { created: expect.any(Date) },
-      });
+      expect(result.data.value).toBe('Hallo Welt');
+      expect(state.history).toEqual([
+        {
+          __entity: TranslationHistory,
+          termId: 'term-1',
+          projectLocaleId: 'locale-1',
+          revision: 1,
+          previousValue: 'Hallo',
+          value: 'Hallo Welt',
+          user,
+        },
+      ]);
+    });
+
+    it('numbers the changes of a translation one after the other', async () => {
+      const { controller, state } = setup('a');
+
+      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'b' });
+      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'c' });
+
+      expect(state.history.map(h => [h.revision, h.previousValue, h.value])).toEqual([
+        [1, 'a', 'b'],
+        [2, 'b', 'c'],
+      ]);
     });
 
     it('records an empty previous value for a first translation', async () => {
-      const { controller, historyRepo } = setup(null);
+      const { controller, state } = setup(null);
 
       await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'Hallo' });
 
-      expect(historyRepo.save).toHaveBeenCalledWith(expect.objectContaining({ previousValue: '', value: 'Hallo' }));
+      expect(state.stored).toEqual({ value: 'Hallo' });
+      expect(state.history).toEqual([expect.objectContaining({ revision: 1, previousValue: '', value: 'Hallo' })]);
     });
 
     it('records no user for a change made with an API client', async () => {
-      const { controller, historyRepo } = setup('a');
+      const { controller, state } = setup('a');
 
       await controller.update({ user: client }, 'project-1', 'de', { termId: 'term-1', value: 'b' });
 
-      expect(historyRepo.save).toHaveBeenCalledWith(expect.objectContaining({ user: null }));
+      expect(state.history).toEqual([expect.objectContaining({ user: null })]);
     });
 
-    it('records nothing when the value did not change', async () => {
-      const { controller, historyRepo, translationRepo } = setup('same');
+    it('records nothing and writes nothing when the value did not change', async () => {
+      const { controller, state, manager } = setup('same');
 
       await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'same' });
 
-      expect(historyRepo.save).not.toHaveBeenCalled();
-      expect(translationRepo.update).not.toHaveBeenCalled();
+      expect(state.history).toEqual([]);
+      expect(manager.update).not.toHaveBeenCalled();
     });
 
-    it('still saves the translation when the history cannot be written', async () => {
-      const { controller, historyRepo } = setup('a');
-      historyRepo.save.mockRejectedValue(new Error('no such table'));
+    it('keeps overlapping edits in order, each recording the value it really replaced', async () => {
+      const { controller, state } = setup('A');
 
-      const result = await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'b' });
+      // One editor saves B while another saves A: whichever goes second must see the other's value as the previous one
+      await Promise.all([
+        controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'B' }),
+        controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'A' }),
+      ]);
 
-      expect(result.data.value).toBe('b');
+      expect(state.history.map(h => [h.revision, h.previousValue, h.value])).toEqual([
+        [1, 'A', 'B'],
+        [2, 'B', 'A'],
+      ]);
+      expect(state.stored).toEqual({ value: 'A' });
     });
 
-    it('records the value that was really replaced when another edit lands between the read and the write', async () => {
-      const { controller, historyRepo, translationRepo, stored } = setup('x');
-      // The first read sees 'x', then another edit makes it 'y' before this one writes
-      translationRepo.findOne.mockImplementationOnce(async () => {
-        const seen = { ...stored! };
-        stored!.value = 'y';
-        return seen;
+    it('keeps many overlapping edits as an unbroken chain', async () => {
+      const { controller, state } = setup('v0');
+
+      await Promise.all([1, 2, 3, 4, 5].map(n => controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: `v${n}` })));
+
+      expect(state.history.map(h => h.revision)).toEqual([1, 2, 3, 4, 5]);
+      state.history.forEach((entry, index) => {
+        expect(entry.previousValue).toBe(`v${index}`);
+        expect(entry.value).toBe(`v${index + 1}`);
+      });
+    });
+
+    it('fails the edit as a whole when the history cannot be written, and later edits still go through', async () => {
+      const { controller, manager, state } = setup('a');
+      manager.save.mockImplementationOnce(async () => {
+        throw new Error('no such table');
       });
 
-      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'z' });
+      await expect(controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'b' })).rejects.toThrow('no such table');
 
-      expect(stored!.value).toBe('z');
-      expect(historyRepo.save).toHaveBeenCalledTimes(1);
-      expect(historyRepo.save).toHaveBeenCalledWith(expect.objectContaining({ previousValue: 'y', value: 'z' }));
+      state.stored = { value: 'a' };
+      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'c' });
+      expect(state.stored).toEqual({ value: 'c' });
+      expect(state.history).toEqual([expect.objectContaining({ previousValue: 'a', value: 'c' })]);
     });
 
-    it('answers with a conflict when the value keeps changing underneath the edit', async () => {
-      const { controller, historyRepo, translationRepo } = setup('x');
-      translationRepo.update.mockResolvedValue({ affected: 0 });
+    it('is not found for an unknown locale or term', async () => {
+      const { controller, projectLocaleRepo, termRepo } = setup('a');
+      projectLocaleRepo.findOneOrFail.mockRejectedValueOnce(new Error('none'));
+      await expect(controller.update({ user }, 'project-1', 'xx', { termId: 'term-1', value: 'b' })).rejects.toThrow('project locale not found');
 
-      await expect(controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'z' })).rejects.toBeInstanceOf(ConflictException);
-      expect(historyRepo.save).not.toHaveBeenCalled();
+      termRepo.findOneOrFail.mockRejectedValueOnce(new Error('none'));
+      await expect(controller.update({ user }, 'project-1', 'de', { termId: 'nope', value: 'b' })).rejects.toThrow('project term not found');
     });
   });
 
@@ -146,19 +200,27 @@ describe('TranslationController translation history', () => {
       const { controller, historyRepo } = setup(null);
       const created = new Date('2026-01-02T03:04:05Z');
       historyRepo.find.mockResolvedValue([
-        { id: 'h1', termId: 'term-1', previousValue: 'a', value: 'b', user: { id: 'user-1', name: 'Ada', email: 'ada@example.com' }, date: { created } },
-        { id: 'h2', termId: 'term-1', previousValue: '', value: 'a', user: null, date: { created } },
+        {
+          id: 'h2',
+          termId: 'term-1',
+          revision: 2,
+          previousValue: 'a',
+          value: 'b',
+          user: { id: 'user-1', name: 'Ada', email: 'ada@example.com' },
+          date: { created },
+        },
+        { id: 'h1', termId: 'term-1', revision: 1, previousValue: '', value: 'a', user: null, date: { created } },
       ]);
 
       const result = await controller.history({ user }, 'project-1', 'de', 'term-1');
 
       expect(result.data).toEqual([
-        { id: 'h1', termId: 'term-1', previousValue: 'a', value: 'b', user: { id: 'user-1', name: 'Ada' }, date: created },
-        { id: 'h2', termId: 'term-1', previousValue: '', value: 'a', user: undefined, date: created },
+        { id: 'h2', termId: 'term-1', revision: 2, previousValue: 'a', value: 'b', user: { id: 'user-1', name: 'Ada' }, date: created },
+        { id: 'h1', termId: 'term-1', revision: 1, previousValue: '', value: 'a', user: undefined, date: created },
       ]);
     });
 
-    it('looks up the entries of the locale and bounds the number returned', async () => {
+    it('orders by change number, newest first, and bounds the number returned', async () => {
       const { controller, historyRepo } = setup(null);
 
       await controller.history({ user }, 'project-1', 'de', 'term-1', '100000');
@@ -166,6 +228,7 @@ describe('TranslationController translation history', () => {
       expect(historyRepo.find).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { termId: 'term-1', projectLocaleId: 'locale-1' },
+          order: { revision: 'DESC' },
           take: MAX_HISTORY_LIMIT,
         }),
       );

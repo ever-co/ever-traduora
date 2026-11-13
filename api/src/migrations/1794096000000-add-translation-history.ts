@@ -11,6 +11,7 @@ export class addTranslationHistory1794096000000 implements MigrationInterface {
             "id" uuid DEFAULT uuid_generate_v4 (),
             "term_id" uuid NOT NULL,
             "project_locale_id" uuid NOT NULL,
+            "revision" integer NOT NULL,
             "previous_value" text NOT NULL,
             "value" text NOT NULL,
             "user_id" uuid DEFAULT NULL,
@@ -19,7 +20,9 @@ export class addTranslationHistory1794096000000 implements MigrationInterface {
             CONSTRAINT "PK_translation_history" PRIMARY KEY ("id")
           );`,
         );
-        await queryRunner.query(`CREATE INDEX "IDX_translation_history_term_locale" ON "translation_history" ("term_id", "project_locale_id");`);
+        await queryRunner.query(
+          `CREATE UNIQUE INDEX "IDX_translation_history_term_locale_revision" ON "translation_history" ("term_id", "project_locale_id", "revision");`,
+        );
         await queryRunner.query(
           `ALTER TABLE "translation_history" ADD CONSTRAINT "FK_translation_history_term" FOREIGN KEY ("term_id") REFERENCES "term"("id") ON DELETE CASCADE;`,
         );
@@ -36,12 +39,13 @@ export class addTranslationHistory1794096000000 implements MigrationInterface {
             '`id` varchar(255) NOT NULL, ' +
             '`termId` varchar(255) NOT NULL, ' +
             '`projectLocaleId` varchar(255) NOT NULL, ' +
+            '`revision` int NOT NULL, ' +
             '`previousValue` text NOT NULL, ' +
             '`value` text NOT NULL, ' +
             '`userId` varchar(255) NULL, ' +
             '`dateCreated` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), ' +
             '`dateModified` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), ' +
-            'INDEX `IDX_translation_history_term_locale` (`termId`, `projectLocaleId`), ' +
+            'UNIQUE INDEX `IDX_translation_history_term_locale_revision` (`termId`, `projectLocaleId`, `revision`), ' +
             'PRIMARY KEY (`id`)) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
         );
         await queryRunner.query(
@@ -62,6 +66,7 @@ export class addTranslationHistory1794096000000 implements MigrationInterface {
             "id" TEXT PRIMARY KEY NOT NULL DEFAULT (hex(randomblob(16))),
             "term_id" TEXT NOT NULL REFERENCES "term"("id") ON DELETE CASCADE,
             "project_locale_id" TEXT NOT NULL REFERENCES "project_locale"("id") ON DELETE CASCADE,
+            "revision" INTEGER NOT NULL,
             "previous_value" TEXT NOT NULL,
             "value" TEXT NOT NULL,
             "user_id" TEXT DEFAULT NULL REFERENCES "user"("id") ON DELETE SET NULL,
@@ -69,7 +74,9 @@ export class addTranslationHistory1794096000000 implements MigrationInterface {
             "date_modified" datetime NOT NULL DEFAULT (datetime('now'))
           )`,
         );
-        await queryRunner.query(`CREATE INDEX "IDX_translation_history_term_locale" ON "translation_history" ("term_id", "project_locale_id")`);
+        await queryRunner.query(
+          `CREATE UNIQUE INDEX "IDX_translation_history_term_locale_revision" ON "translation_history" ("term_id", "project_locale_id", "revision")`,
+        );
         break;
       default:
         throw new Error(`Unknown DB type: ${config.db.default.type}`);
@@ -85,7 +92,7 @@ export class addTranslationHistory1794096000000 implements MigrationInterface {
         await queryRunner.query('DROP TABLE IF EXISTS `translation_history`');
         break;
       case DbType.BETTER_SQLITE3:
-        await queryRunner.query('DROP INDEX IF EXISTS "IDX_translation_history_term_locale"');
+        await queryRunner.query('DROP INDEX IF EXISTS "IDX_translation_history_term_locale_revision"');
         await queryRunner.query('DROP TABLE IF EXISTS "translation_history"');
         break;
       default:
