@@ -14,6 +14,9 @@ describe('Translation history (e2e)', () => {
 
   beforeEach(async () => {
     app = await createAndMigrateApp();
+    // Listen once: otherwise supertest starts a server for a request and closes it when that request ends, which drops
+    // the connections of the parallel requests that have not started yet (read ECONNRESET)
+    await app.listen(0, '127.0.0.1');
     testingUser = await signupTestUser(app);
     testProject = await createTestProject(app, testingUser);
 
