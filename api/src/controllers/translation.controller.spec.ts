@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ProjectClient } from '../entity/project-client.entity';
 import { User } from '../entity/user.entity';
 import TranslationController, { DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, parseHistoryLimit } from './translation.controller';
@@ -27,11 +27,20 @@ describe('TranslationController translation history', () => {
   const user = Object.assign(new User(), { id: 'user-1', name: 'Ada' });
   const client = Object.assign(new ProjectClient(), { id: 'client-1' });
 
-  function setup(existing: { value: string } | null) {
+  function setup(initial: string | null) {
+    // A stored translation whose value is replaced only when the update's condition on the old value holds
+    const stored: { value: string } | null = initial === null ? null : { value: initial };
     const translationRepo = {
-      findOne: jest.fn().mockResolvedValue(existing),
+      findOne: jest.fn(async () => (stored ? { ...stored } : null)),
       create: jest.fn((entity: any) => ({ ...entity })),
       save: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn(async (criteria: any, changes: any) => {
+        if (stored && stored.value === criteria.value) {
+          stored.value = changes.value;
+          return { affected: 1 };
+        }
+        return { affected: 0 };
+      }),
     };
     const projectLocaleRepo = { findOneOrFail: jest.fn().mockResolvedValue({ id: 'locale-1' }), findOne: jest.fn().mockResolvedValue({ id: 'locale-1' }) };
     const termRepo = { findOneOrFail: jest.fn().mockResolvedValue({ id: 'term-1', labels: [] }) };
@@ -53,12 +62,12 @@ describe('TranslationController translation history', () => {
       null as any,
       historyRepo as any,
     );
-    return { controller, historyRepo, projectLocaleRepo };
+    return { controller, historyRepo, projectLocaleRepo, translationRepo, stored };
   }
 
   describe('update', () => {
     it('records the previous value, the new value and the user', async () => {
-      const { controller, historyRepo } = setup({ value: 'Hallo' });
+      const { controller, historyRepo } = setup('Hallo');
 
       await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'Hallo Welt' });
 
@@ -69,6 +78,7 @@ describe('TranslationController translation history', () => {
         previousValue: 'Hallo',
         value: 'Hallo Welt',
         user,
+        date: { created: expect.any(Date) },
       });
     });
 
@@ -81,7 +91,7 @@ describe('TranslationController translation history', () => {
     });
 
     it('records no user for a change made with an API client', async () => {
-      const { controller, historyRepo } = setup({ value: 'a' });
+      const { controller, historyRepo } = setup('a');
 
       await controller.update({ user: client }, 'project-1', 'de', { termId: 'term-1', value: 'b' });
 
@@ -89,20 +99,45 @@ describe('TranslationController translation history', () => {
     });
 
     it('records nothing when the value did not change', async () => {
-      const { controller, historyRepo } = setup({ value: 'same' });
+      const { controller, historyRepo, translationRepo } = setup('same');
 
       await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'same' });
 
       expect(historyRepo.save).not.toHaveBeenCalled();
+      expect(translationRepo.update).not.toHaveBeenCalled();
     });
 
     it('still saves the translation when the history cannot be written', async () => {
-      const { controller, historyRepo } = setup({ value: 'a' });
+      const { controller, historyRepo } = setup('a');
       historyRepo.save.mockRejectedValue(new Error('no such table'));
 
       const result = await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'b' });
 
       expect(result.data.value).toBe('b');
+    });
+
+    it('records the value that was really replaced when another edit lands between the read and the write', async () => {
+      const { controller, historyRepo, translationRepo, stored } = setup('x');
+      // The first read sees 'x', then another edit makes it 'y' before this one writes
+      translationRepo.findOne.mockImplementationOnce(async () => {
+        const seen = { ...stored! };
+        stored!.value = 'y';
+        return seen;
+      });
+
+      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'z' });
+
+      expect(stored!.value).toBe('z');
+      expect(historyRepo.save).toHaveBeenCalledTimes(1);
+      expect(historyRepo.save).toHaveBeenCalledWith(expect.objectContaining({ previousValue: 'y', value: 'z' }));
+    });
+
+    it('answers with a conflict when the value keeps changing underneath the edit', async () => {
+      const { controller, historyRepo, translationRepo } = setup('x');
+      translationRepo.update.mockResolvedValue({ affected: 0 });
+
+      await expect(controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'z' })).rejects.toBeInstanceOf(ConflictException);
+      expect(historyRepo.save).not.toHaveBeenCalled();
     });
   });
 

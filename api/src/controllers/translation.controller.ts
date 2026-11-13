@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -39,6 +40,7 @@ import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
 
+const MAX_SAVE_ATTEMPTS = 3;
 export const DEFAULT_HISTORY_LIMIT = 50;
 export const MAX_HISTORY_LIMIT = 100;
 
@@ -221,29 +223,52 @@ export default class TranslationController {
           },
           relations: ['labels'],
         });
-        let translation = await this.translationRepo.findOne({
-          where: {
-            termId: term.id,
-            projectLocale: {
-              id: projectLocale.id,
+        const findTranslation = () =>
+          this.translationRepo.findOne({
+            where: {
+              termId: term.id,
+              projectLocale: {
+                id: projectLocale.id,
+              },
             },
-          },
-          relations: ['labels'],
-        });
-        const previousValue = translation?.value ?? '';
-        if (translation) {
-          translation.value = payload.value;
-        } else {
-          translation = this.translationRepo.create({
-            value: payload.value,
-            projectLocale,
-            term,
-            labels: term.labels, // Copy term labels on creation
+            relations: ['labels'],
           });
+
+        // The new value only replaces the value that was read (compare-and-swap), so that two overlapping edits can
+        // never both claim the same previous value, and every change that really happened gets exactly one record
+        let translation: Translation | null = null;
+        let previousValue = '';
+        let saved = false;
+        for (let attempt = 0; attempt < MAX_SAVE_ATTEMPTS && !saved; attempt++) {
+          translation = await findTranslation();
+          previousValue = translation?.value ?? '';
+          if (!translation) {
+            translation = this.translationRepo.create({
+              value: payload.value,
+              projectLocale,
+              term,
+              labels: term.labels, // Copy term labels on creation
+            });
+            await this.translationRepo.save(translation);
+            saved = true;
+          } else if (previousValue === payload.value) {
+            saved = true;
+          } else {
+            const result = await this.translationRepo.update(
+              { termId: term.id, projectLocaleId: projectLocale.id, value: previousValue },
+              { value: payload.value },
+            );
+            if (result.affected) {
+              translation = (await findTranslation()) ?? Object.assign(translation, { value: payload.value });
+              saved = true;
+            }
+          }
+        }
+        if (!saved || !translation) {
+          throw new ConflictException('the translation was changed by someone else, try again');
         }
 
-        await this.translationRepo.save(translation);
-        await this.recordHistory(term.id, projectLocale.id, previousValue, translation.value, user instanceof User ? user : null);
+        await this.recordHistory(term.id, projectLocale.id, previousValue, payload.value, user instanceof User ? user : null);
         return {
           data: {
             termId: term.id,
@@ -253,9 +278,15 @@ export default class TranslationController {
           },
         };
       } catch (error) {
+        if (error instanceof ConflictException) {
+          throw error;
+        }
         throw new NotFoundException('project term not found');
       }
     } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
       throw new NotFoundException('project locale not found');
     }
   }
@@ -317,7 +348,9 @@ export default class TranslationController {
       return;
     }
     try {
-      await this.historyRepo.save(this.historyRepo.create({ termId, projectLocaleId, previousValue, value, user }));
+      // The time is set here, with milliseconds: the database default of some databases only has whole seconds,
+      // which would leave quick successive edits tied and in the wrong order
+      await this.historyRepo.save(this.historyRepo.create({ termId, projectLocaleId, previousValue, value, user, date: { created: new Date() } }));
     } catch (error) {
       this.logger.warn(`could not record translation history: ${error?.message}`);
     }
