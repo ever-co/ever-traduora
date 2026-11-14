@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 import { propertiesParser } from '../src/formatters/properties';
+import { csvParser } from '../src/formatters/csv';
 
 describe('ExportController (e2e)', () => {
   let app: INestApplication;
@@ -109,6 +110,38 @@ describe('ExportController (e2e)', () => {
         expect(parsed['term.two']).toEqual('zwei');
         expect(parsed['term.one']).toEqual('eins');
       });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should fill untranslated terms from the fallback locale, matched by term', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ code: 'nl' })
+      .expect(201);
+
+    // Only the second term is translated, so the locale's own list is shifted against the fallback's
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/nl`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termTwoId, value: 'twee' })
+      .expect(200);
+
+    const exportWithFallback = async (format: string): Promise<string> => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/exports?locale=nl&format=${format}&fallbackLocale=de_DE`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200);
+      return Buffer.from(res.body).toString('utf-8');
+    };
+
+    expect(JSON.parse(await exportWithFallback('jsonflat'))).toEqual({ 'term.one': 'eins', 'term.two': 'twee' });
+
+    // CSV keeps every entry, so a dropped or duplicated term shows up here
+    const csv = await csvParser(await exportWithFallback('csv'));
+    expect(csv.translations).toEqual([
+      { term: 'term.one', translation: 'eins' },
+      { term: 'term.two', translation: 'twee' },
+    ]);
   });
 
   it('/api/v1/projects/:projectId/exports (GET) should export terms in lexical order', async () => {

@@ -23,8 +23,8 @@ import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nes
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
 import { ArbReservedTermError, arbExporter } from '../formatters/arb';
-import { merge } from 'lodash';
 import { resolveColumnName } from '../utils/alias-helper';
+import { mergeWithFallback } from '../utils/fallback-merge';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
 
 @Controller('api/v1/projects/:projectId/exports')
@@ -132,7 +132,7 @@ export class ExportsController {
 
         const dataWithFallback: IntermediateTranslationFormat = {
           iso: query.locale,
-          translations: merge(fallbackTermsWithTranslationsMapped, data.translations),
+          translations: mergeWithFallback(fallbackTermsWithTranslationsMapped, data.translations),
         };
 
         serialized = await this.dump(query.format, dataWithFallback);
