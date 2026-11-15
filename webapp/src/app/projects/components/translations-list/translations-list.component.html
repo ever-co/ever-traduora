@@ -9,8 +9,8 @@
         <label class="form-check-label" for="untranslatedFilter">Hide translated</label>
       </div>
       <div ngbDropdown placement="bottom-right" *ngIf="true | can: 'DeleteTranslation' | async">
-        <button class="btn m-0 p-0 bg-transparent btn-sm d-flex" ngbDropdownToggle>
-          <i class="text-secondary material-icons">settings</i>
+        <button type="button" id="dropdownConfig" class="btn m-0 p-0 bg-transparent btn-sm d-flex" aria-label="Language settings" ngbDropdownToggle>
+          <i class="text-secondary material-icons" aria-hidden="true">settings</i>
         </button>
         <div ngbDropdownMenu aria-labelledby="dropdownConfig">
           <button (click)="deleteProjectLocale(project.id, currentLocale.code)" class="dropdown-item">Delete language</button>
@@ -73,10 +73,10 @@
                     type="button"
                     class="close m-0 p-0 mr-1"
                     style="height: 2rem"
-                    aria-label="Remove"
+                    aria-label="Remove reference locale"
                     (click)="removeReferenceLocale(project)"
                   >
-                    <i class="material-icons" style="font-size: 18px">close</i>
+                    <i class="material-icons" style="font-size: 18px" aria-hidden="true">close</i>
                   </button>
                   <app-editable-text
                     *ngIf="referenceLocale$ | async as referenceLocale"
