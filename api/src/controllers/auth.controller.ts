@@ -65,6 +65,7 @@ import { OidcError, OidcIdentity, OidcProviderService } from '../services/oidc-p
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { clientSecretHash } from '../utils/client-secret-hash';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
@@ -333,7 +334,8 @@ export class AuthController {
       throw new UnauthorizedException('invalid credentials');
     }
 
-    const tokenPayload: JwtPayload = { sub: client.id, type: 'client' };
+    // The hash of the secret ends the token when the secret is rotated
+    const tokenPayload: JwtPayload = { sub: client.id, type: 'client', sh: clientSecretHash(client.encryptedSecret) };
     const token = this.jwtService.sign(tokenPayload);
     return token;
   }

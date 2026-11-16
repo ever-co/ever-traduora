@@ -25,6 +25,9 @@ export interface JwtPayload {
   type: string;
   // Session version of the user when the token was issued; tokens from before versions existed have none (0)
   sv?: number;
+  // Only on client tokens: short hash of the client's stored secret when the token was issued (see clientSecretHash).
+  // Rotating the secret changes it, which ends the tokens issued before. Client tokens without it are refused.
+  sh?: string;
   // Only on tokens of a sign-in with an OpenID Connect provider (e.g. Ever ID): the provider's session, which a
   // back-channel logout ends, and the token's own id. Tokens of other sign-ins have neither.
   sid?: string;
