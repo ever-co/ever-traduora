@@ -8,6 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password
 - The locale and label pickers (export, import, new locale, reference locale, assign label) work with a keyboard: each result is a button that Tab reaches and Enter or Space chooses, and screen readers announce which one is selected. Their search boxes have a label
 - Security: rotating an API client's secret now ends the tokens issued with the old secret. Before, they kept working until they expired (24 hours by default, `TR_AUTH_TOKEN_EXPIRES`), so only deleting the client cut off whoever had the leaked secret
 - **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret (grant type `client_credentials`), as they do when a token expires

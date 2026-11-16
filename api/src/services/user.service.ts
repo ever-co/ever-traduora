@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThan, Or, Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
@@ -355,6 +355,9 @@ export class UserService {
     // Reset login attempts if the last login is older than 15 minutes
     if (user.lastLogin < timeThreshold) {
       loginAttempts = 0;
+      if (!this.loginAttemptsStorage.getRedisClient()) {
+        await this.clearExpiredLoginAttempts(user, timeThreshold);
+      }
     }
 
     // Handle too many login attempts
@@ -383,6 +386,13 @@ export class UserService {
     }
     // Fall back to using the database
     return user.loginAttempts;
+  }
+
+  // Without Redis the count is the one stored on the user: once the window has passed it starts again from 0 there too,
+  // else the next failed attempt adds to the old count. Only while lastLogin is still that old, so that a failed attempt
+  // made meanwhile keeps counting.
+  private async clearExpiredLoginAttempts(user: User, timeThreshold: Date): Promise<void> {
+    await this.userRepo.update({ id: user.id, lastLogin: Or(LessThan(timeThreshold), IsNull()) }, { loginAttempts: 0 });
   }
 
   private async handlePasswordAuthentication(user: User, password: string, loginAttempts: number, userKey: string): Promise<void> {
