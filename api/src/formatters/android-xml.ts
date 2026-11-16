@@ -2,7 +2,8 @@ import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 export const androidXmlParser: Parser = async (data: string) => {
-  const xml = xmlJs.xml2js(data);
+  // A space between two inline tags (<b>a</b> <i>b</i>) is part of the value, so whitespace-only text is read too
+  const xml = xmlJs.xml2js(data, { captureSpacesBetweenElements: true });
 
   const result: IntermediateTranslation[] = [];
 
@@ -10,13 +11,14 @@ export const androidXmlParser: Parser = async (data: string) => {
     if (element.type === 'element' && element.name === 'resources') {
       for (const resource of element.elements) {
         // Right now only string resources are supported: plurals, string arrays and other types are skipped
-        if (resource.type === 'element' && resource.name === 'string' && resource.attributes && resource.attributes.name) {
+        if (resource.type === 'element' && isStringResource(resource) && resource.attributes && resource.attributes.name) {
           const term = resource.attributes.name;
           if (typeof term === 'string') {
-            if (resource.elements && resource.elements.length > 0) {
+            const content = normalize(resource.elements || []);
+            if (content.length > 0) {
               result.push({
                 term: term,
-                translation: stringContent(resource.elements),
+                translation: stringContent(content),
               });
             }
           }
@@ -46,26 +48,39 @@ export const androidXmlExporter: Exporter = async (data: IntermediateTranslation
   );
 };
 
+/** A <string>, or an <item type="string">, which Android reads the same way */
+function isStringResource(resource: xmlJs.Element): boolean {
+  return resource.name === 'string' || (resource.name === 'item' && !!resource.attributes && resource.attributes.type === 'string');
+}
+
 /**
- * The value of a string resource, built from all of its child nodes in order: text and CDATA are read as text, an
- * xliff:g element is replaced by its content as the Android build does, and other inline tags (b, i, u...) are kept as
- * markup. Only the text parts are unescaped.
+ * The child nodes of a string resource, in order, as they make up its value: text and CDATA become unescaped text, an
+ * xliff:g element is replaced by its content as the Android build does, other inline tags (b, i, u...) are kept with
+ * their content read the same way, and comments are dropped. Whitespace-only text before the first node or after the
+ * last one is layout and is dropped; between two nodes it is part of the value.
  */
-function stringContent(nodes: xmlJs.Element[]): string {
-  return nodes
-    .map(node => {
-      switch (node.type) {
-        case 'text':
-          return unescape(String(node.text));
-        case 'cdata':
-          return unescape(node.cdata);
-        case 'element':
-          return node.name === 'xliff:g' ? stringContent(node.elements || []) : xmlJs.js2xml({ elements: [node] });
-        default:
-          return '';
+function normalize(nodes: xmlJs.Element[]): xmlJs.Element[] {
+  const content = nodes.filter(node => node.type === 'text' || node.type === 'cdata' || node.type === 'element');
+  const result: xmlJs.Element[] = [];
+  content.forEach((node, index) => {
+    if (node.type === 'element') {
+      if (node.name === 'xliff:g') {
+        result.push(...normalize(node.elements || []));
+      } else {
+        result.push({ ...node, elements: node.elements && normalize(node.elements) });
       }
-    })
-    .join('');
+    } else if (node.type === 'cdata') {
+      result.push({ type: 'text', text: unescape(node.cdata) });
+    } else if ((index > 0 && index < content.length - 1) || String(node.text).trim() !== '') {
+      result.push({ type: 'text', text: unescape(String(node.text)) });
+    }
+  });
+  return result;
+}
+
+/** The value made of normalized nodes: text as it is, inline tags written back as markup */
+function stringContent(nodes: xmlJs.Element[]): string {
+  return nodes.map(node => (node.type === 'text' ? String(node.text) : xmlJs.js2xml({ elements: [node] }))).join('');
 }
 
 function unescape(str: string): string {

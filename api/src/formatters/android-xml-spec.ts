@@ -49,6 +49,26 @@ describe('android resources with markup', () => {
     const byTerm = await parseMarkupFixture();
     expect(byTerm.c).toBeUndefined();
   });
+
+  test('should keep the space between two inline tags', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.spaced.translation).toEqual('%1$s %2$s');
+  });
+
+  test('should unescape the text and replace xliff:g inside an inline tag', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.nested.translation).toEqual("It's <b>Bob's %1$s</b>");
+  });
+
+  test('should drop the layout around a CDATA string', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.pretty.translation).toEqual('<i>Hi</i>');
+  });
+
+  test('should read an item of type string', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.item.translation).toEqual('An item');
+  });
 });
 
 test('should export android resources files', async () => {
