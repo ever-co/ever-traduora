@@ -5,11 +5,13 @@
       <p class="font-xs m-0 mx-1 p-0" style="font-size: smaller">{{ label.value }}</p>
       <button
         *ngIf="removable"
+        type="button"
         [ngStyle]="{ color: textColor }"
         class="m-0 px-1 d-flex justify-content-between align-self-center bg-transparent border-0"
+        [attr.aria-label]="'Remove label ' + label.value"
         (click)="onRemove()"
       >
-        <i class="material-icons" style="font-size: smaller">close</i>
+        <i class="material-icons" style="font-size: smaller" aria-hidden="true">close</i>
       </button>
     </div>
   </div>
