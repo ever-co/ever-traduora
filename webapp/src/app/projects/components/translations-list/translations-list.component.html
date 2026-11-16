@@ -57,6 +57,19 @@
                     (save)="updateTranslation(project.id, currentLocale.code, translationView.term.id, $event)"
                   >
                   </app-editable-text>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-link text-secondary m-0 p-0 ml-1 d-flex"
+                    style="height: 2rem"
+                    aria-label="Copy translation to clipboard"
+                    title="Copy translation"
+                    (click)="copyTranslation(cellKey('main', currentLocale.code, translationView.term.id), translationView.value)"
+                  >
+                    <i class="material-icons" style="font-size: 18px" aria-hidden="true">content_copy</i>
+                  </button>
+                  <span role="status" class="text-sm text-success ml-1 align-self-center">{{
+                    copiedCell === cellKey('main', currentLocale.code, translationView.term.id) ? 'Copied' : ''
+                  }}</span>
                 </div>
                 <div class="d-flex flex-row mb-3 w-100 align-items-start">
                   <app-select-locale-modal
@@ -88,6 +101,21 @@
                     (save)="updateTranslation(project.id, referenceLocale.code, translationView.term.id, $event)"
                   >
                   </app-editable-text>
+                  <ng-container *ngIf="referenceLocale$ | async as refLocale">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-link text-secondary m-0 p-0 ml-1 d-flex"
+                      style="height: 2rem"
+                      aria-label="Copy reference translation to clipboard"
+                      title="Copy reference translation"
+                      (click)="copyTranslation(cellKey('ref', refLocale.code, translationView.term.id), translationView.valueRef)"
+                    >
+                      <i class="material-icons" style="font-size: 18px" aria-hidden="true">content_copy</i>
+                    </button>
+                    <span role="status" class="text-sm text-success ml-1 align-self-center">{{
+                      copiedCell === cellKey('ref', refLocale.code, translationView.term.id) ? 'Copied' : ''
+                    }}</span>
+                  </ng-container>
                 </div>
               </div>
             </div>
