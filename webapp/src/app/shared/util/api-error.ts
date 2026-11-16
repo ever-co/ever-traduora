@@ -42,6 +42,12 @@ export function errorToMessage(error: any, action = ''): string {
     }
   } else if (domainCode === 'PublishedPassword') {
     return 'This password is publicly known, for example a former default password. Please choose a different one.';
+  } else if (error.status === 400 && action === 'ExportLocale') {
+    // The export downloads as a blob, so its error body is not parsed and only the status tells this case apart
+    return (
+      `This format cannot hold some terms of the project, for example a term that is also the parent of other terms ` +
+      `(app and app.title). Rename the term or use a flat format.`
+    );
   } else if (domainCode === 'BadRequest') {
     switch (action) {
       case 'ImportLocale':

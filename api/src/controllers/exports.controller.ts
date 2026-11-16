@@ -23,6 +23,7 @@ import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nes
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
 import { ArbReservedTermError, arbExporter } from '../formatters/arb';
+import { NestedKeyConflictError } from '../formatters/nested-key-conflict';
 import { resolveColumnName } from '../utils/alias-helper';
 import { mergeWithFallback } from '../utils/fallback-merge';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
@@ -156,11 +157,25 @@ export class ExportsController {
       case 'jsonflat':
         return await jsonFlatExporter(data);
       case 'jsonnested':
-        return await jsonNestedExporter(data);
+        try {
+          return await jsonNestedExporter(data);
+        } catch (err) {
+          if (err instanceof NestedKeyConflictError) {
+            throw new BadRequestException(err.message);
+          }
+          throw err;
+        }
       case 'yamlflat':
         return await yamlFlatExporter(data);
       case 'yamlnested':
-        return await yamlNestedExporter(data);
+        try {
+          return await yamlNestedExporter(data);
+        } catch (err) {
+          if (err instanceof NestedKeyConflictError) {
+            throw new BadRequestException(err.message);
+          }
+          throw err;
+        }
       case 'properties':
         return await propertiesExporter(data);
       case 'po':

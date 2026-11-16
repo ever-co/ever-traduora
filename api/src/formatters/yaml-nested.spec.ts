@@ -1,4 +1,7 @@
+import * as yaml from 'js-yaml';
+import { IntermediateTranslationFormat } from '../domain/formatters';
 import { loadFixture, simpleFormatFixture } from './fixtures';
+import { NestedKeyConflictError } from './nested-key-conflict';
 import { yamlNestedExporter, yamlNestedParser } from './yaml-nested';
 
 test('should parse yaml nested files', async () => {
@@ -52,4 +55,26 @@ test('should export yaml nested files', async () => {
   const result = (await yamlNestedExporter(simpleFormatFixture)).toString().split(/\r?\n/).filter(Boolean);
   const expected = loadFixture('simple-nested.yaml').split(/\r?\n/).filter(Boolean);
   expect(result).toEqual(expected);
+});
+
+test('should fail with conflicting nested object on export', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'button', translation: 'Botón' },
+      { term: 'button.test', translation: 'Botón de prueba' },
+    ],
+  };
+  await expect(yamlNestedExporter(input)).rejects.toBeInstanceOf(NestedKeyConflictError);
+  await expect(yamlNestedExporter(input)).rejects.toThrow('"button"');
+});
+
+test('should export a term named hasOwnProperty next to nested terms', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'hasOwnProperty', translation: 'own' },
+      { term: 'home.title', translation: 'Home' },
+    ],
+  };
+  const result = await yamlNestedExporter(input);
+  expect(yaml.load(result.toString())).toEqual({ hasOwnProperty: 'own', home: { title: 'Home' } });
 });

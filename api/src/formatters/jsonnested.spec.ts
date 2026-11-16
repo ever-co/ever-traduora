@@ -2,6 +2,7 @@ import { toEqualIgnoringIndentation } from './util';
 import { config } from '../config';
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { jsonNestedExporter, jsonNestedParser } from './jsonnested';
+import { NestedKeyConflictError } from './nested-key-conflict';
 import { IntermediateTranslationFormat } from '../domain/formatters';
 
 expect.extend(toEqualIgnoringIndentation);
@@ -170,5 +171,17 @@ test('should fail with conflicting nested object on export', async () => {
       },
     ],
   };
-  await expect(jsonNestedExporter(input)).rejects.toBeDefined();
+  await expect(jsonNestedExporter(input)).rejects.toBeInstanceOf(NestedKeyConflictError);
+  await expect(jsonNestedExporter(input)).rejects.toThrow('"button"');
+});
+
+test('should export a term named hasOwnProperty next to nested terms', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'hasOwnProperty', translation: 'own' },
+      { term: 'home.title', translation: 'Home' },
+    ],
+  };
+  const result = await jsonNestedExporter(input);
+  expect(JSON.parse(result.toString())).toEqual({ hasOwnProperty: 'own', home: { title: 'Home' } });
 });
