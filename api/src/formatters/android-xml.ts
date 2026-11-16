@@ -56,22 +56,23 @@ function isStringResource(resource: xmlJs.Element): boolean {
 /**
  * The child nodes of a string resource, in order, as they make up its value: text and CDATA become unescaped text, an
  * xliff:g element is replaced by its content as the Android build does, other inline tags (b, i, u...) are kept with
- * their content read the same way, and comments are dropped. Whitespace-only text before the first node or after the
- * last one is layout and is dropped; between two nodes it is part of the value.
+ * their content read the same way, and comments are dropped. Whitespace-only text directly inside the resource, before
+ * its first node or after its last one, is layout and is dropped; anywhere else, including inside a nested tag, it is
+ * part of the value.
  */
-function normalize(nodes: xmlJs.Element[]): xmlJs.Element[] {
+function normalize(nodes: xmlJs.Element[], nested = false): xmlJs.Element[] {
   const content = nodes.filter(node => node.type === 'text' || node.type === 'cdata' || node.type === 'element');
   const result: xmlJs.Element[] = [];
   content.forEach((node, index) => {
     if (node.type === 'element') {
       if (node.name === 'xliff:g') {
-        result.push(...normalize(node.elements || []));
+        result.push(...normalize(node.elements || [], true));
       } else {
-        result.push({ ...node, elements: node.elements && normalize(node.elements) });
+        result.push({ ...node, elements: node.elements && normalize(node.elements, true) });
       }
     } else if (node.type === 'cdata') {
       result.push({ type: 'text', text: unescape(node.cdata) });
-    } else if ((index > 0 && index < content.length - 1) || String(node.text).trim() !== '') {
+    } else if (nested || (index > 0 && index < content.length - 1) || String(node.text).trim() !== '') {
       result.push({ type: 'text', text: unescape(String(node.text)) });
     }
   });

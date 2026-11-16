@@ -55,6 +55,11 @@ describe('android resources with markup', () => {
     expect(byTerm.spaced.translation).toEqual('%1$s %2$s');
   });
 
+  test('should keep a space that is the whole content of an inline tag', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.tagspace.translation).toEqual('Hello<b> </b>world');
+  });
+
   test('should unescape the text and replace xliff:g inside an inline tag', async () => {
     const byTerm = await parseMarkupFixture();
     expect(byTerm.nested.translation).toEqual("It's <b>Bob's %1$s</b>");

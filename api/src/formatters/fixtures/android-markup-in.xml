@@ -4,6 +4,7 @@
     <string name="b">Hello <xliff:g id="n">%1$s</xliff:g>!</string>
     <string name="inline">Hello <b>World</b>, ok</string>
     <string name="spaced"><xliff:g id="first">%1$s</xliff:g> <xliff:g id="last">%2$s</xliff:g></string>
+    <string name="tagspace">Hello<b> </b>world</string>
     <string name="nested">It\'s <b>Bob\'s <xliff:g id="n">%1$s</xliff:g></b></string>
     <string name="pretty">
         <![CDATA[<i>Hi</i>]]>
