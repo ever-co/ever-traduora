@@ -4,7 +4,8 @@ import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 export const resXParser: Parser = async (data: string) => {
-  const xml = xmlJs.xml2js(data);
+  // Keep spaces-only text: Traduora writes xml:space="preserve", and .NET keeps such a value as it is
+  const xml = xmlJs.xml2js(data, { captureSpacesBetweenElements: true });
 
   const result: IntermediateTranslation[] = [];
 
@@ -14,14 +15,15 @@ export const resXParser: Parser = async (data: string) => {
         if (resource.type === 'element' && resource.name === 'data' && resource.attributes && resource.attributes.name) {
           const term = resource.attributes.name;
           if (typeof term === 'string') {
-            if (resource.elements && resource.elements.length > 0) {
-              let translationElem = resource.elements[0];
-              translationElem = translationElem.elements[0];
-              // Right now only string resources are supported
-              const translation = translationElem.type === 'text' ? translationElem.text : '';
+            const valueElem = (resource.elements || []).find(child => child.type === 'element' && child.name === 'value');
+            if (valueElem) {
+              // Right now only string resources are supported. RESX text has no backslash escapes, and xml-js already decodes XML entities.
+              const translation = (valueElem.elements || [])
+                .map(child => (child.type === 'text' ? child.text : child.type === 'cdata' ? child.cdata : ''))
+                .join('');
               result.push({
                 term: term,
-                translation: unescape(translation),
+                translation: translation,
               });
             }
           }
@@ -38,7 +40,7 @@ export const resXParser: Parser = async (data: string) => {
 export const resXExporter: Exporter = async (data: IntermediateTranslationFormat) => {
   const strings = data.translations.map(translation => ({
     _attributes: { name: translation.term, 'xml:space': 'preserve' },
-    value: escape(translation.translation),
+    value: translation.translation,
   }));
   const xml = xmlJs.js2xml(
     {
@@ -70,14 +72,6 @@ export const resXExporter: Exporter = async (data: IntermediateTranslationFormat
   );
   return xml;
 };
-
-function unescape(str: string): string {
-  return str.replace(/(?<!\\)"/g, '').replace(/\\([\'@"\?])/g, '$1');
-}
-
-function escape(str: string): string {
-  return str.replace(/([\'@"\?])/g, '\\$1');
-}
 
 function getXsdSchema(): any {
   return {
