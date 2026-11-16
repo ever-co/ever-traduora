@@ -11,6 +11,7 @@ import { Project } from '../../models/project';
 import { ProjectLocale } from '../../models/project-locale';
 import { Term } from '../../models/term';
 import { Translation } from '../../models/translation';
+import { ClipboardService } from '../../../shared/services/clipboard.service';
 import { PreferencesService } from '../../services/preferences.service';
 import { GetProjectLabels, LabelTranslation, ProjectLabelState, UnlabelTranslation } from '../../stores/project-label.state';
 import { ProjectsState } from '../../stores/projects.state';
@@ -91,6 +92,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private preferencesService: PreferencesService,
+    private clipboard: ClipboardService,
   ) {}
 
   ngOnInit() {
@@ -125,6 +127,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    clearTimeout(this.copiedTimer);
     this.subs.forEach(s => s.unsubscribe());
     this.store.dispatch(new ClearMessages());
   }
@@ -187,6 +190,20 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
       this.preferencesService.forProject(project.id).referenceLanguage.set(locale.code);
     }
     this.referenceLocale.next(locale);
+  }
+
+  /** Identifies the cell whose text was just copied ('main:<termId>' or 'ref:<termId>'). */
+  copiedCell: string | undefined;
+  private copiedTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async copyTranslation(cell: string, text: string) {
+    const ok = await this.clipboard.copy(text || '');
+    if (!ok) {
+      return;
+    }
+    this.copiedCell = cell;
+    clearTimeout(this.copiedTimer);
+    this.copiedTimer = setTimeout(() => (this.copiedCell = undefined), 2000);
   }
 
   removeReferenceLocale(project: Project) {
