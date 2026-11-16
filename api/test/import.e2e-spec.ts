@@ -440,6 +440,82 @@ describe('ImportController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/imports (POST) should refuse an import that goes one string over the plan limit', async () => {
+    const project = await createTestProject(app, testingUser);
+    const hundredTerms = (await jsonFlatExporter({
+      translations: new Array(100).fill(0).map((_, index) => ({ term: `hundred.${index}`, translation: `value ${index}` })),
+    })) as string;
+    const oneMoreTerm = (await jsonFlatExporter({ translations: [{ term: 'one.more', translation: 'value' }] })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ code: 'de_DE' })
+      .expect(201);
+
+    // One locale and 100 terms are exactly the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(hundredTerms), 'file')
+      .expect(200);
+
+    // One more term would make 101 strings
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(oneMoreTerm), 'file')
+      .expect(402);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${project.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(100);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/imports (POST) should count the locale an import creates against the plan limit', async () => {
+    const project = await createTestProject(app, testingUser);
+    const fortyTerms = (await jsonFlatExporter({
+      translations: new Array(40).fill(0).map((_, index) => ({ term: `forty.${index}`, translation: `value ${index}` })),
+    })) as string;
+    const elevenNewTerms = (await jsonFlatExporter({
+      translations: new Array(11).fill(0).map((_, index) => ({ term: `eleven.${index}`, translation: `value ${index}` })),
+    })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(fortyTerms), 'file')
+      .expect(200);
+
+    // A new locale and 11 new terms: two locales and 51 terms are 102 strings, over the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(elevenNewTerms), 'file')
+      .expect(402);
+
+    // The refused import kept nothing: no fr locale and still 40 terms
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${project.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data.map(t => t.locale.code)).toEqual(['de_DE']);
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${project.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(40);
+      });
+  });
+
   it('/api/v1/projects/:projectId/imports (POST) should not import if params are missing or invalid', async () => {
     // Missing payload
     await request(app.getHttpServer())
