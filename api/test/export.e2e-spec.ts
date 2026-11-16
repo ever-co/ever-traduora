@@ -305,7 +305,7 @@ describe('ExportController (e2e)', () => {
         .expect(201);
     }
 
-    for (const format of ['jsonnested', 'yamlnested']) {
+    for (const format of ['jsonnested', 'yamlnested', 'php']) {
       await request(app.getHttpServer())
         .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=${format}&untranslated=false`)
         .set('Authorization', `Bearer ${testingUser.accessToken}`)

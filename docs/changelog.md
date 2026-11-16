@@ -8,6 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again. The message names both terms
 - The locale and label pickers (export, import, new locale, reference locale, assign label) work with a keyboard: each result is a button that Tab reaches and Enter or Space chooses, and screen readers announce which one is selected. Their search boxes have a label
 - Security: rotating an API client's secret now ends the tokens issued with the old secret. Before, they kept working until they expired (24 hours by default, `TR_AUTH_TOKEN_EXPIRES`), so only deleting the client cut off whoever had the leaked secret
 - **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret (grant type `client_credentials`), as they do when a token expires

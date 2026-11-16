@@ -1,4 +1,4 @@
-// Nested formats (JSON nested, YAML nested) write the term "app.title" as the key "title" inside the object "app".
+// Nested formats (JSON nested, YAML nested, PHP) write the term "app.title" as the key "title" inside the object "app".
 // A project that also has the term "app" would need "app" to be a value and an object at once, which these formats cannot hold.
 
 export class NestedKeyConflictError extends Error {
