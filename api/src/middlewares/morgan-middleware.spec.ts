@@ -51,6 +51,10 @@ describe('access log format', () => {
     expect(line).toContain('abc');
   });
 
+  it('the safe format is the "short" format with :safe-url in place of :url', () => {
+    expect(SAFE_SHORT_FORMAT).toBe(((morgan as any).short as string).replace(':url', ':safe-url'));
+  });
+
   it('the safe format does not log query values', () => {
     const line = (morgan as any).compile(SAFE_SHORT_FORMAT)(morgan, req, res);
     expect(line).not.toContain('abc');

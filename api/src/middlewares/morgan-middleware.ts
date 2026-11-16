@@ -40,8 +40,7 @@ export function redactUrl(url: string): string {
 morgan.token('safe-url', (req: any) => redactUrl(req.originalUrl || req.url));
 
 /** The 'short' format, with the query string redacted. */
-export const SAFE_SHORT_FORMAT =
-  ':remote-addr :remote-user :method :safe-url HTTP/:http-version :status :res[content-length] - :response-time ms';
+export const SAFE_SHORT_FORMAT = ':remote-addr :remote-user :method :safe-url HTTP/:http-version :status :res[content-length] - :response-time ms';
 
 @Injectable()
 export class MorganMiddleware implements NestMiddleware {
