@@ -101,3 +101,62 @@ test('should espace on import of php files', async () => {
   const output = await phpExporter(imported);
   expect(output).toEqual(input);
 });
+
+test('should not let a backslash before a quote close the string on export of php files', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      {
+        term: 'zzz',
+        translation: `\\'.system("id")];#`,
+      },
+    ],
+  };
+  const output = await phpExporter(input);
+  expect(output).toEqual(`<?php\n\nreturn ['zzz'=>'\\\\\\'.system("id")];#',];`);
+  expect(await phpParser(output as string)).toEqual(input);
+});
+
+test('should keep sibling keys under their parent on export of php files', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      {
+        term: 'app.desc',
+        translation: 'D',
+      },
+      {
+        term: 'app.title',
+        translation: 'T',
+      },
+    ],
+  };
+  const output = await phpExporter(input);
+  expect(output).toEqual(`<?php\n\nreturn ['app'=>['desc'=>'D','title'=>'T',],];`);
+  expect(await phpParser(output as string)).toEqual(input);
+
+  const deeper: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'a.b.c', translation: '1' },
+      { term: 'a.b.d', translation: '2' },
+      { term: 'a.e', translation: '3' },
+      { term: 'f', translation: '4' },
+    ],
+  };
+  expect(await phpParser((await phpExporter(deeper)) as string)).toEqual(deeper);
+});
+
+test('should fail on export of php files when a key is both a value and a parent', async () => {
+  const valueFirst: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'app', translation: 'A' },
+      { term: 'app.title', translation: 'T' },
+    ],
+  };
+  const childFirst: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'app.title', translation: 'T' },
+      { term: 'app', translation: 'A' },
+    ],
+  };
+  await expect(phpExporter(valueFirst)).rejects.toThrow('both a value and sub keys');
+  await expect(phpExporter(childFirst)).rejects.toThrow('both a value and sub keys');
+});
