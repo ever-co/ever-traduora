@@ -38,7 +38,8 @@ export const yamlNestedParser: Parser = async (data: string) => {
 };
 
 export const yamlNestedExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-  const result = {};
+  // Null-prototype objects keep a term such as "__proto__" an ordinary key.
+  const result = Object.create(null);
   for (const translation of data.translations) {
     const parts = translation.term.split('.');
     const partsLen = parts.length;
@@ -50,7 +51,7 @@ export const yamlNestedExporter: Exporter = async (data: IntermediateTranslation
         const key = parts[i];
         // not current.hasOwnProperty(): a term named "hasOwnProperty" makes that a string
         if (!Object.prototype.hasOwnProperty.call(current, key)) {
-          current[key] = {};
+          current[key] = Object.create(null);
         }
         if (typeof current[key] === 'string') {
           throw new NestedKeyConflictError('Nested YAML', parts.slice(0, i + 1).join('.'), translation.term);

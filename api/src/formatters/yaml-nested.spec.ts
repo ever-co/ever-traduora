@@ -1,5 +1,5 @@
 import * as yaml from 'js-yaml';
-import { IntermediateTranslationFormat } from '../domain/formatters';
+import { IntermediateTranslation, IntermediateTranslationFormat } from '../domain/formatters';
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { NestedKeyConflictError } from './nested-key-conflict';
 import { yamlNestedExporter, yamlNestedParser } from './yaml-nested';
@@ -77,4 +77,34 @@ test('should export a term named hasOwnProperty next to nested terms', async () 
   };
   const result = await yamlNestedExporter(input);
   expect(yaml.load(result.toString())).toEqual({ hasOwnProperty: 'own', home: { title: 'Home' } });
+});
+
+// On a plain object, obj['__proto__'] = value calls the prototype setter and adds no key, so these terms were dropped
+const protoCases: { name: string; translations: IntermediateTranslation[]; expected: string[] }[] = [
+  {
+    name: 'a term under __proto__ next to another term',
+    translations: [
+      { term: '__proto__.x', translation: 'X' },
+      { term: 'a', translation: 'A' },
+    ],
+    expected: ['__proto__:', '  x: X', 'a: A'],
+  },
+  {
+    name: 'a term named __proto__',
+    translations: [{ term: '__proto__', translation: 'P' }],
+    expected: ['__proto__: P'],
+  },
+  {
+    name: 'a term ending in __proto__',
+    translations: [{ term: 'a.__proto__', translation: 'A' }],
+    expected: ['a:', '  __proto__: A'],
+  },
+];
+
+test.each(protoCases)('should export and parse back $name', async ({ translations, expected }) => {
+  const result = (await yamlNestedExporter({ translations })).toString();
+  expect(result.split(/\r?\n/).filter(Boolean)).toEqual(expected);
+
+  const parsed = await yamlNestedParser(result);
+  expect(parsed.translations).toEqual(translations);
 });
