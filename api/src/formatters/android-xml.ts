@@ -9,16 +9,14 @@ export const androidXmlParser: Parser = async (data: string) => {
   for (const element of xml.elements) {
     if (element.type === 'element' && element.name === 'resources') {
       for (const resource of element.elements) {
-        if (resource.type === 'element' && resource.attributes && resource.attributes.name) {
+        // Right now only string resources are supported: plurals, string arrays and other types are skipped
+        if (resource.type === 'element' && resource.name === 'string' && resource.attributes && resource.attributes.name) {
           const term = resource.attributes.name;
           if (typeof term === 'string') {
             if (resource.elements && resource.elements.length > 0) {
-              const translationElem = resource.elements[0];
-              // Right now only string resources are supported
-              const translation = translationElem.type === 'text' ? translationElem.text : '';
               result.push({
                 term: term,
-                translation: unescape(translation),
+                translation: stringContent(resource.elements),
               });
             }
           }
@@ -47,6 +45,28 @@ export const androidXmlExporter: Exporter = async (data: IntermediateTranslation
     { compact: true },
   );
 };
+
+/**
+ * The value of a string resource, built from all of its child nodes in order: text and CDATA are read as text, an
+ * xliff:g element is replaced by its content as the Android build does, and other inline tags (b, i, u...) are kept as
+ * markup. Only the text parts are unescaped.
+ */
+function stringContent(nodes: xmlJs.Element[]): string {
+  return nodes
+    .map(node => {
+      switch (node.type) {
+        case 'text':
+          return unescape(String(node.text));
+        case 'cdata':
+          return unescape(node.cdata);
+        case 'element':
+          return node.name === 'xliff:g' ? stringContent(node.elements || []) : xmlJs.js2xml({ elements: [node] });
+        default:
+          return '';
+      }
+    })
+    .join('');
+}
 
 function unescape(str: string): string {
   return str.replace(/(?<!\\)"/g, '').replace(/\\([\'@"\?])/g, '$1');
