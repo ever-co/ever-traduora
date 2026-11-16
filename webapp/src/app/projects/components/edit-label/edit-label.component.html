@@ -49,8 +49,14 @@
               <div *ngIf="color.getError('pattern')">Invalid HEX color.</div>
             </div>
           </span>
-          <button class="btn btn-secondary rounded-t-0 m-0 px-2 d-flex" style="height: 100%" (click)="randomColor()" type="button">
-            <i class="material-icons" style="font-size: 18px">autorenew</i>
+          <button
+            class="btn btn-secondary rounded-t-0 m-0 px-2 d-flex"
+            style="height: 100%"
+            (click)="randomColor()"
+            type="button"
+            aria-label="Random color"
+          >
+            <i class="material-icons" style="font-size: 18px" aria-hidden="true">autorenew</i>
           </button>
         </div>
       </div>
