@@ -36,3 +36,14 @@ test('should read the value element after a comment and keep CDATA text', async 
   );
   expect(result.translations).toEqual([{ term: 'commented', translation: 'Tom & <b>Jerry</b>' }]);
 });
+
+test('should read back a value made only of spaces', async () => {
+  const exported = await resXExporter({ iso: 'en', translations: [{ term: 'space', translation: ' ' }] });
+  const result = await resXParser(exported as string);
+  expect(result.translations).toEqual([{ term: 'space', translation: ' ' }]);
+});
+
+test('should keep the space between two CDATA sections', async () => {
+  const result = await resXParser(resxWithData('<data name="cdata" xml:space="preserve"><value><![CDATA[Hello]]> <![CDATA[world]]></value></data>'));
+  expect(result.translations).toEqual([{ term: 'cdata', translation: 'Hello world' }]);
+});

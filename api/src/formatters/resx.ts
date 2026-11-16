@@ -4,7 +4,8 @@ import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 
 export const resXParser: Parser = async (data: string) => {
-  const xml = xmlJs.xml2js(data);
+  // Keep spaces-only text: Traduora writes xml:space="preserve", and .NET keeps such a value as it is
+  const xml = xmlJs.xml2js(data, { captureSpacesBetweenElements: true });
 
   const result: IntermediateTranslation[] = [];
 
