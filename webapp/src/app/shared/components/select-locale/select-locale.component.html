@@ -11,21 +11,26 @@
   </div>
   <div *ngIf="availableLocales().length as localeCount" class="input-group input-group mb-3">
     <div class="input-group-prepend">
-      <span class="input-group-text"><i class="material-icons">search</i></span>
+      <span class="input-group-text"><i class="material-icons" aria-hidden="true">search</i></span>
     </div>
     <input
-      id="localeSearch"
-      name="localeSearch"
+      [id]="searchId"
+      [name]="searchId"
       type="text"
       [placeholder]="'Search over ' + localeCount + ' locales...'"
       class="form-control"
       autocomplete="off"
-      aria-label="Search locales"
+      [attr.aria-label]="searchLabel"
       (keyup)="text$.next($event.target.value)"
     />
   </div>
   <div class="d-flex flex-column">
-    <div class="list-group w-100 mb-2" [ngStyle]="{ 'min-height': preserveHeight ? limit * 50 + 'px' : 0 }">
+    <div
+      class="list-group w-100 mb-2"
+      role="group"
+      [attr.aria-label]="listLabel"
+      [ngStyle]="{ 'min-height': preserveHeight ? limit * 50 + 'px' : 0 }"
+    >
       <div
         *ngIf="!loading && ((results$ | async) || defaultLocales()).length === 0"
         class="m-0 alert alert-secondary d-flex justify-content-start align-items-center"

@@ -55,4 +55,10 @@ describe('SelectLabelComponent', () => {
 
     expect(input.getAttribute('aria-label')).toBe('Search labels');
   });
+
+  it('hides the decorative search icon from assistive tech', () => {
+    const icon: HTMLElement = render().nativeElement.querySelector('.input-group-text i.material-icons');
+
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+  });
 });

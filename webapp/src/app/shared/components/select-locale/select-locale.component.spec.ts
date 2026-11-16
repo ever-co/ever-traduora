@@ -1,4 +1,4 @@
-import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { Component, NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Locale } from '../../../projects/models/locale';
 import { SelectLocaleComponent } from './select-locale.component';
@@ -46,8 +46,61 @@ describe('SelectLocaleComponent', () => {
   });
 
   it('names the search input', () => {
-    const input: HTMLInputElement = render().nativeElement.querySelector('input#localeSearch');
+    const input: HTMLInputElement = render().nativeElement.querySelector('input');
 
     expect(input.getAttribute('aria-label')).toBe('Search locales');
+  });
+
+  it('names the list of locales', () => {
+    const list: HTMLElement = render().nativeElement.querySelector('.list-group');
+
+    expect(list.getAttribute('role')).toBe('group');
+    expect(list.getAttribute('aria-label')).toBe('Locales');
+  });
+
+  it('hides the decorative search icon from assistive tech', () => {
+    const icon: HTMLElement = render().nativeElement.querySelector('.input-group-text i.material-icons');
+
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  describe('two pickers on one page', () => {
+    @Component({
+      standalone: false,
+      template: `
+        <app-select-locale [locales]="locales" searchLabel="Search the first locale" listLabel="First locale"></app-select-locale>
+        <app-select-locale [locales]="locales" searchLabel="Search the second locale" listLabel="Second locale"></app-select-locale>
+      `,
+    })
+    class TwoPickersComponent {
+      locales = locales;
+    }
+
+    const renderTwo = (): HTMLElement => {
+      TestBed.configureTestingModule({ declarations: [SelectLocaleComponent, TwoPickersComponent], schemas: [NO_ERRORS_SCHEMA] });
+      const fixture = TestBed.createComponent(TwoPickersComponent);
+      fixture.detectChanges();
+      return fixture.nativeElement;
+    };
+
+    it('gives each search input its own name and no shared id', () => {
+      const [first, second] = Array.from(renderTwo().querySelectorAll('input')) as HTMLInputElement[];
+
+      expect(first.getAttribute('aria-label')).toBe('Search the first locale');
+      expect(second.getAttribute('aria-label')).toBe('Search the second locale');
+      expect(first.id).toBeTruthy();
+      expect(second.id).toBeTruthy();
+      expect(first.id).not.toBe(second.id);
+      expect(first.name).not.toBe(second.name);
+    });
+
+    it('gives each list of locales its own name', () => {
+      const [first, second] = Array.from(renderTwo().querySelectorAll('.list-group')) as HTMLElement[];
+
+      expect(first.getAttribute('role')).toBe('group');
+      expect(first.getAttribute('aria-label')).toBe('First locale');
+      expect(second.getAttribute('role')).toBe('group');
+      expect(second.getAttribute('aria-label')).toBe('Second locale');
+    });
   });
 });
