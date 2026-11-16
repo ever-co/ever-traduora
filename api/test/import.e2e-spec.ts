@@ -388,6 +388,58 @@ describe('ImportController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/imports (POST) should not count an existing locale again when importing new terms into it', async () => {
+    const project = await createTestProject(app, testingUser);
+    const sixtyTerms = (await jsonFlatExporter({
+      translations: new Array(60).fill(0).map((_, index) => ({ term: `sixty.${index}`, translation: `value ${index}` })),
+    })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ code: 'de_DE' })
+      .expect(201);
+
+    // One locale and 60 strings in total, within the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(sixtyTerms), 'file')
+      .expect(200)
+      .expect({
+        data: {
+          terms: { added: 60, skipped: 0 },
+          translations: { upserted: 60 },
+        },
+      });
+  });
+
+  it('/api/v1/projects/:projectId/imports (POST) should count a locale created by the import once', async () => {
+    const project = await createTestProject(app, testingUser);
+    const fortyTerms = (await jsonFlatExporter({
+      translations: new Array(40).fill(0).map((_, index) => ({ term: `forty.${index}`, translation: `value ${index}` })),
+    })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(fortyTerms), 'file')
+      .expect(200);
+
+    // The same 40 terms into a new locale: two locales and 40 terms are 80 strings, within the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(fortyTerms), 'file')
+      .expect(200)
+      .expect({
+        data: {
+          terms: { added: 0, skipped: 40 },
+          translations: { upserted: 40 },
+        },
+      });
+  });
+
   it('/api/v1/projects/:projectId/imports (POST) should not import if params are missing or invalid', async () => {
     // Missing payload
     await request(app.getHttpServer())
