@@ -296,6 +296,34 @@ describe('ExportController (e2e)', () => {
       .expect(400);
   });
 
+  it('/api/v1/projects/:projectId/exports (GET) should answer 400 when a nested format cannot hold a term that is also a parent', async () => {
+    for (const value of ['button', 'button.tooltip']) {
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/terms`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ value })
+        .expect(201);
+    }
+
+    for (const format of ['jsonnested', 'yamlnested']) {
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=${format}&untranslated=false`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(400)
+        .expect(res => expect(res.body.error.code).toEqual('BadRequest'));
+    }
+
+    // a flat format holds both terms
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        expect(parsed).toEqual({ button: '', 'button.tooltip': '', 'term.one': 'eins', 'term.two': 'zwei' });
+      });
+  });
+
   it('/api/v1/projects/:projectId/exports?format=jsonflat (GET) should not export if locale does not exist for project', async () => {
     await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject.id}/exports?locale=es&format=jsonflat&untranslated=false`)
