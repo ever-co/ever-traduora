@@ -24,19 +24,29 @@ export class ClipboardService {
   }
 
   private legacyCopy(text: string): boolean {
+    // Selecting the textarea moves focus to it: give focus back afterwards, or keyboard users lose their place
+    const previousFocus = document.activeElement as HTMLElement | null;
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.setAttribute('readonly', '');
+    textarea.setAttribute('aria-hidden', 'true');
     textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '-9999px';
     textarea.style.opacity = '0';
     document.body.appendChild(textarea);
     try {
       textarea.select();
+      // iOS Safari ignores select() on a read-only textarea
+      textarea.setSelectionRange(0, text.length);
       return document.execCommand('copy');
     } catch {
       return false;
     } finally {
       document.body.removeChild(textarea);
+      if (previousFocus && previousFocus !== document.body && typeof previousFocus.focus === 'function') {
+        previousFocus.focus();
+      }
     }
   }
 }

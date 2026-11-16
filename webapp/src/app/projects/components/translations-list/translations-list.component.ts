@@ -85,6 +85,13 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     ),
   );
 
+  /** Identifies the cell whose text was just copied; see cellKey(). */
+  copiedCell: string | undefined;
+
+  private copiedTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private destroyed = false;
+
   private subs: Subscription[] = [];
 
   constructor(
@@ -127,6 +134,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     clearTimeout(this.copiedTimer);
     this.subs.forEach(s => s.unsubscribe());
     this.store.dispatch(new ClearMessages());
@@ -192,18 +200,15 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     this.referenceLocale.next(locale);
   }
 
-  /** Identifies the cell whose text was just copied; see cellKey(). */
-  copiedCell: string | undefined;
-
   /** Includes the locale so the confirmation never carries over to another language's cell. */
   cellKey(kind: 'main' | 'ref', localeCode: string, termId: string): string {
     return `${kind}:${localeCode}:${termId}`;
   }
-  private copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
   async copyTranslation(cell: string, text: string) {
     const ok = await this.clipboard.copy(text || '');
-    if (!ok) {
+    // The page may have been left while the browser was still copying: start no timer on a destroyed component
+    if (!ok || this.destroyed) {
       return;
     }
     this.copiedCell = cell;
