@@ -44,8 +44,9 @@ describe('access log format', () => {
   };
 
   it('the previous "short" format logged the secret', () => {
-    // morgan.compile() treats its argument as a format string, not a predefined name, so spell out what 'short' expands to
-    const previousShortFormat = ':remote-addr :remote-user :method :url HTTP/:http-version :status :res[content-length] - :response-time ms';
+    // morgan.compile() treats its argument as a format string, not a predefined name, so resolve the registered 'short' format first
+    const previousShortFormat: string = (morgan as any).short;
+    expect(previousShortFormat).toContain(':url');
     const line = (morgan as any).compile(previousShortFormat)(morgan, req, res);
     expect(line).toContain('abc');
   });
