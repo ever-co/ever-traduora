@@ -105,9 +105,6 @@ export class ImportController {
         }
 
         if (!projectLocale) {
-          // Authorize if has access to project import and can add 1 locale
-          await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, 0, 1);
-
           // Extract into service for creating project locales
           projectLocale = this.projectLocaleRepo.create({
             locale: locale,
@@ -128,8 +125,12 @@ export class ImportController {
         // Resolve which terms / translations to add or update
         const termsToAdd = this.determineTermsToAdd(existingTerms, incoming.translations, membership.project);
 
-        // Authorize if user would have enough terms left in plan for import
-        await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, termsToAdd.length, 1);
+        // Check the plan limit against the counts as they stand inside this transaction (the project is locked, and the
+        // locale is already counted if this import created it), so no locale is counted twice
+        const project = await entityManager.findOneOrFail(Project, { where: { id: membership.project.id }, relations: ['plan'] });
+        if (project.localesCount * (project.termsCount + termsToAdd.length) > project.plan.maxStrings) {
+          throw new PaymentRequiredException('request would exceed plan limit');
+        }
 
         const addedTerms = await entityManager.save(Term, termsToAdd);
         const allTerms = [...addedTerms, ...existingTerms];
