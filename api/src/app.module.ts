@@ -1,4 +1,4 @@
-import { MorganMiddleware } from './middlewares/morgan-middleware';
+import { MorganMiddleware, SAFE_SHORT_FORMAT } from './middlewares/morgan-middleware';
 import { MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { JwtModule } from '@nestjs/jwt';
@@ -142,7 +142,7 @@ export class AppModule {
    */
   configure(consumer: MiddlewareConsumer): void {
     if (config.accessLogsEnabled) {
-      MorganMiddleware.configure('short');
+      MorganMiddleware.configure(SAFE_SHORT_FORMAT);
       consumer.apply(MorganMiddleware).forRoutes('{*splat}');
     }
   }
