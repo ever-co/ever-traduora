@@ -192,8 +192,13 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     this.referenceLocale.next(locale);
   }
 
-  /** Identifies the cell whose text was just copied ('main:<termId>' or 'ref:<termId>'). */
+  /** Identifies the cell whose text was just copied; see cellKey(). */
   copiedCell: string | undefined;
+
+  /** Includes the locale so the confirmation never carries over to another language's cell. */
+  cellKey(kind: 'main' | 'ref', localeCode: string, termId: string): string {
+    return `${kind}:${localeCode}:${termId}`;
+  }
   private copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
   async copyTranslation(cell: string, text: string) {
