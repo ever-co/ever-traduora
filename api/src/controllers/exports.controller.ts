@@ -80,7 +80,8 @@ export class ExportsController {
     queryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
 
     if (query.untranslated) {
-      queryBuilder.andWhere("translation.value = ''");
+      // A term without a row in this locale joins as NULL (e.g. a term created by an import of another locale)
+      queryBuilder.andWhere("(translation.value = '' OR translation.value IS NULL)");
     }
 
     const termsWithTranslations = await queryBuilder.getMany();

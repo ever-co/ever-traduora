@@ -144,6 +144,32 @@ describe('ExportController (e2e)', () => {
     ]);
   });
 
+  it('/api/v1/projects/:projectId/exports (GET) should include terms without a translation row when exporting untranslated', async () => {
+    // Importing into de_DE creates the term and its de_DE translation only, so "greeting" has no row for fr
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(JSON.stringify({ greeting: 'Hallo' })), 'file')
+      .expect(200);
+
+    // A term with an empty row in fr is untranslated as well
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/fr`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termTwoId, value: '' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=jsonflat&untranslated=true`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        // term.one has a fr value, so it stays out
+        expect(parsed).toEqual({ greeting: '', 'term.two': '' });
+      });
+  });
+
   it('/api/v1/projects/:projectId/exports (GET) should export terms in lexical order', async () => {
     const input = ['app.login', 'should be before base terms', '1 goes first', 'app.logout', 'app.exit', 'menu.start', 'a term', '2 goes second'];
 
