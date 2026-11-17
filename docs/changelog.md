@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
+
 - Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again
 
 - Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password

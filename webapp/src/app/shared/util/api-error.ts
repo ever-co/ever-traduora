@@ -43,8 +43,13 @@ export function errorToMessage(error: any, action = ''): string {
   } else if (domainCode === 'PublishedPassword') {
     return 'This password is publicly known, for example a former default password. Please choose a different one.';
   } else if (error.status === 400 && action === 'ExportLocale') {
-    // The export downloads as a blob, so its error body is not parsed and only the status tells this case apart.
     // Both 400s of an export land here: a term that is also a parent (nested JSON/YAML, PHP) and a term starting with @ (ARB).
+    // The API names the terms in its message, which ExportService reads from the blob body of the download.
+    const message = get(error, 'error.error.message');
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+    // The body could not be read: only the status tells this case apart.
     return (
       `This format cannot hold some terms of the project: a term that is also the parent of other terms (app and app.title) ` +
       `in JSON, YAML or PHP, or a term that starts with @ in Flutter ARB. Rename the term or use a flat format such as JSON Flat.`
