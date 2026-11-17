@@ -127,6 +127,40 @@ test('should keep the text inside g and mrk elements', async () => {
   ]);
 });
 
+test('should keep the text of ph elements and placeholders inside g and mrk elements', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="break" datatype="html">
+            <source>Line<ph id="1">&lt;br/&gt;</ph>two</source>
+            <target>Zeile<ph id="1">&lt;br/&gt;</ph>zwei</target>
+          </trans-unit>
+          <trans-unit id="greeting" datatype="html">
+            <source>Hi <g id="1">dear <x id="INTERPOLATION" equiv-text="{{ name }}"/></g>!</source>
+            <target>Hallo <g id="1">liebe <x id="INTERPOLATION" equiv-text="{{ name }}"/></g>!</target>
+          </trans-unit>
+          <trans-unit id="segment" datatype="html">
+            <source><mrk mtype="seg" mid="0">Hello <x id="INTERPOLATION" equiv-text="{{ name }}"/></mrk></source>
+            <target><mrk mtype="seg" mid="0">Hallo <x id="INTERPOLATION" equiv-text="{{ name }}"/></mrk></target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'break', translation: 'Zeile<br/>zwei' },
+    { term: 'greeting', translation: 'Hallo liebe {{ name }}!' },
+    { term: 'segment', translation: 'Hallo {{ name }}' },
+  ]);
+});
+
+test('should import an explicitly empty target as an empty translation', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="cleared" datatype="html">
+            <source>Hello</source>
+            <target/>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([{ term: 'cleared', translation: '' }]);
+});
+
 test('should import units inside groups', async () => {
   const xml = xliffWithTarget(`
           <group id="menu">
