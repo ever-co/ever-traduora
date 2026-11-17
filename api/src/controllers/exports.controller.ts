@@ -24,6 +24,7 @@ import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
 import { ArbReservedTermError, arbExporter } from '../formatters/arb';
 import { NestedKeyConflictError } from '../formatters/nested-key-conflict';
+import { FormatCannotHoldTermsException } from '../errors';
 import { resolveColumnName } from '../utils/alias-helper';
 import { mergeWithFallback } from '../utils/fallback-merge';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
@@ -44,7 +45,10 @@ export class ExportsController {
   @ApiOperation({ summary: `Export all translated terms for a project's locale` })
   @ApiProduces('application/octet-stream')
   @ApiResponse({ status: HttpStatus.OK, description: 'File exported' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request, or the format cannot hold some terms of the project: the error message then names them',
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async export(@Req() req: Request, @Res() res: Response, @Param('projectId') projectId: string, @Query() query: ExportQuery) {
@@ -161,7 +165,7 @@ export class ExportsController {
           return await jsonNestedExporter(data);
         } catch (err) {
           if (err instanceof NestedKeyConflictError) {
-            throw new BadRequestException(err.message);
+            throw new FormatCannotHoldTermsException(err.message);
           }
           throw err;
         }
@@ -172,7 +176,7 @@ export class ExportsController {
           return await yamlNestedExporter(data);
         } catch (err) {
           if (err instanceof NestedKeyConflictError) {
-            throw new BadRequestException(err.message);
+            throw new FormatCannotHoldTermsException(err.message);
           }
           throw err;
         }
@@ -187,7 +191,7 @@ export class ExportsController {
           return await phpExporter(data);
         } catch (err) {
           if (err instanceof NestedKeyConflictError) {
-            throw new BadRequestException(err.message);
+            throw new FormatCannotHoldTermsException(err.message);
           }
           throw err;
         }
@@ -198,7 +202,7 @@ export class ExportsController {
           return await arbExporter(data);
         } catch (err) {
           if (err instanceof ArbReservedTermError) {
-            throw new BadRequestException(err.message);
+            throw new FormatCannotHoldTermsException(err.message);
           }
           throw err;
         }

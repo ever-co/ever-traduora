@@ -1,3 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
+import { FormatCannotHoldTermsException } from '../errors';
 import { CustomExceptionFilter } from './exception.filter';
 
 describe('CustomExceptionFilter', () => {
@@ -26,5 +28,31 @@ describe('CustomExceptionFilter', () => {
 
   it('still answers a duplicate with 409', () => {
     expect(respond({ name: 'QueryFailedError', code: 'ER_DUP_ENTRY', message: 'Duplicate entry' }).statusCode).toBe(409);
+  });
+
+  it('answers an export the format cannot hold with 400 and the message that names the terms', () => {
+    const message = 'jsonnested cannot hold the term "app" together with "app.title": a key cannot have both a value and sub keys.';
+
+    const response = respond(new FormatCannotHoldTermsException(message));
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({ error: { code: 'BadRequest', message } });
+  });
+
+  it('keeps the message of an export the format cannot hold when it quotes a database error', () => {
+    // The message quotes term names, which may read like the database errors the filter otherwise recognizes by text
+    const message = 'jsonnested cannot hold the term "UNIQUE constraint failed" together with "UNIQUE constraint failed.x"';
+
+    const response = respond(new FormatCannotHoldTermsException(message));
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({ error: { code: 'BadRequest', message } });
+  });
+
+  it('answers any other 400 with the fixed message', () => {
+    const response = respond(new BadRequestException('locale is a required param'));
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toEqual({ error: { code: 'BadRequest', message: 'Your request seems to be invalid or malformed' } });
   });
 });

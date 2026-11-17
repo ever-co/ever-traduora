@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
+
 - Security: sign-ins sent at the same time no longer get past the lockout after
   failed sign-ins (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default). Each sign-in read the
   count before any failure was stored, so a burst of wrong passwords for one

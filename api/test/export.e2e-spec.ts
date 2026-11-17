@@ -310,7 +310,11 @@ describe('ExportController (e2e)', () => {
         .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=${format}&untranslated=false`)
         .set('Authorization', `Bearer ${testingUser.accessToken}`)
         .expect(400)
-        .expect(res => expect(res.body.error.code).toEqual('BadRequest'));
+        .expect(res => {
+          expect(res.body.error.code).toEqual('BadRequest');
+          // the message names both terms, so the user knows which one to rename
+          expect(res.body.error.message).toContain('cannot hold the term "button" together with "button.tooltip"');
+        });
     }
 
     // a flat format holds both terms
@@ -321,6 +325,23 @@ describe('ExportController (e2e)', () => {
       .expect(res => {
         const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
         expect(parsed).toEqual({ button: '', 'button.tooltip': '', 'term.one': 'eins', 'term.two': 'zwei' });
+      });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should answer 400 naming the term when ARB cannot hold a term starting with @', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ value: '@x' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=arb&untranslated=false`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(400)
+      .expect(res => {
+        expect(res.body.error.code).toEqual('BadRequest');
+        expect(res.body.error.message).toContain('rename these terms before exporting: @x');
       });
   });
 

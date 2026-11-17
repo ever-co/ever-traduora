@@ -1,8 +1,12 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { SelectLocaleComponent } from '../../../shared/components/select-locale/select-locale.component';
+import { EXPORT_FORMATS } from '../../models/export';
 import { Locale } from '../../models/locale';
+import { Project } from '../../models/project';
 import { ExportService } from '../../services/export.service';
 import { ExportLocaleComponent } from './export-locale.component';
 
@@ -63,5 +67,51 @@ describe('ExportLocaleComponent', () => {
 
     expect(ids.length).toBeGreaterThan(0);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('ExportLocaleComponent export errors', () => {
+  let http: HttpTestingController;
+  let component: ExportLocaleComponent;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [FormsModule],
+      declarations: [ExportLocaleComponent, SelectLocaleComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+      schemas: [NO_ERRORS_SCHEMA],
+    });
+    http = TestBed.inject(HttpTestingController);
+    component = TestBed.createComponent(ExportLocaleComponent).componentInstance;
+    component.project = { id: 'p1' } as Project;
+    component.selectedLocale = { code: 'de_DE', language: 'German', region: 'Germany' };
+    component.selectedFormat = EXPORT_FORMATS.find(format => format.code === 'jsonnested');
+    spyOn(console, 'error');
+  });
+
+  afterEach(() => http.verify());
+
+  /** Exports, and the API answers 400 with the given body, which the download receives as a blob. */
+  const exportFailingWith = async (body: Blob) => {
+    const done = component.export().catch(() => undefined);
+    http.expectOne(req => req.url.includes('/projects/p1/exports')).flush(body, { status: 400, statusText: 'Bad Request' });
+    await done;
+  };
+
+  it('shows the message of the API, which names the terms the format cannot hold', async () => {
+    const message =
+      'Nested JSON cannot hold the term "app" together with "app.title": a key cannot have both a value and sub keys. ' +
+      'Rename the term or export in a flat format.';
+
+    await exportFailingWith(new Blob([JSON.stringify({ error: { code: 'BadRequest', message } })], { type: 'application/json' }));
+
+    expect(component.errorMessage).toBe(message);
+    expect(component.loading).toBe(false);
+  });
+
+  it('falls back to the general hint when the body of the 400 cannot be read', async () => {
+    await exportFailingWith(new Blob(['<html>Bad Request</html>'], { type: 'text/html' }));
+
+    expect(component.errorMessage).toContain('This format cannot hold some terms of the project');
   });
 });

@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 
 export class TooManyRequestsException extends HttpException {
   constructor(message?: string | object | any, error: string = 'TooManyRequests') {
@@ -18,6 +18,17 @@ export class ConflictException extends HttpException {
 export class PublishedPasswordException extends HttpException {
   constructor(message: string = 'this password is publicly known, please choose a different one') {
     super(HttpException.createBody(message, 'PublishedPassword', HttpStatus.BAD_REQUEST), HttpStatus.BAD_REQUEST);
+  }
+}
+
+/**
+ * An export the chosen format cannot hold, such as a term that is also the parent of other terms in a nested format or a
+ * term starting with "@" in ARB. A BadRequest whose message the client gets as is: it names the terms to rename, which
+ * the user may not find otherwise in a large project. Other 400s answer with a fixed message.
+ */
+export class FormatCannotHoldTermsException extends BadRequestException {
+  constructor(message: string) {
+    super(message);
   }
 }
 
