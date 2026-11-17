@@ -26,6 +26,14 @@ describe('LabelComponent', () => {
     expect(button.querySelector('i.material-icons').getAttribute('aria-hidden')).toBe('true');
   });
 
+  it('hides the decorative label icon from assistive tech, so only the label text is read', () => {
+    const fixture = render(false);
+    const icon: HTMLElement = fixture.nativeElement.querySelector('i.material-icons');
+
+    expect(icon.textContent.trim()).toBe('label');
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('emits the label when the remove button is clicked', () => {
     const fixture = render(true);
     const emitted: Label[] = [];

@@ -7,7 +7,15 @@
 
 <div class="form-group">
   <label>Select the locale to export</label>
-  <app-select-locale class="mb-5" [locales]="locales" [limit]="5" [loading]="loading" (selectLocale)="selectLocale($event)"></app-select-locale>
+  <app-select-locale
+    class="mb-5"
+    [locales]="locales"
+    [limit]="5"
+    [loading]="loading"
+    searchLabel="Search the locale to export"
+    listLabel="Locale to export"
+    (selectLocale)="selectLocale($event)"
+  ></app-select-locale>
 </div>
 
 <div class="form-group">
@@ -17,6 +25,8 @@
     [locales]="locales"
     [limit]="5"
     [loading]="loading"
+    searchLabel="Search the fallback locale"
+    listLabel="Fallback locale"
     (selectLocale)="selectFallbackLocale($event)"
   ></app-select-locale>
 </div>
