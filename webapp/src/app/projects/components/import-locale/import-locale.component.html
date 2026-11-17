@@ -61,12 +61,13 @@
       </div>
     </div>
     <div class="form-group">
-      <label>Select the destination locale</label>
       <app-select-locale
         class="mb-5"
         [locales]="knownLocales"
         [limit]="5"
         [loading]="loading"
+        label="Select the destination locale"
+        listLabel="Destination locale"
         (selectLocale)="onSelectLocale($event)"
       ></app-select-locale>
     </div>
