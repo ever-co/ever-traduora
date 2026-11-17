@@ -59,7 +59,8 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   @Select(state => state.terms.isLoading)
   isLoading$: Observable<boolean>;
 
-  @Select(state => state.terms.errorMessage)
+  // A failed save writes its error to the translations store, a failed load of the terms to the terms store
+  @Select(state => state.translations.errorMessage || state.terms.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   @Select(ProjectLabelState.labels)
