@@ -27,7 +27,11 @@ export class SelectLocaleComponent implements OnChanges {
   @Input()
   preserveHeight = false;
 
-  /** Accessible name of the search box. Give each picker on a page its own. */
+  /** Visible label of the search box, linked to it with `for`, so it is also its accessible name. */
+  @Input()
+  label = '';
+
+  /** Accessible name of the search box when it has no visible `label`. Give each picker on a page its own. */
   @Input()
   searchLabel = 'Search locales';
 

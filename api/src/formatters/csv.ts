@@ -36,22 +36,27 @@ export const csvParser: Parser = async (data: string) => {
 };
 
 /**
+ * A spreadsheet reads a cell as a formula when it starts with one of these characters (tab and carriage return included).
+ * Digits, '/', '\\', ',', ';' and '|' do not start a formula, so they stay: csv-stringify already quotes a value that holds the ',' delimiter.
+ */
+const formulaTriggers = ['=', '+', '-', '@', '\t', '\r'];
+
+/**
  * CSV Injection – A Guide To Protecting Your CSV Files
+ *
+ * Removes every leading formula trigger, not only the first one: `==1+1` would still start with `=`.
  *
  * @param str
  * @returns
  */
 const csvInjectionProtector = (str: string) => {
-  const riskyChars = ['=', '+', '-', '@', ',', ';', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0x0d', '/C', '.exe', '\\', '/', '.dll', '|'];
   if (!str) return '';
 
-  /**
-   * Check first character of string
-   */
-  if (riskyChars.includes(str.charAt(0))) {
-    return str.replace(str.charAt(0), '');
+  let start = 0;
+  while (start < str.length && formulaTriggers.includes(str.charAt(start))) {
+    start++;
   }
-  return str;
+  return str.slice(start);
 };
 
 export const csvExporter: Exporter = async (data: IntermediateTranslationFormat) => {
@@ -65,6 +70,9 @@ export const csvExporter: Exporter = async (data: IntermediateTranslationFormat)
   const rows = await streamAsPromise(
     stringify(clearedTranslations, {
       header: false,
+      // csv-stringify quotes only values holding ',', '"' or '\n', but a spreadsheet also ends the row at a lone '\r':
+      // unquoted, `hello\r=1+1` would start a new row with a live formula
+      quoted_match: '\r',
     }),
   );
   return rows.join('');

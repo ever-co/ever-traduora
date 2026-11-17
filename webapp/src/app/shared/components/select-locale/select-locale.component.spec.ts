@@ -20,6 +20,10 @@ describe('SelectLocaleComponent', () => {
   const options = (fixture: ComponentFixture<SelectLocaleComponent>): HTMLElement[] =>
     Array.from(fixture.nativeElement.querySelectorAll('.list-group-item-action'));
 
+  // The name assistive tech reads: aria-label wins over a linked <label>.
+  const accessibleName = (input: HTMLInputElement): string =>
+    input.getAttribute('aria-label') || Array.from(input.labels || [], label => label.textContent.trim()).join(' ');
+
   it('renders each locale as a button that the keyboard can reach', () => {
     const items = options(render());
 
@@ -64,6 +68,45 @@ describe('SelectLocaleComponent', () => {
     expect(icon.getAttribute('aria-hidden')).toBe('true');
   });
 
+  describe('with a visible label', () => {
+    const renderLabelled = (pickerLocales: Locale[] = locales): HTMLElement => {
+      TestBed.configureTestingModule({ declarations: [SelectLocaleComponent], schemas: [NO_ERRORS_SCHEMA] });
+      const fixture = TestBed.createComponent(SelectLocaleComponent);
+      fixture.componentInstance.locales = pickerLocales;
+      fixture.componentRef.setInput('label', 'Select a locale');
+      fixture.detectChanges();
+      return fixture.nativeElement;
+    };
+
+    it('renders the label and points its for at the search input', () => {
+      const element = renderLabelled();
+      const label: HTMLLabelElement = element.querySelector('label');
+      const input: HTMLInputElement = element.querySelector('input');
+
+      expect(label).withContext('no <label> rendered').not.toBeNull();
+      expect(label.textContent.trim()).toBe('Select a locale');
+      expect(input.id).toBeTruthy();
+      expect(label.htmlFor).toBe(input.id);
+    });
+
+    it('names the search input by its visible label instead of a hidden aria-label', () => {
+      const input: HTMLInputElement = renderLabelled().querySelector('input');
+
+      expect(input.hasAttribute('aria-label')).toBeFalse();
+      expect(accessibleName(input).startsWith('Select a locale')).withContext(accessibleName(input)).toBeTrue();
+    });
+
+    it('keeps the label but points it at nothing when no locale is left to search', () => {
+      const element = renderLabelled([]);
+      const label: HTMLLabelElement = element.querySelector('label');
+
+      expect(element.querySelector('input')).toBeNull();
+      expect(label).withContext('no <label> rendered').not.toBeNull();
+      expect(label.textContent.trim()).toBe('Select a locale');
+      expect(label.hasAttribute('for')).toBeFalse();
+    });
+  });
+
   describe('two pickers on one page', () => {
     @Component({
       standalone: false,
@@ -101,6 +144,34 @@ describe('SelectLocaleComponent', () => {
       expect(first.getAttribute('aria-label')).toBe('First locale');
       expect(second.getAttribute('role')).toBe('group');
       expect(second.getAttribute('aria-label')).toBe('Second locale');
+    });
+  });
+
+  describe('two labelled pickers on one page', () => {
+    @Component({
+      standalone: false,
+      template: `
+        <app-select-locale [locales]="locales" label="Select the first locale"></app-select-locale>
+        <app-select-locale [locales]="locales" label="Select the second locale"></app-select-locale>
+      `,
+    })
+    class TwoLabelledPickersComponent {
+      locales = locales;
+    }
+
+    it('links each visible label to its own search input', () => {
+      TestBed.configureTestingModule({ declarations: [SelectLocaleComponent, TwoLabelledPickersComponent], schemas: [NO_ERRORS_SCHEMA] });
+      const fixture = TestBed.createComponent(TwoLabelledPickersComponent);
+      fixture.detectChanges();
+      const element: HTMLElement = fixture.nativeElement;
+      const labels = Array.from(element.querySelectorAll('label')) as HTMLLabelElement[];
+      const inputs = Array.from(element.querySelectorAll('input')) as HTMLInputElement[];
+
+      expect(labels.map(label => label.textContent.trim())).toEqual(['Select the first locale', 'Select the second locale']);
+      expect(inputs.length).toBe(2);
+      expect(inputs[0].id).not.toBe(inputs[1].id);
+      expect(labels.map(label => label.htmlFor)).toEqual(inputs.map(input => input.id));
+      expect(inputs.map(accessibleName)).toEqual(['Select the first locale', 'Select the second locale']);
     });
   });
 });
