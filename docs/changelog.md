@@ -10,6 +10,10 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - The translations, API keys and team pages show the error when a save fails. Before, a translation the API refused (a value over 8192 characters, or a term a teammate had just deleted) kept the new text on screen with no message and was gone after a reload, and a failed role change or revoke of an API key or an invitation showed nothing. The team page now also clears its errors when you leave it, so they no longer show up later on the API keys page
 
+- Security: CSV export removes all the `=`, `+`, `-`, `@`, tab and carriage return characters at the start of a term or translation, not only the first one, so a doubled trigger such as `==1+1` or `+=cmd|' /C calc'!A0` no longer reaches the file as a formula. Values that start with a digit, `/`, `\`, `,`, `;` or `|` are exported unchanged: before, their first character was cut off (`404.title` became `04.title` and `/help` became `help`), so importing the file again created the wrong terms. A value with a carriage return inside is now quoted: unquoted, a spreadsheet started a new row there, so `hello\r=1+1` still gave a cell with a live formula
+
+- Java properties (`.properties`) import keeps every value as the text in the file. Before, `0`, `false`, `null` and `undefined` were imported as empty translations, and numbers were rewritten: `1.10` became `1.1`, `007` became `7`, `+33` became `33` and `0x1F` became `31`. A term whose value was a number or `true` also got a new history entry each time the same file was imported again
+
 - Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again
 
 - Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password
