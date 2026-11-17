@@ -8,6 +8,17 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Security: sign-ins sent at the same time no longer get past the lockout after
+  failed sign-ins (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default). Each sign-in read the
+  count before any failure was stored, so a burst of wrong passwords for one
+  account was checked in full: with the default limit of 100 sign-ins per minute
+  per IP, about 100 guesses a minute instead of the 3 that lock the account. Now
+  each sign-in counts before its password is checked, and those beyond the
+  maximum get 429. Without Redis, a refused sign-in no longer adds to the stored
+  count, which stops at the maximum. With Redis, the count is no longer extended
+  by each attempt: it ends `TR_LOGIN_ATTEMPTS_TTL` (15 minutes by default) after
+  it started, at the first sign-in it counted or at the last successful one
+
 - The emails show names, project names and email addresses as typed. They are plain text, but were written with HTML escaping, so a user named `O'Neil` got `Hi O&#x27;Neil,` and an invitation to the project `R&D` named it `R&amp;D`. The links in the emails do not change
 
 - XLIFF 1.2 import no longer refuses the whole file as malformed when a unit has no `<target>` in a file with `target-language` (such units are skipped now, the others are imported), when a value is a single placeholder (`<target><x id="INTERPOLATION" equiv-text="{{ n }}"/></target>`), or when units sit inside `<group>`. It also keeps the text of every placeholder that has an `equiv-text` (`INTERPOLATION_1` and the others, not only `INTERPOLATION`) and the text inside `<g>`, `<mrk>` and `<ph>`. Before, that text was left out and the stored translation was overwritten with words and placeholders missing
