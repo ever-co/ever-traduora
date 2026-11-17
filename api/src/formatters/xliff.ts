@@ -9,17 +9,7 @@ export const xliffParser: (options: { version: string }) => Parser = options => 
 
   const resources = xml.resources;
   for (const resourceName of Object.keys(resources)) {
-    const resource = resources[resourceName];
-
-    for (const transUnitId of Object.keys(resource)) {
-      const transUnit = resource[transUnitId];
-      const items = transUnit[sourceOrTarget];
-      const translation = typeof items === 'string' ? items : items.map(serializeElement).join('');
-      result.push({
-        term: transUnitId,
-        translation,
-      });
-    }
+    collectUnits(resources[resourceName], sourceOrTarget, result);
   }
 
   return {
@@ -27,6 +17,42 @@ export const xliffParser: (options: { version: string }) => Parser = options => 
     translations: result,
   };
 };
+
+/**
+ * Adds the trans-units to the result, including the ones inside (nested) groups. A unit without a value on the chosen
+ * side (a unit with no <target> in a file with a target language) is skipped, so it does not overwrite a stored
+ * translation with an empty one.
+ */
+function collectUnits(units: any, sourceOrTarget: 'source' | 'target', result: IntermediateTranslation[]) {
+  for (const unitId of Object.keys(units)) {
+    const unit = units[unitId];
+    if (unit.groupUnits) {
+      collectUnits(unit.groupUnits, sourceOrTarget, result);
+      continue;
+    }
+
+    const value = unit[sourceOrTarget];
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    result.push({
+      term: unitId,
+      translation: serializeValue(value),
+    });
+  }
+}
+
+/**
+ * A value is a string, a single inline element or an array of strings and inline elements.
+ */
+function serializeValue(value: any): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  const items = Array.isArray(value) ? value : [value];
+  return items.map(serializeElement).join('');
+}
 
 async function parseFromVersion(version: string, data: string) {
   if (version !== '1.2') {
@@ -45,12 +71,22 @@ async function parseFromVersion(version: string, data: string) {
   return xml;
 }
 
+/**
+ * A placeholder (<x>) becomes its equiv-text; <g>, <mrk> and <ph> become the text they contain. Other inline elements
+ * are left out.
+ */
 function serializeElement(element: any): string {
-  if (typeof element === 'object') {
-    if (element.Standalone && element.Standalone.id === 'INTERPOLATION') return element.Standalone['equiv-text'];
-    else return '';
+  if (typeof element !== 'object' || element === null) {
+    return element;
   }
-  return element;
+  if (element.Standalone) {
+    return element.Standalone['equiv-text'] ?? '';
+  }
+  const span = element.GenericSpan ?? element.Marker ?? element.Span;
+  if (span) {
+    return serializeValue(span.contents ?? '');
+  }
+  return '';
 }
 
 export const xliffExporter: (options: { version: string }) => Exporter = options => async (data: IntermediateTranslationFormat) => {

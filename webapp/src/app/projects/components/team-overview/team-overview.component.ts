@@ -7,9 +7,21 @@ import { Project } from '../../models/project';
 import { ProjectInvite } from '../../models/project-invite';
 import { ProjectRole } from '../../models/project-role';
 import { ProjectUser } from '../../models/project-user';
-import { GetProjectInvites, ProjectInviteState, RemoveProjectInvite, UpdateProjectInvite } from '../../stores/project-invite.state';
-import { GetProjectUsers, ProjectUserState as ProjectUsersState, RemoveProjectUser, UpdateProjectUser } from '../../stores/project-user.state';
-import { ClearMessages, ProjectsState } from '../../stores/projects.state';
+import {
+  ClearMessages as ClearInviteMessages,
+  GetProjectInvites,
+  ProjectInviteState,
+  RemoveProjectInvite,
+  UpdateProjectInvite,
+} from '../../stores/project-invite.state';
+import {
+  ClearMessages as ClearUserMessages,
+  GetProjectUsers,
+  ProjectUserState as ProjectUsersState,
+  RemoveProjectUser,
+  UpdateProjectUser,
+} from '../../stores/project-user.state';
+import { ProjectsState } from '../../stores/projects.state';
 
 @Component({
   standalone: false,
@@ -29,7 +41,8 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
 
   isLoading: Observable<boolean> = combineLatest([this._areProjectsLoading$, this._areInvitesLoading$]).pipe(map(([a, b]) => a || b));
 
-  @Select(state => state.projectUsers.errorMessage)
+  // Members and invitations keep their errors in two stores
+  @Select(state => state.projectUsers.errorMessage || state.projectInvites.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   @Select(ProjectUsersState.users)
@@ -57,7 +70,7 @@ export class TeamOverviewComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.sub.unsubscribe();
-    this.store.dispatch(new ClearMessages());
+    this.store.dispatch([new ClearUserMessages(), new ClearInviteMessages()]);
   }
 
   updateProjectUser(projectId: string, userId: string, role: ProjectRole) {

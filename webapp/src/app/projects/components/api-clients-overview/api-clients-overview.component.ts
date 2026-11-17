@@ -21,7 +21,7 @@ export class ApiClientsOverviewComponent implements OnInit, OnDestroy {
   @Select(ProjectClientState.isLoading)
   isLoading$: Observable<boolean>;
 
-  @Select(state => state.projectUsers.errorMessage)
+  @Select(state => state.projectClients.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   @Select(ProjectClientState.clients)
