@@ -1,6 +1,7 @@
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { phpExporter, phpParser } from './php';
 import { IntermediateTranslationFormat } from '../domain/formatters';
+import { NestedKeyConflictError } from './nested-key-conflict';
 
 test('should parse php files', async () => {
   const input = `[
@@ -157,6 +158,19 @@ test('should fail on export of php files when a key is both a value and a parent
       { term: 'app', translation: 'A' },
     ],
   };
-  await expect(phpExporter(valueFirst)).rejects.toThrow('both a value and sub keys');
-  await expect(phpExporter(childFirst)).rejects.toThrow('both a value and sub keys');
+  for (const input of [valueFirst, childFirst]) {
+    await expect(phpExporter(input)).rejects.toBeInstanceOf(NestedKeyConflictError);
+    await expect(phpExporter(input)).rejects.toThrow('PHP cannot hold the term "app" together with "app.title"');
+    await expect(phpExporter(input)).rejects.toThrow('both a value and sub keys');
+  }
+
+  // the conflict is deeper than the first level, and the term holding the value comes last
+  const deeperChildFirst: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'a.b.c.d', translation: '1' },
+      { term: 'a.b', translation: '2' },
+    ],
+  };
+  await expect(phpExporter(deeperChildFirst)).rejects.toBeInstanceOf(NestedKeyConflictError);
+  await expect(phpExporter(deeperChildFirst)).rejects.toThrow('PHP cannot hold the term "a.b" together with "a.b.c.d"');
 });

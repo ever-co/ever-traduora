@@ -1,6 +1,7 @@
 import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 import { parse } from 'php-array-parser';
 import { jsonNestedParser } from './jsonnested';
+import { NestedKeyConflictError } from './nested-key-conflict';
 
 export const phpParser: Parser = async (data: string) => {
   let php = data.substr(data.indexOf('['));
@@ -16,29 +17,36 @@ export const phpExporter: Exporter = async (data: IntermediateTranslationFormat)
     const parts = translation.term.split('.');
     const partsLen = parts.length;
     let current = root;
-    for (const key of parts.slice(0, partsLen - 1)) {
+    for (let i = 0; i < partsLen - 1; i++) {
+      const key = parts[i];
       if (!Object.prototype.hasOwnProperty.call(current, key)) {
         current[key] = Object.create(null);
       }
       if (typeof current[key] === 'string') {
-        throw new Error(
-          `You have a flat key that have both a value and sub keys. This is not allowed on nested PHP arrays. Sub key: ${translation.term}`,
-        );
+        throw new NestedKeyConflictError('PHP', parts.slice(0, i + 1).join('.'), translation.term);
       }
       current = current[key];
     }
 
     const leaf = parts[partsLen - 1];
     if (Object.prototype.hasOwnProperty.call(current, leaf) && typeof current[leaf] !== 'string') {
-      throw new Error(
-        `You have a flat key that have both a value and sub keys. This is not allowed on nested PHP arrays. Flat key: ${translation.term}`,
-      );
+      throw new NestedKeyConflictError('PHP', translation.term, firstSubTerm(translation.term, current[leaf]));
     }
     current[leaf] = translation.translation;
   }
 
   return '<?php\n\nreturn [' + serialize(root) + '];';
 };
+
+// Names one term below "term", whose sub keys are in "node": the array of a key only exists once a term below it was added.
+function firstSubTerm(term: string, node): string {
+  const [key] = Object.keys(node);
+  if (key === undefined) {
+    return term;
+  }
+  const subTerm = `${term}.${key}`;
+  return typeof node[key] === 'string' ? subTerm : firstSubTerm(subTerm, node[key]);
+}
 
 function serialize(obj): string {
   let result = '';

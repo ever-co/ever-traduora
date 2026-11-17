@@ -183,7 +183,14 @@ export class ExportsController {
       case 'strings':
         return await stringsExporter(data);
       case 'php':
-        return await phpExporter(data);
+        try {
+          return await phpExporter(data);
+        } catch (err) {
+          if (err instanceof NestedKeyConflictError) {
+            throw new BadRequestException(err.message);
+          }
+          throw err;
+        }
       case 'resx':
         return await resXExporter(data);
       case 'arb':
