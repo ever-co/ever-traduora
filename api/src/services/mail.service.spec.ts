@@ -1,4 +1,7 @@
 import { config } from '../config';
+import { Invite } from '../entity/invite.entity';
+import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
+import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import MailService from './mail.service';
 
@@ -29,5 +32,89 @@ describe('MailService.passwordResetToken', () => {
 
     expect(text).toContain(`${config.virtualHost}/reset-password?email=o'neil%40example.com&resetToken=abc`);
     expect(text).not.toContain('&#x27;');
+  });
+});
+
+describe('MailService plain-text emails', () => {
+  const name = "Jane O'Neil & Co";
+  const email = "o'neil@example.com";
+  const projectName = 'R&D <web>';
+  const user = { id: 'user-1', name, email } as User;
+  const project = { id: 'project-1', name: projectName } as Project;
+  const link = `${config.virtualHost}/link?email=o'neil%40example.com&token=abc`;
+
+  const emailText = async (sendEmail: (service: MailService) => Promise<unknown>): Promise<string> => {
+    // The service logs that no mail transport is configured
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    const service = new MailService();
+    const send = jest.spyOn(service as any, 'send').mockResolvedValue(undefined);
+
+    await sendEmail(service);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    return (send.mock.calls[0][0] as { text: string }).text;
+  };
+
+  const expectNoHtmlEntities = (text: string) => {
+    expect(text).not.toContain('&#x27;');
+    expect(text).not.toContain('&amp;');
+    expect(text).not.toContain('&lt;');
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('welcomeNewUser shows the name as typed and keeps the link', async () => {
+    const text = await emailText(service => service.welcomeNewUser(user, link));
+
+    expect(text).toContain(`Hi ${name},`);
+    expect(text).toContain(link);
+    expectNoHtmlEntities(text);
+  });
+
+  it('passwordChanged shows the name as typed', async () => {
+    const text = await emailText(service => service.passwordChanged(user));
+
+    expect(text).toContain(`Hi ${name},`);
+    expectNoHtmlEntities(text);
+  });
+
+  it('passwordResetToken shows the name as typed', async () => {
+    const text = await emailText(service => service.passwordResetToken(user, 'abc'));
+
+    expect(text).toContain(`Hi ${name},`);
+    expect(text).toContain(`${config.virtualHost}/reset-password?email=o'neil%40example.com&resetToken=abc`);
+    expectNoHtmlEntities(text);
+  });
+
+  it('verifyEmail shows the name and email as typed and keeps the link', async () => {
+    const text = await emailText(service => service.verifyEmail(user, link));
+
+    expect(text).toContain(`Hi ${name},`);
+    expect(text).toContain(`confirm that ${email} is your email address`);
+    expect(text).toContain(link);
+    expectNoHtmlEntities(text);
+  });
+
+  it('invitedToProject shows the name and project name as typed', async () => {
+    const projectUser = { user, project, role: ProjectRole.Editor } as ProjectUser;
+
+    const text = await emailText(service => service.invitedToProject(projectUser));
+
+    expect(text).toContain(`Hi ${name},`);
+    expect(text).toContain(`the project '${projectName}' on Traduora with the role 'editor'`);
+    expect(text).toContain(`${config.virtualHost}/projects/project-1 `);
+    expectNoHtmlEntities(text);
+  });
+
+  it('invitedToPlatform shows the email and project name as typed and keeps the link', async () => {
+    const invite = { email, project, role: ProjectRole.Viewer } as Invite;
+
+    const text = await emailText(service => service.invitedToPlatform(invite, link));
+
+    expect(text).toContain(`Hi ${email},`);
+    expect(text).toContain(`join '${projectName}' on Traduora with the role 'viewer'`);
+    expect(text).toContain(`The link only works for ${email}.`);
+    expect(text).toContain(link);
+    expectNoHtmlEntities(text);
   });
 });

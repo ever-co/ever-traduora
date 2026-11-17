@@ -139,6 +139,7 @@ export default class MailService {
 
   private mustCompileTemplate(name: string): Handlebars.TemplateDelegate<any> {
     const contents = readFileSync(join(config.templatesDir, 'mail', name)).toString('utf-8');
-    return Handlebars.compile(contents);
+    // The emails are plain text, so names must come out as typed, not as HTML entities
+    return Handlebars.compile(contents, { noEscape: true });
   }
 }
