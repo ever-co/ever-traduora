@@ -1,4 +1,5 @@
 <div>
+  <label *ngIf="label" [attr.for]="availableLocales().length ? searchId : null">{{ label }}</label>
   <div class="card p-3 mb-3 d-flex flex-column justify-content-start align-items-start" *ngIf="selection">
     <p class="m-0 text-muted">Selected:</p>
     <div class="w-100 d-flex flex-row justify-content-between align-items-center">
@@ -20,7 +21,7 @@
       [placeholder]="'Search over ' + localeCount + ' locales...'"
       class="form-control"
       autocomplete="off"
-      [attr.aria-label]="searchLabel"
+      [attr.aria-label]="label ? null : searchLabel"
       (keyup)="text$.next($event.target.value)"
     />
   </div>

@@ -25,10 +25,31 @@ describe('ExportLocaleComponent', () => {
     return fixture.nativeElement;
   };
 
-  it('names the locale and fallback locale searches after their visible labels', () => {
+  const pickerLabels = ['Select the locale to export', 'Select the fallback locale (optional)'];
+
+  // The name assistive tech reads: aria-label wins over a linked <label>.
+  const accessibleName = (input: HTMLInputElement): string =>
+    input.getAttribute('aria-label') || Array.from(input.labels || [], label => label.textContent.trim()).join(' ');
+
+  it('points the locale and fallback locale labels at their own search inputs', () => {
+    const element = render();
+    const labels = pickerLabels.map(text =>
+      (Array.from(element.querySelectorAll('label')) as HTMLLabelElement[]).find(label => label.textContent.trim() === text),
+    );
+    const inputs = Array.from(element.querySelectorAll('app-select-locale input')) as HTMLInputElement[];
+
+    expect(labels.every(label => !!label))
+      .withContext('a picker label is missing')
+      .toBeTrue();
+    expect(inputs.length).toBe(2);
+    expect(inputs[0].id).not.toBe(inputs[1].id);
+    expect(labels.map(label => label.htmlFor)).toEqual(inputs.map(input => input.id));
+  });
+
+  it('names the locale and fallback locale searches by their visible labels', () => {
     const inputs = Array.from(render().querySelectorAll('app-select-locale input')) as HTMLInputElement[];
 
-    expect(inputs.map(input => input.getAttribute('aria-label'))).toEqual(['Search the locale to export', 'Search the fallback locale']);
+    expect(inputs.map(accessibleName)).toEqual(pickerLabels);
   });
 
   it('names the locale and fallback locale option lists apart', () => {
