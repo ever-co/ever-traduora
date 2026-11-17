@@ -8,6 +8,7 @@ import * as Handlebars from 'handlebars';
 import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
 import * as previewEmail from 'preview-email';
+import { passwordResetUrl } from '../utils/password-reset-url';
 
 @Injectable()
 export default class MailService {
@@ -85,15 +86,13 @@ export default class MailService {
   }
 
   async passwordResetToken(user: User, token: string): Promise<any> {
-    const endpoint = join(config.virtualHost, 'reset-password');
     await this.send({
       to: user.email,
       from: this.from,
       subject: 'Your password reset token is here.',
       text: this.knownTemplates.passwordResetToken({
         user: user,
-        endpoint: endpoint,
-        resetToken: token,
+        resetUrl: passwordResetUrl(user.email, token),
       }),
     });
   }
