@@ -81,3 +81,18 @@ test('should export values that start with a digit, a slash, a backslash, a comm
   expect(await parseRows(exported)).toEqual(plainValues.translations.map(({ term, translation }) => [term, translation]));
   expect((await csvParser(exported)).translations).toEqual(plainValues.translations);
 });
+
+test('should quote a value with a carriage return inside, so a spreadsheet cannot start a new row with a formula there', async () => {
+  const embedded: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'greeting', translation: `hello\r=cmd|' /C calc'!A0` },
+      { term: `a\r@SUM(1+1)`, translation: 'b' },
+    ],
+  };
+
+  const exported = (await csvExporter(embedded)).toString();
+
+  // Outside quotes, a spreadsheet ends the row at every '\r' or '\n', so only the two real row ends may be left
+  expect(exported).toBe(`greeting,"hello\r=cmd|' /C calc'!A0"\n"a\r@SUM(1+1)",b\n`);
+  expect(await parseRows(exported)).toEqual(embedded.translations.map(({ term, translation }) => [term, translation]));
+});

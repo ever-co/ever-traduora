@@ -70,6 +70,9 @@ export const csvExporter: Exporter = async (data: IntermediateTranslationFormat)
   const rows = await streamAsPromise(
     stringify(clearedTranslations, {
       header: false,
+      // csv-stringify quotes only values holding ',', '"' or '\n', but a spreadsheet also ends the row at a lone '\r':
+      // unquoted, `hello\r=1+1` would start a new row with a live formula
+      quoted_match: '\r',
     }),
   );
   return rows.join('');

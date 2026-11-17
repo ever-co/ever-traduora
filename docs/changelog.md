@@ -8,7 +8,7 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- Security: CSV export removes all the `=`, `+`, `-`, `@`, tab and carriage return characters at the start of a term or translation, not only the first one, so a doubled trigger such as `==1+1` or `+=cmd|' /C calc'!A0` no longer reaches the file as a formula. Values that start with a digit, `/`, `\`, `,`, `;` or `|` are exported unchanged: before, their first character was cut off (`404.title` became `04.title` and `/help` became `help`), so importing the file again created the wrong terms
+- Security: CSV export removes all the `=`, `+`, `-`, `@`, tab and carriage return characters at the start of a term or translation, not only the first one, so a doubled trigger such as `==1+1` or `+=cmd|' /C calc'!A0` no longer reaches the file as a formula. Values that start with a digit, `/`, `\`, `,`, `;` or `|` are exported unchanged: before, their first character was cut off (`404.title` became `04.title` and `/help` became `help`), so importing the file again created the wrong terms. A value with a carriage return inside is now quoted: unquoted, a spreadsheet started a new row there, so `hello\r=1+1` still gave a cell with a live formula
 
 - Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again
 
