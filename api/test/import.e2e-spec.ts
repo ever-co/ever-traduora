@@ -516,6 +516,58 @@ describe('ImportController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/imports (POST) should import the units of every XLIFF group without an id', async () => {
+    const xliff = `<?xml version="1.0" encoding="UTF-8" ?>
+      <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+        <file source-language="en" target-language="de" datatype="plaintext" original="ng2.template">
+          <body>
+            <group resname="g1">
+              <trans-unit id="group.a">
+                <source>Open</source>
+                <target>Öffnen</target>
+              </trans-unit>
+            </group>
+            <group resname="g2">
+              <trans-unit id="group.b">
+                <source>Close</source>
+                <target>Schließen</target>
+              </trans-unit>
+            </group>
+          </body>
+        </file>
+      </xliff>`;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=de_DE&format=xliff12`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(xliff), 'file')
+      .expect(200)
+      .expect({
+        data: {
+          terms: { added: 2, skipped: 0 },
+          translations: { upserted: 2 },
+        },
+      });
+
+    const terms = await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200);
+    const termIds = new Map<string, string>(terms.body.data.map(term => [term.value, term.id]));
+    expect(termIds.has('group.a')).toBe(true);
+    expect(termIds.has('group.b')).toBe(true);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const values = res.body.data.map(translation => ({ termId: translation.termId, value: translation.value }));
+        expect(values).toContainEqual({ termId: termIds.get('group.a'), value: 'Öffnen' });
+        expect(values).toContainEqual({ termId: termIds.get('group.b'), value: 'Schließen' });
+      });
+  });
+
   it('/api/v1/projects/:projectId/imports (POST) should not import if params are missing or invalid', async () => {
     // Missing payload
     await request(app.getHttpServer())

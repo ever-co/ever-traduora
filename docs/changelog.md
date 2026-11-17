@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`
+
 - When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
 
 - Security: sign-ins sent at the same time no longer get past the lockout after
