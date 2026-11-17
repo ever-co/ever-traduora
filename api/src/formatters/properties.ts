@@ -16,7 +16,8 @@ export const propertiesParser: Parser = async (data: string) => {
   // properties.parse() casts each value: 'null' becomes null, 'true' and 'false' booleans, and anything Number() accepts a number,
   // so 0, false and null were saved as '' and 1.10, 007, +33 and 0x1F changed. Its tokenizer hands over the value as written,
   // with \uXXXX and the other escapes already decoded.
-  const parsed: Record<string, string> = {};
+  // No prototype, so a term named __proto__ is kept as an own key instead of going to the prototype setter.
+  const parsed: Record<string, string> = Object.create(null);
   const control: { error?: Error } = {};
   tokenizeProperties(
     data,

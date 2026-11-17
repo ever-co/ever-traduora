@@ -62,6 +62,19 @@ test('should keep comments, separators and line continuations as before', async 
   });
 });
 
+test('should keep a term named __proto__', async () => {
+  expect(await propertiesParser('__proto__=first\nnext=value')).toEqual({
+    translations: [
+      { term: '__proto__', translation: 'first' },
+      { term: 'next', translation: 'value' },
+    ],
+  });
+  // The library's cast turned 'null' into null, which removed the prototype, so a later __proto__ line was kept
+  expect(await propertiesParser('__proto__=null\n__proto__=kept')).toEqual({
+    translations: [{ term: '__proto__', translation: 'kept' }],
+  });
+});
+
 test('should encode and decode properties files with ISO-8859-1 by default', async () => {
   const encodedLiteral = String.raw`term.one = Tous les soci\u00e9t\u00e9s`;
 
