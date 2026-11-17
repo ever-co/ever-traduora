@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password
+
 - RESX export no longer puts a backslash before `'`, `"`, `?` and `@` (that is Android string escaping; .NET shows the backslashes as text). RESX import keeps double quotes instead of dropping them, reads `<value>` even when `<comment>` comes first, and imports an empty `<value />` as an empty translation instead of rejecting the whole file as malformed. A RESX file exported by an earlier version still has those backslashes, and import now keeps them as text: before you import such a file, remove the backslash from `\'`, `\"`, `\?` and `\@`, or export the file again from this version
 
 - The password reset email links to the reset page again: the link kept one slash after `https:` (`https:/host/reset-password`), so mail clients did not open it, and it did not encode the email, so an address with a `+` (`jane+tr@example.com`) reached the reset page with a space instead and could not be reset
