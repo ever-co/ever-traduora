@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="a"><![CDATA[<b>Hi</b>]]></string>
+    <string name="b">Hello <xliff:g id="n">%1$s</xliff:g>!</string>
+    <string name="inline">Hello <b>World</b>, ok</string>
+    <string name="spaced"><xliff:g id="first">%1$s</xliff:g> <xliff:g id="last">%2$s</xliff:g></string>
+    <string name="tagspace">Hello<b> </b>world</string>
+    <string name="nested">It\'s <b>Bob\'s <xliff:g id="n">%1$s</xliff:g></b></string>
+    <string name="pretty">
+        <![CDATA[<i>Hi</i>]]>
+    </string>
+    <item type="string" name="item">An item</item>
+    <plurals name="c">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
+</resources>
