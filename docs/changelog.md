@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- XLIFF 1.2 import no longer refuses the whole file as malformed when a unit has no `<target>` in a file with `target-language` (such units are skipped now, the others are imported), when a value is a single placeholder (`<target><x id="INTERPOLATION" equiv-text="{{ n }}"/></target>`), or when units sit inside `<group>`. It also keeps the text of every placeholder that has an `equiv-text` (`INTERPOLATION_1` and the others, not only `INTERPOLATION`) and the text inside `<g>`, `<mrk>` and `<ph>`. Before, that text was left out and the stored translation was overwritten with words and placeholders missing
+
 - Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again
 
 - Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password
