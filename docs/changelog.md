@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Security: CSV export also removes the `=`, `+`, `-`, `@`, tab and carriage return characters right after each `;` in a term or translation. A spreadsheet whose list separator is `;` (the default in many European locales) starts a new cell there, so a value such as `x;=1+1` or `x;=cmd|' /C calc'!A0` gave a cell with a live formula. Now `x;=1+1` is exported as `x;1+1`. The `;` itself and every other character stay, so `a; =b` (with a space after the `;`) is exported unchanged
+
 - Security: sign-ins sent at the same time no longer get past the lockout after
   failed sign-ins (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default). Each sign-in read the
   count before any failure was stored, so a burst of wrong passwords for one

@@ -38,13 +38,16 @@ export const csvParser: Parser = async (data: string) => {
 /**
  * A spreadsheet reads a cell as a formula when it starts with one of these characters (tab and carriage return included).
  * Digits, '/', '\\', ',', ';' and '|' do not start a formula, so they stay: csv-stringify already quotes a value that holds the ',' delimiter.
+ * It does not quote a value that holds ';', and a spreadsheet whose list separator is ';' (the default in many European locales)
+ * starts a new cell after each ';': so the text right after each ';' is a cell start too, and loses its triggers the same way.
  */
 const formulaTriggers = ['=', '+', '-', '@', '\t', '\r'];
 
 /**
  * CSV Injection – A Guide To Protecting Your CSV Files
  *
- * Removes every leading formula trigger, not only the first one: `==1+1` would still start with `=`.
+ * Removes every formula trigger at the start of the value and right after each ';', not only the first one:
+ * `==1+1` would still start with `=`, and `x;=1+1` becomes `x;1+1`. All other characters stay.
  *
  * @param str
  * @returns
@@ -52,11 +55,17 @@ const formulaTriggers = ['=', '+', '-', '@', '\t', '\r'];
 const csvInjectionProtector = (str: string) => {
   if (!str) return '';
 
-  let start = 0;
-  while (start < str.length && formulaTriggers.includes(str.charAt(start))) {
-    start++;
+  let result = '';
+  let atCellStart = true;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charAt(i);
+    if (atCellStart && formulaTriggers.includes(char)) {
+      continue;
+    }
+    atCellStart = char === ';';
+    result += char;
   }
-  return str.slice(start);
+  return result;
 };
 
 export const csvExporter: Exporter = async (data: IntermediateTranslationFormat) => {
