@@ -2,9 +2,10 @@ import { NO_ERRORS_SCHEMA, Pipe, PipeTransform } from '@angular/core';
 import { ComponentFixture, fakeAsync, flushMicrotasks, TestBed, tick } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { NgbPaginationModule } from '@ng-bootstrap/ng-bootstrap';
-import { NgxsModule } from '@ngxs/store';
+import { NgxsModule, Store } from '@ngxs/store';
 import { BehaviorSubject, of } from 'rxjs';
 import { EditableTextComponent } from '../../../shared/components/editable-text/editable-text.component';
+import { ErrorMessageComponent } from '../../../shared/components/error-message/error-message.component';
 import { SearchComponent } from '../../../shared/components/search/search.component';
 import { ClipboardService } from '../../../shared/services/clipboard.service';
 import { Locale } from '../../models/locale';
@@ -17,7 +18,7 @@ class AllowAllPipe implements PipeTransform {
   }
 }
 
-describe('TranslationsListComponent copy buttons', () => {
+describe('TranslationsListComponent', () => {
   const en: Locale = { code: 'en', language: 'English', region: '' };
   const de: Locale = { code: 'de', language: 'German', region: '' };
   const fr: Locale = { code: 'fr', language: 'French', region: '' };
@@ -28,12 +29,13 @@ describe('TranslationsListComponent copy buttons', () => {
   let copy: jasmine.Spy;
   let referenceLocale: BehaviorSubject<Locale | undefined>;
 
-  // The store selections are replaced with fixed data, so the real template renders one card
-  const render = () => {
+  // The store selections are replaced with fixed data, so the real template renders one card.
+  // With a store state given, the error message is read from the store instead.
+  const render = (storeState?: object) => {
     copy = jasmine.createSpy('copy').and.returnValue(Promise.resolve(true));
     TestBed.configureTestingModule({
       imports: [NgxsModule.forRoot([]), NgbPaginationModule, AllowAllPipe],
-      declarations: [TranslationsListComponent, SearchComponent, EditableTextComponent],
+      declarations: [TranslationsListComponent, SearchComponent, EditableTextComponent, ErrorMessageComponent],
       schemas: [NO_ERRORS_SCHEMA],
       providers: [
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ localeCode: 'en' })) } },
@@ -41,6 +43,9 @@ describe('TranslationsListComponent copy buttons', () => {
         { provide: ClipboardService, useValue: { copy } },
       ],
     });
+    if (storeState) {
+      TestBed.inject(Store).reset(storeState);
+    }
     fixture = TestBed.createComponent(TranslationsListComponent);
     const component = fixture.componentInstance;
     const select = (key: string, value: unknown) => Object.defineProperty(component, key, { value: of(value), configurable: true });
@@ -48,7 +53,9 @@ describe('TranslationsListComponent copy buttons', () => {
     select('knownLocales$', [en, de, fr]);
     select('projectLocales$', [{ locale: en }, { locale: de }, { locale: fr }]);
     select('isLoading$', false);
-    select('errorMessage$', undefined);
+    if (!storeState) {
+      select('errorMessage$', undefined);
+    }
     select('projectLabels$', []);
     referenceLocale = new BehaviorSubject<Locale | undefined>(de);
     component.currentLocale$ = of(en);
@@ -68,7 +75,24 @@ describe('TranslationsListComponent copy buttons', () => {
     fixture.detectChanges();
   };
 
+  const errorMessage = (): string | undefined => fixture.nativeElement.querySelector('app-error-message p')?.textContent.trim();
+
   const statuses = (): string[] => Array.from(fixture.nativeElement.querySelectorAll('[role="status"]')).map((s: Element) => s.textContent.trim());
+
+  it('shows the error of a translation the API refused to save', fakeAsync(() => {
+    // UpdateTranslation writes its error to the translations store, not to the terms one
+    render({ translations: { errorMessage: 'Bad request' }, terms: {} });
+
+    expect(errorMessage()).toBe('Bad request');
+    fixture.destroy();
+  }));
+
+  it('still shows an error of the terms store', fakeAsync(() => {
+    render({ translations: {}, terms: { errorMessage: 'Error, resource not found' } });
+
+    expect(errorMessage()).toBe('Error, resource not found');
+    fixture.destroy();
+  }));
 
   it('renders a labelled copy button and a status region for both cells', fakeAsync(() => {
     render();
