@@ -68,6 +68,49 @@ export class UserLoginAttemptsStorage {
     }
   }
 
+  /**
+   * Adds one attempt and returns the new count. Parallel calls each get a count of their own. A key created here
+   * expires after ttl: a later call keeps that expiry.
+   */
+  async incrementUserAttempts(userKey: string, ttl: number): Promise<number> {
+    return this.addUserAttempts(userKey, 1, ttl);
+  }
+
+  /**
+   * Takes back one attempt added by incrementUserAttempts. A key that has expired meanwhile is created at 0.
+   */
+  async decrementUserAttempts(userKey: string, ttl: number): Promise<void> {
+    await this.addUserAttempts(userKey, -1, ttl);
+  }
+
+  private async addUserAttempts(userKey: string, by: 1 | -1, ttl: number): Promise<number> {
+    if (!userKey || ttl <= 0) {
+      throw new Error('Invalid input parameters');
+    }
+    if (this.redisClient) {
+      try {
+        // One transaction: SET NX creates a missing key with its expiry (at 1 when taking one back, so it ends at 0),
+        // then INCR or DECR changes the count and keeps the expiry
+        const transaction = this.redisClient.multi().set(userKey, by > 0 ? 0 : 1, 'PX', ttl, 'NX');
+        const results = await (by > 0 ? transaction.incr(userKey) : transaction.decr(userKey)).exec();
+        const [failure, count] = results[results.length - 1];
+        if (failure) {
+          throw failure;
+        }
+        return Number(count);
+      } catch (error) {
+        this.logger.error('Failed to count user attempts in Redis:', error.message);
+        throw error;
+      }
+    }
+    const now = Date.now();
+    const entry = this.inMemoryStorage.get(userKey);
+    const current = entry && entry.expiry > now ? entry : { attempts: 0, expiry: now + ttl };
+    const attempts = Math.max(0, current.attempts + by);
+    this.inMemoryStorage.set(userKey, { attempts, expiry: current.expiry });
+    return attempts;
+  }
+
   public getRedisClient(): Redis {
     return this.redisClient;
   }

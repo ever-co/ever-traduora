@@ -267,6 +267,19 @@ describe('AuthController (e2e)', () => {
     await signIn('mysupersecretpassword').expect(200);
   });
 
+  it('/api/v1/auth/token (POST) should check no more parallel wrong passwords than the maximum of 3', async () => {
+    // Listen once, so that supertest does not close a server of its own while parallel requests use it
+    await app.listen(0, '127.0.0.1');
+    const signIn = (password: string) =>
+      request(app.getHttpServer()).post('/api/v1/auth/token').send({ grant_type: 'password', username: testingUser.email, password });
+
+    // Sent at the same time, so all of them have started before the first password is checked. 5 requests stay under
+    // the e2e limit of 10 sign-ins per minute, so each 429 is the account lockout.
+    const responses = await Promise.all(Array.from({ length: 5 }, () => signIn('mynotsupersecretpassword')));
+
+    expect(responses.map(res => res.status).sort()).toEqual([401, 401, 401, 429, 429]);
+  });
+
   it('/api/v1/auth/forgot-password (POST) should send forgotten password email to requested user', async () => {
     const mail = app.get(MailService);
     jest.spyOn(mail, 'passwordResetToken');

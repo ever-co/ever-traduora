@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Security: sign-ins sent at the same time no longer get past the lockout after failed sign-ins (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default). Each sign-in read the count before any failure was stored, so a burst of wrong passwords for one account was checked in full: with the default limit of 100 sign-ins per minute per IP, about 100 guesses a minute instead of 3 every 15 minutes. Now each sign-in counts before its password is checked, and those beyond the maximum get 429. Without Redis, a refused sign-in no longer adds to the stored count, which stops at the maximum. With Redis, the count ends `TR_LOGIN_ATTEMPTS_TTL` (15 minutes by default) after the first sign-in it counts
+
 - Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again
 
 - Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password
