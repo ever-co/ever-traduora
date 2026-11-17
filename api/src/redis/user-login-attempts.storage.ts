@@ -1,6 +1,16 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import Redis from 'ioredis';
 
+// Takes one attempt back, only while the count is above 0: a count reset meanwhile stays at 0, and a key that has
+// expired is not created again (without an expiry). DECR keeps the expiry of the key.
+const DECREMENT_ABOVE_ZERO = `
+local attempts = tonumber(redis.call('GET', KEYS[1]))
+if attempts and attempts > 0 then
+  return redis.call('DECR', KEYS[1])
+end
+return attempts or 0
+`;
+
 @Injectable()
 export class UserLoginAttemptsStorage {
   private readonly logger = new Logger(UserLoginAttemptsStorage.name);
@@ -73,42 +83,50 @@ export class UserLoginAttemptsStorage {
    * expires after ttl: a later call keeps that expiry.
    */
   async incrementUserAttempts(userKey: string, ttl: number): Promise<number> {
-    return this.addUserAttempts(userKey, 1, ttl);
-  }
-
-  /**
-   * Takes back one attempt added by incrementUserAttempts. A key that has expired meanwhile is created at 0.
-   */
-  async decrementUserAttempts(userKey: string, ttl: number): Promise<void> {
-    await this.addUserAttempts(userKey, -1, ttl);
-  }
-
-  private async addUserAttempts(userKey: string, by: 1 | -1, ttl: number): Promise<number> {
     if (!userKey || ttl <= 0) {
       throw new Error('Invalid input parameters');
     }
     if (this.redisClient) {
       try {
-        // One transaction: SET NX creates a missing key with its expiry (at 1 when taking one back, so it ends at 0),
-        // then INCR or DECR changes the count and keeps the expiry
-        const transaction = this.redisClient.multi().set(userKey, by > 0 ? 0 : 1, 'PX', ttl, 'NX');
-        const results = await (by > 0 ? transaction.incr(userKey) : transaction.decr(userKey)).exec();
-        const [failure, count] = results[results.length - 1];
+        // One transaction: SET NX creates a missing key at 0 with its expiry, then INCR adds the attempt and keeps it
+        const results = await this.redisClient.multi().set(userKey, 0, 'PX', ttl, 'NX').incr(userKey).exec();
+        const [failure, count] = results[1];
         if (failure) {
           throw failure;
         }
         return Number(count);
       } catch (error) {
-        this.logger.error('Failed to count user attempts in Redis:', error.message);
+        this.logger.error('Failed to increment user attempts in Redis:', error.message);
         throw error;
       }
     }
     const now = Date.now();
     const entry = this.inMemoryStorage.get(userKey);
     const current = entry && entry.expiry > now ? entry : { attempts: 0, expiry: now + ttl };
-    const attempts = Math.max(0, current.attempts + by);
-    this.inMemoryStorage.set(userKey, { attempts, expiry: current.expiry });
-    return attempts;
+    this.inMemoryStorage.set(userKey, { attempts: current.attempts + 1, expiry: current.expiry });
+    return current.attempts + 1;
+  }
+
+  /**
+   * Takes back one attempt added by incrementUserAttempts, only while the count is above 0.
+   */
+  async decrementUserAttempts(userKey: string): Promise<void> {
+    if (!userKey) {
+      throw new Error('Invalid user key');
+    }
+    if (this.redisClient) {
+      try {
+        await this.redisClient.eval(DECREMENT_ABOVE_ZERO, 1, userKey);
+      } catch (error) {
+        this.logger.error('Failed to decrement user attempts in Redis:', error.message);
+        throw error;
+      }
+      return;
+    }
+    const entry = this.inMemoryStorage.get(userKey);
+    if (entry && entry.expiry > Date.now() && entry.attempts > 0) {
+      this.inMemoryStorage.set(userKey, { attempts: entry.attempts - 1, expiry: entry.expiry });
+    }
   }
 
   public getRedisClient(): Redis {

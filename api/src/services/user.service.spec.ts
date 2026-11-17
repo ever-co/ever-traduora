@@ -64,39 +64,63 @@ class InMemoryUserRepository {
   }
 }
 
-// The Redis commands UserLoginAttemptsStorage sends, on a map. Each command, and each MULTI as a whole, runs at once,
-// as in Redis. Expiries are recorded, not applied.
+// The Redis commands UserLoginAttemptsStorage sends, on a map with a clock of its own. Each command, and each MULTI as
+// a whole, runs at once, as in Redis.
 class FakeRedis {
-  readonly values = new Map<string, number>();
-  readonly expiries = new Map<string, number>();
+  private clock = 0;
+  private readonly entries = new Map<string, { value: number; expiresAt?: number }>();
+
+  // Moves the clock on: the keys whose expiry has come are gone
+  advance(milliseconds: number): void {
+    this.clock += milliseconds;
+    for (const [key, entry] of this.entries) {
+      if (entry.expiresAt !== undefined && entry.expiresAt <= this.clock) {
+        this.entries.delete(key);
+      }
+    }
+  }
+
+  value(key: string): number | undefined {
+    return this.entries.get(key)?.value;
+  }
+
+  // Milliseconds until the key expires
+  expiresIn(key: string): number | undefined {
+    const expiresAt = this.entries.get(key)?.expiresAt;
+    return expiresAt === undefined ? undefined : expiresAt - this.clock;
+  }
 
   private setNow(key: string, value: number | string, options: (string | number)[]): 'OK' | null {
-    if (options.includes('NX') && this.values.has(key)) {
+    if (options.includes('NX') && this.entries.has(key)) {
       return null;
     }
-    this.values.set(key, Number(value));
-    // Like SET in Redis, a SET without PX removes the expiry
+    // Like SET in Redis, a SET without PX leaves the key without an expiry
     const px = options.indexOf('PX');
-    if (px >= 0) {
-      this.expiries.set(key, Number(options[px + 1]));
-    } else {
-      this.expiries.delete(key);
-    }
+    this.entries.set(key, { value: Number(value), expiresAt: px >= 0 ? this.clock + Number(options[px + 1]) : undefined });
     return 'OK';
   }
 
+  // Like INCR and DECR in Redis: a missing key is created without an expiry, an existing one keeps its expiry
   private addNow(key: string, by: number): number {
-    const value = (this.values.get(key) ?? 0) + by;
-    this.values.set(key, value);
-    return value;
+    const entry = this.entries.get(key) ?? { value: 0 };
+    entry.value += by;
+    this.entries.set(key, entry);
+    return entry.value;
   }
 
   async get(key: string): Promise<string | null> {
-    return this.values.has(key) ? String(this.values.get(key)) : null;
+    return this.entries.has(key) ? String(this.entries.get(key).value) : null;
   }
 
   async set(key: string, value: number | string, ...options: (string | number)[]): Promise<'OK' | null> {
     return this.setNow(key, value, options);
+  }
+
+  // Stands in for the one script UserLoginAttemptsStorage runs, the one of decrementUserAttempts: DECR while the count
+  // is above 0
+  async eval(_script: string, _numberOfKeys: number, key: string): Promise<number> {
+    const value = this.value(key);
+    return value !== undefined && value > 0 ? this.addNow(key, -1) : (value ?? 0);
   }
 
   multi() {
@@ -108,10 +132,6 @@ class FakeRedis {
       },
       incr: (key: string) => {
         commands.push(() => this.addNow(key, 1));
-        return transaction;
-      },
-      decr: (key: string) => {
-        commands.push(() => this.addNow(key, -1));
         return transaction;
       },
       exec: async (): Promise<[Error | null, unknown][]> => commands.map(command => [null, command()]),
@@ -137,14 +157,17 @@ const newUser = async (changes: Partial<User> = {}): Promise<User> =>
     ...changes,
   }) as User;
 
-// Checking a password takes a while, so that parallel sign-ins have all started before the first one is checked
-const slowPasswordCheck = () => {
+// Runs an action while a sign-in checks its password, as a request made at the same time would
+const duringPasswordCheck = (action: () => unknown) => {
   const compare = bcrypt.compare;
   jest.spyOn(bcrypt, 'compare').mockImplementation((async (data: string, encrypted: string) => {
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await action();
     return compare(data, encrypted);
   }) as any);
 };
+
+// Checking a password takes a while, so that parallel sign-ins have all started before the first one is checked
+const slowPasswordCheck = () => duringPasswordCheck(() => new Promise(resolve => setTimeout(resolve, 50)));
 
 // The HTTP status of each sign-in, sorted
 const statusesOf = async (signIns: Promise<User>[]): Promise<number[]> =>
@@ -232,6 +255,16 @@ describe('UserService', () => {
       expect(users.row.encryptedPassword).toBeNull();
       expect(users.row.loginAttempts).toBe(1);
     });
+
+    it('takes the attempt of a published password back no lower than 0', async () => {
+      const encryptedPassword = Buffer.from(await bcrypt.hash(publishedPassword, 4), 'utf-8');
+      users.row = { ...users.row, encryptedPassword, loginAttempts: 0, lastLogin: new Date() };
+      // A sign-in with the right password resets the count meanwhile
+      duringPasswordCheck(() => (users.row = { ...users.row, loginAttempts: 0 }));
+
+      await expect(signIn(publishedPassword)).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(users.row.loginAttempts).toBe(0);
+    });
   });
 
   describe('authenticate with Redis', () => {
@@ -252,8 +285,22 @@ describe('UserService', () => {
 
       expect(statuses).toEqual([401, 401, 401, 429, 429]);
       expect(bcrypt.compare).toHaveBeenCalledTimes(3);
-      expect(redis.values.get(userKey)).toBe(5);
-      expect(redis.expiries.get(userKey)).toBe(config.loginAttempts.ttl);
+      expect(redis.value(userKey)).toBe(5);
+      expect(redis.expiresIn(userKey)).toBe(config.loginAttempts.ttl);
+    });
+
+    it('unlocks once the count expires, which later attempts do not postpone', async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await expect(signIn('a-wrong-password')).rejects.toBeInstanceOf(UnauthorizedException);
+      }
+
+      redis.advance(config.loginAttempts.ttl - 1);
+      await expect(signIn(password)).rejects.toBeInstanceOf(TooManyRequestsException);
+      expect(redis.expiresIn(userKey)).toBe(1);
+
+      redis.advance(1);
+      const user = await signIn(password);
+      expect(user.id).toBe('user-1');
     });
 
     it('refuses the right password once the maximum is reached', async () => {
@@ -266,11 +313,11 @@ describe('UserService', () => {
     it('lets the right password in after failed sign-ins and counts from zero again', async () => {
       await expect(signIn('a-wrong-password')).rejects.toBeInstanceOf(UnauthorizedException);
       await expect(signIn('a-wrong-password')).rejects.toBeInstanceOf(UnauthorizedException);
-      expect(redis.values.get(userKey)).toBe(2);
+      expect(redis.value(userKey)).toBe(2);
 
       const user = await signIn(password);
       expect(user.id).toBe('user-1');
-      expect(redis.values.get(userKey)).toBe(0);
+      expect(redis.value(userKey)).toBe(0);
     });
 
     it('counts a sign-in to an account without a password, as before', async () => {
@@ -278,7 +325,7 @@ describe('UserService', () => {
       await redis.set(userKey, 1, 'PX', config.loginAttempts.ttl);
 
       await expect(signIn(password)).rejects.toBeInstanceOf(UnprocessableEntityException);
-      expect(redis.values.get(userKey)).toBe(2);
+      expect(redis.value(userKey)).toBe(2);
     });
 
     it('does not count a sign-in with a published password, as before', async () => {
@@ -288,7 +335,26 @@ describe('UserService', () => {
 
       await expect(signIn(publishedPassword)).rejects.toBeInstanceOf(UnprocessableEntityException);
       expect(users.row.encryptedPassword).toBeNull();
-      expect(redis.values.get(userKey)).toBe(1);
+      expect(redis.value(userKey)).toBe(1);
+    });
+
+    it('takes the attempt of a published password back no lower than 0', async () => {
+      const encryptedPassword = Buffer.from(await bcrypt.hash(publishedPassword, 4), 'utf-8');
+      users.row = { ...users.row, encryptedPassword, lastLogin: new Date() };
+      // A sign-in with the right password resets the count meanwhile
+      duringPasswordCheck(() => redis.set(userKey, 0, 'PX', config.loginAttempts.ttl));
+
+      await expect(signIn(publishedPassword)).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(redis.value(userKey)).toBe(0);
+    });
+
+    it('does not create the count again to take back the attempt of a published password once it expired', async () => {
+      const encryptedPassword = Buffer.from(await bcrypt.hash(publishedPassword, 4), 'utf-8');
+      users.row = { ...users.row, encryptedPassword, lastLogin: new Date() };
+      duringPasswordCheck(() => redis.advance(config.loginAttempts.ttl));
+
+      await expect(signIn(publishedPassword)).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(redis.value(userKey)).toBeUndefined();
     });
   });
 });

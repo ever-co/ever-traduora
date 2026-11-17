@@ -436,7 +436,7 @@ export class UserService {
   // Takes back the attempt that countLoginAttempt counted
   private async uncountLoginAttempt(user: User, userKey: string): Promise<void> {
     if (this.loginAttemptsStorage.getRedisClient()) {
-      await this.loginAttemptsStorage.decrementUserAttempts(userKey, this.loginAttemptsTTL);
+      await this.loginAttemptsStorage.decrementUserAttempts(userKey);
       return;
     }
     await this.userRepo.decrement({ id: user.id, loginAttempts: MoreThan(0) }, 'loginAttempts', 1);
