@@ -72,19 +72,30 @@ function collectUnits(parent: xmlJs.Element, sourceOrTarget: 'source' | 'target'
  * line break and indentation loses that end. A placeholder (<x>) becomes its equiv-text; <g>, <mrk> and <ph> become the
  * text they contain. Other inline elements and comments are left out. Whitespace-only text on one line between two parts
  * of the value is part of it, also at the edge of a <g>, <mrk> or <ph> (<g><x/> </g><x/>). At the start or end of the
- * value, or when it holds a line break (layout of the file, in LF or CRLF files), it is dropped.
+ * value (all of it, also when it spans several parts: <g> </g><g> </g><x/>), or when it holds a line break (layout of the
+ * file, in LF or CRLF files), it is dropped.
  */
 function serializeNodes(nodes: xmlJs.Element[]): string {
   const parts = valueParts(nodes, []);
+  const isBlankText = (node: xmlJs.Element) => node.type === 'text' && String(node.text).trim() === '';
+  let start = 0;
+  while (start < parts.length && isBlankText(parts[start])) {
+    start++;
+  }
+  let end = parts.length;
+  while (end > start && isBlankText(parts[end - 1])) {
+    end--;
+  }
   return parts
-    .map((node, index) => {
+    .slice(start, end)
+    .map(node => {
       if (node.type === 'cdata') {
         return String(node.cdata);
       }
       if (node.type === 'text') {
         const text = String(node.text);
         if (text.trim() === '') {
-          return index === 0 || index === parts.length - 1 || /[\r\n]/.test(text) ? '' : text;
+          return /[\r\n]/.test(text) ? '' : text;
         }
         return /\n\s*$/.test(text) ? text.substring(0, text.lastIndexOf('\n')) : text;
       }

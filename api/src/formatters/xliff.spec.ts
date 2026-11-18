@@ -290,6 +290,29 @@ test('should keep a space at the edge of a g element', async () => {
   ]);
 });
 
+test('should drop every whitespace-only part at the start and end of a value and keep the ones between', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="leading" datatype="html">
+            <source><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/></source>
+            <target><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/></target>
+          </trans-unit>
+          <trans-unit id="trailing" datatype="html">
+            <source><x id="1" equiv-text="{a}"/><g id="1"> </g><g id="2"> </g></source>
+            <target><x id="1" equiv-text="{a}"/><g id="1"> </g><g id="2"> </g></target>
+          </trans-unit>
+          <trans-unit id="both" datatype="html">
+            <source><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/><g id="3"> </g><x id="2" equiv-text="{b}"/><g id="4"> </g><g id="5"> </g></source>
+            <target><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/><g id="3"> </g><x id="2" equiv-text="{b}"/><g id="4"> </g><g id="5"> </g></target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'leading', translation: '{a}' },
+    { term: 'trailing', translation: '{a}' },
+    { term: 'both', translation: '{a} {b}' },
+  ]);
+});
+
 test('should not add the line break between two placeholders on separate lines, in LF and CRLF files', async () => {
   const xml = xliffWithTarget(`
           <trans-unit id="crlf" datatype="html">
