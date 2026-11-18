@@ -16,7 +16,7 @@ import { ProjectTermsService } from '../../services/terms.service';
 import { ProjectTranslationsService } from '../../services/translations.service';
 import { ProjectLabelState } from '../../stores/project-label.state';
 import { TermsState } from '../../stores/terms.state';
-import { TranslationsState } from '../../stores/translations.state';
+import { GetTranslations, TranslationsState } from '../../stores/translations.state';
 import { TranslationsListComponent } from './translations-list.component';
 
 @Pipe({ name: 'can' })
@@ -59,6 +59,7 @@ describe('TranslationsListComponent', () => {
       find: of([]),
       // A test that labels a translation sets the answer
       labelTranslation: undefined,
+      unlabelTranslation: undefined,
     });
     TestBed.configureTestingModule({
       imports: [NgxsModule.forRoot([TranslationsState, TermsState, ProjectLabelState]), NgbPaginationModule, AllowAllPipe],
@@ -185,6 +186,36 @@ describe('TranslationsListComponent', () => {
 
     expect(labelService.labelTranslation).toHaveBeenCalledWith('p1', 'l1', 't1', 'en');
     expect(errorMessage()).toBe('Error, resource not found');
+    fixture.destroy();
+  }));
+
+  it('loads the locale again when a label fails, so the label that was not added does not show', fakeAsync(() => {
+    render({ translations: {}, terms: {} });
+    labelService.labelTranslation.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    translationsService.findProjectTranslation.calls.reset();
+
+    // t1 has no translation in en yet: the list adds it with the label before the API answers
+    fixture.componentInstance.labelTranslation('p1', 't1', todo, 'en');
+
+    expect(translationsService.findProjectTranslation).toHaveBeenCalledOnceWith('p1', 'en');
+    expect(TestBed.inject(Store).selectSnapshot(state => state.translations.translations.en)).toEqual([]);
+    fixture.destroy();
+  }));
+
+  it('loads the locale again when removing a label fails, so the label shows again', fakeAsync(() => {
+    const labelled = [{ termId: 't1', value: 'Hello', labels: [todo] }];
+    render({ translations: {}, terms: {} });
+    const store = TestBed.inject(Store);
+    translationsService.findProjectTranslation.and.returnValue(of(labelled));
+    store.dispatch(new GetTranslations('p1', 'en'));
+    translationsService.findProjectTranslation.calls.reset();
+    labelService.unlabelTranslation.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+
+    // The list removes the label before the API answers
+    fixture.componentInstance.unlabelTranslation('p1', 't1', todo, 'en');
+
+    expect(translationsService.findProjectTranslation).toHaveBeenCalledOnceWith('p1', 'en');
+    expect(store.selectSnapshot(state => state.translations.translations.en)).toEqual(labelled);
     fixture.destroy();
   }));
 

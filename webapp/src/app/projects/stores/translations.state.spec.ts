@@ -2,9 +2,12 @@ import { TestBed } from '@angular/core/testing';
 import { NgxsModule, Store } from '@ngxs/store';
 import { Subject } from 'rxjs';
 import { Label } from '../models/label';
+import { Term } from '../models/term';
 import { Translation } from '../models/translation';
+import { ProjectTermsService } from '../services/terms.service';
 import { ProjectTranslationsService } from '../services/translations.service';
 import { LabelTranslation } from './project-label.state';
+import { TermsState } from './terms.state';
 import { TranslationsState, UpdateTranslation } from './translations.state';
 
 describe('TranslationsState saving a translation', () => {
@@ -58,13 +61,21 @@ describe('TranslationsState labelling a translation', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [NgxsModule.forRoot([TranslationsState])],
-      providers: [{ provide: ProjectTranslationsService, useValue: {} }],
+      imports: [NgxsModule.forRoot([TranslationsState, TermsState])],
+      providers: [
+        { provide: ProjectTranslationsService, useValue: {} },
+        { provide: ProjectTermsService, useValue: {} },
+      ],
     });
     store = TestBed.inject(Store);
     const state = store.snapshot();
     const de: Translation[] = [{ termId: 't1', value: 'Hallo', labels: [done] }];
-    store.reset({ ...state, translations: { ...state.translations, translations: { de } } });
+    const terms: Term[] = [
+      { id: 't1', value: 'greeting', context: null, labels: [] },
+      { id: 't2', value: 'farewell', context: null, labels: [] },
+      { id: 't3', value: 'thanks', context: null, labels: [done] },
+    ];
+    store.reset({ ...state, translations: { ...state.translations, translations: { de } }, terms: { ...state.terms, terms } });
   });
 
   const forLocale = (localeCode: string): Translation[] => store.selectSnapshot(state => state.translations.translations[localeCode]);
@@ -82,6 +93,12 @@ describe('TranslationsState labelling a translation', () => {
       { termId: 't1', value: 'Hallo', labels: [done] },
       { termId: 't2', value: '', labels: [todo] },
     ]);
+  });
+
+  it('gives that translation the labels of the term too, as the API does', () => {
+    store.dispatch(new LabelTranslation('p1', todo, 't3', 'de'));
+
+    expect(forLocale('de')[1]).toEqual({ termId: 't3', value: '', labels: [done, todo] });
   });
 
   it('leaves a locale that is not loaded alone', () => {

@@ -615,6 +615,21 @@ describe('ProjectLabelController (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(201);
 
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/translations/de`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0]).toHaveExactProperties(['termId', 'value', 'labels', 'date']);
+        expect(res.body.data[0].termId).toEqual(termId);
+        expect(res.body.data[0].value).toEqual('');
+        expect(res.body.data[0].labels.map(l => [l.value, l.color]).sort()).toEqual([
+          ['done', '#808080'],
+          ['todo', '#202020'],
+        ]);
+      });
+
     // Labelling it again with either label leaves one of each
     for (const id of [labelId, termLabelId]) {
       await request(app.getHttpServer())

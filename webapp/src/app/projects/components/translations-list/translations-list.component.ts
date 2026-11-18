@@ -197,12 +197,18 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     }
   }
 
+  // The list shows a label change before the API answers: when it fails, the locale is loaded again,
+  // so a label that was not added (or removed) does not look saved and can be picked again
   labelTranslation(projectId, termId, label, localeCode) {
-    this.store.dispatch(new LabelTranslation(projectId, label, termId, localeCode));
+    this.store
+      .dispatch(new LabelTranslation(projectId, label, termId, localeCode))
+      .subscribe({ error: () => this.store.dispatch(new GetTranslations(projectId, localeCode)) });
   }
 
   unlabelTranslation(projectId, termId, label, localeCode) {
-    this.store.dispatch(new UnlabelTranslation(projectId, label, termId, localeCode));
+    this.store
+      .dispatch(new UnlabelTranslation(projectId, label, termId, localeCode))
+      .subscribe({ error: () => this.store.dispatch(new GetTranslations(projectId, localeCode)) });
   }
 
   concatLabels(view: TranslationView) {
