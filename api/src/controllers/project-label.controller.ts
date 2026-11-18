@@ -159,7 +159,10 @@ export default class ProjectLabelController {
 
   @Post(':labelId/terms/:termId/translations/:localeCode')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Label a project term translation' })
+  @ApiOperation({
+    summary: 'Label a project term translation',
+    description: 'Adds the translation, empty and with the labels of the term, when the term has none in this locale yet',
+  })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or label not found' })
@@ -175,6 +178,7 @@ export default class ProjectLabelController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
     const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
+    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
 
     const projectLocale = await this.projectLocaleRepo.findOneOrFail({
       where: {
@@ -187,14 +191,29 @@ export default class ProjectLabelController {
       },
     });
 
-    const translation = await this.translationsRepo.findOneOrFail({
-      where: { termId: termId, projectLocale: { id: projectLocale.id } },
+    const translation = await this.translationsRepo.findOne({
+      where: { termId: term.id, projectLocale: { id: projectLocale.id } },
       relations: ['labels'],
     });
 
-    translation.labels.push(label);
+    // An import adds translations to the imported locale only, so a term it added has none in the other locales yet
+    if (!translation) {
+      const hasLabel = term.labels.some(l => l.id === label.id);
+      await this.translationsRepo.save(
+        this.translationsRepo.create({
+          value: '',
+          projectLocale,
+          term,
+          labels: hasLabel ? term.labels : [...term.labels, label], // Copy term labels on creation
+        }),
+      );
+      return;
+    }
 
-    await this.translationsRepo.save(translation);
+    if (!translation.labels.some(l => l.id === label.id)) {
+      translation.labels.push(label);
+      await this.translationsRepo.save(translation);
+    }
   }
 
   @Delete(':labelId/terms/:termId/translations/:localeCode')

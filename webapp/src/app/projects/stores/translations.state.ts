@@ -241,12 +241,18 @@ export class TranslationsState implements NgxsOnInit {
     const translations = ctx.getState().translations;
     const forLocale = translations[action.localeCode];
     if (forLocale) {
+      let found = false;
       const updated = forLocale.map(v => {
         if (v.termId === action.termId) {
+          found = true;
           return { ...v, labels: [...v.labels, action.label] };
         }
         return v;
       });
+      // A term added by an import into another locale has no translation in this one yet: the API adds it with the label
+      if (!found) {
+        updated.push({ termId: action.termId, value: '', labels: [action.label] });
+      }
       ctx.patchState({ translations: { ...translations, [action.localeCode]: updated } });
     }
   }
