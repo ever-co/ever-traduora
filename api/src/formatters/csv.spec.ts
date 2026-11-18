@@ -132,7 +132,49 @@ test('should quote a value with a carriage return inside, so a spreadsheet canno
 
   const exported = (await csvExporter(embedded)).toString();
 
-  // Outside quotes, a spreadsheet ends the row at every '\r' or '\n', so only the two real row ends may be left
-  expect(exported).toBe(`greeting,"hello\r=cmd|' /C calc'!A0"\n"a\r@SUM(1+1)",b\n`);
-  expect(await parseRows(exported)).toEqual(embedded.translations.map(({ term, translation }) => [term, translation]));
+  // Outside quotes, a spreadsheet ends the row at every '\r' or '\n', so only the two real row ends may be left.
+  // The triggers after the '\r' go too: a spreadsheet that splits on semicolons does not see the quotes around the translation
+  expect(exported).toBe(`greeting,"hello\rcmd|' /C calc'!A0"\n"a\rSUM(1+1)",b\n`);
+  expect(await parseRows(exported)).toEqual([
+    ['greeting', `hello\rcmd|' /C calc'!A0`],
+    ['a\rSUM(1+1)', 'b'],
+  ]);
+});
+
+test('should remove the formula triggers after a line break, and after quotes that follow a semicolon or a line break', async () => {
+  // In a spreadsheet that splits on semicolons, the quotes around the translation open inside the `term,` cell, so they do not hold
+  // its line breaks: each one starts a new row. A '"' right after a ';' or a line break opens a quoted cell there: `""=1+1` reads as `=1+1`
+  const values = ['a\n=1+1;', `hello\r=cmd|' /C calc'!A0;`, 'b\r\n@SUM(1+1);', 'c;"=1+1;', 'd\n""-1;'];
+  const payloads: IntermediateTranslationFormat = {
+    translations: values.map(value => ({ term: 'term', translation: value })),
+  };
+
+  const exported = (await csvExporter(payloads)).toString();
+  // Every place such a spreadsheet can start a cell, whatever the quotes around it
+  const cells = exported.split(/[;\r\n]/).map(cell => cell.replace(/^"+/, ''));
+
+  for (const cell of cells) {
+    expect(cell).not.toMatch(/^[=+\-@\t]/);
+  }
+  expect((await parseRows(exported)).map(([, translation]) => translation)).toEqual([
+    'a\n1+1;',
+    `hello\rcmd|' /C calc'!A0;`,
+    'b\r\nSUM(1+1);',
+    'c;"1+1;',
+    'd\n""1;',
+  ]);
+});
+
+test('should export quotes and line breaks that are not followed by a formula trigger unchanged', async () => {
+  const plainValues: IntermediateTranslationFormat = {
+    translations: [
+      { term: '"=" sign', translation: '"+" button' },
+      { term: 'lines', translation: 'one\ntwo\r\nthree' },
+      { term: 'quoted', translation: 'say;"hi"' },
+    ],
+  };
+
+  const exported = (await csvExporter(plainValues)).toString();
+
+  expect(await parseRows(exported)).toEqual(plainValues.translations.map(({ term, translation }) => [term, translation]));
 });
