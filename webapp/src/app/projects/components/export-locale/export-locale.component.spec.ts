@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { SelectLocaleComponent } from '../../../shared/components/select-locale/select-locale.component';
 import { EXPORT_FORMATS } from '../../models/export';
@@ -72,6 +72,7 @@ describe('ExportLocaleComponent', () => {
 
 describe('ExportLocaleComponent export errors', () => {
   let http: HttpTestingController;
+  let fixture: ComponentFixture<ExportLocaleComponent>;
   let component: ExportLocaleComponent;
 
   beforeEach(() => {
@@ -82,7 +83,8 @@ describe('ExportLocaleComponent export errors', () => {
       schemas: [NO_ERRORS_SCHEMA],
     });
     http = TestBed.inject(HttpTestingController);
-    component = TestBed.createComponent(ExportLocaleComponent).componentInstance;
+    fixture = TestBed.createComponent(ExportLocaleComponent);
+    component = fixture.componentInstance;
     component.project = { id: 'p1' } as Project;
     component.selectedLocale = { code: 'de_DE', language: 'German', region: 'Germany' };
     component.selectedFormat = EXPORT_FORMATS.find(format => format.code === 'jsonnested');
@@ -113,5 +115,19 @@ describe('ExportLocaleComponent export errors', () => {
     await exportFailingWith(new Blob(['<html>Bad Request</html>'], { type: 'text/html' }));
 
     expect(component.errorMessage).toContain('This format cannot hold some terms of the project');
+  });
+
+  it('shows the error as an alert, so screen readers announce it', async () => {
+    component.locales = [component.selectedLocale];
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+
+    await exportFailingWith(new Blob(['<html>Bad Request</html>'], { type: 'text/html' }));
+    fixture.detectChanges();
+
+    const alert: HTMLElement = fixture.nativeElement.querySelector('[role="alert"]');
+    expect(alert).withContext('the error is not in a role="alert" element').not.toBeNull();
+    expect(alert.textContent).toContain('This format cannot hold some terms of the project');
+    expect(alert.querySelector('i.material-icons').getAttribute('aria-hidden')).toBe('true');
   });
 });

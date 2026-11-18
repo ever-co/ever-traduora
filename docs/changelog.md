@@ -10,6 +10,29 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`
 
+- The translations page no longer keeps the error of a failed save when you
+  pick another locale. Before, the red message of the previous locale stayed
+  above the list of the new one, so it looked as if that locale had failed to
+  load or to save. An error that comes up while loading or saving in the new
+  locale still shows, and so does an error of the terms, which belong to
+  every locale
+
+- Screen readers announce error messages when they appear. Before, nothing was read out: on the translations page the error of a failed save shows above the list, out of view when the edited row is further down, so a screen reader user believed the value was saved. The same held for the errors of the other pages (terms, labels, locales, team, API keys, project settings) and of a failed import or export. The warning icon of these messages is no longer read out as "warning". A translation save or an import that is tried again and fails with the same error is announced again, since the old error is removed while the retry runs
+
+- Security: CSV export also removes the `=`, `+`, `-`, `@`, tab and carriage
+  return characters right after each `;` in a term or translation. A
+  spreadsheet whose list separator is `;` (the default in many European
+  locales) starts a new cell there, so a value such as `x;=1+1` or
+  `x;=cmd|' /C calc'!A0` gave a cell with a live formula. Now `x;=1+1` is
+  exported as `x;1+1`. The `;` itself and every other character stay, so
+  `a; =b` (with a space after the `;`) is exported unchanged. The same
+  characters also go right after a line break in a value, and after quotes
+  right after a `;` or a line break (`x;"=1+1` is exported as `x;"1+1`):
+  such a spreadsheet does not see the quotes around a translation, so it
+  started a new row at a line break inside it, and read `""=1+1` as `=1+1`.
+  A line of a multi-line value that starts with one of these characters
+  loses it in the CSV export
+
 - When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
 
 - Security: sign-ins sent at the same time no longer get past the lockout after
