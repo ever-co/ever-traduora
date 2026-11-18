@@ -38,13 +38,24 @@ export const csvParser: Parser = async (data: string) => {
 /**
  * A spreadsheet reads a cell as a formula when it starts with one of these characters (tab and carriage return included).
  * Digits, '/', '\\', ',', ';' and '|' do not start a formula, so they stay: csv-stringify already quotes a value that holds the ',' delimiter.
+ * It does not quote a value that holds ';', and a spreadsheet whose list separator is ';' (the default in many European locales)
+ * starts a new cell after each ';': so the text right after each ';' is a cell start too, and loses its triggers the same way.
+ * Such a spreadsheet also misses the quotes around the translation, as they open after `term,` inside its cell: it starts a new row
+ * at each '\n' or '\r' in it, and reads a '"' after a ';' or a line break as the opening quote of a cell (`""=1+1` gives `=1+1`).
  */
 const formulaTriggers = ['=', '+', '-', '@', '\t', '\r'];
 
 /**
+ * Characters after which a spreadsheet whose list separator is ';' can start a new cell inside a value.
+ */
+const cellBreaks = [';', '\n', '\r'];
+
+/**
  * CSV Injection – A Guide To Protecting Your CSV Files
  *
- * Removes every leading formula trigger, not only the first one: `==1+1` would still start with `=`.
+ * Removes every formula trigger at the start of the value and right after each ';', '\n' or '\r', not only the first one:
+ * `==1+1` would still start with `=`, and `x;=1+1` becomes `x;1+1`. Quotes right after a ';', '\n' or '\r' stay,
+ * and the triggers after them go too: `x;"=1+1` becomes `x;"1+1`. All other characters stay.
  *
  * @param str
  * @returns
@@ -52,11 +63,26 @@ const formulaTriggers = ['=', '+', '-', '@', '\t', '\r'];
 const csvInjectionProtector = (str: string) => {
   if (!str) return '';
 
-  let start = 0;
-  while (start < str.length && formulaTriggers.includes(str.charAt(start))) {
-    start++;
+  let result = '';
+  // True at the start of the value and of each cell a ';' spreadsheet can start inside it.
+  // A removed trigger `continue`s, so the character after it is still at the cell start.
+  let atCellStart = true;
+  let afterBreak = false;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charAt(i);
+    if (atCellStart && formulaTriggers.includes(char)) {
+      continue;
+    }
+    result += char;
+    if (cellBreaks.includes(char)) {
+      atCellStart = true;
+      afterBreak = true;
+    } else if (!(afterBreak && atCellStart && char === '"')) {
+      atCellStart = false;
+      afterBreak = false;
+    }
   }
-  return str.slice(start);
+  return result;
 };
 
 export const csvExporter: Exporter = async (data: IntermediateTranslationFormat) => {

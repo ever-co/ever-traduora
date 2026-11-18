@@ -8,6 +8,20 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Security: CSV export also removes the `=`, `+`, `-`, `@`, tab and carriage
+  return characters right after each `;` in a term or translation. A
+  spreadsheet whose list separator is `;` (the default in many European
+  locales) starts a new cell there, so a value such as `x;=1+1` or
+  `x;=cmd|' /C calc'!A0` gave a cell with a live formula. Now `x;=1+1` is
+  exported as `x;1+1`. The `;` itself and every other character stay, so
+  `a; =b` (with a space after the `;`) is exported unchanged. The same
+  characters also go right after a line break in a value, and after quotes
+  right after a `;` or a line break (`x;"=1+1` is exported as `x;"1+1`):
+  such a spreadsheet does not see the quotes around a translation, so it
+  started a new row at a line break inside it, and read `""=1+1` as `=1+1`.
+  A line of a multi-line value that starts with one of these characters
+  loses it in the CSV export
+
 - When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
 
 - Security: sign-ins sent at the same time no longer get past the lockout after
