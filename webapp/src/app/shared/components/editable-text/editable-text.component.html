@@ -7,8 +7,9 @@
     [ngClass]="{ 'rounded-bl-0 is-editing': isEditing && !readOnly, readonly: readOnly }"
     id="termInputEditable"
     [value]="current"
-    (input)="current = $event.target.value"
+    (input)="onInput($event.target.value)"
     autocomplete="off"
+    (focus)="!readOnly && enterEdit()"
     (click)="!readOnly && enterEdit()"
     [placeholder]="placeholder"
     (keyup.control.enter)="onSave()"
@@ -38,7 +39,7 @@
     </button>
     <div class="flex-1"></div>
     <p *ngIf="showLength" class="px-3 text-muted d-flex justify-content-center align-items-center">
-      <small>{{ current.length | number }}</small>
+      <small>{{ (current || '').length | number }}</small>
     </p>
   </div>
 </div>
