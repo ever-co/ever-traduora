@@ -92,6 +92,63 @@ describe('TermController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/terms/filter-by-label (GET) should return the terms with the label, each with all of its labels', async () => {
+    const createLabel = async (value: string) => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/labels`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ value, color: '#202020' })
+        .expect(201);
+      return res.body.data.id as string;
+    };
+    const createTerm = async (value: string) => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/terms`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ value })
+        .expect(201);
+      return res.body.data.id as string;
+    };
+    const labelTerm = async (labelId: string, termId: string) => {
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(201);
+    };
+
+    const labelA = await createLabel('label-a');
+    const labelB = await createLabel('label-b');
+    const both = await createTerm('term.both');
+    const onlyB = await createTerm('term.only-b');
+    await createTerm('term.unlabelled');
+    await labelTerm(labelA, both);
+    await labelTerm(labelB, both);
+    await labelTerm(labelB, onlyB);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/terms/filter-by-label`)
+      .query({ labelId: labelA })
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(1);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'context', 'labels', 'date']);
+        expect(res.body.data[0].id).toEqual(both);
+        expect(res.body.data[0].labels.map(l => l.id).sort()).toEqual([labelA, labelB].sort());
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/terms/filter-by-label`)
+      .query({ labelId: labelB })
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data.map(t => t.value)).toEqual(['term.both', 'term.only-b']);
+        expect(res.body.data[0].labels).toHaveLength(2);
+        expect(res.body.data[1].labels.map(l => l.id)).toEqual([labelB]);
+      });
+  });
+
   it('/api/v1/projects/:projectId/terms/:termId (PATCH) should update term by id', async () => {
     let termId: string;
 

@@ -76,11 +76,12 @@ export default class TermController {
       };
     }
 
+    // Filter through a join of its own: a condition on the selected labels would also drop the term's other labels
     const queryBuilder = this.termRepo
       .createQueryBuilder('term')
       .leftJoinAndSelect('term.labels', 'label')
-      .where('term.project.id = :projectId', { projectId: membership.project.id })
-      .andWhere('label.id = :labelId', { labelId });
+      .innerJoin('term.labels', 'filterLabel', 'filterLabel.id = :labelId', { labelId })
+      .where('term.project.id = :projectId', { projectId: membership.project.id });
 
     // Apply database-specific collation for consistent lexical ordering
     queryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
