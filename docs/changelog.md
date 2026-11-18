@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Export with "not translated keys" and a fallback locale holds only the terms that have no translation in the exported locale, each with the value of the fallback locale. Before, it held every term of the project, the translated ones with the fallback locale's value, so translating the file and importing it back overwrote the existing translations with the fallback text. An export with a fallback locale that is not a locale of the project (possible through the API) keeps the terms without a translation, with an empty value: before, it left them out, and with "not translated keys" the file was empty
+
 - XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`
 
 - The translations page no longer keeps the error of a failed save when you
