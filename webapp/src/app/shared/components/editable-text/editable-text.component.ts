@@ -34,21 +34,33 @@ export class EditableTextComponent implements OnChanges {
 
   ngOnChanges() {
     if (!this.isEditing) {
-      this.current = this.value;
+      // A term created without a context has a null value
+      this.current = this.value ?? '';
     }
   }
 
   enterEdit() {
     if (!this.isEditing) {
-      this.current = this.value;
+      this.current = this.value ?? '';
       this.isEditing = true;
       this.focus();
     }
   }
 
+  onInput(text: string) {
+    this.current = text;
+    // The field keeps the focus after a save or a revert: typing in it again starts a new edit, with the typed text
+    if (!this.readOnly && !this.isEditing) {
+      this.isEditing = true;
+    }
+  }
+
   exitEdit() {
+    // Keep the focus in the field, or keyboard and screen reader users are sent back to the top of the page.
+    // A click on Save or Revert moved it to that button, which goes away with the edit controls: give it back to the
+    // field while still editing, so that this focus does not start a new edit.
+    this.focusTarget.nativeElement.focus();
     this.isEditing = false;
-    this.focusTarget.nativeElement.blur();
   }
 
   revert() {
