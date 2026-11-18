@@ -8,7 +8,12 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- The translations page no longer keeps the error of a failed save when you pick another locale. Before, the red message of the previous locale stayed above the list of the new one, so it looked as if that locale had failed to load or to save. An error that comes up while loading or saving in the new locale still shows, and so does an error of the terms, which belong to every locale
+- The translations page no longer keeps the error of a failed save when you
+  pick another locale. Before, the red message of the previous locale stayed
+  above the list of the new one, so it looked as if that locale had failed to
+  load or to save. An error that comes up while loading or saving in the new
+  locale still shows, and so does an error of the terms, which belong to
+  every locale
 
 - When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
 
