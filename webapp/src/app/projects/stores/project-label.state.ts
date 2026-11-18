@@ -219,7 +219,8 @@ export class ProjectLabelState implements NgxsOnInit {
 
   @Action(LabelTranslation)
   labelTranslation(ctx: StateContext<ProjectLabelStateModel>, action: LabelTranslation) {
-    ctx.patchState({ isLoading: true });
+    // The translations page shows this error: the error of an earlier try goes while this one runs
+    ctx.patchState({ isLoading: true, errorMessage: undefined });
     return this.projectLabelsService.labelTranslation(action.projectId, action.label.id, action.termId, action.localeCode).pipe(
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
@@ -231,7 +232,8 @@ export class ProjectLabelState implements NgxsOnInit {
 
   @Action(UnlabelTranslation)
   unlabelTranslation(ctx: StateContext<ProjectLabelStateModel>, action: UnlabelTranslation) {
-    ctx.patchState({ isLoading: true });
+    // The translations page shows this error: the error of an earlier try goes while this one runs
+    ctx.patchState({ isLoading: true, errorMessage: undefined });
     return this.projectLabelsService.unlabelTranslation(action.projectId, action.label.id, action.termId, action.localeCode).pipe(
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
