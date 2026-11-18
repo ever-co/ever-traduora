@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- The label filter of the terms page shows each term with all of its labels. Before, a term with the labels A and B showed only A when the list was filtered by A, and the label picker of that term offered B again. The filtered list now follows what is done on the page: a term leaves it when the picked label is removed from it or when it is deleted, and joins it when it gets that label. Before, the card stayed as it was, and deleting it again failed with "not found". The label filter still applies after something is typed in the search box. The API `GET /api/v1/projects/:projectId/terms/filter-by-label` also returns each term with all of its labels, not only the one filtered by
+
 - XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`
 
 - The translations page no longer keeps the error of a failed save when you
