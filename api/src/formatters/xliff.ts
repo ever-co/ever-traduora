@@ -68,41 +68,44 @@ function collectUnits(parent: xmlJs.Element, sourceOrTarget: 'source' | 'target'
 }
 
 /**
- * The value made of the nodes inside a <source>, a <target> or an inline element. Text and CDATA are kept, except that
- * a text ending in a line break and indentation loses that end. A placeholder (<x>) becomes its equiv-text; <g>, <mrk>
- * and <ph> become the text they contain. Other inline elements and comments are left out. Whitespace-only text between
- * two of these nodes is part of the value; before the first one or after the last one it is dropped.
+ * The value made of the nodes inside a <source> or a <target>. Text and CDATA are kept, except that a text ending in a
+ * line break and indentation loses that end. A placeholder (<x>) becomes its equiv-text; <g>, <mrk> and <ph> become the
+ * text they contain. Other inline elements and comments are left out. Whitespace-only text on one line between two parts
+ * of the value is part of it, also at the edge of a <g>, <mrk> or <ph> (<g><x/> </g><x/>). At the start or end of the
+ * value, or when it holds a line break (layout of the file, in LF or CRLF files), it is dropped.
  */
 function serializeNodes(nodes: xmlJs.Element[]): string {
-  const content = nodes.filter(node => node.type === 'text' || node.type === 'cdata' || node.type === 'element');
-  return content
+  const parts = valueParts(nodes, []);
+  return parts
     .map((node, index) => {
       if (node.type === 'cdata') {
         return String(node.cdata);
       }
       if (node.type === 'text') {
         const text = String(node.text);
-        if (text.trim() === '' && (index === 0 || index === content.length - 1)) {
-          return '';
+        if (text.trim() === '') {
+          return index === 0 || index === parts.length - 1 || /[\r\n]/.test(text) ? '' : text;
         }
         return /\n\s*$/.test(text) ? text.substring(0, text.lastIndexOf('\n')) : text;
       }
-      return serializeElement(node);
+      return attribute(node, 'equiv-text') ?? '';
     })
     .join('');
 }
 
-function serializeElement(element: xmlJs.Element): string {
-  switch (element.name) {
-    case 'x':
-      return attribute(element, 'equiv-text') ?? '';
-    case 'g':
-    case 'mrk':
-    case 'ph':
-      return serializeNodes(element.elements ?? []);
-    default:
-      return '';
+/**
+ * The text, CDATA and placeholder (<x>) nodes of a value in order, with the nodes inside <g>, <mrk> and <ph> in their
+ * place. Comments and other inline elements are left out.
+ */
+function valueParts(nodes: xmlJs.Element[], parts: xmlJs.Element[]): xmlJs.Element[] {
+  for (const node of nodes) {
+    if (node.type === 'text' || node.type === 'cdata' || (node.type === 'element' && node.name === 'x')) {
+      parts.push(node);
+    } else if (node.type === 'element' && (node.name === 'g' || node.name === 'mrk' || node.name === 'ph')) {
+      valueParts(node.elements ?? [], parts);
+    }
   }
+  return parts;
 }
 
 function childElements(parent: xmlJs.Element, name: string): xmlJs.Element[] {

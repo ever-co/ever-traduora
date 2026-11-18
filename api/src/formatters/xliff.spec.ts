@@ -272,6 +272,42 @@ test('should keep a space between two placeholders and between two mrk elements'
   ]);
 });
 
+test('should keep a space at the edge of a g element', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="placeholders" datatype="html">
+            <source><g id="1"><x id="1" equiv-text="{a}"/> </g><x id="2" equiv-text="{b}"/></source>
+            <target><g id="1"><x id="1" equiv-text="{a}"/> </g><x id="2" equiv-text="{b}"/></target>
+          </trans-unit>
+          <trans-unit id="words" datatype="html">
+            <source>Hello<g id="1"> </g>world</source>
+            <target>Hallo<g id="1"> </g>Welt</target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'placeholders', translation: '{a} {b}' },
+    { term: 'words', translation: 'Hallo Welt' },
+  ]);
+});
+
+test('should not add the line break between two placeholders on separate lines, in LF and CRLF files', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="crlf" datatype="html">
+            <source>Hello</source>
+            <target><x id="1" equiv-text="{a}"/>\r\n              <x id="2" equiv-text="{b}"/></target>
+          </trans-unit>
+          <trans-unit id="trailing-spaces" datatype="html">
+            <source>Hello</source>
+            <target><x id="1" equiv-text="{a}"/>  \n              <x id="2" equiv-text="{b}"/></target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'crlf', translation: '{a}{b}' },
+    { term: 'trailing-spaces', translation: '{a}{b}' },
+  ]);
+});
+
 test('should import the units of every file element', async () => {
   const xml = `<?xml version="1.0" encoding="UTF-8" ?>
     <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
