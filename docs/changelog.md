@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- The translations page no longer keeps the error of a failed save when you
+  pick another locale. Before, the red message of the previous locale stayed
+  above the list of the new one, so it looked as if that locale had failed to
+  load or to save. An error that comes up while loading or saving in the new
+  locale still shows, and so does an error of the terms, which belong to
+  every locale
+
 - Screen readers announce error messages when they appear. Before, nothing was read out: on the translations page the error of a failed save shows above the list, out of view when the edited row is further down, so a screen reader user believed the value was saved. The same held for the errors of the other pages (terms, labels, locales, team, API keys, project settings) and of a failed import or export. The warning icon of these messages is no longer read out as "warning". A translation save or an import that is tried again and fails with the same error is announced again, since the old error is removed while the retry runs
 
 - Security: CSV export also removes the `=`, `+`, `-`, `@`, tab and carriage

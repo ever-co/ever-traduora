@@ -113,7 +113,16 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
             this.store.dispatch(new GetProjectLabels(project.id));
           }),
           mergeMap(project => {
-            return this.localeCode$.pipe(map(localeCode => this.store.dispatch(new GetTranslations(project.id, localeCode))));
+            return this.localeCode$.pipe(
+              map((localeCode, index) => {
+                // Angular keeps this page when another locale is picked: drop the error of the previous locale first,
+                // so an error of loading or saving the new one still shows. The terms store error is the same for every locale.
+                if (index > 0) {
+                  this.store.dispatch(new ClearMessages());
+                }
+                return this.store.dispatch(new GetTranslations(project.id, localeCode));
+              }),
+            );
           }),
         )
         .subscribe(),
