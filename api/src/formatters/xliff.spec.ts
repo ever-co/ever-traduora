@@ -188,6 +188,185 @@ test('should import units inside groups', async () => {
   ]);
 });
 
+test('should import units inside a group without attributes', async () => {
+  const xml = xliffWithTarget(`
+          <group>
+            <trans-unit id="a" datatype="html">
+              <source>Open</source>
+              <target>Öffnen</target>
+            </trans-unit>
+          </group>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([{ term: 'a', translation: 'Öffnen' }]);
+});
+
+test('should import the units of every group without an id', async () => {
+  const xml = xliffWithTarget(`
+          <group resname="g1">
+            <trans-unit id="a" datatype="html">
+              <source>Open</source>
+              <target>Öffnen</target>
+            </trans-unit>
+          </group>
+          <group resname="g2">
+            <trans-unit id="b" datatype="html">
+              <source>Close</source>
+              <target>Schließen</target>
+            </trans-unit>
+          </group>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'a', translation: 'Öffnen' },
+    { term: 'b', translation: 'Schließen' },
+  ]);
+});
+
+test('should import units inside nested groups without an id', async () => {
+  const xml = xliffWithTarget(`
+          <group resname="outer">
+            <trans-unit id="a" datatype="html">
+              <source>Open</source>
+              <target>Öffnen</target>
+            </trans-unit>
+            <group>
+              <group resname="inner">
+                <trans-unit id="b" datatype="html">
+                  <source>Close</source>
+                  <target>Schließen</target>
+                </trans-unit>
+              </group>
+            </group>
+            <group resname="other">
+              <trans-unit id="c" datatype="html">
+                <source>Save</source>
+                <target>Speichern</target>
+              </trans-unit>
+            </group>
+          </group>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'a', translation: 'Öffnen' },
+    { term: 'b', translation: 'Schließen' },
+    { term: 'c', translation: 'Speichern' },
+  ]);
+});
+
+test('should keep a space between two placeholders and between two mrk elements', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="placeholders" datatype="html">
+            <source><x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/></source>
+            <target><x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/></target>
+          </trans-unit>
+          <trans-unit id="segments" datatype="html">
+            <source><mrk mtype="seg" mid="0">Hello</mrk> <mrk mtype="seg" mid="1">world</mrk></source>
+            <target><mrk mtype="seg" mid="0">Hallo</mrk> <mrk mtype="seg" mid="1">Welt</mrk></target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'placeholders', translation: '{a} {b}' },
+    { term: 'segments', translation: 'Hallo Welt' },
+  ]);
+});
+
+test('should keep a space at the edge of a g element', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="placeholders" datatype="html">
+            <source><g id="1"><x id="1" equiv-text="{a}"/> </g><x id="2" equiv-text="{b}"/></source>
+            <target><g id="1"><x id="1" equiv-text="{a}"/> </g><x id="2" equiv-text="{b}"/></target>
+          </trans-unit>
+          <trans-unit id="words" datatype="html">
+            <source>Hello<g id="1"> </g>world</source>
+            <target>Hallo<g id="1"> </g>Welt</target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'placeholders', translation: '{a} {b}' },
+    { term: 'words', translation: 'Hallo Welt' },
+  ]);
+});
+
+test('should drop every whitespace-only part at the start and end of a value and keep the ones between', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="leading" datatype="html">
+            <source><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/></source>
+            <target><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/></target>
+          </trans-unit>
+          <trans-unit id="trailing" datatype="html">
+            <source><x id="1" equiv-text="{a}"/><g id="1"> </g><g id="2"> </g></source>
+            <target><x id="1" equiv-text="{a}"/><g id="1"> </g><g id="2"> </g></target>
+          </trans-unit>
+          <trans-unit id="both" datatype="html">
+            <source><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/><g id="3"> </g><x id="2" equiv-text="{b}"/><g id="4"> </g><g id="5"> </g></source>
+            <target><g id="1"> </g><g id="2"> </g><x id="1" equiv-text="{a}"/><g id="3"> </g><x id="2" equiv-text="{b}"/><g id="4"> </g><g id="5"> </g></target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'leading', translation: '{a}' },
+    { term: 'trailing', translation: '{a}' },
+    { term: 'both', translation: '{a} {b}' },
+  ]);
+});
+
+test('should not add the line break between two placeholders on separate lines, in LF and CRLF files', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit id="crlf" datatype="html">
+            <source>Hello</source>
+            <target><x id="1" equiv-text="{a}"/>\r\n              <x id="2" equiv-text="{b}"/></target>
+          </trans-unit>
+          <trans-unit id="trailing-spaces" datatype="html">
+            <source>Hello</source>
+            <target><x id="1" equiv-text="{a}"/>  \n              <x id="2" equiv-text="{b}"/></target>
+          </trans-unit>`);
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result.translations).toEqual([
+    { term: 'crlf', translation: '{a}{b}' },
+    { term: 'trailing-spaces', translation: '{a}{b}' },
+  ]);
+});
+
+test('should import the units of every file element', async () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8" ?>
+    <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+      <file source-language="en" target-language="de" datatype="plaintext" original="messages">
+        <body>
+          <trans-unit id="a"><source>Open</source><target>Öffnen</target></trans-unit>
+        </body>
+      </file>
+      <file source-language="en" target-language="de" datatype="plaintext" original="messages">
+        <body>
+          <trans-unit id="b"><source>Close</source><target>Schließen</target></trans-unit>
+        </body>
+      </file>
+    </xliff>
+    `;
+
+  const result = await xliffParser({ version: '1.2' })(xml);
+  expect(result).toEqual({
+    iso: 'en',
+    translations: [
+      { term: 'a', translation: 'Öffnen' },
+      { term: 'b', translation: 'Schließen' },
+    ],
+  });
+});
+
+test('should refuse a trans-unit without an id', async () => {
+  const xml = xliffWithTarget(`
+          <trans-unit datatype="html">
+            <source>Open</source>
+            <target>Öffnen</target>
+          </trans-unit>`);
+
+  await expect(xliffParser({ version: '1.2' })(xml)).rejects.toThrow();
+});
+
 test('should export xliff 1.2 files', async () => {
   const result = await xliffExporter({ version: '1.2' })({
     iso: 'de_DE',
