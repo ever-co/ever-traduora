@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Screen readers announce error messages when they appear. Before, nothing was read out: on the translations page the error of a failed save shows above the list, out of view when the edited row is further down, so a screen reader user believed the value was saved. The same held for the errors of the other pages (terms, labels, locales, team, API keys, project settings) and of a failed import or export. The warning icon of these messages is no longer read out as "warning". A translation save or an import that is tried again and fails with the same error is announced again, since the old error is removed while the retry runs
+
 - Security: CSV export also removes the `=`, `+`, `-`, `@`, tab and carriage
   return characters right after each `;` in a term or translation. A
   spreadsheet whose list separator is `;` (the default in many European

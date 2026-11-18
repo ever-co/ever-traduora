@@ -2,8 +2,10 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { Store } from '@ngxs/store';
+import { Subject, throwError } from 'rxjs';
 import { SelectLocaleComponent } from '../../../shared/components/select-locale/select-locale.component';
 import { Locale } from '../../models/locale';
+import { Project } from '../../models/project';
 import { ImportService } from '../../services/import.service';
 import { ImportLocaleComponent } from './import-locale.component';
 
@@ -57,5 +59,66 @@ describe('ImportLocaleComponent', () => {
     const list: HTMLElement = render().querySelector('app-select-locale [role="group"]');
 
     expect(list.getAttribute('aria-label')).toBe('Destination locale');
+  });
+});
+
+describe('ImportLocaleComponent import errors', () => {
+  const create = (importService: Partial<ImportService>) => {
+    TestBed.configureTestingModule({
+      imports: [FormsModule],
+      declarations: [ImportLocaleComponent, SelectLocaleComponent],
+      providers: [
+        { provide: ImportService, useValue: importService },
+        { provide: Store, useValue: {} },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
+    });
+    spyOn(console, 'error');
+    const fixture = TestBed.createComponent(ImportLocaleComponent);
+    const component = fixture.componentInstance;
+    component.project = { id: 'p1' } as Project;
+    component.knownLocales = [{ code: 'de_DE', language: 'German', region: 'Germany' }];
+    component.files = [new File(['{}'], 'de.json')];
+    fixture.detectChanges();
+    return { fixture, component };
+  };
+
+  it('shows the error of a failed import as an alert, so screen readers announce it', async () => {
+    // The API refuses the file as too large.
+    const { fixture, component } = create({ import: () => throwError(() => ({ status: 413 })) });
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+
+    await component.import();
+    fixture.detectChanges();
+
+    const alert: HTMLElement = fixture.nativeElement.querySelector('[role="alert"]');
+    expect(alert).withContext('the error is not in a role="alert" element').not.toBeNull();
+    expect(alert.textContent).toContain('The file that you are trying to import is too large');
+    expect(alert.querySelector('i.material-icons').getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('announces a retry that fails with the same error again, as a new alert', async () => {
+    let request: Subject<never>;
+    const { fixture, component } = create({ import: () => (request = new Subject<never>()) });
+    const failing = component.import();
+    request.error({ status: 413 });
+    await failing;
+    fixture.detectChanges();
+    const first: HTMLElement = fixture.nativeElement.querySelector('[role="alert"]');
+    expect(first).not.toBeNull();
+
+    const retry = component.import();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]'))
+      .withContext('the alert of the first failure is still shown while the retry runs')
+      .toBeNull();
+
+    request.error({ status: 413 });
+    await retry;
+    fixture.detectChanges();
+    const second: HTMLElement = fixture.nativeElement.querySelector('[role="alert"]');
+    expect(second).not.toBeNull();
+    expect(second).not.toBe(first);
+    expect(second.textContent).toBe(first.textContent);
   });
 });
