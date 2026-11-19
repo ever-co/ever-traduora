@@ -18,7 +18,7 @@ function sources(dir: string): string[] {
 }
 
 const read = (path: string) => readFileSync(join(SRC, path), 'utf8');
-const MODULE_DIRS = ['ever-instance/', 'ever-stats/', 'ever-platform/'];
+const MODULE_DIRS = ['ever-instance/', 'ever-stats/', 'ever-platform/', 'ever-connect/'];
 const inModule = (path: string) => MODULE_DIRS.some(dir => path.startsWith(dir));
 const isSpec = (path: string) => path.endsWith('.spec.ts');
 
@@ -45,10 +45,19 @@ describe('anonymous statistics: static checks', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('reaches Ever Platform from the connection only through the SDK client, in one file', () => {
+    const offenders = moduleFiles.filter(path => /from '@ever-co\/connect-sdk'/.test(read(path)) && !path.startsWith('ever-connect/'));
+    expect(offenders).toEqual([]);
+    const clients = moduleFiles.filter(path => /createEverPlatformClient\(/.test(read(path)));
+    expect(clients).toEqual(['ever-connect/ever-connect-platform.client.ts']);
+  });
+
   it('is imported only by app.module.ts and its own folders', () => {
     const offenders = all
       .filter(path => !inModule(path) && !isSpec(path) && path !== 'app.module.ts')
-      .filter(path => /from '\.{1,2}\/(.*\/)?ever-(instance|stats)\//.test(read(path)) || /from '\.\/ever-platform\/modules'/.test(read(path)));
+      .filter(
+        path => /from '\.{1,2}\/(.*\/)?ever-(instance|stats|connect)\//.test(read(path)) || /from '\.\/ever-platform\/modules'/.test(read(path)),
+      );
     expect(offenders).toEqual([]);
   });
 
