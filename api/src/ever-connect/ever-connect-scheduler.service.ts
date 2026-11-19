@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
+import { EverConnectPersonService } from './ever-connect-person.service';
 import { problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
@@ -39,6 +40,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     @Inject(EVER_CONNECT_SETTINGS) private readonly settings: EverConnectSettings,
     private readonly connect: EverConnectService,
     @Optional() @Inject(EVER_CONNECT_AUTOSTART) private readonly autostart?: boolean,
+    @Optional() private readonly person?: EverConnectPersonService,
   ) {}
 
   onModuleInit(): void {
@@ -121,6 +123,10 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
   }
 
   private async round(): Promise<void> {
+    // Expired exports and old receipts go, connected or not
+    if (this.person) {
+      await this.person.sweep().catch(error => this.logger.warn(`ever_connect.person_sweep error=${(error && error.name) || 'error'}`));
+    }
     const before = await this.connect.read();
     if (!this.connect.isLive(before) || !this.settings.apiUrl) {
       this.lastFeedAt = 0;
@@ -154,6 +160,9 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         this.lastFeedAt = now;
         await this.readFeed(this.settings.feedMode === 'longpoll' ? LONG_POLL_S : 0);
       }
+      if (connection.status === 'active' && this.person) {
+        await this.person.syncLinks().catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
+      }
     } finally {
       await this.release();
     }
@@ -185,6 +194,14 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     }
     if (page.events.length) {
       try {
+        // A person's deletion and export requests first: a failing state refresh never holds them back
+        if (this.person) {
+          await this.person.handleEvents(live.client, page.events);
+          if (page.events.some(event => event.type.startsWith('ever.consent'))) {
+            // The ever_id_login consent decides whether person links are reported
+            this.person.requestSync();
+          }
+        }
         await this.applyTypes(page.events.map(event => event.type));
       } catch (error) {
         // Not acknowledged: the same page comes again with the next read, and every handler reads the state again
@@ -223,6 +240,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       await this.connect.refreshEntitlements('system', true);
     }
     const known = ['ever.registry.instance.', 'ever.registry.tenant_link', 'ever.consent', 'ever.entitlements'];
+    if (this.person) known.push('ever.registry.person.deletion_requested', 'ever.registry.person.export_requested');
     for (const type of types) {
       if (!known.some(prefix => type.startsWith(prefix))) {
         this.logger.log(`ever_connect.feed event=${type.slice(0, 96)} outcome=acknowledged`);

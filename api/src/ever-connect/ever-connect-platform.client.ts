@@ -37,10 +37,30 @@ export interface RedeemAnswer {
   link: { id: string; orgId: string; state: string; displayName: string | null } | null;
 }
 
-/** One event of the instance feed. */
+/** One event of the instance feed: its id, its type and, for the types that carry one, its data. */
 export interface PlatformEvent {
   id: string;
   type: string;
+  data?: Record<string, unknown> | null;
+}
+
+/** A person link: a Traduora user and the Ever ID they signed in with (ids only, never an e-mail or a name). */
+export interface PersonLinkReport {
+  productUserRef: string;
+  identityIssuer: string;
+  identitySubject: string;
+  /** `explicit` (the user linked it) or `confirmed` (the user confirmed it when the account was made). */
+  linkMethod: 'explicit' | 'confirmed';
+  productTenantId?: string;
+  tenantLinkId?: string;
+  displayName?: string;
+}
+
+/** This installation's answer to a person's deletion or export request (the receipt). */
+export interface PersonRequestAnswer {
+  jobId: string;
+  result: 'anonymised' | 'exported' | 'no_account';
+  reasonCode?: string;
 }
 
 /** What a key generation answers: the private key is only ever stored wrapped. */
@@ -77,6 +97,12 @@ export interface EverConnectPlatformClient {
   deletePublicUrl(): Promise<void>;
   statsLink(body: { statement: string; statsInstanceId: string; statsPublicKey: string }, idempotencyKey: string): Promise<void>;
   disconnect(idempotencyKey: string): Promise<void>;
+  /** Reports a person link (the same report again answers the recorded link). */
+  reportPersonLink(link: PersonLinkReport): Promise<void>;
+  /** Removes the person link of a Traduora user. */
+  removePersonLink(productUserRef: string): Promise<void>;
+  /** Answers a person's deletion or export request. */
+  answerPersonRequest(answer: PersonRequestAnswer): Promise<void>;
 }
 
 /** What a client is built from. */
@@ -196,7 +222,18 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     },
     async events(cursor, waitS) {
       const page = await client.instances.events(cursor, { waitS });
-      return { events: page.events.map(event => ({ id: event.id, type: event.type })), lastId: page.last_id, hasMore: page.has_more };
+      return {
+        events: page.events.map(event => {
+          const data = (event as { data?: unknown }).data;
+          return {
+            id: event.id,
+            type: event.type,
+            data: data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null,
+          };
+        }),
+        lastId: page.last_id,
+        hasMore: page.has_more,
+      };
     },
     async ack(lastId) {
       await client.instances.ackEvents(lastId);
@@ -249,6 +286,27 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     },
     async disconnect(idempotencyKey) {
       await client.instances.disconnect(idempotencyKey);
+    },
+    async reportPersonLink(link) {
+      await client.instances.personLinks.create({
+        product_user_ref: link.productUserRef,
+        identity_issuer: link.identityIssuer,
+        identity_subject: link.identitySubject,
+        link_method: link.linkMethod,
+        ...(link.productTenantId ? { product_tenant_id: link.productTenantId } : {}),
+        ...(link.tenantLinkId ? { tenant_link_id: link.tenantLinkId } : {}),
+        ...(link.displayName ? { display_name: link.displayName } : {}),
+      });
+    },
+    async removePersonLink(productUserRef) {
+      await client.instances.personLinks.remove(productUserRef);
+    },
+    async answerPersonRequest(answer) {
+      await client.instances.ack({
+        job_id: answer.jobId,
+        result: answer.result,
+        ...(answer.reasonCode ? { detail: { reason_code: answer.reasonCode } } : {}),
+      });
     },
   };
 };

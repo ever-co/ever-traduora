@@ -1,5 +1,5 @@
 {
-  "description": "Inbound routes of the Ever Platform connection module. They exist only with TR_EVER_CONNECT_ENABLED=true. access: public = anyone, operator = a signed-in user with a confirmed e-mail listed in TR_EVER_ADMIN_EMAILS (default TR_ADMIN_EMAIL).",
+  "description": "Inbound routes of the Ever Platform connection module. They exist only with TR_EVER_CONNECT_ENABLED=true. access: public = anyone, operator = a signed-in user with a confirmed e-mail listed in TR_EVER_ADMIN_EMAILS (default TR_ADMIN_EMAIL), self = any signed-in user, for their own data only (never an API client).",
   "routes": [
     {
       "method": "GET",
@@ -65,6 +65,16 @@
       "method": "GET",
       "path": "/api/v1/ever-connect/audit",
       "access": "operator"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ever-connect/me/exports",
+      "access": "self"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ever-connect/me/exports/:jobId",
+      "access": "self"
     }
   ]
 }
