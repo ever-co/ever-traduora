@@ -390,10 +390,13 @@ export class EverConnectService {
     connection.status = status;
     connection.nextHeartbeatAt = null;
     connection.nextEntitlementAt = null;
+    connection.updatedAt = Date.now();
     this.cachedClient = null;
-    await this.save(connection);
-    // Ever Platform ended the person links with the connection: a later connection reports them again
-    await this.connections.manager.createQueryBuilder().delete().from(EverConnectPersonLink).execute();
+    // Ever Platform ended the person links with the connection (a later connection reports them again): both together
+    await this.connections.manager.transaction(async manager => {
+      await manager.save(connection);
+      await manager.createQueryBuilder().delete().from(EverConnectPersonLink).execute();
+    });
     await this.audit.record(`instance.${status}`, 'platform', reason);
     this.logger.warn(`ever_connect.connection state=${status} reason=${reason}`);
   }

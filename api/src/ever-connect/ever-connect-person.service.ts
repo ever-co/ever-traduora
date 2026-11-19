@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { subjectHash } from '@ever-co/connect-sdk';
 import { EntityManager, IsNull, LessThan, Not, Repository } from 'typeorm';
+import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectPersonExport } from '../entity/ever-connect-person-export.entity';
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
@@ -16,7 +17,7 @@ import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/e
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
 import { EverConnectAuditService } from './ever-connect-audit.service';
 import { EverConnectPlatformClient, PersonRequestAnswer, PlatformEvent, problemOf } from './ever-connect-platform.client';
-import { EverConnectService } from './ever-connect.service';
+import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
 
 /** The feed events of a person's requests, by the kind of request. */
@@ -433,10 +434,30 @@ export class EverConnectPersonService {
     if (!force && now - this.lastSweepAt < SWEEP_MS) return;
     this.lastSweepAt = now;
     await this.exports.delete({ expiresAt: LessThan(now) });
-    await this.requests.delete({ receivedAt: LessThan(now - PERSON_REQUEST_KEPT_MS), answeredAt: Not(IsNull()) });
+    // Kept 90 days from the answer: a request read again meanwhile gets the same answer
+    await this.requests.delete({ answeredAt: LessThan(now - PERSON_REQUEST_KEPT_MS) });
   }
 
   // Person links
+
+  /**
+   * Records a reported link only while the connection that reported it is still the active one, in one transaction with
+   * a lock on the connection row: a disconnect (which deletes every link) either comes after it or makes it a no-op, so
+   * a link of an ended connection is never recorded as reported.
+   */
+  private saveIfConnected(kid: string | null, row: EverConnectPersonLink): Promise<boolean> {
+    return this.links.manager.transaction(async manager => {
+      const current = await manager.findOne(EverConnectConnection, {
+        where: { id: CONNECTION_ID },
+        ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+      });
+      if (!current || current.kid !== kid || current.status !== 'active') {
+        return false;
+      }
+      await manager.save(row);
+      return true;
+    });
+  }
 
   /** Asks for a comparison of the person links at the next scheduler round. */
   requestSync(): void {
@@ -532,7 +553,8 @@ export class EverConnectPersonService {
           });
           continue;
         }
-        await this.links.save(
+        const saved = await this.saveIfConnected(
+          connection.kid,
           Object.assign(new EverConnectPersonLink(), {
             userIdentityId: identity.id,
             userId: identity.userId,
@@ -542,6 +564,10 @@ export class EverConnectPersonService {
             updatedAt: now,
           }),
         );
+        if (!saved) {
+          // The connection ended meanwhile (and with it every link): a later connection reports this one again
+          break;
+        }
         reported += 1;
       }
     }
