@@ -495,7 +495,7 @@ export class EverConnectManagedService {
         const dir = await this.backupDir();
         if (!dir) return { ok: false, reason: 'no_backup_directory' };
         try {
-          await fs.mkdir(dir, { recursive: true });
+          await fs.mkdir(dir, { recursive: true, mode: 0o700 });
           await fs.access(dir);
           return { ok: true };
         } catch {
