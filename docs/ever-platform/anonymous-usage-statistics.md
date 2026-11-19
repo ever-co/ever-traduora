@@ -96,7 +96,7 @@ as `rejected` and never signed or sent.
   credential, no redirect followed, a 10-second limit. The address must be `https`; plain `http` is accepted only for a
   local address (this machine, a private address range or a container name).
 - Answers: `202` is recorded as `sent`. `422` is recorded as `rejected` and nothing is sent again until the module is
-  upgraded, _Send now_ included. `409` (Ever Platform knows this instance id with another key) is recorded as `rejected`
+  upgraded or the instance identity is reset, _Send now_ included. `409` (Ever Platform knows this instance id with another key) is recorded as `rejected`
   with the hint _Reset instance identity_. `429`, `5xx` and connection errors are recorded as `failed` and tried again
   after 1 hour, 4 hours and 12 hours, then at the next day's slot. Any other answer is tried again at the next day's slot.
 
@@ -132,7 +132,7 @@ _Ever Platform → Statistics_ (in the account menu) shows the operator:
 - **Last payload**: the exact bytes of the last report, unchanged, with its date, its status and the HTTP answer (the
   last 12 attempts are kept in the `ever_stats_report` table);
 - **Send now** (at most once every 10 minutes) and **Reset instance identity** (a new `instance_id` and a new statistics
-  key; the list of past reports is cleared).
+  key; the list of past reports and any refusal until an upgrade are cleared).
 
 The same is available to the operator from the API:
 
