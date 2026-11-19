@@ -96,6 +96,19 @@ const parseList = <T>(text: string | null): T[] => {
   }
 };
 
+/** Whether a database error is a unique or primary key violation (PostgreSQL, MySQL, SQLite). */
+function isDuplicateKey(error: unknown): boolean {
+  const record = error as { code?: unknown; driverError?: { code?: unknown }; message?: unknown } | null;
+  const code = record && (record.code || (record.driverError && record.driverError.code));
+  return (
+    code === '23505' ||
+    code === 'ER_DUP_ENTRY' ||
+    code === 'SQLITE_CONSTRAINT_PRIMARYKEY' ||
+    code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+    (!!record && typeof record.message === 'string' && record.message.includes('UNIQUE constraint failed'))
+  );
+}
+
 /** The size and SHA-256 of a file, read as a stream (a backup can be larger than the memory the API may use). */
 function digest(file: string): Promise<{ size: number; sha256: string }> {
   return new Promise((resolve, reject) => {
@@ -285,9 +298,16 @@ export class EverConnectManagedService {
   // Requests from the feed
 
   /** The maintenance requests of a feed page. Throws when a result could not be sent: the page is read again. */
-  async handleEvents(client: EverConnectPlatformClient, events: ReadonlyArray<PlatformEvent>, connectionKid: string | null): Promise<void> {
+  async handleEvents(
+    client: EverConnectPlatformClient,
+    events: ReadonlyArray<PlatformEvent>,
+    connectionKid: string | null,
+    stillCurrent: () => Promise<boolean> = async () => true,
+  ): Promise<void> {
     for (const event of events) {
       if (event.type === MANAGED_REQUESTED_TYPE) {
+        // The connection that received the request must still be the active one when it starts
+        if (!(await stillCurrent())) return;
         await this.handle(client, event.data || {}, connectionKid);
       }
     }
@@ -338,8 +358,10 @@ export class EverConnectManagedService {
       row.status = 'refused';
       row.reason = refusal;
       // Audited with the outcome, whether or not Ever Platform receives it at once
+      await this.store(row, { status: 'failed' });
+      // Audited with the outcome, before Ever Platform is told (a failed send is retried from the stored result)
       await this.audit.record('managed.refused', 'platform', `kind=${kind} reason=${refusal}`);
-      await this.finish(client, row, { status: 'failed' });
+      await this.deliver(client, row);
       this.logger.log(`ever_connect.managed kind=${kind} outcome=refused reason=${refusal}`);
       return;
     }
@@ -356,13 +378,18 @@ export class EverConnectManagedService {
     row.status = result && result.status === 'succeeded' ? 'succeeded' : 'failed';
     row.reason = row.status === 'succeeded' ? null : report.outcome;
     row.sizeBytes = result && typeof result.size_bytes === 'number' ? result.size_bytes : null;
-    await this.audit.record('managed.result', 'platform', `kind=${kind} status=${row.status}${row.reason ? ` reason=${row.reason}` : ''}`);
-    this.logger.log(`ever_connect.managed kind=${kind} outcome=${report.outcome}`);
+    // The outcome is stored first: whatever fails after this, the result is never lost and the work never runs again
     if (result) {
-      await this.finish(client, row, result);
+      await this.store(row, result);
     } else {
       // Expired (Ever Platform expired it) or a repeated delivery: nothing to send
       await this.remember(row);
+    }
+    const reasonText = row.reason ? ` reason=${row.reason}` : '';
+    await this.audit.record('managed.result', 'platform', `kind=${kind} status=${row.status}${reasonText}`);
+    this.logger.log(`ever_connect.managed kind=${kind} outcome=${report.outcome}`);
+    if (result) {
+      await this.deliver(client, row);
     }
   }
 
@@ -381,8 +408,12 @@ export class EverConnectManagedService {
     try {
       await this.operations.insert(row);
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      // Another API process claimed it; any other error is thrown, so the feed page is read again
+      if (isDuplicateKey(error)) {
+        return false;
+      }
+      throw error;
     }
   }
 
@@ -391,7 +422,12 @@ export class EverConnectManagedService {
    * for the current connection only: work received by an ended connection is cancelled, never run or sent through
    * another one. A result Ever Platform cannot take now waits for the next round without holding back due work.
    */
-  async runDue(client: EverConnectPlatformClient, connectionKid: string | null, now = Date.now()): Promise<number> {
+  async runDue(
+    client: EverConnectPlatformClient,
+    connectionKid: string | null,
+    now = Date.now(),
+    stillCurrent: () => Promise<boolean> = async () => true,
+  ): Promise<number> {
     if (connectionKid) {
       await this.operations.update(
         { connectionKid: Not(connectionKid), status: 'deferred' },
@@ -426,19 +462,19 @@ export class EverConnectManagedService {
         await this.operations.update({ operationId: row.operationId }, { status: 'failed', reason: 'request_unreadable', request: null });
         continue;
       }
-      // The time each one starts at (an earlier one may have taken a while)
+      // The connection must still be the active one, and each starts at its own time (an earlier one may have taken a while)
+      if (!(await stillCurrent())) break;
       await this.handle(client, data, connectionKid, Math.max(now, Date.now()));
     }
     return due.length;
   }
 
-  /** Records the operation with its result, then sends the result. */
-  private async finish(client: EverConnectPlatformClient, row: EverConnectManagedOperation, result: ManagedResult): Promise<void> {
+  /** Records the operation with its result, still to be sent. */
+  private async store(row: EverConnectManagedOperation, result: ManagedResult): Promise<void> {
     row.request = null;
     row.notBefore = null;
     row.unsentResult = JSON.stringify(result);
     await this.remember(row);
-    await this.deliver(client, row);
   }
 
   /**
