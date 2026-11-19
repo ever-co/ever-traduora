@@ -412,6 +412,8 @@ describe('ImportController (e2e)', () => {
       .expect(400)
       .expect(res => {
         expect(res.body.error.code).toEqual('BadRequest');
+        // The client gets the parser's guidance, which names the line to fix
+        expect(res.body.error.message).toContain('Line 1 has content after the translation column');
       });
   });
 

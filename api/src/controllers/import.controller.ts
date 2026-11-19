@@ -46,7 +46,7 @@ import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
 import { arbParser } from '../formatters/arb';
-import { PaymentRequiredException } from './../errors';
+import { MalformedImportException, PaymentRequiredException } from './../errors';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiTags('Imports')
@@ -301,7 +301,7 @@ export class ImportController {
       }
     } catch (err) {
       const detail = err instanceof Error && err.message ? `: ${err.message}` : '';
-      throw new BadRequestException(`Malformed import file${detail}`);
+      throw new MalformedImportException(`Malformed import file${detail}`);
     }
   }
 }
