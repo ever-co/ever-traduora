@@ -7,6 +7,9 @@ concurrency:
   cancel-in-progress: true
 permissions:
   contents: read
+# No test ever calls an Ever Platform host: the anonymous statistics (on by default) are switched off in every job
+env:
+  TR_EVER_STATS_ENABLED: 'false'
 jobs:
   api-unit:
     runs-on: ${{ vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}

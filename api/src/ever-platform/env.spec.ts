@@ -8,23 +8,36 @@ describe('Ever Platform settings', () => {
   };
 
   describe('TR_EVER_STATS_ENABLED', () => {
-    it('is off when unset or empty', () => {
-      expect(read({}).settings.statsEnabled).toBe(false);
-      expect(read({ TR_EVER_STATS_ENABLED: '' }).settings.statsEnabled).toBe(false);
+    it('is on when unset or empty, without a warning', () => {
+      for (const env of [{}, { TR_EVER_STATS_ENABLED: '' }]) {
+        const { settings, warnings } = read(env);
+        expect(settings.statsEnabled).toBe(true);
+        expect(warnings).toEqual([]);
+      }
     });
 
-    it('is on only for the exact value true', () => {
-      expect(read({ TR_EVER_STATS_ENABLED: 'true' }).settings.statsEnabled).toBe(true);
+    it('is off only for the exact value false', () => {
       expect(read({ TR_EVER_STATS_ENABLED: 'false' }).settings.statsEnabled).toBe(false);
+      expect(read({ TR_EVER_STATS_ENABLED: 'true' }).settings.statsEnabled).toBe(true);
     });
 
-    it('keeps the default (off) for a malformed value and says so once', () => {
-      for (const value of ['TRUE', '1', 'yes', 'garbage']) {
+    it('keeps the default (on) for a malformed value and names it once', () => {
+      for (const value of ['FALSE', 'False', '0', 'no', 'off', 'garbage']) {
         const { settings, warnings } = read({ TR_EVER_STATS_ENABLED: value });
-        expect(settings.statsEnabled).toBe(false);
+        expect(settings.statsEnabled).toBe(true);
         expect(warnings).toHaveLength(1);
         expect(warnings[0]).toContain('TR_EVER_STATS_ENABLED');
+        expect(warnings[0]).toContain(`"${value}"`);
+        expect(warnings[0]).toContain('default (on)');
       }
+    });
+
+    it('shows the spaces around an otherwise plain value, so "false " is seen not to be false', () => {
+      const { settings, warnings } = read({ TR_EVER_STATS_ENABLED: 'false ' });
+      expect(settings.statsEnabled).toBe(true);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain('"false "');
+      expect(read({ TR_EVER_STATS_ENABLED: 'false.' }).warnings[0]).toContain('"false."');
     });
 
     it('never repeats a long value in a warning', () => {
@@ -35,8 +48,14 @@ describe('Ever Platform settings', () => {
   });
 
   it('reports nothing about the other settings while the statistics are off', () => {
-    const { warnings } = read({ TR_EVER_STATS_COUNTRY: 'Germany', TR_EVER_STATS_API_URL: 'http://example.com' });
+    const { warnings } = read({ TR_EVER_STATS_ENABLED: 'false', TR_EVER_STATS_COUNTRY: 'Germany', TR_EVER_STATS_API_URL: 'http://example.com' });
     expect(warnings).toEqual([]);
+  });
+
+  it('reports a malformed statistics setting while the statistics are on by default', () => {
+    const { warnings } = read({ TR_EVER_STATS_COUNTRY: 'Germany' });
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('TR_EVER_STATS_COUNTRY');
   });
 
   describe('TR_EVER_CONNECT_*', () => {

@@ -1,3 +1,8 @@
+// Both optional modules off: the connection is off by default, the statistics are switched off before the configuration
+// is read (with them on, the instance identity and its status route would load)
+process.env.TR_EVER_STATS_ENABLED = 'false';
+delete process.env.TR_EVER_CONNECT_ENABLED;
+
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
@@ -19,8 +24,8 @@ describe('Ever Platform connection left off (e2e)', () => {
   });
 
   it('is off unless TR_EVER_CONNECT_ENABLED is true', () => {
-    expect(process.env.TR_EVER_CONNECT_ENABLED || '').not.toBe('true');
     expect(config.everPlatform.connectEnabled).toBe(false);
+    expect(config.everPlatform.statsEnabled).toBe(false);
   });
 
   it('has no route', async () => {

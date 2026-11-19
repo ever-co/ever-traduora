@@ -170,7 +170,8 @@ export const config = {
     adminName: process.env.TR_ADMIN_NAME || 'Admin',
   },
 
-  // Optional Ever Platform modules (anonymous usage statistics). Off unless TR_EVER_STATS_ENABLED is 'true'; when off,
-  // the modules are not loaded and nothing is sent anywhere. See docs/ever-platform/.
+  // Optional Ever Platform modules. The anonymous usage statistics are on unless TR_EVER_STATS_ENABLED is exactly
+  // 'false'; the connection is off unless TR_EVER_CONNECT_ENABLED is exactly 'true'. A module that is off is not loaded
+  // and sends nothing. See docs/ever-platform/.
   everPlatform: readEverPlatformConfig(env),
 };

@@ -5,7 +5,7 @@
   <p class="text-muted">
     Once a day this installation sends a few counts (users, projects, terms, translations, locales and API clients) and two
     settings, signed with its own key. It never sends a name, an e-mail address, a project, a term, a translation or a key.
-    Turn it off here, or leave <code>TR_EVER_STATS_ENABLED</code> unset on the server.
+    Turn it off here, or set <code>TR_EVER_STATS_ENABLED=false</code> on the server.
   </p>
 
   <div *ngIf="message" class="alert alert-success">{{ message }}</div>

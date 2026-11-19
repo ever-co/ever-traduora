@@ -15,12 +15,13 @@ To download the source code for each release, check out [GitHub](https://github.
   keeps an audit trail of every change. Nothing is sent before the operator connects, and *Disconnect* ends it. See
   [Ever Platform connection](ever-platform/connection.md)
 
-- Optional anonymous usage statistics, off by default. With `TR_EVER_STATS_ENABLED=true` the API sends Ever Platform one
-  small signed report a day about the installation as a whole: how many users, projects, terms, translations, project
+- Anonymous usage statistics, on by default and turned off with `TR_EVER_STATS_ENABLED=false` (or the switch on the
+  _Ever Platform_ page). The API sends Ever Platform one small signed report a day about the installation as a whole: how many users, projects, terms, translations, project
   locales and API clients it has, how many translations changed this month, and whether Google sign-in and sign-ups are
   on. No name, e-mail address, project, term, translation or key is ever sent. The operator (`TR_EVER_ADMIN_EMAILS`,
   default `TR_ADMIN_EMAIL`) finds an _Ever Platform_ page in the account menu that shows what is sent, the last report,
-  _Send now_, a switch and _Reset instance identity_. Without the variable nothing is loaded and nothing is sent. See
+  _Send now_, a switch and _Reset instance identity_. With `TR_EVER_STATS_ENABLED=false` nothing is loaded and nothing is
+  sent. See
   [Anonymous usage statistics](ever-platform/anonymous-usage-statistics.md)
 
 - XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`

@@ -55,7 +55,7 @@ function keyAnswer(error: unknown): unknown {
 
 /**
  * The routes of the anonymous usage statistics (`/api/v1/ever-stats/*`), present only when the module is loaded
- * (`TR_EVER_STATS_ENABLED=true`). `health` is public; every other route answers the operator of the installation only.
+ * (unless `TR_EVER_STATS_ENABLED=false`). `health` is public; every other route answers the operator of the installation only.
  * No answer ever contains the statistics private key.
  */
 @Controller('api/v1/ever-stats')

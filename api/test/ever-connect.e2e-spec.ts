@@ -1,5 +1,7 @@
 // The optional modules are chosen when app.module.ts is first loaded: switch the connection on before anything imports it
 process.env.TR_EVER_CONNECT_ENABLED = 'true';
+// The statistics (on by default) stay off here: this suite talks to a local fake platform only
+process.env.TR_EVER_STATS_ENABLED = 'false';
 
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
