@@ -14,14 +14,14 @@ describe('EverConnectAuditService', () => {
     await dataSource.destroy();
   });
 
-  it('keeps the newest rows only, with a bounded query (MySQL takes no offset without a limit), and stays one chain', async () => {
+  it('keeps the newest rows only, trimming with a bounded query (MySQL takes no offset without a limit), as one chain', async () => {
     const repo = dataSource.getRepository(EverConnectAudit);
     const audit = new EverConnectAuditService(repo);
-    // Rows written before (by an older version that kept more): the next write trims them in a bounded batch
+    // Rows written before (a backlog larger than one trimming batch): each write trims at most 100 of them
     const now = Date.now();
     let prevHash: string | null = null;
     const older: EverConnectAudit[] = [];
-    for (let seq = 1; seq <= EVER_CONNECT_AUDIT_KEPT + 3; seq += 1) {
+    for (let seq = 1; seq <= 650; seq += 1) {
       const row = Object.assign(new EverConnectAudit(), {
         id: `row-${seq}`,
         seq,
@@ -39,16 +39,26 @@ describe('EverConnectAuditService', () => {
     const find = jest.spyOn(repo, 'find');
 
     await audit.record('instance.connect', 'user:u1', null);
+    const trimming = find.mock.calls.map(([options]) => options).filter(options => options && options.skip !== undefined);
+    expect(trimming.length).toBeGreaterThan(0);
+    for (const options of trimming) {
+      expect(options.take).toBeGreaterThan(0);
+      expect(options.take).toBeLessThanOrEqual(100);
+    }
+    expect(await repo.count()).toBe(551);
 
-    // Every trimming read is limited
-    for (const [options] of find.mock.calls) {
-      if (options && options.skip !== undefined) {
-        expect(options.take).toBeGreaterThan(0);
+    await audit.record('instance.disconnect', 'user:u1', null);
+    expect(await repo.count()).toBe(EVER_CONNECT_AUDIT_KEPT);
+
+    // The kept rows are still one chain, and an edited row shows
+    const kept = await repo.find({ order: { seq: 'ASC' } });
+    expect(kept[kept.length - 1]).toMatchObject({ seq: 652, action: 'instance.disconnect' });
+    for (let index = 0; index < kept.length; index += 1) {
+      expect(kept[index].hash).toBe(auditHash(kept[index]));
+      if (index > 0) {
+        expect(kept[index].prevHash).toBe(kept[index - 1].hash);
       }
     }
-    expect(await repo.count()).toBe(EVER_CONNECT_AUDIT_KEPT);
-    const [newest] = await audit.rows(1);
-    expect(newest).toMatchObject({ seq: EVER_CONNECT_AUDIT_KEPT + 4, action: 'instance.connect', prevHash });
-    expect(newest.hash).toBe(auditHash(newest));
+    expect(auditHash({ ...kept[0], detail: 'edited' })).not.toBe(kept[0].hash);
   });
 });
