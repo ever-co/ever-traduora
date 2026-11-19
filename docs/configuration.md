@@ -49,6 +49,13 @@ The API server can be configured via the following environment variables:
 | TR_AUTH_EVERID_ALLOWED_ISSUERS | Optional comma-separated list of up to two more issuers whose tokens sign in to accounts already connected to them                                                                     | not set               |
 | TR_AUTH_EVERID_PLATFORM_PROJECT_ID | The Ever Platform project ID: with Ever ID, adds its organization and audience scopes to the sign-in request. Leave empty for other OpenID Connect issuers, which then get the standard scopes only                                                             | not set               |
 | TR_AUTH_EVERID_BACKCHANNEL_LOGOUT_ENABLED | Accept OpenID Connect back-channel logout at 'https://$YOUR_TRADUORA_HOST/api/v1/auth/everid/backchannel-logout' (register it at the issuer)                                           | true                  |
+| TR_EVER_STATS_ENABLED        | Set to 'true' to send [anonymous usage statistics](ever-platform/anonymous-usage-statistics.md) to Ever Platform once a day (counts and two settings, never names, e-mails or project contents). Anything else keeps them off: the module is not loaded, has no route and sends nothing | false                 |
+| TR_EVER_STATS_API_URL        | Where the statistics are sent. Must be https (plain http only for localhost, a private address or a container name)                                                                  | TR_EVER_PLATFORM_API_URL |
+| TR_EVER_PLATFORM_API_URL     | The Ever Platform API                                                                                                                                                                  | https://api.ever.co   |
+| TR_EVER_STATS_COUNTRY        | The country the operator declares for the statistics, two letters (e.g. DE)                                                                                                          | ZZ (undeclared)       |
+| TR_EVER_INSTALL_SOURCE       | How this installation was set up, as its operator declares it: self-hosted, cloud, ever.sh, works_app, desktop or partner:<name>                                                       | self-hosted           |
+| TR_EVER_ADMIN_EMAILS         | Comma-separated e-mails of the users who operate this installation: only they see the Ever Platform page                                                                              | TR_ADMIN_EMAIL        |
+| TR_EVER_STATS_SEND_INTERVAL_S | Seconds between two statistics reports, for tests only (below 3600 only for a local TR_EVER_STATS_API_URL)                                                                           | 86400                 |
 
 ## Sign in with Ever ID (optional)
 

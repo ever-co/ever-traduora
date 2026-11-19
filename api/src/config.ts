@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'crypto';
 import { join } from 'path';
 import * as process from 'process';
 import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
+import { readEverPlatformConfig } from './ever-platform/env';
 
 const env = process.env;
 const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? value === 'true' : defaultValue);
@@ -168,4 +169,8 @@ export const config = {
     adminPassword: process.env.TR_ADMIN_PASSWORD || '',
     adminName: process.env.TR_ADMIN_NAME || 'Admin',
   },
+
+  // Optional Ever Platform modules (anonymous usage statistics). Off unless TR_EVER_STATS_ENABLED is 'true'; when off,
+  // the modules are not loaded and nothing is sent anywhere. See docs/ever-platform/.
+  everPlatform: readEverPlatformConfig(env),
 };

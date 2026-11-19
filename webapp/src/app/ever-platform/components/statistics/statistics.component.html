@@ -1,0 +1,106 @@
+<div class="h-100 overflow-scroll">
+  <div class="d-flex flex-1 flex-column justify-content-start align-items-center py-5 mb-5">
+    <div class="card w-100" style="max-width: 720px">
+      <div class="card-body">
+        <h4 class="card-title font-serif">Ever Platform</h4>
+
+        <div *ngIf="unavailable" class="alert alert-secondary">This page is not available.</div>
+
+        <ng-container *ngIf="status">
+          <h5 class="font-serif">Anonymous usage statistics</h5>
+          <p class="text-muted">
+            Once a day this installation sends a few counts (users, projects, terms, translations, locales and API clients) and two
+            settings, signed with its own key. It never sends a name, an e-mail address, a project, a term, a translation or a key.
+            Turn it off here, or leave <code>TR_EVER_STATS_ENABLED</code> unset on the server.
+          </p>
+
+          <div *ngIf="message" class="alert alert-success">{{ message }}</div>
+          <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+          <div *ngIf="status.keyState === 'key_unreadable'" class="alert alert-warning">
+            The statistics key of this installation cannot be read with the current TR_SECRET: a new instance identity is made
+            automatically before the next report.
+          </div>
+          <div *ngIf="status.keyState === 'secret_missing'" class="alert alert-warning">
+            TR_SECRET is not set on the server: the statistics key cannot be stored, so nothing is sent.
+          </div>
+          <div *ngIf="lastReport?.hint === 'reset_identity'" class="alert alert-warning">
+            Ever Platform knows this instance id with another key: reset the instance identity.
+          </div>
+
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <strong>{{ status.enabled ? 'On' : 'Off' }}</strong>
+              <span class="text-muted" [ngSwitch]="status.reason">
+                <ng-container *ngSwitchCase="'ui'"> (turned off on this page)</ng-container>
+                <ng-container *ngSwitchCase="'cloud-managed'"> (managed by the deployment)</ng-container>
+                <ng-container *ngSwitchCase="'no-destination'"> (the statistics address of the server cannot be used)</ng-container>
+                <ng-container *ngSwitchCase="'no-secret'"> (TR_SECRET is not set on the server)</ng-container>
+                <ng-container *ngSwitchDefault> (turned on in the server configuration)</ng-container>
+              </span>
+            </div>
+            <button
+              type="button"
+              class="btn btn-sm"
+              [ngClass]="status.toggleEnabled ? 'btn-outline-secondary' : 'btn-primary'"
+              [disabled]="busy || status.toggleReadOnly"
+              (click)="toggle(!status.toggleEnabled)"
+            >
+              {{ status.toggleEnabled ? 'Turn off' : 'Turn on' }}
+            </button>
+          </div>
+
+          <dl class="row small">
+            <dt class="col-sm-4">Next report</dt>
+            <dd class="col-sm-8">{{ status.nextSendAt ? (status.nextSendAt | date: 'medium') : '-' }}</dd>
+            <dt class="col-sm-4">Last report sent</dt>
+            <dd class="col-sm-8">{{ status.lastSentAt ? (status.lastSentAt | date: 'medium') : '-' }}</dd>
+            <dt class="col-sm-4">Instance id</dt>
+            <dd class="col-sm-8 text-monospace">{{ status.instanceId || '-' }}</dd>
+            <dt class="col-sm-4">Statistics key id</dt>
+            <dd class="col-sm-8 text-monospace">{{ status.keyId || '-' }}</dd>
+            <dt class="col-sm-4">Install source</dt>
+            <dd class="col-sm-8">{{ status.installSource }}</dd>
+            <dt class="col-sm-4">Country</dt>
+            <dd class="col-sm-8">{{ status.country }}</dd>
+          </dl>
+
+          <div class="d-flex flex-wrap mb-3">
+            <button type="button" class="btn btn-outline-primary btn-sm mr-2 mb-2" [disabled]="busy" (click)="showPreview()">What is sent</button>
+            <button type="button" class="btn btn-outline-primary btn-sm mr-2 mb-2" [disabled]="busy || !status.enabled" (click)="sendNow()">
+              Send now
+            </button>
+            <button type="button" class="btn btn-outline-danger btn-sm mb-2" [disabled]="busy" (click)="confirmingReset = true">
+              Reset instance identity
+            </button>
+          </div>
+
+          <div *ngIf="confirmingReset" class="alert alert-warning">
+            <p class="mb-2">
+              This installation gets a new random instance id and a new statistics key, and the list of past reports is cleared. Ever
+              Platform will see it as a new installation.
+            </p>
+            <button type="button" class="btn btn-danger btn-sm mr-2" [disabled]="busy" (click)="resetIdentity()">Reset</button>
+            <button type="button" class="btn btn-link btn-sm" (click)="confirmingReset = false">Cancel</button>
+          </div>
+
+          <ng-container *ngIf="preview">
+            <h6 class="font-serif">What is sent</h6>
+            <p class="small text-muted">The report this installation would send now. Nothing was sent.</p>
+            <pre class="bg-light p-2 small">{{ pretty(preview.payload) }}</pre>
+          </ng-container>
+
+          <h6 class="font-serif">Last payload</h6>
+          <ng-container *ngIf="lastReport; else noReport">
+            <p class="small text-muted">
+              {{ lastReport.sentAt ? 'Sent ' + (lastReport.sentAt | date: 'medium') : 'Not sent' }} · status {{ lastReport.status }}
+              <ng-container *ngIf="lastReport.httpStatus"> · HTTP {{ lastReport.httpStatus }}</ng-container>
+            </p>
+            <p class="small text-muted mb-1">The exact bytes that were signed and sent:</p>
+            <pre class="bg-light p-2 small" style="white-space: pre-wrap; word-break: break-all">{{ lastReport.payload }}</pre>
+          </ng-container>
+          <ng-template #noReport><p class="small text-muted">No report has been sent yet.</p></ng-template>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</div>

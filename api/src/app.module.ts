@@ -58,6 +58,17 @@ import { UserSeed } from './seeds/user.seed';
 import { dataSourceOptions } from './connection/datasource';
 import { serializeTransactions } from './connection/serialize-transactions';
 import { DbType } from './utils/database-type-helper';
+import { everPlatformModules } from './ever-platform/modules';
+
+/**
+ * The web app's index.html for every other GET path. Its catch-all route must be registered after every API route,
+ * including those of the optional modules imported below, so it lives in its own module imported last: Nest registers
+ * the routes of the root module first, then those of each imported module in import order.
+ */
+@Module({
+  controllers: [IndexController],
+})
+export class IndexModule {}
 
 @Module({
   imports: [
@@ -96,6 +107,10 @@ import { DbType } from './utils/database-type-helper';
       EverIdLogoutJti,
     ]),
     HttpModule,
+    // Optional Ever Platform modules: none unless TR_EVER_STATS_ENABLED is 'true'
+    ...everPlatformModules(config.everPlatform),
+    // Keep last (catch-all GET route)
+    IndexModule,
   ],
   controllers: [
     HealthController,
@@ -113,7 +128,6 @@ import { DbType } from './utils/database-type-helper';
     ProjectLabelController,
     ExportsController,
     LocaleController,
-    IndexController,
   ],
   providers: [
     {
