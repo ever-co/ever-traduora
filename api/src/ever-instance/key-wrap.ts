@@ -4,7 +4,7 @@
  * - The key pair is Ed25519 (`generateKeyPairSync('ed25519')`). It signs anonymous statistics reports and nothing else.
  * - The private key is stored encrypted with AES-256-GCM. The encryption key is derived with HKDF-SHA256 from
  *   `TR_SECRET`, salted with the installation's `instance_id`, for the purpose `ever-instance/stats-key` (also bound into
- *   the ciphertext as additional data).
+ *   the ciphertext as additional data). The Ever Platform connection key is wrapped the same way for its own purpose.
  * - A stored key reads `v1:<iv>:<tag>:<ciphertext>`, each part base64url.
  *
  * Nothing here logs, returns or throws key material or the secret. No network code.
@@ -23,8 +23,17 @@ import {
   verify as edVerify,
 } from 'crypto';
 
-const HKDF_INFO = 'ever-instance/stats-key';
-const AAD = Buffer.from('ever_instance:stats', 'utf8');
+/** What a wrapped key is for: each purpose has its own HKDF info and additional data, so no blob opens as another. */
+export interface KeyPurpose {
+  readonly info: string;
+  readonly aad: string;
+}
+
+/** The statistics key (`ever_instance.stats_private_key_enc`). */
+export const STATS_KEY_PURPOSE: KeyPurpose = { info: 'ever-instance/stats-key', aad: 'ever_instance:stats' };
+
+/** The Ever Platform connection key (`ever_connect_connection.connect_private_key_enc`). */
+export const CONNECT_KEY_PURPOSE: KeyPurpose = { info: 'ever-instance/connect-key', aad: 'ever_connect:connect' };
 
 export type EverInstanceKeyErrorCode = 'malformed' | 'secret_missing' | 'unreadable';
 
@@ -36,38 +45,48 @@ export class EverInstanceKeyError extends Error {
   }
 }
 
-function wrappingKey(secret: string, instanceId: string): Buffer {
+function wrappingKey(secret: string, salt: string, purpose: KeyPurpose): Buffer {
   if (!secret) {
     throw new EverInstanceKeyError('secret_missing');
   }
-  return Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.from(instanceId, 'utf8'), Buffer.from(HKDF_INFO, 'utf8'), 32));
+  return Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'utf8'), Buffer.from(salt, 'utf8'), Buffer.from(purpose.info, 'utf8'), 32));
 }
 
 /** Encrypts a PKCS#8 DER private key for storage. */
-export function wrapStatsKey(privateKeyDer: Buffer, secret: string, instanceId: string): string {
-  const key = wrappingKey(secret, instanceId);
+export function wrapKey(privateKeyDer: Uint8Array, secret: string, salt: string, purpose: KeyPurpose): string {
+  const key = wrappingKey(secret, salt, purpose);
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
-  cipher.setAAD(AAD);
+  cipher.setAAD(Buffer.from(purpose.aad, 'utf8'));
   const ciphertext = Buffer.concat([cipher.update(privateKeyDer), cipher.final()]);
   return ['v1', iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join(':');
 }
 
 /** Decrypts a stored key; throws {@link EverInstanceKeyError} (fails closed) when it cannot. */
-export function unwrapStatsKey(blob: string, secret: string, instanceId: string): Buffer {
+export function unwrapKey(blob: string, secret: string, salt: string, purpose: KeyPurpose): Buffer {
   const parts = typeof blob === 'string' ? blob.split(':') : [];
   if (parts.length !== 4 || parts[0] !== 'v1') {
     throw new EverInstanceKeyError('malformed');
   }
-  const key = wrappingKey(secret, instanceId);
+  const key = wrappingKey(secret, salt, purpose);
   try {
     const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(parts[1], 'base64url'));
-    decipher.setAAD(AAD);
+    decipher.setAAD(Buffer.from(purpose.aad, 'utf8'));
     decipher.setAuthTag(Buffer.from(parts[2], 'base64url'));
     return Buffer.concat([decipher.update(Buffer.from(parts[3], 'base64url')), decipher.final()]);
   } catch {
     throw new EverInstanceKeyError('unreadable');
   }
+}
+
+/** Encrypts the statistics private key, salted with the installation's statistics `instance_id`. */
+export function wrapStatsKey(privateKeyDer: Buffer, secret: string, instanceId: string): string {
+  return wrapKey(privateKeyDer, secret, instanceId, STATS_KEY_PURPOSE);
+}
+
+/** Decrypts the statistics private key. */
+export function unwrapStatsKey(blob: string, secret: string, instanceId: string): Buffer {
+  return unwrapKey(blob, secret, instanceId, STATS_KEY_PURPOSE);
 }
 
 /** The raw 32-byte public key as base64url without padding (43 characters). */

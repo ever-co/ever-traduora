@@ -56,6 +56,10 @@ The API server can be configured via the following environment variables:
 | TR_EVER_INSTALL_SOURCE       | How this installation was set up, as its operator declares it: self-hosted, cloud, ever.sh, works_app, desktop or partner:<name>                                                       | self-hosted           |
 | TR_EVER_ADMIN_EMAILS         | Comma-separated e-mails of the users who operate this installation: only they see the Ever Platform page                                                                              | TR_ADMIN_EMAIL        |
 | TR_EVER_STATS_SEND_INTERVAL_S | Seconds between two statistics reports, for tests only (below 3600 only for a local TR_EVER_STATS_API_URL)                                                                           | 86400                 |
+| TR_EVER_CONNECT_ENABLED      | Set to 'true' to load the [Ever Platform connection](ever-platform/connection.md). Anything else keeps it off: no route, nothing called. Even when on, nothing is sent before an operator connects | false                 |
+| TR_EVER_CONNECT_CODE         | A connect code from app.ever.co, redeemed once at start                                                                                                                               | not set               |
+| TR_EVER_CONNECT_INTEGRATIONS_DENY | Comma-separated integration keys kept off on this installation, whatever app.ever.co says                                                                                        | not set               |
+| TR_EVER_CONNECT_FEED_MODE    | How the connection reads its event feed: longpoll, or interval (every 15 minutes)                                                                                                     | longpoll              |
 
 ## Sign in with Ever ID (optional)
 

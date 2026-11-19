@@ -1,0 +1,70 @@
+{
+  "description": "Inbound routes of the Ever Platform connection module. They exist only with TR_EVER_CONNECT_ENABLED=true. access: public = anyone, operator = a signed-in user with a confirmed e-mail listed in TR_EVER_ADMIN_EMAILS (default TR_ADMIN_EMAIL).",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/ever-connect/health",
+      "access": "public"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ever-connect/status",
+      "access": "operator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/connect",
+      "access": "operator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/disconnect",
+      "access": "operator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/entitlement/refresh",
+      "access": "operator"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ever-connect/integrations",
+      "access": "operator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/integrations/refresh",
+      "access": "operator"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ever-connect/integrations/:key/consent-url",
+      "access": "operator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/integrations/:key/accept",
+      "access": "operator"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/integrations/:key/disable",
+      "access": "operator"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/ever-connect/public-url",
+      "access": "operator"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/ever-connect/public-url",
+      "access": "operator"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ever-connect/audit",
+      "access": "operator"
+    }
+  ]
+}

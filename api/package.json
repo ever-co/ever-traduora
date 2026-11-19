@@ -32,6 +32,7 @@
     "seed:default": "cross-env TR_SEED_DATA=true TR_DEFAULT_SEED_ONLY=true ts-node -r tsconfig-paths/register src/seeds/seed-cli.ts"
   },
   "dependencies": {
+    "@ever-co/connect-sdk": "1.0.0-rc.8",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.4",

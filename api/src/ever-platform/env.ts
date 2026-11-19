@@ -32,6 +32,9 @@ export const FALLBACK_ADMIN_EMAIL = 'local.admin@ever.co';
 
 const PARTNER = /^partner:[a-z0-9-]{2,32}$/;
 
+/** How the Ever Platform connection reads its event feed: a long poll, or one read every 15 minutes. */
+export type ConnectFeedMode = 'longpoll' | 'interval';
+
 /** The settings of the optional Ever Platform modules, read once at boot. */
 export interface EverPlatformConfig {
   /** `TR_EVER_PLATFORM_API_URL`, or `null` when it is set to an address that cannot be used. */
@@ -48,6 +51,20 @@ export interface EverPlatformConfig {
   statsSendIntervalS: number;
   /** The normalized e-mails of the users who operate this installation. */
   adminEmails: ReadonlyArray<string>;
+  /** Whether the Ever Platform connection module is loaded: only `TR_EVER_CONNECT_ENABLED=true` loads it. */
+  connectEnabled: boolean;
+  /** A connect code (`EVC-…`) to redeem once at boot, or `null` (`TR_EVER_CONNECT_CODE`). */
+  connectCode: string | null;
+  /** Integration keys the operator denies on this installation, whatever app.ever.co says (`TR_EVER_CONNECT_INTEGRATIONS_DENY`). */
+  connectIntegrationsDeny: ReadonlyArray<string>;
+  /** `TR_EVER_CONNECT_FEED_MODE`: `longpoll` (default) or `interval`. */
+  connectFeedMode: ConnectFeedMode;
+  /**
+   * For a local test platform only (the SDK ignores them for any other address): the issuer its documents name
+   * (`TR_EVER_PLATFORM_ISSUER`) and a file of extra root keys (`TR_EVER_PLATFORM_ROOT_KEYS_FILE`).
+   */
+  platformIssuer: string | null;
+  platformRootKeysFile: string | null;
 }
 
 const consoleWarn: Warn = message => console.warn(`[EverPlatform] ${message}`);
@@ -197,12 +214,37 @@ export function readSendInterval(env: Env, localDestination: boolean, warn: Warn
   return value;
 }
 
+/** `TR_EVER_CONNECT_FEED_MODE`: `longpoll` unless it is exactly `interval`; anything else is reported. */
+export function readFeedMode(env: Env = process.env, warn: Warn = consoleWarn): ConnectFeedMode {
+  const raw = (env.TR_EVER_CONNECT_FEED_MODE || '').trim();
+  if (raw === '' || raw === 'longpoll') {
+    return 'longpoll';
+  }
+  if (raw === 'interval') {
+    return 'interval';
+  }
+  warn('TR_EVER_CONNECT_FEED_MODE is neither "longpoll" nor "interval"; using longpoll.');
+  return 'longpoll';
+}
+
+/** A comma-separated list of integration keys, lower-cased, without empty or duplicate entries. */
+export function parseKeyList(raw: string | undefined): string[] {
+  const keys = (raw || '')
+    .split(',')
+    .map(key => key.trim().toLowerCase())
+    .filter(key => /^[a-z][a-z0-9_]{1,63}$/.test(key));
+  return Array.from(new Set(keys));
+}
+
 /** Reads every Ever Platform setting once. A malformed value falls back to its default with a warning. */
 export function readEverPlatformConfig(env: Env = process.env, warn: Warn = consoleWarn): EverPlatformConfig {
   const statsEnabled = readStrictBool('TR_EVER_STATS_ENABLED', false, env, warn);
+  const connectEnabled = readStrictBool('TR_EVER_CONNECT_ENABLED', false, env, warn);
   // The other settings are only reported when a module that reads them is loaded
   const statsWarn: Warn = statsEnabled ? warn : () => undefined;
-  const apiUrl = readApiUrl(['TR_EVER_PLATFORM_API_URL'], DEFAULT_EVER_PLATFORM_API_URL, env, statsWarn);
+  const connectWarn: Warn = connectEnabled ? warn : () => undefined;
+  const anyWarn: Warn = statsEnabled || connectEnabled ? warn : () => undefined;
+  const apiUrl = readApiUrl(['TR_EVER_PLATFORM_API_URL'], DEFAULT_EVER_PLATFORM_API_URL, env, anyWarn);
   const statsApiUrl = readApiUrl(['TR_EVER_STATS_API_URL', 'TR_EVER_PLATFORM_API_URL'], DEFAULT_EVER_PLATFORM_API_URL, env, statsWarn);
   let localDestination = false;
   try {
@@ -213,11 +255,17 @@ export function readEverPlatformConfig(env: Env = process.env, warn: Warn = cons
   const adminEmails = parseEmailList(env.TR_EVER_ADMIN_EMAILS);
   return {
     apiUrl,
-    installSource: readInstallSource(env, statsWarn),
+    installSource: readInstallSource(env, anyWarn),
     statsEnabled,
     statsApiUrl,
     statsCountry: readCountry(env, statsWarn),
     statsSendIntervalS: readSendInterval(env, localDestination, statsWarn),
     adminEmails: adminEmails.length ? adminEmails : [normalizeEmail(env.TR_ADMIN_EMAIL) || FALLBACK_ADMIN_EMAIL],
+    connectEnabled,
+    connectCode: (env.TR_EVER_CONNECT_CODE || '').trim() || null,
+    connectIntegrationsDeny: parseKeyList(env.TR_EVER_CONNECT_INTEGRATIONS_DENY),
+    connectFeedMode: readFeedMode(env, connectWarn),
+    platformIssuer: (env.TR_EVER_PLATFORM_ISSUER || '').trim() || null,
+    platformRootKeysFile: (env.TR_EVER_PLATFORM_ROOT_KEYS_FILE || '').trim() || null,
   };
 }
