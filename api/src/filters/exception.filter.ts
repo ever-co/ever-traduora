@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { AuthProviderException, FormatCannotHoldTermsException, PublishedPasswordException } from '../errors';
+import { AuthProviderException, EverPlatformException, FormatCannotHoldTermsException, PublishedPasswordException } from '../errors';
 import { isTransientDatabaseError } from '../utils/database-locks';
 
 @Catch()
@@ -16,6 +16,14 @@ export class CustomExceptionFilter implements ExceptionFilter {
           code: exception.code,
           message: exception.message,
           ...(exception.details ? { details: exception.details } : {}),
+        },
+      });
+    } else if (exception instanceof EverPlatformException) {
+      // Answers of the optional Ever Platform routes keep their status and code
+      response.status(exception.getStatus()).json({
+        error: {
+          code: exception.code,
+          message: exception.message,
         },
       });
     } else if (exception instanceof FormatCannotHoldTermsException) {
