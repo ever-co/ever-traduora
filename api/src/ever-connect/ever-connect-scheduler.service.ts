@@ -62,7 +62,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = null;
-      work()
+      void work()
         .catch(error => this.logger.warn(`ever_connect.scheduler error=${(error && error.name) || 'error'}`))
         .then(() => {
           if (!this.timer) this.arm(this.nextDelay());

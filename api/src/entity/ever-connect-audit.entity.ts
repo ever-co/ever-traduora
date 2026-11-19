@@ -3,7 +3,8 @@ import { epochMsTransformer } from './ever-platform-columns';
 
 /**
  * One change of the Ever Platform connection: who (a user id, never an e-mail), what and when. No secret, address or
- * user agent. Each row carries the SHA-256 of the previous one, so a removed or edited row shows.
+ * user agent. Each row carries the SHA-256 of the previous one, so a removed or edited row shows within the kept rows
+ * (the last 500; the oldest kept row names the hash of a row that was let go).
  */
 @Entity('ever_connect_audit')
 export class EverConnectAudit {

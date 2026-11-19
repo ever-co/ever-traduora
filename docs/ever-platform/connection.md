@@ -62,8 +62,8 @@ call and the page asks for a new code.
 ## Audit
 
 Every change (connect, consent states, switches, addresses, disconnect) is recorded with the time, what changed and who
-did it: a user id, `env`, `platform` or `system`, never an e-mail address. Each row carries the SHA-256 of the previous
-one, so a removed or edited row shows. The page lists the latest changes.
+did it: a user id, `env`, `platform` or `system`, never an e-mail address. The last 500 changes are kept; each row carries
+the SHA-256 of the previous one, so a removed or edited row shows among them. The page lists the latest changes.
 
 ## All settings
 

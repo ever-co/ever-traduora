@@ -1,7 +1,7 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CONSTANTS, codes, entitlementStatus, INTEGRATIONS, signCompactJws } from '@ever-co/connect-sdk';
-import { createHash, randomUUID } from 'crypto';
+import { createHash, randomInt, randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
@@ -257,7 +257,7 @@ export class EverConnectService {
     connection.entitlementError = null;
     connection.feedCursor = null;
     // The first heartbeat within five minutes, the documents at once
-    connection.nextHeartbeatAt = Date.now() + Math.floor(Math.random() * 5 * 60 * 1000);
+    connection.nextHeartbeatAt = Date.now() + randomInt(5 * 60 * 1000);
     connection.nextEntitlementAt = Date.now();
     this.cachedClient = { kid: connection.kid, client };
     await this.save(connection);
