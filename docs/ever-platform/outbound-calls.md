@@ -13,10 +13,12 @@ Every call the optional Ever Platform features of Traduora can make, with what i
 
 ## Connection calls
 
-Only with `TR_EVER_CONNECT_ENABLED=true`, and only after an operator connected (see [Ever Platform connection](connection.md)).
-Each goes to `TR_EVER_PLATFORM_API_URL` (default `https://api.ever.co`) through the Ever Platform SDK client: one origin, no
-redirect followed, no cookie, authenticated with a short-lived token the connection key obtains (a signed client assertion).
-Disconnecting, or Ever Platform revoking the installation, stops all of them.
+Only with `TR_EVER_CONNECT_ENABLED=true`. The first call is the redeem, when the operator presses *Connect* (or once at
+start for `TR_EVER_CONNECT_CODE`); every other call happens only after a successful redeem. Each goes to
+`TR_EVER_PLATFORM_API_URL` (default `https://api.ever.co`) through the Ever Platform SDK client: one origin, no redirect
+followed, no cookie. The redeem is authenticated by the connect code, the token request by a client assertion signed with
+the connection key, and every other call by the short-lived token it returns. Disconnecting, or Ever Platform revoking the
+installation, stops all of them.
 
 | Call | Endpoint | When | Carries |
 | --- | --- | --- | --- |

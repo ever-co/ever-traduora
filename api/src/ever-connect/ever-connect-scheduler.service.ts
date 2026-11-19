@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
@@ -121,8 +121,8 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
   }
 
   private async round(): Promise<void> {
-    const connection = await this.connect.read();
-    if (!this.connect.isLive(connection) || !this.settings.apiUrl) {
+    const before = await this.connect.read();
+    if (!this.connect.isLive(before) || !this.settings.apiUrl) {
       this.lastFeedAt = 0;
       return;
     }
@@ -131,13 +131,23 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       return;
     }
     try {
+      // Read again under the lease: another process may have made the due calls meanwhile
+      const connection = await this.connect.read();
+      if (!this.connect.isLive(connection)) {
+        return;
+      }
+      if (connection.status === 'pending_approval') {
+        // Until an owner or admin approves it, Ever Platform answers only the installation's own state
+        await this.connect.refreshSelf().catch(error => this.connect.handleCallError(error, 'state'));
+        return;
+      }
       if (!connection.nextHeartbeatAt || connection.nextHeartbeatAt <= now) {
         await this.connect.heartbeat();
-        await this.connections.update({ id: CONNECTION_ID }, { nextHeartbeatAt: now + HEARTBEAT_MS });
+        await this.connections.update({ id: CONNECTION_ID, kid: connection.kid }, { nextHeartbeatAt: now + HEARTBEAT_MS });
       }
       if (connection.status === 'active' && (!connection.nextEntitlementAt || connection.nextEntitlementAt <= now)) {
         await this.connect.refreshEntitlements().catch(() => undefined);
-        await this.connections.update({ id: CONNECTION_ID }, { nextEntitlementAt: now + ENTITLEMENT_MS });
+        await this.connections.update({ id: CONNECTION_ID, kid: connection.kid }, { nextEntitlementAt: now + ENTITLEMENT_MS });
       }
       const feedDue = this.settings.feedMode === 'longpoll' || now - this.lastFeedAt >= INTERVAL_FEED_MS;
       if (connection.status === 'active' && feedDue) {
@@ -174,11 +184,21 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       return 0;
     }
     if (page.events.length) {
-      await this.applyTypes(page.events.map(event => event.type));
+      try {
+        await this.applyTypes(page.events.map(event => event.type));
+      } catch (error) {
+        // Not acknowledged: the same page comes again with the next read, and every handler reads the state again
+        await this.connect.handleCallError(error, 'feed_apply');
+        return 0;
+      }
       await live.client.ack(page.lastId);
     }
     if (page.lastId && page.lastId !== live.connection.feedCursor) {
-      await this.connections.update({ id: CONNECTION_ID }, { feedCursor: page.lastId });
+      // Only from the position this read started at: a later reader's newer position is never moved back
+      await this.connections.update(
+        { id: CONNECTION_ID, kid: live.connection.kid, feedCursor: live.connection.feedCursor === null ? IsNull() : live.connection.feedCursor },
+        { feedCursor: page.lastId },
+      );
     }
     return page.events.length;
   }
@@ -194,13 +214,13 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       return;
     }
     if (has('ever.registry.tenant_link')) {
-      await this.connect.refreshLink().catch(error => this.connect.handleCallError(error, 'link'));
+      await this.connect.refreshSelf();
     }
     if (has('ever.consent')) {
-      await this.connect.refreshIntegrations().catch(error => this.connect.handleCallError(error, 'integrations'));
+      await this.connect.refreshIntegrations();
     }
     if (has('ever.entitlements') || has('ever.registry.tenant_link')) {
-      await this.connect.refreshEntitlements().catch(() => undefined);
+      await this.connect.refreshEntitlements();
     }
     const known = ['ever.registry.instance.', 'ever.registry.tenant_link', 'ever.consent', 'ever.entitlements'];
     for (const type of types) {

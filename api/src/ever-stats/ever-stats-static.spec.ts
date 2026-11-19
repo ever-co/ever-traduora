@@ -46,7 +46,8 @@ describe('anonymous statistics: static checks', () => {
   });
 
   it('reaches Ever Platform from the connection only through the SDK client, in one file', () => {
-    const offenders = moduleFiles.filter(path => /from '@ever-co\/connect-sdk'/.test(read(path)) && !path.startsWith('ever-connect/'));
+    const sdk = /['"]@ever-co\/connect-(sdk|contracts)['"]/;
+    const offenders = all.filter(path => !isSpec(path) && sdk.test(read(path)) && !path.startsWith('ever-connect/'));
     expect(offenders).toEqual([]);
     const clients = moduleFiles.filter(path => /createEverPlatformClient\(/.test(read(path)));
     expect(clients).toEqual(['ever-connect/ever-connect-platform.client.ts']);

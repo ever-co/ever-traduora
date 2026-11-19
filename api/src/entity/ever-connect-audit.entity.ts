@@ -10,6 +10,10 @@ export class EverConnectAudit {
   @PrimaryColumn({ type: 'varchar', length: 36, name: 'id' })
   id: string;
 
+  /** The position of the row in the chain: unique, so two API processes can never append after the same row. */
+  @Column({ type: 'int', name: 'seq', unique: true })
+  seq: number;
+
   @Column({ type: 'bigint', name: 'at', transformer: epochMsTransformer })
   at: number;
 

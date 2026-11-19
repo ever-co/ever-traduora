@@ -63,8 +63,8 @@ export interface EverConnectPlatformClient {
     idempotencyKey: string;
   }): Promise<RedeemAnswer>;
   heartbeat(body: { version: string; moduleVersion: string; integrationsDenied: string[] }): Promise<void>;
-  /** The link of this installation as Ever Platform sees it now, or null when it has none. */
-  link(): Promise<{ id: string; state: string; displayName: string | null } | null>;
+  /** The installation's state (`active`, `pending_approval`, ...) and its link as Ever Platform sees them now. */
+  self(): Promise<{ status: string; link: { id: string; state: string; displayName: string | null } | null }>;
   /** The newer verified document of the installation (`linkId` null) or of its link, `null` when unchanged. */
   entitlement(linkId: string | null, cached: StoredEntitlement | null): Promise<StoredEntitlement | null>;
   events(cursor: string | null, waitS: number): Promise<{ events: PlatformEvent[]; lastId: string; hasMore: boolean }>;
@@ -179,10 +179,13 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
         integrations_denied: body.integrationsDenied,
       });
     },
-    async link() {
+    async self() {
       const self = await client.instances.self();
       const link = self.tenant_links.find(candidate => candidate.state !== 'unlinked');
-      return link ? { id: link.id, state: link.state, displayName: link.display_name ?? null } : null;
+      return {
+        status: asString((self.instance as Record<string, unknown>).status) || 'active',
+        link: link ? { id: link.id, state: link.state, displayName: link.display_name ?? null } : null,
+      };
     },
     async entitlement(linkId, cached) {
       const answer = linkId ? await client.instances.linkEntitlement(linkId, cached?.seq) : await client.instances.entitlement(cached?.seq);
@@ -201,7 +204,15 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     async integrations() {
       const answer = await client.instances.integrations();
       const out: Record<string, PlatformIntegrationState> = {};
-      for (const [key, value] of Object.entries(answer.instance as Record<string, Record<string, unknown>>)) {
+      const states = answer && (answer.instance as unknown);
+      if (!states || typeof states !== 'object' || Array.isArray(states)) {
+        throw new Error('integration states: unexpected answer');
+      }
+      for (const [key, value] of Object.entries(states as Record<string, Record<string, unknown>>)) {
+        // A malformed entry fails the whole read: the stored states (and any revoke still to send) stay as they are
+        if (!value || typeof value !== 'object' || typeof value.state !== 'string') {
+          throw new Error('integration states: unexpected entry');
+        }
         out[key] = {
           state: asString(value.state) || 'available',
           enabled: value.enabled === true,

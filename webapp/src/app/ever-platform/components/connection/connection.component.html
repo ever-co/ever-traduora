@@ -1,13 +1,16 @@
+<h5 class="font-serif">Connection</h5>
+<div *ngIf="message" class="alert alert-success">{{ message }}</div>
+<div *ngIf="errorMessage" class="alert alert-danger" role="alert">
+  {{ errorMessage }}
+  <button *ngIf="!status" type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="refresh()">Try again</button>
+</div>
+
 <ng-container *ngIf="status">
-  <h5 class="font-serif">Connection</h5>
   <p class="text-muted">
     Connect this installation to your organization on Ever Platform with a connect code from app.ever.co. Nothing is sent before
     you connect. Integrations start only after an owner or admin of your organization consents to each one in app.ever.co, and
     you can switch any of them off here or disconnect at any time.
   </p>
-
-  <div *ngIf="message" class="alert alert-success">{{ message }}</div>
-  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
 
   <ng-container *ngIf="!status.connected">
     <p *ngIf="status.status === 'revoked'" class="alert alert-warning">Ever Platform revoked this connection. Connect again with a new code.</p>
@@ -92,6 +95,10 @@
             </button>
           </div>
         </div>
+        <p *ngIf="consentLink?.key === integration.key" class="small mt-2 mb-0">
+          <a [href]="consentLink.url" target="_blank" rel="noopener noreferrer">Open app.ever.co to enable it</a>, then press "Check
+          again".
+        </p>
         <table *ngIf="shownScope === integration.key" class="table table-sm small mt-2 mb-0">
           <thead>
             <tr>

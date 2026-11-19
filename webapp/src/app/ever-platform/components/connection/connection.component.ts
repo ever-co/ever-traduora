@@ -39,6 +39,10 @@ export class ConnectionComponent implements OnInit {
   shownScope: string | null = null;
   message: string | null = null;
   errorMessage: string | null = null;
+  /** The app.ever.co address the operator opens to consent (a plain link: no window is opened for them). */
+  consentLink: { key: string; url: string } | null = null;
+  /** Answers of reads started before the last change are dropped. */
+  private generation = 0;
 
   constructor(private everPlatform: EverPlatformService) {}
 
@@ -47,23 +51,41 @@ export class ConnectionComponent implements OnInit {
   }
 
   refresh(): void {
+    const generation = ++this.generation;
+    const current = () => generation === this.generation;
     this.everPlatform.status().subscribe({
       next: status => {
+        if (!current()) return;
         this.status = status;
         if (status.connected) {
-          this.everPlatform
-            .integrations()
-            .subscribe({ next: integrations => (this.integrations = integrations), error: () => (this.integrations = []) });
+          this.everPlatform.integrations().subscribe({
+            next: integrations => {
+              if (current()) this.integrations = integrations;
+            },
+            error: () => {
+              if (current()) this.integrations = [];
+            },
+          });
         } else {
           this.integrations = [];
         }
       },
-      error: error => this.fail(error),
+      error: error => {
+        if (current()) this.fail(error);
+      },
     });
-    this.everPlatform.audit().subscribe({ next: rows => (this.audit = rows), error: () => (this.audit = []) });
+    this.everPlatform.audit().subscribe({
+      next: rows => {
+        if (current()) this.audit = rows;
+      },
+      error: () => {
+        if (current()) this.audit = [];
+      },
+    });
   }
 
   connect(): void {
+    this.generation++;
     this.clearMessages();
     this.busy = true;
     this.everPlatform.connect(this.code.trim(), this.displayName.trim()).subscribe({
@@ -80,6 +102,7 @@ export class ConnectionComponent implements OnInit {
   }
 
   disconnect(): void {
+    this.generation++;
     this.clearMessages();
     this.busy = true;
     this.everPlatform.disconnect().subscribe({
@@ -93,13 +116,16 @@ export class ConnectionComponent implements OnInit {
     });
   }
 
+  /** Check again: the integrations from Ever Platform, then the connection and its changes. */
   refreshIntegrations(): void {
+    this.generation++;
     this.clearMessages();
     this.busy = true;
     this.everPlatform.refreshIntegrations().subscribe({
       next: integrations => {
         this.busy = false;
         this.integrations = integrations;
+        this.refresh();
       },
       error: error => this.fail(error),
     });
@@ -108,11 +134,9 @@ export class ConnectionComponent implements OnInit {
   /** Opens app.ever.co, where an owner or admin of the organization consents; nothing is enabled here. */
   enable(key: string): void {
     this.clearMessages();
+    this.consentLink = null;
     this.everPlatform.consentUrl(key).subscribe({
-      next: url => {
-        window.open(url, '_blank', 'noopener');
-        this.message = 'Finish in app.ever.co, then press "Check again".';
-      },
+      next: url => (this.consentLink = { key, url }),
       error: error => this.fail(error),
     });
   }
@@ -138,6 +162,7 @@ export class ConnectionComponent implements OnInit {
   }
 
   private run(call: ReturnType<EverPlatformService['disable']>, done: string): void {
+    this.generation++;
     this.clearMessages();
     this.busy = true;
     call.subscribe({

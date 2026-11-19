@@ -169,6 +169,41 @@ describe('EverConnectService', () => {
     expect(views.find(view => view.key === 'stats_link').state).toBe('enabled');
   });
 
+  it('waits for approval, reading only its own state, then starts', async () => {
+    const { connect, scheduler } = build();
+    platform.redeemStatus = 'pending_approval';
+    platform.instanceStatus = 'pending_approval';
+    await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
+    platform.calls.length = 0;
+    await scheduler.tick();
+    expect(platform.names()).toEqual(['self']);
+    expect((await connect.status()).status).toBe('pending_approval');
+
+    platform.instanceStatus = 'active';
+    platform.calls.length = 0;
+    await scheduler.tick();
+    expect((await connect.status()).status).toBe('active');
+    expect(platform.names()).toEqual(expect.arrayContaining(['self', 'entitlement', 'integrations']));
+  });
+
+  it('keeps an integration off here while its revoke waits, and never sends to a denied one', async () => {
+    const { connect } = build();
+    await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
+    platform.integrationStates.instance_url = { state: 'enabled', enabled: true, consentId: 'c1', scopeVersion: 1 };
+    await connect.refreshIntegrations();
+    platform.unreachable = true;
+    await connect.disableIntegration('instance_url', 'user:u1');
+    platform.unreachable = false;
+    // Ever Platform was not told yet, so it still reports the integration on
+    platform.integrationStates.instance_url = { state: 'enabled', enabled: true, consentId: 'c1', scopeVersion: 1 };
+    const views = await connect.refreshIntegrations();
+    expect(views.find(view => view.key === 'instance_url')).toMatchObject({ state: 'disabled', pendingRemoteRevoke: true });
+
+    const denied = build({ integrationsDeny: ['instance_url'] }).connect;
+    await expect(denied.setPublicUrl('https://translate.example.com', 'user:u1')).rejects.toMatchObject({ code: 'denied_by_policy' });
+    expect(platform.names()).not.toContain('putPublicUrl');
+  });
+
   it('stops calling once Ever Platform revoked the installation', async () => {
     const { connect, scheduler } = build();
     await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');

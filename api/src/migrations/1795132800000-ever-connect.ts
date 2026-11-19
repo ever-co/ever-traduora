@@ -53,13 +53,15 @@ export class everConnect1795132800000 implements MigrationInterface {
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "ever_connect_audit" (
             "id" varchar(36) NOT NULL,
+            "seq" integer NOT NULL,
             "at" bigint NOT NULL,
             "action" varchar(48) NOT NULL,
             "actor_ref" varchar(64) NOT NULL,
             "detail" varchar(255) NULL,
             "prev_hash" varchar(64) NULL,
             "hash" varchar(64) NOT NULL,
-            CONSTRAINT "PK_ever_connect_audit" PRIMARY KEY ("id")
+            CONSTRAINT "PK_ever_connect_audit" PRIMARY KEY ("id"),
+            CONSTRAINT "UQ_ever_connect_audit_seq" UNIQUE ("seq")
           );`,
         );
         await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_ever_connect_audit_at" ON "ever_connect_audit" ("at");`);
@@ -107,6 +109,7 @@ export class everConnect1795132800000 implements MigrationInterface {
         await queryRunner.query(
           'CREATE TABLE IF NOT EXISTS `ever_connect_audit` (' +
             '`id` varchar(36) NOT NULL, ' +
+            '`seq` int NOT NULL, ' +
             '`at` bigint NOT NULL, ' +
             '`action` varchar(48) NOT NULL, ' +
             '`actor_ref` varchar(64) NOT NULL, ' +
@@ -114,6 +117,7 @@ export class everConnect1795132800000 implements MigrationInterface {
             '`prev_hash` varchar(64) NULL DEFAULT NULL, ' +
             '`hash` varchar(64) NOT NULL, ' +
             'PRIMARY KEY (`id`), ' +
+            'UNIQUE INDEX `UQ_ever_connect_audit_seq` (`seq`), ' +
             'INDEX `IDX_ever_connect_audit_at` (`at`)' +
             ') ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
         );
@@ -159,6 +163,7 @@ export class everConnect1795132800000 implements MigrationInterface {
         await queryRunner.query(
           `CREATE TABLE IF NOT EXISTS "ever_connect_audit" (
             "id" VARCHAR(36) PRIMARY KEY NOT NULL,
+            "seq" INTEGER NOT NULL UNIQUE,
             "at" BIGINT NOT NULL,
             "action" VARCHAR(48) NOT NULL,
             "actor_ref" VARCHAR(64) NOT NULL,

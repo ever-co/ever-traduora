@@ -147,7 +147,8 @@ export class EverConnectService {
   /** The entitlement state of the installation, from the stored (verified) document only. */
   entitlementState(connection: EverConnectConnection | null, nowS = Math.floor(Date.now() / 1000)): EverConnectStatus['entitlement'] {
     const stored = parseJson<StoredEntitlements>(connection?.entitlements ?? null, { instance: null, link: null });
-    const doc = stored.link || stored.instance;
+    // A link document counts only while the link is active
+    const doc = (connection?.linkState === 'active' && stored.link) || stored.instance;
     if (!doc) {
       return { state: 'none', tier: null, expiresAt: null, error: connection?.entitlementError ?? null };
     }
@@ -198,9 +199,11 @@ export class EverConnectService {
     if (this.isLive(existing)) {
       throw conflict('already_connected', 'This installation is already connected');
     }
+    const previousStatus = existing ? existing.status : 'not_connected';
+    await this.claim();
 
     const key = generateConnectKey();
-    const connection = existing || new EverConnectConnection();
+    const connection = (await this.read()) || new EverConnectConnection();
     connection.id = CONNECTION_ID;
     connection.connectPublicKey = key.publicKey;
     connection.connectPrivateKeyEnc = wrapKey(key.privateKeyDer, this.instanceSettings.secret, key.publicKey, CONNECT_KEY_PURPOSE);
@@ -228,6 +231,7 @@ export class EverConnectService {
         idempotencyKey: randomUUID(),
       });
     } catch (error) {
+      await this.connections.update({ id: CONNECTION_ID, status: 'connecting' }, { status: previousStatus, updatedAt: Date.now() });
       const problem = problemOf(error);
       this.logger.warn(`ever_connect.connect outcome=refused reason=${problem ? `${problem.status}:${problem.code}` : 'connection_error'}`);
       if (problem && problem.status < 500) {
@@ -270,6 +274,33 @@ export class EverConnectService {
     return this.status();
   }
 
+  /**
+   * Claims the connection row for one connect at a time, across API processes: the row moves to `connecting` only from
+   * a state that is not connected (or from a `connecting` older than a minute, left by a process that stopped).
+   */
+  private async claim(): Promise<void> {
+    const now = Date.now();
+    await this.connections
+      .createQueryBuilder()
+      .insert()
+      .into(EverConnectConnection)
+      .values({ id: CONNECTION_ID, status: 'not_connected', updatedAt: now })
+      .orIgnore()
+      .execute();
+    const result = await this.connections
+      .createQueryBuilder()
+      .update(EverConnectConnection)
+      .set({ status: 'connecting', updatedAt: now })
+      .where('id = :id', { id: CONNECTION_ID })
+      .andWhere("(status NOT IN ('active', 'pending_approval', 'connecting') OR (status = 'connecting' AND updated_at < :stale))", {
+        stale: now - 60000,
+      })
+      .execute();
+    if (result.affected === 0) {
+      throw conflict('already_connected', 'This installation is already connected, or being connected');
+    }
+  }
+
   /** Redeems `TR_EVER_CONNECT_CODE` once at boot, when nothing is connected and this code was never tried. */
   async connectFromEnv(): Promise<void> {
     const code = this.settings.connectCode;
@@ -282,11 +313,15 @@ export class EverConnectService {
     try {
       await this.connect(code, 'Traduora', 'env:TR_EVER_CONNECT_CODE');
     } catch (error) {
-      // A refused code is never tried again; Ever Platform out of reach is tried at the next start
-      if (error instanceof EverPlatformException && error.code === 'platform_unavailable') {
+      const reason = error instanceof EverPlatformException ? error.code : 'error';
+      this.logger.warn(`ever_connect.env_code outcome=refused reason=${reason}`);
+      // Only a code Ever Platform refused is retired; one never sent (no TR_SECRET, no address, platform out of reach,
+      // another connect running) is tried again at the next start
+      const refusedByPlatform = error instanceof EverPlatformException && error.getStatus() === 422;
+      const malformed = error instanceof EverPlatformException && error.code === 'code_invalid' && error.getStatus() === 400;
+      if (!refusedByPlatform && !malformed) {
         return;
       }
-      this.logger.warn(`ever_connect.env_code outcome=refused reason=${error instanceof EverPlatformException ? error.code : 'error'}`);
     }
     const after = (await this.read()) || Object.assign(new EverConnectConnection(), { id: CONNECTION_ID, status: 'not_connected' });
     after.envCodeHash = hash;
@@ -325,18 +360,24 @@ export class EverConnectService {
     connection.linkState = connection.linkId ? 'unlinked' : null;
     connection.nextHeartbeatAt = null;
     connection.nextEntitlementAt = null;
+    connection.updatedAt = Date.now();
     this.cachedClient = null;
-    await this.save(connection);
-    await this.integrationRows.clear();
+    // The connection and its integration states end together
+    await this.connections.manager.transaction(async manager => {
+      await manager.save(connection);
+      await manager.createQueryBuilder().delete().from(EverConnectIntegration).execute();
+    });
     await this.audit.record('instance.disconnect', actorRef, `remote=${remote}`);
     this.logger.log(`ever_connect.disconnect remote=${remote}`);
     return this.status();
   }
 
   /** The platform ended this installation's connection (revoked, or disconnected from app.ever.co). */
-  async endedByPlatform(status: 'revoked' | 'disconnected', reason: string): Promise<void> {
+  async endedByPlatform(status: 'revoked' | 'disconnected', reason: string, kid?: string | null): Promise<void> {
     const connection = await this.read();
     if (!connection || connection.status === status) return;
+    // An answer about an earlier connection key never ends the connection that replaced it
+    if (kid !== undefined && kid !== connection.kid) return;
     connection.status = status;
     connection.nextHeartbeatAt = null;
     connection.nextEntitlementAt = null;
@@ -347,13 +388,13 @@ export class EverConnectService {
   }
 
   /** What to do with an error of a call: a revoked credential ends the connection; anything else is reported as a code. */
-  async handleCallError(error: unknown, call: string): Promise<string> {
+  async handleCallError(error: unknown, call: string, kid?: string | null): Promise<string> {
     if (error instanceof EverInstanceKeyError) {
       return `key_${error.code}`;
     }
     const problem = problemOf(error);
     if (problem && problem.status === 401 && problem.code === 'credential_revoked') {
-      await this.endedByPlatform('revoked', `${call}:credential_revoked`);
+      await this.endedByPlatform('revoked', `${call}:credential_revoked`, kid);
     }
     const reason = problem ? `${problem.status}:${problem.code}` : 'unreachable';
     this.logger.warn(`ever_connect.${call} outcome=failed reason=${reason}`);
@@ -363,18 +404,19 @@ export class EverConnectService {
   /** One heartbeat: the version, the module version and the integrations denied here. Also resends a pending revoke. */
   async heartbeat(): Promise<void> {
     const live = await this.liveClient();
-    if (!live) return;
+    // While waiting for approval, Ever Platform answers only the installation's own state (see refreshSelf)
+    if (!live || live.connection.status !== 'active') return;
     try {
       await live.client.heartbeat({
         version: this.settings.version,
         moduleVersion: CONNECT_MODULE_VERSION,
         integrationsDenied: [...this.settings.integrationsDeny],
       });
-      live.connection.lastHeartbeatAt = Date.now();
-      await this.save(live.connection);
+      // Only this field, and only while the same connection is still there (a disconnect may have happened meanwhile)
+      await this.connections.update({ id: CONNECTION_ID, kid: live.connection.kid }, { lastHeartbeatAt: Date.now(), updatedAt: Date.now() });
       await this.flushPendingRevokes(live.client);
     } catch (error) {
-      await this.handleCallError(error, 'heartbeat');
+      await this.handleCallError(error, 'heartbeat', live.connection.kid);
     }
   }
 
@@ -398,30 +440,59 @@ export class EverConnectService {
         if (linkDoc) stored.link = linkDoc;
       }
     } catch (caught) {
-      error = await this.handleCallError(caught, 'entitlement');
+      error = await this.handleCallError(caught, 'entitlement', connection.kid);
     }
-    const fresh = (await this.read()) || connection;
-    fresh.entitlements = JSON.stringify(stored);
-    fresh.entitlementError = error ? error.slice(0, 64) : null;
-    await this.save(fresh);
+    // Another refresh may have stored a newer document meanwhile: per subject, the higher sequence wins
+    const latest = await this.read();
+    if (latest && latest.kid === connection.kid) {
+      const theirs = parseJson<StoredEntitlements>(latest.entitlements, { instance: null, link: null });
+      for (const subject of ['instance', 'link'] as const) {
+        if (theirs[subject] && (!stored[subject] || theirs[subject].seq > stored[subject].seq)) {
+          stored[subject] = theirs[subject];
+        }
+      }
+    }
+    await this.connections.update(
+      { id: CONNECTION_ID, kid: connection.kid },
+      { entitlements: JSON.stringify(stored), entitlementError: error ? error.slice(0, 64) : null, updatedAt: Date.now() },
+    );
     if (actorRef !== 'system') {
       await this.audit.record('entitlement.refresh', actorRef, error ? `error=${error}` : null);
     }
-    return this.entitlementState(fresh);
+    return this.entitlementState(await this.read());
   }
 
-  /** Reads the state of the link of this installation again (after a feed event about it). */
-  async refreshLink(): Promise<void> {
+  /**
+   * Reads the installation's own state and its link again: while waiting for approval (every minute), and after a feed
+   * event about the link. An approval starts the documents and the integrations; a removed link drops its document.
+   */
+  async refreshSelf(): Promise<void> {
     const live = await this.liveClient();
     if (!live) return;
-    const link = await live.client.link();
-    const connection = live.connection;
-    const before = connection.linkState;
-    connection.linkId = link ? link.id : connection.linkId;
-    connection.linkState = link ? link.state : connection.linkId ? 'unlinked' : null;
-    await this.save(connection);
-    if (before !== connection.linkState) {
-      await this.audit.record('link.state', 'platform', `state=${connection.linkState}`);
+    const { connection, client } = live;
+    const self = await client.self();
+    if (self.status === 'revoked' || self.status === 'disconnected') {
+      await this.endedByPlatform(self.status, 'state');
+      return;
+    }
+    const status = self.status === 'active' || self.status === 'pending_approval' ? self.status : connection.status;
+    const linkId = self.link ? self.link.id : connection.linkId;
+    const linkState = self.link ? self.link.state : connection.linkId ? 'unlinked' : null;
+    const stored = parseJson<StoredEntitlements>(connection.entitlements, { instance: null, link: null });
+    if (stored.link && (linkState !== 'active' || linkId !== connection.linkId)) {
+      stored.link = null;
+    }
+    await this.connections.update(
+      { id: CONNECTION_ID, kid: connection.kid },
+      { status, linkId, linkState, entitlements: JSON.stringify(stored), updatedAt: Date.now() },
+    );
+    if (connection.linkState !== linkState) {
+      await this.audit.record('link.state', 'platform', `state=${linkState}`);
+    }
+    if (connection.status === 'pending_approval' && status === 'active') {
+      await this.audit.record('instance.approved', 'platform', null);
+      await this.refreshEntitlements('system').catch(() => undefined);
+      await this.refreshIntegrations().catch(() => undefined);
     }
   }
 
@@ -432,40 +503,46 @@ export class EverConnectService {
       return this.integrations();
     }
     const states = await live.client.integrations();
+    // A disconnect (or another connection) while the states were read: they belong to a connection that has ended
+    const current = await this.read();
+    if (!current || current.kid !== live.connection.kid || !this.isLive(current)) {
+      return this.integrations();
+    }
     for (const key of TRADUORA_INTEGRATIONS) {
       const remote = states[key];
       const row =
         (await this.integrationRows.findOne({ where: { key } })) || Object.assign(new EverConnectIntegration(), { key, pendingRemoteRevoke: false });
       const before = row.state;
-      row.state = remote ? remote.state : 'available';
-      row.consentId = remote ? remote.consentId : null;
-      row.scopeVersion = remote ? remote.scopeVersion : null;
-      row.updatedAt = Date.now();
-      if (row.pendingRemoteRevoke && row.state !== 'enabled' && row.state !== 'pending_operator') {
+      const remoteState = remote ? remote.state : INTEGRATIONS[key].status === 'coming_soon' ? 'coming_soon' : 'available';
+      // Switched off here while Ever Platform could not be told: it stays off here until the revoke is delivered
+      const keptOff = row.pendingRemoteRevoke && (remoteState === 'enabled' || remoteState === 'pending_operator');
+      if (!keptOff) {
+        row.state = remoteState;
+        row.consentId = remote ? remote.consentId : null;
+        row.scopeVersion = remote ? remote.scopeVersion : null;
         row.pendingRemoteRevoke = false;
+      }
+      row.updatedAt = Date.now();
+      if (key === 'instance_url' && before === 'enabled' && row.state !== 'enabled') {
+        row.config = null;
+      }
+      if (key === 'stats_link' && row.state !== 'enabled') {
+        row.config = null;
       }
       await this.integrationRows.save(row);
       // A first reading that finds nothing on is not a change
-      if (before !== row.state && (before !== undefined || row.state !== 'available')) {
+      if (before !== row.state && (before !== undefined || (row.state !== 'available' && row.state !== 'coming_soon'))) {
         await this.audit.record('integration.state', 'platform', `${key}=${row.state}`);
-        await this.onStateChange(key, before, row.state);
+      }
+      // The statistics link is sent until it succeeded once for this consent (a failed send is tried again here)
+      if (key === 'stats_link' && row.state === 'enabled' && !parseJson<{ linked?: boolean }>(row.config, {}).linked) {
+        if (await this.linkStats('platform').catch(error => this.handleCallError(error, 'stats_link', live.connection.kid).then(() => false))) {
+          row.config = JSON.stringify({ linked: true });
+          await this.integrationRows.save(row);
+        }
       }
     }
     return this.integrations();
-  }
-
-  /** What an integration does when it starts or stops. */
-  private async onStateChange(key: string, before: string | undefined, after: string): Promise<void> {
-    if (key === 'stats_link' && after === 'enabled') {
-      await this.linkStats('platform').catch(error => this.handleCallError(error, 'stats_link'));
-    }
-    if (key === 'instance_url' && before === 'enabled' && after !== 'enabled') {
-      const row = await this.integrationRows.findOne({ where: { key } });
-      if (row && row.config) {
-        row.config = null;
-        await this.integrationRows.save(row);
-      }
-    }
   }
 
   /** The integrations of Traduora with their definitions, states and scopes (what each one moves). */
@@ -479,7 +556,13 @@ export class EverConnectService {
         key,
         name: definition.name,
         description: definition.description,
-        state: deniedHere ? 'denied_by_policy' : row ? row.state : definition.status === 'coming_soon' ? 'coming_soon' : 'available',
+        state: deniedHere
+          ? 'denied_by_policy'
+          : definition.status === 'coming_soon' && (!row || row.state === 'available')
+            ? 'coming_soon'
+            : row
+              ? row.state
+              : 'available',
         consentId: row ? row.consentId : null,
         pendingRemoteRevoke: row ? row.pendingRemoteRevoke : false,
         deniedHere,
@@ -508,7 +591,7 @@ export class EverConnectService {
     try {
       return await live.client.consentUrl(key);
     } catch (error) {
-      throw conflict(await this.handleCallError(error, 'consent_url'), 'Ever Platform did not give a consent link');
+      throw conflict(await this.handleCallError(error, 'consent_url', live.connection.kid), 'Ever Platform did not give a consent link');
     }
   }
 
@@ -529,7 +612,7 @@ export class EverConnectService {
     try {
       await live.client.acceptIntegration(key, row.consentId, accepted, randomUUID());
     } catch (error) {
-      throw conflict(await this.handleCallError(error, 'integration_accept'), 'Ever Platform did not record the answer');
+      throw conflict(await this.handleCallError(error, 'integration_accept', live.connection.kid), 'Ever Platform did not record the answer');
     }
     await this.audit.record(accepted ? 'integration.accept' : 'integration.decline', actorRef, key);
     return this.refreshIntegrations();
@@ -558,7 +641,7 @@ export class EverConnectService {
         // Nothing was on at Ever Platform
         row.pendingRemoteRevoke = false;
       } else {
-        remote = await this.handleCallError(error, 'integration_disable');
+        remote = await this.handleCallError(error, 'integration_disable', live.connection.kid);
         row.pendingRemoteRevoke = true;
       }
     }
@@ -578,13 +661,18 @@ export class EverConnectService {
     for (const row of pending) {
       try {
         await client.disableIntegration(row.key, 'instance');
-        row.pendingRemoteRevoke = false;
-        row.updatedAt = Date.now();
-        await this.integrationRows.save(row);
-        await this.audit.record('integration.revoke_sent', 'system', row.key);
       } catch (error) {
-        await this.handleCallError(error, 'integration_disable');
+        const problem = problemOf(error);
+        // Not found: an earlier attempt took effect, its answer was lost
+        if (!problem || problem.status !== 404) {
+          await this.handleCallError(error, 'integration_disable');
+          continue;
+        }
       }
+      row.pendingRemoteRevoke = false;
+      row.updatedAt = Date.now();
+      await this.integrationRows.save(row);
+      await this.audit.record('integration.revoke_sent', 'system', row.key);
     }
   }
 
@@ -602,6 +690,9 @@ export class EverConnectService {
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash || parsed.href.length > 2048) {
       throw new EverPlatformException(HttpStatus.BAD_REQUEST, 'url_invalid', 'An absolute https address without credentials, query or fragment');
     }
+    if (this.settings.integrationsDeny.includes('instance_url')) {
+      throw conflict('denied_by_policy', 'This integration is denied on this installation (TR_EVER_CONNECT_INTEGRATIONS_DENY)');
+    }
     const row = await this.integrationRows.findOne({ where: { key: 'instance_url' } });
     if (!row || row.state !== 'enabled') {
       throw conflict('consent_required', 'An organization owner or admin must first enable the installation address in app.ever.co');
@@ -613,7 +704,7 @@ export class EverConnectService {
     try {
       await live.client.putPublicUrl(parsed.href, randomUUID());
     } catch (error) {
-      throw conflict(await this.handleCallError(error, 'public_url'), 'Ever Platform did not record the address');
+      throw conflict(await this.handleCallError(error, 'public_url', live.connection.kid), 'Ever Platform did not record the address');
     }
     row.config = JSON.stringify({ base_url: parsed.href });
     row.updatedAt = Date.now();
@@ -633,7 +724,7 @@ export class EverConnectService {
     } catch (error) {
       const problem = problemOf(error);
       if (!problem || problem.status !== 404) {
-        throw conflict(await this.handleCallError(error, 'public_url'), 'Ever Platform did not remove the address');
+        throw conflict(await this.handleCallError(error, 'public_url', live.connection.kid), 'Ever Platform did not remove the address');
       }
     }
     const row = await this.integrationRows.findOne({ where: { key: 'instance_url' } });
@@ -650,12 +741,16 @@ export class EverConnectService {
    * `stats_link`: links the anonymous statistics of this installation to its organization, with a statement signed by
    * the statistics key (the connection key never signs it). Only when the statistics are loaded.
    */
-  async linkStats(actorRef: string): Promise<void> {
-    if (!this.settings.statsLoaded) {
-      return;
+  async linkStats(actorRef: string): Promise<boolean> {
+    if (!this.settings.statsLoaded || this.settings.integrationsDeny.includes('stats_link')) {
+      return false;
+    }
+    // Not while the operator switched the statistics off on the Statistics page
+    if (!(await this.instance.isStatsEnabledUi())) {
+      return false;
     }
     const live = await this.liveClient();
-    if (!live || !live.connection.registryInstanceId) return;
+    if (!live || !live.connection.registryInstanceId) return false;
     const { record, privateKeyDer } = await this.instance.signingIdentity();
     const statsPublicJwk = { kty: 'OKP', crv: 'Ed25519', x: record.statsPublicKey };
     const statement = await signCompactJws(
@@ -670,5 +765,6 @@ export class EverConnectService {
     );
     await live.client.statsLink({ statement, statsInstanceId: record.instanceId, statsPublicKey: record.statsPublicKey }, randomUUID());
     await this.audit.record('stats_link.sent', actorRef, null);
+    return true;
   }
 }

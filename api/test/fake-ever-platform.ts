@@ -25,6 +25,7 @@ export class FakeEverPlatform {
   integrationStates: Record<string, PlatformIntegrationState> = {};
   events: Array<{ id: string; type: string }> = [];
   linkState = 'active';
+  instanceStatus = 'active';
   entitlementSeq = 1;
   /** When set, the next calls fail as if the platform could not be reached. */
   unreachable = false;
@@ -73,9 +74,9 @@ export class FakeEverPlatform {
         };
       },
       heartbeat: async body => this.record('heartbeat', body),
-      link: async () => {
-        this.record('link');
-        return { id: '01JMQCKLINK000000000000000', state: this.linkState, displayName: 'Traduora' };
+      self: async () => {
+        this.record('self');
+        return { status: this.instanceStatus, link: { id: '01JMQCKLINK000000000000000', state: this.linkState, displayName: 'Traduora' } };
       },
       entitlement: async (linkId, cached) => {
         this.record('entitlement', linkId, cached ? cached.seq : null);
