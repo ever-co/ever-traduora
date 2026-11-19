@@ -1,5 +1,5 @@
 import { Column, Entity, PrimaryColumn } from 'typeorm';
-import { epochMsTransformer } from './ever-platform-columns';
+import { bigintNumberTransformer, epochMsTransformer } from './ever-platform-columns';
 
 /**
  * One maintenance operation requested from app.ever.co and what became of it: its kind, status and size only (never a
@@ -21,7 +21,7 @@ export class EverConnectManagedOperation {
   @Column({ type: 'varchar', length: 48, name: 'reason', nullable: true })
   reason: string | null;
 
-  @Column({ type: 'bigint', name: 'size_bytes', nullable: true, transformer: epochMsTransformer })
+  @Column({ type: 'bigint', name: 'size_bytes', nullable: true, transformer: bigintNumberTransformer })
   sizeBytes: number | null;
 
   /** The request of a deferred operation, as received (ids, kind and times only). */
