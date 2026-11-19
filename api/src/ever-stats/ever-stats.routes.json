@@ -1,0 +1,12 @@
+{
+  "description": "Inbound routes of the anonymous usage statistics module. They exist only with TR_EVER_STATS_ENABLED=true. access: public = anyone, operator = a signed-in user listed in TR_EVER_ADMIN_EMAILS (default TR_ADMIN_EMAIL).",
+  "routes": [
+    { "method": "GET", "path": "/api/v1/ever-stats/health", "access": "public" },
+    { "method": "GET", "path": "/api/v1/ever-stats/status", "access": "operator" },
+    { "method": "POST", "path": "/api/v1/ever-stats/preview", "access": "operator" },
+    { "method": "GET", "path": "/api/v1/ever-stats/reports", "access": "operator" },
+    { "method": "POST", "path": "/api/v1/ever-stats/send", "access": "operator" },
+    { "method": "PUT", "path": "/api/v1/ever-stats/enabled", "access": "operator" },
+    { "method": "POST", "path": "/api/v1/ever-stats/reset-identity", "access": "operator" }
+  ]
+}
