@@ -33,6 +33,16 @@ export class FormatCannotHoldTermsException extends BadRequestException {
 }
 
 /**
+ * An import file the parser cannot read. A BadRequest whose message the client gets as is: it carries the parser's
+ * detail, such as the line of a CSV row with an unquoted comma, which the user needs to fix the file.
+ */
+export class MalformedImportException extends BadRequestException {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
  * An error of the OpenID Connect sign-in flow (e.g. Ever ID) that the webapp acts on: answered with its own status and
  * a stable `code`, plus optional `details` (e.g. what a sign-up confirmation screen shows). Never carries a token.
  */

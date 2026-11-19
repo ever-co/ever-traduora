@@ -388,6 +388,35 @@ describe('ImportController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/imports (POST) should import CSV files with trailing empty columns', async () => {
+    const csvWithTrailingColumns = 'term.csv.one,first translation,,,\nterm.csv.two,second translation,,,\n';
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=en&format=csv`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(csvWithTrailingColumns), 'file')
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data.terms.added).toEqual(2);
+        expect(res.body.data.translations.upserted).toEqual(2);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/imports (POST) should reject malformed CSV files with a bad request error', async () => {
+    const csvWithUnquotedDelimiter = 'term.csv.one,an unquoted, comma\n';
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=en&format=csv`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(csvWithUnquotedDelimiter), 'file')
+      .expect(400)
+      .expect(res => {
+        expect(res.body.error.code).toEqual('BadRequest');
+        // The client gets the parser's guidance, which names the line to fix
+        expect(res.body.error.message).toContain('Line 1 has content after the translation column');
+      });
+  });
+
   it('/api/v1/projects/:projectId/imports (POST) should not count an existing locale again when importing new terms into it', async () => {
     const project = await createTestProject(app, testingUser);
     const sixtyTerms = (await jsonFlatExporter({

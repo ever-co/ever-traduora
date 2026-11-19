@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { AuthProviderException, FormatCannotHoldTermsException, PublishedPasswordException } from '../errors';
+import { AuthProviderException, FormatCannotHoldTermsException, MalformedImportException, PublishedPasswordException } from '../errors';
 import { isTransientDatabaseError } from '../utils/database-locks';
 
 @Catch()
@@ -18,9 +18,9 @@ export class CustomExceptionFilter implements ExceptionFilter {
           ...(exception.details ? { details: exception.details } : {}),
         },
       });
-    } else if (exception instanceof FormatCannotHoldTermsException) {
-      // The message names the terms the export format cannot hold. Checked before the database errors below: some of them
-      // are recognized by their message, which a term name could repeat.
+    } else if (exception instanceof FormatCannotHoldTermsException || exception instanceof MalformedImportException) {
+      // The message names the terms the export format cannot hold, or the part of an import file the parser cannot read.
+      // Checked before the database errors below: some of them are recognized by their message, which a term name could repeat.
       response.status(400).json({
         error: {
           code: 'BadRequest',

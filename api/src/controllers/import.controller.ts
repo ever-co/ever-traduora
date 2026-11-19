@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
   NotFoundException,
   Param,
@@ -45,7 +46,7 @@ import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
 import { arbParser } from '../formatters/arb';
-import { PaymentRequiredException } from './../errors';
+import { MalformedImportException, PaymentRequiredException } from './../errors';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiTags('Imports')
@@ -168,6 +169,8 @@ export class ImportController {
         throw new PaymentRequiredException('request would exceed plan limit');
       } else if (isTransientDatabaseError(error)) {
         // Answered as such (try again), not as a missing resource
+        throw error;
+      } else if (error instanceof HttpException) {
         throw error;
       } else {
         throw new NotFoundException();
@@ -297,7 +300,8 @@ export class ImportController {
           throw new Error('Export format not implemented');
       }
     } catch (err) {
-      throw new BadRequestException('Malformed import file');
+      const detail = err instanceof Error && err.message ? `: ${err.message}` : '';
+      throw new MalformedImportException(`Malformed import file${detail}`);
     }
   }
 }
