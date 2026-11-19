@@ -105,7 +105,10 @@ describe('EverConnectService', () => {
   it('passes a refused code on and stores nothing', async () => {
     const { connect } = build();
     await expect(connect.connect('EVC-TEST-0000-0009', '', 'user:u1')).rejects.toMatchObject({ code: 'code_invalid' });
-    expect(await dataSource.getRepository(EverConnectConnection).count()).toBe(0);
+    // The claim made for the attempt is released: nothing connected, no key kept
+    const row = await connect.read();
+    expect(row).toMatchObject({ status: 'not_connected', registryInstanceId: null, connectPrivateKeyEnc: null });
+    expect((await connect.status()).connected).toBe(false);
   });
 
   it('sends the heartbeat, reads the feed and follows consent events', async () => {
