@@ -231,7 +231,8 @@ export class EverStatsSchedulerService implements OnModuleInit, OnModuleDestroy 
         return this.nextSlot(now);
       }
       rows.push(finalRow);
-      if (finalRow.status === 'sent' || finalRow.status === 'rejected') {
+      // Only a delivered closing report is final: a refused one stays eligible (after an upgrade, or a reset)
+      if (finalRow.status === 'sent') {
         patch.lastFinalSentFor = previous;
       }
       // Refused until the module is upgraded (by Ever Platform, or by the checks here): nothing more is sent

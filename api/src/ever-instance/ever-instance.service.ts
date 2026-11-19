@@ -51,6 +51,11 @@ export class EverInstanceService implements OnModuleInit {
     }
   }
 
+  /** Whether an identity can be created here: only with a configured `TR_SECRET` to encrypt its key with. */
+  canCreateIdentity(): boolean {
+    return !!this.settings.secret;
+  }
+
   /** Whether the operator declared this installation as Ever's own cloud (`TR_EVER_INSTALL_SOURCE=cloud`). */
   isCloudManaged(): boolean {
     return this.settings.installSource === 'cloud';

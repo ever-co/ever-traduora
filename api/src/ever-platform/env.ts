@@ -119,8 +119,9 @@ export function isLocalHost(hostname: string): boolean {
   if (host === 'localhost' || host.endsWith('.localhost') || host === '::1') {
     return true;
   }
-  if (PRIVATE_V4.some(re => re.test(host))) {
-    return true;
+  // A private range only for a complete IPv4 address: `10.example.com` is a public name
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    return PRIVATE_V4.some(re => re.test(host));
   }
   return /^[a-z\d-]+$/.test(host) && !/^\d+$/.test(host) && !NOT_LOCAL_NAMES.has(host);
 }

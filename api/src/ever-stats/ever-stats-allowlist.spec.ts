@@ -55,14 +55,20 @@ describe('anonymous statistics allow-list', () => {
     }
   });
 
-  it('refuses every published invalid example, naming a path', () => {
+  it('refuses every published invalid example with the status, path and error Ever Platform gives', () => {
+    const expected = JSON.parse(fixture('expected.json').toString('utf8')).fixtures;
     const names = readdirSync(join(SCHEMA_DIR, 'fixtures', 'invalid')).filter(name => name.endsWith('.json'));
     expect(names.length).toBeGreaterThan(0);
     for (const name of names) {
       const check = validator.checkBytes(fixture(`invalid/${name}`));
-      expect({ name, ok: check.ok }).toEqual({ name, ok: false });
-      expect(check.errors.length).toBeGreaterThan(0);
-      expect(typeof check.errors[0].path).toBe('string');
+      const want = expected[`invalid/${name}`];
+      expect({ name, ok: check.ok, status: check.status, path: check.errors[0].path, error: check.errors[0].code }).toEqual({
+        name,
+        ok: false,
+        status: want.status,
+        path: want.path,
+        error: want.error,
+      });
     }
   });
 
@@ -110,6 +116,10 @@ describe('anonymous statistics allow-list', () => {
     expect(() => strictParse(Buffer.from('{"a":1.5}'))).toThrow();
     expect(() => strictParse(Buffer.from('{"a":1e3}'))).toThrow();
     expect(() => strictParse(Buffer.from('{"a":99999999999999999999}'))).toThrow();
+    // At most 16 levels, empty containers included
+    expect(() => strictParse(Buffer.from('['.repeat(16) + ']'.repeat(16)))).not.toThrow();
+    expect(() => strictParse(Buffer.from('['.repeat(17) + ']'.repeat(17)))).toThrow();
+    expect(() => strictParse(Buffer.from('{"a":'.repeat(16) + '{}' + '}'.repeat(16)))).toThrow();
     expect(strictParse(Buffer.from('{"a":[1,true,null,"x"]}'))).toEqual({ a: [1, true, null, 'x'] });
   });
 

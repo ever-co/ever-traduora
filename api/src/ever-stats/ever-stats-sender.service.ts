@@ -65,7 +65,7 @@ export const defaultStatsFetch: StatsFetch = (url, init) =>
     request.end(init.body);
   });
 
-export type StatsReportStatus = 'pending' | 'sent' | 'rejected' | 'failed';
+export type StatsReportStatus = 'pending' | 'sent' | 'rejected' | 'failed' | 'skipped';
 
 /** What happens after an attempt. */
 export type StatsRetry = 'none' | 'backoff' | 'next_day' | 'module_upgrade';
@@ -192,6 +192,15 @@ export class EverStatsSenderService {
       row.status = 'failed';
       row.retry = 'next_day';
       row.error = 'api_url_unusable';
+      return this.storeFor(instanceId, row);
+    }
+
+    // The operator may have switched the statistics off while the report was being built and stored
+    if (!(await this.instance.isStatsEnabledUi())) {
+      this.logger.log(`ever_stats.send outcome=skipped_ui_off final=${input.final}`);
+      row.status = 'skipped';
+      row.attempts = 0;
+      row.error = 'switched_off';
       return this.storeFor(instanceId, row);
     }
 

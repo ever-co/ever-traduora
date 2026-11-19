@@ -8,7 +8,7 @@ import { environment } from '../../../environments/environment';
 /** The state of the anonymous usage statistics, as the API reports it to the instance operator. */
 export interface EverStatsStatus {
   enabled: boolean;
-  reason: 'env' | 'ui' | 'cloud-managed' | 'no-destination';
+  reason: 'env' | 'ui' | 'cloud-managed' | 'no-destination' | 'no-secret';
   toggleEnabled: boolean;
   toggleReadOnly: boolean;
   destinationUsable: boolean;

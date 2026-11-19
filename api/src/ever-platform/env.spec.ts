@@ -88,6 +88,8 @@ describe('Ever Platform settings', () => {
       expect(isLocalHost('metadata')).toBe(false);
       expect(isLocalHost('example.com')).toBe(false);
       expect(isLocalHost('8.8.8.8')).toBe(false);
+      expect(isLocalHost('10.example.com')).toBe(false);
+      expect(isLocalHost('192.168.example.com')).toBe(false);
     });
   });
 

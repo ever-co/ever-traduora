@@ -14,7 +14,7 @@ import { EverStatsSchedulerService, SendNowRefused } from './ever-stats-schedule
 import { EverStatsSenderService } from './ever-stats-sender.service';
 
 /** Why the statistics are on or off. */
-export type StatsReason = 'env' | 'ui' | 'cloud-managed' | 'no-destination';
+export type StatsReason = 'env' | 'ui' | 'cloud-managed' | 'no-destination' | 'no-secret';
 
 /** A stored report as the operator sees it (the exact bytes, the date, the answer). */
 function reportView(row: EverStatsReport) {
@@ -87,11 +87,13 @@ export class EverStatsController {
     const row = await this.scheduler.schedule.read();
     const uiOn = !record || record.statsEnabledUi !== false;
     const destinationUsable = this.config.apiUrl !== null;
-    const enabled = uiOn && destinationUsable;
+    const keyState = record ? this.instance.keyState(record) : this.instance.canCreateIdentity() ? null : 'secret_missing';
+    const enabled = uiOn && destinationUsable && keyState !== 'secret_missing';
     let reason: StatsReason = 'env';
     if (this.instance.isCloudManaged()) reason = 'cloud-managed';
     else if (!uiOn) reason = 'ui';
     else if (!destinationUsable) reason = 'no-destination';
+    else if (keyState === 'secret_missing') reason = 'no-secret';
     return {
       data: {
         enabled,
@@ -104,7 +106,7 @@ export class EverStatsController {
         lastStatus: row.lastStatus ?? null,
         instanceId: record ? record.instanceId : null,
         keyId: record ? record.statsKeyId : null,
-        keyState: record ? this.instance.keyState(record) : null,
+        keyState,
         country: this.config.country,
         installSource: this.config.installSource,
         version: this.config.release.version,

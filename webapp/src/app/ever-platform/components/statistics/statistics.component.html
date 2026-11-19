@@ -17,7 +17,8 @@
           <div *ngIf="message" class="alert alert-success">{{ message }}</div>
           <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
           <div *ngIf="status.keyState === 'key_unreadable'" class="alert alert-warning">
-            The statistics key of this installation cannot be read: nothing is sent until you reset the instance identity.
+            The statistics key of this installation cannot be read with the current TR_SECRET: a new instance identity is made
+            automatically before the next report.
           </div>
           <div *ngIf="status.keyState === 'secret_missing'" class="alert alert-warning">
             TR_SECRET is not set on the server: the statistics key cannot be stored, so nothing is sent.
@@ -33,6 +34,7 @@
                 <ng-container *ngSwitchCase="'ui'"> (turned off on this page)</ng-container>
                 <ng-container *ngSwitchCase="'cloud-managed'"> (managed by the deployment)</ng-container>
                 <ng-container *ngSwitchCase="'no-destination'"> (the statistics address of the server cannot be used)</ng-container>
+                <ng-container *ngSwitchCase="'no-secret'"> (TR_SECRET is not set on the server)</ng-container>
                 <ng-container *ngSwitchDefault> (turned on in the server configuration)</ng-container>
               </span>
             </div>

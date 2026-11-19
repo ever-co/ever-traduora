@@ -1,5 +1,5 @@
 {
-  "description": "Where the vendored statistics contract comes from. Every file is a byte-for-byte copy from the public Ever Platform SDK at the commit below; schema-drift.spec.ts checks each sha256. To refresh, copy the files again from a newer SDK commit and update this file.",
+  "description": "Where the vendored statistics contract comes from. Every file is a byte-for-byte copy from the public Ever Platform SDK at the commit below; schema-drift.spec.ts checks each sha256. To refresh, copy the files again from a newer SDK commit and update this file, and update the published SHA-256 of ever.stats.v1.json pinned in schema-drift.spec.ts after checking it against the schema Ever Platform serves.",
   "source": {
     "repository": "ever-co/ever-connect-sdk",
     "commit": "6fbb8daa2af074ed2c37f45f96ad0ae60aae1abc",

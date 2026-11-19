@@ -199,9 +199,10 @@ export function strictParse(bytes: Uint8Array): Json {
   }
 
   function readValue(path: string, depth: number): Json {
-    if (depth > MAX_STATS_DEPTH) fail(path);
     ws();
     const c = text[at];
+    // An object or an array opens one more level: at most MAX_STATS_DEPTH, empty ones included
+    if ((c === '{' || c === '[') && depth >= MAX_STATS_DEPTH) fail(path);
     if (c === '{') return readObject(path, depth);
     if (c === '[') return readArray(path, depth);
     if (c === '"') return readString(path);

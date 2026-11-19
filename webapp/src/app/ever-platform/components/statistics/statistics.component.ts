@@ -69,8 +69,13 @@ export class StatisticsComponent implements OnInit {
 
   showPreview(): void {
     this.clearMessages();
+    // Busy until it answers: a reset cannot run meanwhile, so a preview never shows the identity before a reset
+    this.busy = true;
     this.everStats.preview().subscribe({
-      next: preview => (this.preview = preview),
+      next: preview => {
+        this.busy = false;
+        this.preview = preview;
+      },
       error: error => this.fail(error),
     });
   }
