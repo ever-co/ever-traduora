@@ -7,6 +7,9 @@ import { EverConnectAudit } from '../entity/ever-connect-audit.entity';
 /** How many audit rows are kept: older ones are deleted (the first kept row then names a hash that is gone). */
 export const EVER_CONNECT_AUDIT_KEPT = 500;
 
+/** At most this many rows past the kept ones are deleted after one write. */
+const STALE_BATCH = 100;
+
 /** The hash of a row: the previous row's hash and this row's fields, so a removed or edited row shows. */
 export function auditHash(row: Pick<EverConnectAudit, 'prevHash' | 'seq' | 'at' | 'action' | 'actorRef' | 'detail'>): string {
   return createHash('sha256')
@@ -51,7 +54,8 @@ export class EverConnectAuditService {
       if (attempt >= 5) throw error;
       return this.append(action, actorRef, detail, attempt + 1);
     }
-    const stale = await this.repo.find({ select: { id: true }, order: { seq: 'DESC' }, skip: EVER_CONNECT_AUDIT_KEPT });
+    // MySQL accepts an offset only with a limit: the rows past the kept ones go in batches (one per new row is the usual)
+    const stale = await this.repo.find({ select: { id: true }, order: { seq: 'DESC' }, skip: EVER_CONNECT_AUDIT_KEPT, take: STALE_BATCH });
     if (stale.length) {
       await this.repo.delete(stale.map(old => old.id));
     }
