@@ -21,6 +21,14 @@ export class EverConnectPersonLink {
   @Column({ type: 'bigint', name: 'reported_at', nullable: true, transformer: epochMsTransformer })
   reportedAt: number | null;
 
+  /** The installation's tenant link the report named (`null` when none): a report naming another one is sent again. */
+  @Column({ type: 'varchar', length: 64, name: 'tenant_link_id', nullable: true })
+  tenantLinkId: string | null;
+
+  /** After a refused or failed call, the next attempt waits until then, so other links go first. */
+  @Column({ type: 'bigint', name: 'retry_at', nullable: true, transformer: epochMsTransformer })
+  retryAt: number | null;
+
   @Column({ type: 'bigint', name: 'updated_at', transformer: epochMsTransformer })
   updatedAt: number;
 }

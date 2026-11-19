@@ -11,6 +11,8 @@ const TABLES: TableSpec[] = [
       { name: 'user_identity_id', type: 'varchar', length: 36 },
       { name: 'user_id', type: 'varchar', length: 36 },
       { name: 'reported_at', type: 'bigint', nullable: true },
+      { name: 'tenant_link_id', type: 'varchar', length: 64, nullable: true },
+      { name: 'retry_at', type: 'bigint', nullable: true },
       { name: 'updated_at', type: 'bigint' },
     ],
     primary: ['user_identity_id'],

@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { subjectHash } from '@ever-co/connect-sdk';
-import { IsNull, LessThan, Not, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThan, Not, Repository } from 'typeorm';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectPersonExport } from '../entity/ever-connect-person-export.entity';
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
@@ -11,6 +11,7 @@ import { ProjectUser } from '../entity/project-user.entity';
 import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
 import { EverConnectAuditService } from './ever-connect-audit.service';
@@ -35,6 +36,9 @@ export const PERSON_LINK_SYNC_MS = 5 * 60 * 1000;
 
 /** At most this many person link calls per comparison: the rest follow with the next one. */
 export const PERSON_LINK_CALLS_PER_SYNC = 100;
+
+/** A person link Ever Platform refused or could not take is tried again after this long (others go first meanwhile). */
+export const PERSON_LINK_RETRY_MS = 60 * 60 * 1000;
 
 const SWEEP_MS = 60 * 60 * 1000;
 
@@ -120,9 +124,6 @@ export class EverConnectPersonService {
     @InjectRepository(EverConnectPersonExport) private readonly exports: Repository<EverConnectPersonExport>,
     @InjectRepository(EverConnectIntegration) private readonly integrationRows: Repository<EverConnectIntegration>,
     @InjectRepository(UserIdentity) private readonly identities: Repository<UserIdentity>,
-    @InjectRepository(User) private readonly users: Repository<User>,
-    @InjectRepository(ProjectUser) private readonly projectUsers: Repository<ProjectUser>,
-    @InjectRepository(TranslationHistory) private readonly history: Repository<TranslationHistory>,
     @Inject(EVER_CONNECT_SETTINGS) private readonly settings: EverConnectSettings,
     @Inject(EVER_INSTANCE_SETTINGS) private readonly instanceSettings: EverInstanceSettings,
     private readonly connect: EverConnectService,
@@ -170,8 +171,7 @@ export class EverConnectPersonService {
       return;
     }
     if (!request.result) {
-      const hashes = subjectHashesOf(data);
-      request = kind === 'deletion' ? await this.deleteIdentities(request, hashes) : await this.exportAccounts(request, hashes);
+      request = await this.decide(request, subjectHashesOf(data));
     }
     if (!request.answeredAt) {
       await this.answer(client, request);
@@ -203,14 +203,14 @@ export class EverConnectPersonService {
   }
 
   /** The identities whose Ever ID hash is one of `hashes`, with the account they belong to. */
-  private async matching(hashes: string[]): Promise<IdentityRow[]> {
+  private async matching(manager: EntityManager, hashes: string[]): Promise<IdentityRow[]> {
     if (!hashes.length) return [];
     const wanted = new Set(hashes);
-    return (await this.identityRows()).filter(row => wanted.has(subjectHash(row.issuer, row.subject)));
+    return (await this.identityRows(manager)).filter(row => wanted.has(subjectHash(row.issuer, row.subject)));
   }
 
-  private async identityRows(): Promise<IdentityRow[]> {
-    const rows = await this.identities.find({
+  private async identityRows(manager: EntityManager = this.identities.manager): Promise<IdentityRow[]> {
+    const rows = await manager.getRepository(UserIdentity).find({
       select: {
         id: true,
         provider: true,
@@ -242,80 +242,104 @@ export class EverConnectPersonService {
   }
 
   /**
-   * A deletion request: the matched Ever IDs are removed from their accounts and the sessions opened with them end, in
-   * one transaction with the decided answer. The accounts, their passwords and other sign-in methods stay: the person
-   * can still sign in with them, or reset the password, and delete the account in Traduora.
+   * Decides the answer once, in one transaction with what it changes. The receipt is locked first (PostgreSQL, MySQL;
+   * SQLite runs one write transaction at a time), so two API processes reading the same request never decide twice: the
+   * second finds the answer of the first.
    */
-  private async deleteIdentities(request: EverConnectPersonRequest, hashes: string[]): Promise<EverConnectPersonRequest> {
-    const matches = await this.matching(hashes);
-    const now = Date.now();
-    await this.identities.manager.transaction(async manager => {
-      for (const identity of matches) {
-        await manager.update(EverIdSession, { userId: identity.userId, revokedAt: IsNull() }, { revokedAt: new Date(now) });
-        await manager.delete(UserIdentity, { id: identity.id });
-        // Its person link is now a removal to tell Ever Platform (see syncLinks)
-        if (!(await manager.findOne(EverConnectPersonLink, { where: { userIdentityId: identity.id } }))) {
-          await manager.insert(EverConnectPersonLink, { userIdentityId: identity.id, userId: identity.userId, reportedAt: null, updatedAt: now });
-        }
+  private async decide(request: EverConnectPersonRequest, hashes: string[]): Promise<EverConnectPersonRequest> {
+    let decidedHere = false;
+    const decided = await this.requests.manager.transaction(async manager => {
+      const locked = await manager.findOne(EverConnectPersonRequest, {
+        where: { jobId: request.jobId },
+        ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+      });
+      if (locked && locked.result) {
+        return locked;
       }
-      request.result = matches.length ? 'anonymised' : 'no_account';
-      request.reasonCode = matches.length ? 'identity_unlinked' : null;
-      request.accounts = new Set(matches.map(identity => identity.userId)).size;
+      const row = locked || request;
+      const matches = await this.matching(manager, hashes);
+      if (row.kind === 'deletion') {
+        await this.deleteIdentities(manager, matches);
+        row.result = matches.length ? 'anonymised' : 'no_account';
+        row.reasonCode = matches.length ? 'identity_unlinked' : null;
+        row.accounts = new Set(matches.map(identity => identity.userId)).size;
+      } else {
+        row.accounts = await this.exportAccounts(manager, row.jobId, matches);
+        row.result = row.accounts ? 'exported' : 'no_account';
+        row.reasonCode = null;
+      }
       await manager.update(
         EverConnectPersonRequest,
-        { jobId: request.jobId },
-        { result: request.result, reasonCode: request.reasonCode, accounts: request.accounts },
+        { jobId: row.jobId },
+        { result: row.result, reasonCode: row.reasonCode, accounts: row.accounts },
       );
+      decidedHere = true;
+      return row;
     });
-    await this.audit.record('person.deletion', 'platform', `result=${request.result} accounts=${request.accounts}`);
-    this.logger.log(`ever_connect.person_request kind=deletion result=${request.result} accounts=${request.accounts}`);
-    return request;
+    if (decidedHere) {
+      await this.audit.record(`person.${decided.kind}`, 'platform', `result=${decided.result} accounts=${decided.accounts}`);
+      this.logger.log(`ever_connect.person_request kind=${decided.kind} result=${decided.result} accounts=${decided.accounts}`);
+    }
+    return decided;
+  }
+
+  /**
+   * A deletion request: the matched Ever IDs are removed from their accounts and the sessions opened with them end. The
+   * accounts, their passwords and other sign-in methods stay: the person can still sign in with them, or reset the
+   * password, and delete the account in Traduora.
+   */
+  private async deleteIdentities(manager: EntityManager, matches: IdentityRow[]): Promise<void> {
+    const now = Date.now();
+    for (const identity of matches) {
+      await manager.update(EverIdSession, { userId: identity.userId, revokedAt: IsNull() }, { revokedAt: new Date(now) });
+      await manager.delete(UserIdentity, { id: identity.id });
+      // Its person link is now a removal to tell Ever Platform (see syncLinks)
+      if (!(await manager.findOne(EverConnectPersonLink, { where: { userIdentityId: identity.id } }))) {
+        await manager.insert(EverConnectPersonLink, {
+          userIdentityId: identity.id,
+          userId: identity.userId,
+          reportedAt: null,
+          tenantLinkId: null,
+          retryAt: null,
+          updatedAt: now,
+        });
+      }
+    }
   }
 
   /** An export request: one encrypted export per matched account, each with that account's own data only. */
-  private async exportAccounts(request: EverConnectPersonRequest, hashes: string[]): Promise<EverConnectPersonRequest> {
-    const matches = await this.matching(hashes);
+  private async exportAccounts(manager: EntityManager, jobId: string, matches: IdentityRow[]): Promise<number> {
     const userIds = Array.from(new Set(matches.map(identity => identity.userId)));
     const now = Date.now();
     let accounts = 0;
     for (const userId of userIds) {
       const bundle = await this.bundleFor(
+        manager,
         userId,
         matches.filter(identity => identity.userId === userId),
         now,
       );
       if (!bundle) continue;
-      await this.exports.save(
+      await manager.save(
         Object.assign(new EverConnectPersonExport(), {
-          jobId: request.jobId,
+          jobId,
           userId,
-          bundleEnc: wrapKey(
-            Buffer.from(JSON.stringify(bundle), 'utf8'),
-            this.instanceSettings.secret,
-            `${request.jobId}:${userId}`,
-            PERSON_EXPORT_PURPOSE,
-          ),
+          bundleEnc: wrapKey(Buffer.from(JSON.stringify(bundle), 'utf8'), this.instanceSettings.secret, `${jobId}:${userId}`, PERSON_EXPORT_PURPOSE),
           createdAt: now,
           expiresAt: now + PERSON_EXPORT_TTL_MS,
         }),
       );
       accounts += 1;
     }
-    request.result = accounts ? 'exported' : 'no_account';
-    request.reasonCode = null;
-    request.accounts = accounts;
-    await this.requests.update({ jobId: request.jobId }, { result: request.result, reasonCode: null, accounts });
-    await this.audit.record('person.export', 'platform', `result=${request.result} accounts=${accounts}`);
-    this.logger.log(`ever_connect.person_request kind=export result=${request.result} accounts=${accounts}`);
-    return request;
+    return accounts;
   }
 
   /** The account's own data: its profile, the matched Ever IDs, its projects and roles, its number of translation changes. */
-  private async bundleFor(userId: string, identities: IdentityRow[], now: number): Promise<PersonExportBundle | null> {
-    const user = await this.users.findOne({ where: { id: userId } });
+  private async bundleFor(manager: EntityManager, userId: string, identities: IdentityRow[], now: number): Promise<PersonExportBundle | null> {
+    const user = await manager.getRepository(User).findOne({ where: { id: userId } });
     if (!user) return null;
-    const memberships = await this.projectUsers.find({ where: { user: { id: userId } }, relations: { project: true } });
-    const translationChanges = await this.history.count({ where: { user: { id: userId } } });
+    const memberships = await manager.getRepository(ProjectUser).find({ where: { user: { id: userId } }, relations: { project: true } });
+    const translationChanges = await manager.getRepository(TranslationHistory).count({ where: { user: { id: userId } } });
     return {
       format: 'ever-traduora.person-export.v1',
       created_at: new Date(now).toISOString(),
@@ -433,8 +457,9 @@ export class EverConnectPersonService {
 
   /**
    * Compares the person links with the users' Ever IDs (every 5 minutes, or sooner when an event asks for it): a link
-   * whose identity is gone is removed at Ever Platform, then each Ever ID not reported yet is reported, while the
-   * integration allows it. Calls nothing while there is nothing to tell.
+   * whose identity is gone is removed at Ever Platform, then each Ever ID not reported yet (or reported with another
+   * tenant link) is reported, while the integration allows it. A call that fails is tried again an hour later, so other
+   * links go first meanwhile. Calls nothing while there is nothing to tell.
    */
   async syncLinks(now = Date.now(), force = false): Promise<{ reported: number; removed: number }> {
     if (!force && !this.syncRequested && now - this.lastSyncAt < PERSON_LINK_SYNC_MS) {
@@ -449,13 +474,16 @@ export class EverConnectPersonService {
     const { client, connection } = live;
     const identities = (await this.identityRows()).filter(EverConnectPersonService.reportable);
     const byId = new Map(identities.map(identity => [identity.id, identity]));
+    const waiting = (row: EverConnectPersonLink | undefined) => !!row && !!row.retryAt && row.retryAt > now;
+    const later = (row: Partial<EverConnectPersonLink>) =>
+      this.links.save(Object.assign(new EverConnectPersonLink(), row, { retryAt: now + PERSON_LINK_RETRY_MS, updatedAt: now }));
     let calls = 0;
     let removed = 0;
     let reported = 0;
 
     // Removals first: a removal names the user, so a link reported for the same user afterwards is not removed with it
     for (const row of await this.links.find()) {
-      if (byId.has(row.userIdentityId) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
+      if (byId.has(row.userIdentityId) || waiting(row) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
       calls += 1;
       try {
         await client.removePersonLink(row.userId);
@@ -463,23 +491,26 @@ export class EverConnectPersonService {
         const problem = problemOf(error);
         if (!problem || problem.status !== 404) {
           await this.connect.handleCallError(error, 'person_link_remove', connection.kid);
+          await later(row);
           continue;
         }
       }
       await this.links.delete({ userIdentityId: row.userIdentityId });
-      await this.links.update({ userId: row.userId, userIdentityId: Not(row.userIdentityId) }, { reportedAt: null, updatedAt: Date.now() });
+      await this.links.update({ userId: row.userId, userIdentityId: Not(row.userIdentityId) }, { reportedAt: null, updatedAt: now });
       removed += 1;
     }
 
     if (!(await this.reporting())) {
       // Nothing is reported while the integration is off; once it is on again, every link is reported again
-      await this.links.update({ reportedAt: Not(IsNull()) }, { reportedAt: null, updatedAt: Date.now() });
+      await this.links.update({ reportedAt: Not(IsNull()) }, { reportedAt: null, tenantLinkId: null, updatedAt: now });
     } else {
       const known = new Map((await this.links.find()).map(row => [row.userIdentityId, row]));
       const linkActive = connection.linkState === 'active' && !!connection.linkId;
+      const tenantLinkId = linkActive ? connection.linkId : null;
       for (const identity of identities) {
         const row = known.get(identity.id);
-        if ((row && row.reportedAt) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
+        const current = !!row && !!row.reportedAt && row.tenantLinkId === tenantLinkId;
+        if (current || waiting(row) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
         calls += 1;
         try {
           await client.reportPersonLink({
@@ -488,19 +519,27 @@ export class EverConnectPersonService {
             identitySubject: identity.subject,
             linkMethod: identity.linkMethod === IdentityLinkMethod.Jit ? 'confirmed' : 'explicit',
             // One tenant for the whole installation, and its link with the organization while it is active
-            ...(linkActive ? { productTenantId: '*', tenantLinkId: connection.linkId } : {}),
+            ...(linkActive ? { productTenantId: '*', tenantLinkId } : {}),
             ...(linkActive && connection.displayName ? { displayName: connection.displayName } : {}),
           });
         } catch (error) {
           await this.connect.handleCallError(error, 'person_link_report', connection.kid);
+          await later({
+            userIdentityId: identity.id,
+            userId: identity.userId,
+            reportedAt: row ? row.reportedAt : null,
+            tenantLinkId: row ? row.tenantLinkId : null,
+          });
           continue;
         }
         await this.links.save(
           Object.assign(new EverConnectPersonLink(), {
             userIdentityId: identity.id,
             userId: identity.userId,
-            reportedAt: Date.now(),
-            updatedAt: Date.now(),
+            reportedAt: now,
+            tenantLinkId,
+            retryAt: null,
+            updatedAt: now,
           }),
         );
         reported += 1;

@@ -29,6 +29,8 @@ export class FakeEverPlatform {
   events: PlatformEvent[] = [];
   /** The person links the fake holds, by Traduora user id. */
   personLinks: Record<string, PersonLinkReport> = {};
+  /** Person link reports of these Traduora users are refused (422). */
+  refuseLinksOf = new Set<string>();
   /** The answers to person requests the fake recorded. */
   answers: PersonRequestAnswer[] = [];
   /** When set, the next answer to a person request fails with this problem (then the setting clears). */
@@ -120,6 +122,9 @@ export class FakeEverPlatform {
       disconnect: async () => this.record('disconnect'),
       reportPersonLink: async link => {
         this.record('reportPersonLink', { ...link });
+        if (this.refuseLinksOf.has(link.productUserRef)) {
+          throw new ProblemError(422, 'schema_violation');
+        }
         this.personLinks[link.productUserRef] = { ...link };
       },
       removePersonLink: async productUserRef => {

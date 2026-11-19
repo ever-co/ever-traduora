@@ -6,10 +6,7 @@ import { EverConnectIntegration } from '../entity/ever-connect-integration.entit
 import { EverConnectPersonExport } from '../entity/ever-connect-person-export.entity';
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
 import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.entity';
-import { ProjectUser } from '../entity/project-user.entity';
-import { TranslationHistory } from '../entity/translation-history.entity';
 import { UserIdentity } from '../entity/user-identity.entity';
-import { User } from '../entity/user.entity';
 import { EverInstanceModule } from '../ever-instance/ever-instance.module';
 import { EverConnectAuditService } from './ever-connect-audit.service';
 import { EverConnectPersonController, EverSignedInUserGuard } from './ever-connect-person.controller';
@@ -39,11 +36,8 @@ const logger = new Logger('EverConnectModule');
       EverConnectPersonLink,
       EverConnectPersonRequest,
       EverConnectPersonExport,
-      // Read for a person's requests and links: the accounts' Ever IDs, profiles, project roles and change counts
+      // A person's requests and links read the accounts' Ever IDs (and, for an export, the account's own data)
       UserIdentity,
-      User,
-      ProjectUser,
-      TranslationHistory,
     ]),
   ],
   controllers: [EverConnectController, EverConnectPersonController],

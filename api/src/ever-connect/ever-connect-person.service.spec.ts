@@ -13,14 +13,19 @@ import { EverIdSession } from '../entity/ever-id-session.entity';
 import { EverInstance } from '../entity/ever-instance.entity';
 import { Project } from '../entity/project.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
-import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { EverInstanceService } from '../ever-instance/ever-instance.service';
 import { EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
 import { EverConnectAuditService } from './ever-connect-audit.service';
-import { EverConnectPersonService, PERSON_EXPORT_TTL_MS, PERSON_LINK_CALLS_PER_SYNC, subjectHashesOf } from './ever-connect-person.service';
+import {
+  EverConnectPersonService,
+  PERSON_EXPORT_TTL_MS,
+  PERSON_LINK_CALLS_PER_SYNC,
+  PERSON_LINK_RETRY_MS,
+  subjectHashesOf,
+} from './ever-connect-person.service';
 import { EverConnectSchedulerService } from './ever-connect-scheduler.service';
 import { EverConnectService } from './ever-connect.service';
 import { EverConnectSettings } from './ever-connect.settings';
@@ -72,9 +77,6 @@ describeOnSqlite('EverConnectPersonService', () => {
       dataSource.getRepository(EverConnectPersonExport),
       dataSource.getRepository(EverConnectIntegration),
       dataSource.getRepository(UserIdentity),
-      dataSource.getRepository(User),
-      dataSource.getRepository(ProjectUser),
-      dataSource.getRepository(TranslationHistory),
       all,
       INSTANCE_SETTINGS,
       connect,
@@ -358,8 +360,40 @@ describeOnSqlite('EverConnectPersonService', () => {
       platform.unreachable = true;
       expect(await person.syncLinks(Date.now(), true)).toEqual({ reported: 0, removed: 0 });
       platform.unreachable = false;
-      expect(await person.syncLinks(Date.now(), true)).toEqual({ reported: 0, removed: 1 });
+      // Not before its retry time
+      expect(await person.syncLinks(Date.now(), true)).toEqual({ reported: 0, removed: 0 });
+      expect(await person.syncLinks(Date.now() + PERSON_LINK_RETRY_MS + 1000, true)).toEqual({ reported: 0, removed: 1 });
       expect(platform.personLinks).toEqual({});
+    });
+
+    it('lets a link Ever Platform refuses wait, so the others are reported meanwhile', async () => {
+      const { connect } = await connected();
+      await enableEverIdLogin(connect);
+      await linkIdentity(alice, 's1');
+      platform.refuseLinksOf.add(alice.id);
+      const { person: retrying } = build();
+      expect(await retrying.syncLinks(Date.now(), true)).toEqual({ reported: 0, removed: 0 });
+      await linkIdentity(bob, 's2');
+      // Alice waits for her retry time; Bob is reported
+      expect(await retrying.syncLinks(Date.now(), true)).toEqual({ reported: 1, removed: 0 });
+      expect(Object.keys(platform.personLinks)).toEqual([bob.id]);
+      platform.refuseLinksOf.clear();
+      expect(await retrying.syncLinks(Date.now() + PERSON_LINK_RETRY_MS + 1000, true)).toEqual({ reported: 1, removed: 0 });
+      expect(Object.keys(platform.personLinks).sort()).toEqual([alice.id, bob.id].sort());
+    });
+
+    it("reports a link again when the installation's tenant link changed", async () => {
+      const { connect, person } = await connected();
+      await enableEverIdLogin(connect);
+      await linkIdentity(alice, 's1');
+      await person.syncLinks(Date.now(), true);
+      expect(platform.personLinks[alice.id].tenantLinkId).toBe('01JMQCKLINK000000000000000');
+      // The link was unlinked at Ever Platform: the report no longer names it
+      await dataSource.getRepository(EverConnectConnection).update({ id: 'self' }, { linkState: 'unlinked' });
+      platform.calls.length = 0;
+      expect(await person.syncLinks(Date.now(), true)).toEqual({ reported: 1, removed: 0 });
+      expect(platform.personLinks[alice.id].tenantLinkId).toBeUndefined();
+      expect(await person.syncLinks(Date.now(), true)).toEqual({ reported: 0, removed: 0 });
     });
 
     it('stops reporting when the integration is denied here, and reports again once it is allowed', async () => {
