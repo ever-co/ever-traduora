@@ -37,6 +37,7 @@ describe('Ever Platform settings', () => {
       expect(settings.statsEnabled).toBe(true);
       expect(warnings).toHaveLength(1);
       expect(warnings[0]).toContain('"false "');
+      expect(read({ TR_EVER_STATS_ENABLED: 'false.' }).warnings[0]).toContain('"false."');
     });
 
     it('never repeats a long value in a warning', () => {

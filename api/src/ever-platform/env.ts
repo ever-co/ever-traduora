@@ -74,11 +74,11 @@ export interface EverPlatformConfig {
 const consoleWarn: Warn = message => console.warn(`[EverPlatform] ${message}`);
 
 /**
- * `value`, quoted, when it is a short plain word (spaces around it shown, since they are what makes `"false "` not
- * `false`); otherwise a neutral word.
+ * `value`, quoted, when it is a short plain word (letters, digits, `_`, `-`, `.`; spaces around it shown, since they are
+ * what makes `"false "` not `false`); otherwise a neutral word.
  */
 function describe(value: string): string {
-  return value.length <= 24 && /^\s*[A-Za-z0-9_-]{1,16}\s*$/.test(value) ? JSON.stringify(value) : 'an unrecognised value';
+  return value.length <= 24 && /^\s*[A-Za-z0-9_.-]{1,16}\s*$/.test(value) ? JSON.stringify(value) : 'an unrecognised value';
 }
 
 /**
