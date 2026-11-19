@@ -1,5 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsEnum, IsHexColor, IsNotEmpty, IsOptional, IsString, Length, Validate } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsHexColor,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  MaxLength,
+  Validate,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { InviteStatus } from '../entity/invite.entity';
 import { ProjectRole } from '../entity/project-user.entity';
@@ -9,6 +23,15 @@ import { IsValidLabel } from '../validators/IsValidLabel';
 export interface JwtPayload {
   sub: string;
   type: string;
+  // Session version of the user when the token was issued; tokens from before versions existed have none (0)
+  sv?: number;
+  // Only on client tokens: short hash of the client's stored secret when the token was issued (see clientSecretHash).
+  // Rotating the secret changes it, which ends the tokens issued before. Client tokens without it are refused.
+  sh?: string;
+  // Only on tokens of a sign-in with an OpenID Connect provider (e.g. Ever ID): the provider's session, which a
+  // back-channel logout ends, and the token's own id. Tokens of other sign-ins have neither.
+  sid?: string;
+  jti?: string;
 }
 
 export enum GrantType {
@@ -41,6 +64,9 @@ export class UserInfoDTO {
 
   @ApiProperty()
   email: string;
+
+  @ApiProperty({ description: 'Whether the owner confirmed this email, e.g. through the link emailed at signup' })
+  emailVerified: boolean;
 }
 
 export class AccessTokenDTO {
@@ -138,6 +164,11 @@ export class ProjectInviteDto {
   role: ProjectRole;
 }
 
+export class ProjectInviteCreatedDto extends ProjectInviteDto {
+  @ApiProperty({ description: 'Sign-up link for the invitee, also sent by email. Share it only with the invited person.' })
+  inviteUrl: string;
+}
+
 export class ProjectInviteAddedUserDto {
   @ApiProperty()
   userId: string;
@@ -222,6 +253,23 @@ export class TermTranslationDTO {
   date: AccessDatesDTO;
 }
 
+export class TranslationHistoryDTO {
+  @ApiProperty()
+  id: string;
+  @ApiProperty()
+  termId: string;
+  @ApiProperty({ description: 'The number of the change within the translation, 1 for the first; higher is newer' })
+  revision: number;
+  @ApiProperty({ description: 'The value before the change, empty when the term had no translation yet' })
+  previousValue: string;
+  @ApiProperty()
+  value: string;
+  @ApiPropertyOptional({ description: 'The user who made the change; absent for changes made with an API client or by a removed user' })
+  user?: { id: string; name: string };
+  @ApiProperty()
+  date: Date;
+}
+
 export class ProjectClientDTO {
   @ApiProperty()
   id: string;
@@ -240,6 +288,10 @@ export class AuthProviderDTO {
   url: string;
   @ApiProperty()
   redirectUrl: string;
+  @ApiPropertyOptional({ description: 'Scopes to request (OpenID Connect providers only)' })
+  scope?: string;
+  @ApiPropertyOptional({ description: 'Whether the authorization request must use PKCE, state and nonce (OpenID Connect providers only)' })
+  pkce?: boolean;
 }
 
 export class ProjectClientWithSecretDTO {
@@ -312,6 +364,11 @@ export class ListTermTranslatonsResponse extends ServiceApiResponse<TermTranslat
   data: TermTranslationDTO[];
 }
 
+export class ListTranslationHistoryResponse extends ServiceApiResponse<TranslationHistoryDTO[]> {
+  @ApiProperty({ type: TranslationHistoryDTO, isArray: true })
+  data: TranslationHistoryDTO[];
+}
+
 export class TermTranslatonResponse extends ServiceApiResponse<TermTranslationDTO> {
   @ApiProperty()
   data: TermTranslationDTO;
@@ -377,9 +434,9 @@ export class ProjectInviteResponse extends ServiceApiResponse<ProjectInviteDto> 
   data: ProjectInviteDto;
 }
 
-export class ProjectInviteCreatedResponse extends ServiceApiResponse<ProjectInviteDto | ProjectInviteAddedUserDto> {
+export class ProjectInviteCreatedResponse extends ServiceApiResponse<ProjectInviteCreatedDto | ProjectInviteAddedUserDto> {
   @ApiProperty()
-  data: ProjectInviteDto | ProjectInviteAddedUserDto;
+  data: ProjectInviteCreatedDto | ProjectInviteAddedUserDto;
 }
 
 export class SignupRequest {
@@ -395,7 +452,54 @@ export class SignupRequest {
   @ApiProperty({ minLength: 8, maxLength: 255 })
   @Length(8, 255)
   password: string;
+
+  @ApiPropertyOptional({ description: 'Token from the invitation link, required when the email has a pending invitation' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  inviteToken?: string;
 }
+
+export class AcceptInviteRequest {
+  @ApiProperty({ description: 'Token from the invitation link' })
+  @IsString()
+  @Length(1, 255)
+  inviteToken: string;
+}
+
+export class VerifyEmailRequest {
+  @ApiProperty({ description: 'Token from the email verification link' })
+  @IsString()
+  @Length(1, 255)
+  token: string;
+}
+
+export class VerifiedEmailDto {
+  @ApiProperty()
+  email: string;
+  @ApiProperty()
+  emailVerified: boolean;
+}
+
+export class VerifyEmailResponse extends ServiceApiResponse<VerifiedEmailDto> {
+  @ApiProperty()
+  data: VerifiedEmailDto;
+}
+
+export class AcceptedInviteDto {
+  @ApiProperty()
+  projectId: string;
+  @ApiProperty({ enum: ProjectRole })
+  role: ProjectRole;
+}
+
+export class AcceptInviteResponse extends ServiceApiResponse<AcceptedInviteDto> {
+  @ApiProperty()
+  data: AcceptedInviteDto;
+}
+
+// A provider slug, e.g. 'google' or 'everid'
+const PROVIDER_SLUG = /^[a-z0-9-]{1,32}$/;
 
 export class AuthenticateRequest {
   @ApiProperty({ enum: GrantType })
@@ -428,6 +532,25 @@ export class AuthenticateRequest {
   @IsString()
   @IsOptional()
   code: string;
+
+  @ApiPropertyOptional({ description: 'The sign-in provider; Google when absent' })
+  @Matches(PROVIDER_SLUG)
+  @IsOptional()
+  provider?: string;
+
+  @IsString()
+  @MaxLength(2048)
+  @IsOptional()
+  state?: string;
+
+  @IsString()
+  @MaxLength(512)
+  @IsOptional()
+  nonce?: string;
+
+  @Length(43, 128)
+  @IsOptional()
+  code_verifier?: string;
 }
 
 export class InviteUserRequest {
@@ -617,6 +740,7 @@ export enum ImportExportFormat {
   Strings = 'strings',
   Php = 'php',
   ResX = 'resx',
+  Arb = 'arb',
 }
 
 export class ExportQuery {
@@ -648,4 +772,132 @@ export class ImportQuery {
   @IsEnum(ImportExportFormat)
   @ApiProperty({ enum: ImportExportFormat })
   format: ImportExportFormat;
+}
+
+export class ProviderSignInRequest {
+  @ApiPropertyOptional({ description: 'The authorization code from the provider callback' })
+  @IsString()
+  @IsOptional()
+  code: string;
+
+  @ApiPropertyOptional({ description: 'The sign-in provider; Google when absent' })
+  @Matches(PROVIDER_SLUG)
+  @IsOptional()
+  provider?: string;
+
+  @ApiPropertyOptional({ description: 'The state of the authorization request (OpenID Connect providers)' })
+  @IsString()
+  @MaxLength(2048)
+  @IsOptional()
+  state?: string;
+
+  @ApiPropertyOptional({ description: 'The nonce of the authorization request (OpenID Connect providers)' })
+  @IsString()
+  @MaxLength(512)
+  @IsOptional()
+  nonce?: string;
+
+  @ApiPropertyOptional({ description: 'The PKCE code verifier of the authorization request (OpenID Connect providers)' })
+  @Length(43, 128)
+  @IsOptional()
+  code_verifier?: string;
+}
+
+export class ProviderSignupConfirmRequest {
+  @ApiProperty({ description: 'The sealed record from the signup_confirmation_required answer' })
+  @IsString()
+  @MaxLength(8192)
+  pending: string;
+
+  @ApiPropertyOptional({ description: 'Ids of the pending invitations to accept; none when absent', isArray: true, type: String })
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @IsOptional()
+  acceptInvites?: string[];
+}
+
+export class ConnectIdentityRequest {
+  @ApiProperty({ description: 'The authorization code from the provider callback' })
+  @IsString()
+  @MaxLength(4096)
+  code: string;
+
+  @ApiPropertyOptional({ description: 'The sign-in provider; everid when absent' })
+  @Matches(PROVIDER_SLUG)
+  @IsOptional()
+  provider?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @MaxLength(2048)
+  @IsOptional()
+  state?: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(512)
+  nonce: string;
+
+  @ApiProperty()
+  @Length(43, 128)
+  code_verifier: string;
+}
+
+export class ConnectIdentityConfirmRequest {
+  @ApiProperty({ description: 'The sealed record from the connect answer' })
+  @IsString()
+  @MaxLength(8192)
+  pending: string;
+}
+
+export class BackchannelLogoutRequest {
+  @ApiProperty({ description: 'The logout token posted by the OpenID Connect issuer' })
+  @IsString()
+  @MaxLength(16384)
+  logout_token: string;
+}
+
+export class IdentityDTO {
+  @ApiProperty()
+  id: string;
+  @ApiProperty({ description: 'The provider slug, e.g. everid' })
+  provider: string;
+  @ApiProperty({ description: "The provider's email when the identity was connected" })
+  email: string;
+  @ApiProperty({ enum: ['explicit', 'jit', 'provisioned'] })
+  linkMethod: string;
+  @ApiProperty()
+  linkedAt: Date;
+  @ApiPropertyOptional()
+  lastLoginAt: Date | null;
+}
+
+export class ListIdentitiesResponse extends ServiceApiResponse<IdentityDTO[]> {
+  @ApiProperty({ type: IdentityDTO, isArray: true })
+  data: IdentityDTO[];
+}
+
+export class IdentityResponse extends ServiceApiResponse<IdentityDTO> {
+  @ApiProperty()
+  data: IdentityDTO;
+}
+
+export class ConnectEmailsDTO {
+  @ApiProperty({ description: 'The email of the signed-in account' })
+  account: string;
+  @ApiProperty({ description: 'The email the provider reports' })
+  everId: string;
+}
+
+export class ConnectIdentityDTO {
+  @ApiProperty({ description: 'Sealed record to confirm the connection with' })
+  pending: string;
+  @ApiProperty()
+  emails: ConnectEmailsDTO;
+}
+
+export class ConnectIdentityResponse extends ServiceApiResponse<ConnectIdentityDTO> {
+  @ApiProperty()
+  data: ConnectIdentityDTO;
 }

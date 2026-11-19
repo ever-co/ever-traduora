@@ -1,5 +1,9 @@
 #!/bin/sh
-set -ex
+set -e
+# Tracing would print every environment value, secrets included, into the container logs: only when debugging them
+if [ -n "$ENV_SECRETS_DEBUG" ]; then
+    set -x
+fi
 
 # Parts of the code in this file adapted from https://github.com/docker-library/rabbitmq/blob/master/docker-entrypoint.sh
 # MIT License https://github.com/docker-library/rabbitmq/blob/master/LICENSE

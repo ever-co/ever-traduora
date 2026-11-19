@@ -32,6 +32,10 @@ export class Invite {
   @Column(EnumColumnType.projectRole(ProjectRole, ProjectRole.Viewer))
   role: ProjectRole;
 
+  /** SHA-256 of the token in the invitation link, required to accept the invite by signing up with a password */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  tokenHash: string | null;
+
   @Column(type => AccessTimestamps)
   date: AccessTimestamps;
 }

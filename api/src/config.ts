@@ -1,5 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DefaultNamingStrategy } from 'typeorm';
+import { createHash, randomBytes } from 'crypto';
 import { join } from 'path';
 import * as process from 'process';
 import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
@@ -13,10 +14,58 @@ const getNumberOrDefault = (value: string, defaultValue: number) => {
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
+// SHA-256 of secrets anyone can sign tokens with: the former built-in default ('secret'), the examples once shipped in
+// .env.sample ('supersecretkey') and the docs ('mysupersecret'), and the TR_SECRET of the old k8s preview manifest
+const PUBLISHED_SECRET_HASHES = new Set([
+  '2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b',
+  'e706386a58190ee13247ffc85c07f5fee617aed1e339cd935e64bab32bfe8fc8',
+  'fc09b602d09745f0dec54c80796461f5761dec1f54c920b15eef496fc7836491',
+  '73d7a744ab6f3f3785873fc271c594003995f8697bc003bc6347be75383d9ccf',
+]);
+
+const isPublishedSecret = (secret: string) => PUBLISHED_SECRET_HASHES.has(createHash('sha256').update(secret).digest('hex'));
+
+const getListOrDefault = (value: string | undefined): string[] =>
+  (value || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+/**
+ * Scopes requested from the Ever ID (OpenID Connect) issuer. With an Ever Platform project id (Ever ID), the token also
+ * names the account's organization and is issued for that project's audience. Without one (another OpenID Connect
+ * issuer), only the standard scopes are requested, which every issuer accepts.
+ */
+export const everIdScope = (platformProjectId?: string): string => {
+  const scopes = ['openid', 'profile', 'email'];
+  const projectId = platformProjectId?.trim();
+  if (projectId) {
+    scopes.push('urn:zitadel:iam:user:resourceowner', `urn:zitadel:iam:org:project:id:${projectId}:aud`);
+  }
+  return scopes.join(' ');
+};
+
+/**
+ * Resolves the secret used to sign and verify auth tokens.
+ * Published example values are refused everywhere, and production requires TR_SECRET. Elsewhere an unset TR_SECRET
+ * gets a random per-process secret, so sign-ins do not survive a restart but tokens can never be forged.
+ */
+export const resolveSecret = (secret: string | undefined, nodeEnv: string | undefined): string => {
+  if (secret && isPublishedSecret(secret)) {
+    throw new Error(
+      'TR_SECRET is set to a publicly known example value. Set it to a unique random value, e.g. the output of `openssl rand -hex 32`.',
+    );
+  }
+  if (nodeEnv === 'production' && !secret) {
+    throw new Error('TR_SECRET must be set to a unique random value in production, e.g. the output of `openssl rand -hex 32`.');
+  }
+  return secret || randomBytes(32).toString('hex');
+};
+
 export const config = {
   env: env.NODE_ENV || 'dev',
   port: parseInt(env.TR_PORT, 10) || 8080,
-  secret: env.TR_SECRET || 'secret',
+  secret: resolveSecret(env.TR_SECRET, env.NODE_ENV),
   virtualHost: env.TR_VIRTUAL_HOST || 'http://localhost:8080',
   publicDir: env.TR_PUBLIC_DIR || join(__dirname, '../public'),
   templatesDir: env.TR_TEMPLATES_DIR || join(__dirname, '../src/templates'),
@@ -24,6 +73,8 @@ export const config = {
   accessLogsEnabled: getBoolOrDefault(env.TR_ACCESS_LOGS_ENABLED, true),
   authTokenExpires: parseInt(env.TR_AUTH_TOKEN_EXPIRES, 10) || 86400,
   signupsEnabled: getBoolOrDefault(env.TR_SIGNUPS_ENABLED, true),
+  // A public demo install (demo.traduora.co): the web app then shows a "you are using a demo account" banner
+  demo: getBoolOrDefault(env.TR_DEMO, false),
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
@@ -39,6 +90,28 @@ export const config = {
       redirectUrl: env.TR_AUTH_GOOGLE_REDIRECT_URL,
       apiUrl: 'https://www.googleapis.com/oauth2/v4/token',
       url: 'https://accounts.google.com/o/oauth2/v2/auth',
+    },
+    // Optional sign-in with Ever ID or any other OpenID Connect issuer. Off unless TR_AUTH_EVERID_ENABLED is 'true';
+    // when off, nothing is requested from the issuer and the provider is not listed.
+    everid: {
+      kind: 'oidc' as const,
+      active: getBoolOrDefault(env.TR_AUTH_EVERID_ENABLED, false),
+      issuer: env.TR_AUTH_EVERID_ISSUER,
+      allowedIssuers: getListOrDefault(env.TR_AUTH_EVERID_ALLOWED_ISSUERS),
+      clientId: env.TR_AUTH_EVERID_CLIENT_ID,
+      clientSecret: env.TR_AUTH_EVERID_CLIENT_SECRET,
+      redirectUrl: env.TR_AUTH_EVERID_REDIRECT_URL,
+      platformProjectId: env.TR_AUTH_EVERID_PLATFORM_PROJECT_ID,
+      scope: everIdScope(env.TR_AUTH_EVERID_PLATFORM_PROJECT_ID),
+      pkce: true,
+      backchannelLogoutEnabled: getBoolOrDefault(env.TR_AUTH_EVERID_BACKCHANNEL_LOGOUT_ENABLED, true),
+      // An issuer on an Ever host is used only by an Ever-operated install ('cloud')
+      installSource: env.TR_EVER_INSTALL_SOURCE,
+      // Filled from the issuer's discovery document at boot, when the provider is enabled
+      url: undefined as string | undefined,
+      apiUrl: undefined as string | undefined,
+      jwksUri: undefined as string | undefined,
+      endSessionEndpoint: undefined as string | undefined,
     },
   },
   mail: {
@@ -91,7 +164,8 @@ export const config = {
 
   defaultAdminCredentialConfig: {
     adminEmail: process.env.TR_ADMIN_EMAIL || `local.admin@ever.co`,
-    adminPassword: process.env.TR_ADMIN_PASSWORD || `sTr0ngP@ssw0rd!2025`,
+    // No default: the seed creates the admin only when a password is configured
+    adminPassword: process.env.TR_ADMIN_PASSWORD || '',
     adminName: process.env.TR_ADMIN_NAME || 'Admin',
   },
 };

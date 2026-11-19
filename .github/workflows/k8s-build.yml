@@ -49,4 +49,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ steps.t.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache,mode=max
+          # mode=min on self-hosted: a mode=max export also uploads every builder layer (node_modules,
+          # build caches), and on 2026-10-24 the homelab uplink was saturated by such exports (owner Q7:
+          # prod api.gauzy.co went > 1 s over the WAN). mode=min only references the final image layers just pushed.
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:buildcache,mode=min

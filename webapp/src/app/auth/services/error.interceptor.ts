@@ -24,6 +24,10 @@ export class ErrorInterceptor implements HttpInterceptor {
     if (request.url.includes('change-password')) {
       return true;
     }
+    // A 401 here means the invite token is missing or invalid, not that a session expired
+    if (request.url.endsWith('/auth/signup')) {
+      return true;
+    }
     return false;
   }
 }

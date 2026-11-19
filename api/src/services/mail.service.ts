@@ -8,6 +8,10 @@ import * as Handlebars from 'handlebars';
 import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
 import * as previewEmail from 'preview-email';
+import { passwordResetUrl } from '../utils/password-reset-url';
+
+// For the debug preview only: it shows the plain text inside HTML, where '<' and '&' would be read as markup
+const escapeHtml = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 @Injectable()
 export default class MailService {
@@ -20,6 +24,7 @@ export default class MailService {
     passwordResetToken: this.mustCompileTemplate('password-reset-token.txt'),
     invitedToProject: this.mustCompileTemplate('invited-to-project.txt'),
     invitedToPlatform: this.mustCompileTemplate('invited-to-platform.txt'),
+    verifyEmail: this.mustCompileTemplate('verify-email.txt'),
   };
 
   constructor() {
@@ -47,7 +52,7 @@ export default class MailService {
     this.from = config.mail.sender;
   }
 
-  async welcomeNewUser(user: User) {
+  async welcomeNewUser(user: User, verifyEmailUrl?: string) {
     await this.send({
       from: this.from,
       to: user.email,
@@ -55,6 +60,19 @@ export default class MailService {
       text: this.knownTemplates.welcome({
         user: user,
         virtualHost: config.virtualHost,
+        verifyEmailUrl: verifyEmailUrl,
+      }),
+    });
+  }
+
+  async verifyEmail(user: User, verifyEmailUrl: string) {
+    await this.send({
+      from: this.from,
+      to: user.email,
+      subject: 'Confirm your email address for Traduora',
+      text: this.knownTemplates.verifyEmail({
+        user: user,
+        verifyEmailUrl: verifyEmailUrl,
       }),
     });
   }
@@ -71,15 +89,13 @@ export default class MailService {
   }
 
   async passwordResetToken(user: User, token: string): Promise<any> {
-    const endpoint = join(config.virtualHost, 'reset-password');
     await this.send({
       to: user.email,
       from: this.from,
       subject: 'Your password reset token is here.',
       text: this.knownTemplates.passwordResetToken({
         user: user,
-        endpoint: endpoint,
-        resetToken: token,
+        resetUrl: passwordResetUrl(user.email, token),
       }),
     });
   }
@@ -96,30 +112,38 @@ export default class MailService {
     });
   }
 
-  async invitedToPlatform(invite: Invite) {
+  async invitedToPlatform(invite: Invite, inviteUrl: string) {
     await this.send({
       from: this.from,
       to: invite.email,
       subject: 'You have been invited to a project on Traduora',
       text: this.knownTemplates.invitedToPlatform({
         invite: invite,
+        inviteUrl: inviteUrl,
         virtualHost: config.virtualHost,
       }),
     });
   }
 
   private async send(message: SendMailOptions): Promise<any> {
-    if (this.transporter) {
-      await this.transporter.sendMail(message);
-    }
-    if (config.mail.debug) {
-      // createTransport({jsonTransport: true})
-      await previewEmail(message);
+    // Callers do not wait for emails, so a failure must not become an unhandled rejection that stops the server
+    try {
+      if (this.transporter) {
+        await this.transporter.sendMail(message);
+      }
+      if (config.mail.debug) {
+        // createTransport({jsonTransport: true})
+        // The preview gets an escaped copy, so a name such as 'R&D <web>' shows as typed; the email itself is not changed
+        await previewEmail(typeof message.text === 'string' ? { ...message, text: escapeHtml(message.text) } : message);
+      }
+    } catch (error) {
+      console.error(`Could not send the email '${message.subject}'`, error);
     }
   }
 
   private mustCompileTemplate(name: string): Handlebars.TemplateDelegate<any> {
     const contents = readFileSync(join(config.templatesDir, 'mail', name)).toString('utf-8');
-    return Handlebars.compile(contents);
+    // The emails are plain text, so names must come out as typed, not as HTML entities
+    return Handlebars.compile(contents, { noEscape: true });
   }
 }

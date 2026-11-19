@@ -1,7 +1,29 @@
 import { get } from 'lodash';
 
+/** Messages of the Ever ID (OpenID Connect) sign-in, by the API's error code. */
+const PROVIDER_SIGN_IN_MESSAGES: { [code: string]: string } = {
+  account_exists:
+    'An account with this email already exists. Sign in the usual way, then connect Ever ID in your account settings (Connected sign-in methods).',
+  signup_disabled: 'Signups are invitation based only. Ask a project admin to invite you first.',
+  email_unverified: 'Please verify your email with Ever ID first, then try again.',
+  sign_in_failed: 'The sign-in with Ever ID could not be completed. Please try again.',
+  issuer_rejected: 'The sign-in with Ever ID could not be completed. Please try again.',
+  session_ended: 'This Ever ID session has ended. Please sign in again.',
+  pending_invalid: 'This step expired. Please start again.',
+  pending_mismatch: 'This connection was started from another account. Please start again.',
+  provider_disabled: 'Sign-in with Ever ID is not available.',
+  reauth_required: 'Please sign in to Ever ID again to connect it.',
+  subject_linked: 'This Ever ID is connected to another Traduora account.',
+  already_linked: 'An Ever ID is connected to your account already.',
+  last_sign_in_method: 'This is the only way to sign in to your account. Set a password first (e.g. with "Forgot password"), then disconnect it.',
+};
+
 export function errorToMessage(error: any, action = ''): string {
   const domainCode = get(error, 'error.error.code');
+
+  if (domainCode && Object.prototype.hasOwnProperty.call(PROVIDER_SIGN_IN_MESSAGES, domainCode)) {
+    return PROVIDER_SIGN_IN_MESSAGES[domainCode];
+  }
 
   if (error.status === 429) {
     switch (action) {
@@ -18,6 +40,20 @@ export function errorToMessage(error: any, action = ''): string {
       default:
         return 'Payload too large';
     }
+  } else if (domainCode === 'PublishedPassword') {
+    return 'This password is publicly known, for example a former default password. Please choose a different one.';
+  } else if (error.status === 400 && action === 'ExportLocale') {
+    // Both 400s of an export land here: a term that is also a parent (nested JSON/YAML, PHP) and a term starting with @ (ARB).
+    // The API names the terms in its message, which ExportService reads from the blob body of the download.
+    const message = get(error, 'error.error.message');
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+    // The body could not be read: only the status tells this case apart.
+    return (
+      `This format cannot hold some terms of the project: a term that is also the parent of other terms (app and app.title) ` +
+      `in JSON, YAML or PHP, or a term that starts with @ in Flutter ARB. Rename the term or use a flat format such as JSON Flat.`
+    );
   } else if (domainCode === 'BadRequest') {
     switch (action) {
       case 'ImportLocale':
@@ -52,6 +88,11 @@ export function errorToMessage(error: any, action = ''): string {
           `We are unable to delete your account as you are the last admin for one or more projects. ` +
           `Please assign another admin for those projects or delete the projects first and try again.`
         );
+      case 'Login':
+        return (
+          `This account has no password to sign in with: it was created through a sign-in provider, ` +
+          `or its password was publicly known and has been removed. Use "Forgot password" to set a new one.`
+        );
       default:
         return 'The server was unable to process the request, please check your request.';
     }
@@ -66,6 +107,8 @@ export function errorToMessage(error: any, action = ''): string {
         return 'Bad credentials.';
       case 'ChangePassword':
         return 'Could not change your password, it appears that you entered the wrong current password.';
+      case 'Signup':
+        return 'This email has a pending invitation. Please sign up with the link from your invitation email, or ask the project admin to send the invitation again.';
       default:
         return 'Error, unauthorized.';
     }

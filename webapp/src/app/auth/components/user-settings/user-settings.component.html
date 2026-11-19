@@ -43,6 +43,22 @@
                 <div *ngIf="email.getError('required')">Email is required.</div>
                 <div *ngIf="email.getError('email')">Must be a valid email</div>
               </div>
+
+              <small *ngIf="user.emailVerified === false" class="form-text text-muted">
+                <ng-container *ngIf="verificationEmail === 'unsent'">Not confirmed yet: open the link we emailed to you.</ng-container>
+                <ng-container *ngIf="verificationEmail === 'sent'"
+                  >We sent a new link to {{ user.email }}. It replaces the previous one.</ng-container
+                >
+                <ng-container *ngIf="verificationEmail === 'failed'">Could not send a new link, please try again later.</ng-container>
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm p-0 align-baseline"
+                  [disabled]="verificationEmail === 'sending'"
+                  (click)="resendVerificationEmail()"
+                >
+                  {{ verificationEmail === 'sending' ? 'Sending a new link...' : 'Send a new link' }}
+                </button>
+              </small>
             </div>
 
             <button class="btn btn-primary w-100" [disabled]="!userDataForm.dirty || !userDataForm.valid || (isLoading$ | async)" type="submit">
@@ -100,6 +116,49 @@
               Change password
             </button>
           </form>
+
+          <ng-container *ngIf="everIdProvider$ | async as everIdProvider">
+            <br />
+            <hr />
+
+            <h5 class="font-serif">Connected sign-in methods</h5>
+
+            <div *ngIf="pendingConnect$ | async as connection" class="alert alert-info">
+              <p class="mb-2">Connect this Ever ID to your Traduora account? You can then sign in with either.</p>
+              <ul class="mb-2 pl-3">
+                <li>
+                  Traduora account: <strong>{{ connection.emails.account }}</strong>
+                </li>
+                <li>
+                  Ever ID: <strong>{{ connection.emails.everId }}</strong>
+                </li>
+              </ul>
+              <button class="btn btn-primary btn-sm mr-2" type="button" [disabled]="isLoading$ | async" (click)="confirmConnect()">Connect</button>
+              <button class="btn btn-link btn-sm" type="button" (click)="cancelConnect()">Cancel</button>
+            </div>
+
+            <ul *ngIf="(identities$ | async)?.length" class="list-group mb-3">
+              <li *ngFor="let identity of identities$ | async" class="list-group-item d-flex justify-content-between align-items-center">
+                <span>
+                  Ever ID<br />
+                  <small class="text-muted">{{ identity.email }}</small>
+                </span>
+                <button class="btn btn-outline-danger btn-sm" type="button" [disabled]="isLoading$ | async" (click)="disconnect(identity)">
+                  Disconnect
+                </button>
+              </li>
+            </ul>
+
+            <button
+              *ngIf="canConnectEverId$ | async"
+              class="btn btn-outline-dark w-100"
+              type="button"
+              [disabled]="isLoading$ | async"
+              (click)="connectEverId(everIdProvider)"
+            >
+              Connect Ever ID
+            </button>
+          </ng-container>
 
           <br />
 

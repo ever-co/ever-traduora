@@ -1,0 +1,8 @@
+<div class="d-flex flex-column justify-content-center align-items-center h-100">
+  <app-logo class="mb-4"></app-logo>
+  <div *ngIf="!errorMessage">Accepting the invitation...</div>
+  <div *ngIf="errorMessage" style="width: 380px">
+    <div class="alert alert-danger">{{ errorMessage }}</div>
+    <a class="btn btn-link p-0" routerLink="/">Go to your projects</a>
+  </div>
+</div>

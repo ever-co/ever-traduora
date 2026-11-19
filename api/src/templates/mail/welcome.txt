@@ -4,5 +4,13 @@ We're happy to see you join us and hope you enjoy traduora!
 You're one step closer to bringing your project to a wider audience.
 
 To get started, go to {{virtualHost}}/login and login with your email and password.
+{{#if verifyEmailUrl}}
+
+Please also confirm that this is your email address by opening this link (sign in if asked):
+
+{{{verifyEmailUrl}}}
+
+Project admins can then add you to their projects directly when they invite this email.
+{{/if}}
 
 Traduora's Team

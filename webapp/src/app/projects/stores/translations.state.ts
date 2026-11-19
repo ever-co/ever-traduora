@@ -194,7 +194,8 @@ export class TranslationsState implements NgxsOnInit {
 
   @Action(UpdateTranslation)
   updateTranslation(ctx: StateContext<TranslationsStateModel>, action: UpdateTranslation) {
-    ctx.patchState({ isLoading: true });
+    // The error of an earlier save is removed while this one runs, so a failure with the same message is announced again
+    ctx.patchState({ isLoading: true, errorMessage: undefined });
     return this.translationService.updateTranslation(action.projectId, action.localeCode, action.termId, action.value).pipe(
       tap(translation => {
         const storeTranslations = ctx.getState().translations;

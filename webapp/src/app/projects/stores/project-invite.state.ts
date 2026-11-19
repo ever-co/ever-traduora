@@ -4,8 +4,9 @@ import { catchError, finalize, tap } from 'rxjs/operators';
 import { Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
 import { ProjectRole } from '../models/project-role';
-import { ClearCurrentProject, SetCurrentProject } from './projects.state';
-import { ProjectInvite } from '../models/project-invite';
+import { ClearCurrentProject, ProjectsState, SetCurrentProject } from './projects.state';
+import { GetProjectUsers } from './project-user.state';
+import { ProjectInvite, ProjectInviteAddedUser } from '../models/project-invite';
 import { ProjectInviteService } from '../services/project-invite.service';
 import { Injectable } from '@angular/core';
 
@@ -46,12 +47,15 @@ export class RemoveProjectInvite {
 
 export interface ProjectInviteStateModel {
   invites: ProjectInvite[];
+  // Result of the last AddProjectInvite: a pending invite with its link, or a user added directly
+  lastAdded: ProjectInvite | ProjectInviteAddedUser | undefined;
   isLoading: boolean;
   errorMessage: string | undefined;
 }
 
 const stateDefaults = {
   invites: [],
+  lastAdded: undefined,
   isLoading: false,
   errorMessage: undefined,
 };
@@ -75,6 +79,11 @@ export class ProjectInviteState implements NgxsOnInit {
   @Selector()
   static invites(state: ProjectInviteStateModel) {
     return state.invites;
+  }
+
+  @Selector()
+  static lastAdded(state: ProjectInviteStateModel) {
+    return state.lastAdded;
   }
 
   ngxsOnInit(_ctx: StateContext<ProjectInviteStateModel>) {
@@ -102,9 +111,24 @@ export class ProjectInviteState implements NgxsOnInit {
 
   @Action(AddProjectInvite)
   addProjectInvite(ctx: StateContext<ProjectInviteStateModel>, action: AddProjectInvite) {
-    ctx.patchState({ isLoading: true });
+    ctx.patchState({ isLoading: true, lastAdded: undefined });
     return this.projectInviteService.create(action.projectId, action.email, action.role).pipe(
-      tap(invites => ctx.patchState({ invites: [invites, ...ctx.getState().invites] })),
+      tap(added => {
+        ctx.patchState({ lastAdded: added });
+        // The lists belong to the open project, which may have changed while this was sending
+        if (this.store.selectSnapshot(ProjectsState.currentProject)?.id !== action.projectId) {
+          return;
+        }
+        const invites = ctx.getState().invites;
+        if ('userId' in added) {
+          // A member now, and the API removed any invite sent to them before they had an account
+          ctx.patchState({ lastAdded: added, invites: invites.filter(i => i.email !== added.email) });
+          ctx.dispatch(new GetProjectUsers(action.projectId));
+        } else {
+          // A new link replaces the listed invite of a re-invited email
+          ctx.patchState({ lastAdded: added, invites: [added, ...invites.filter(i => i.id !== added.id)] });
+        }
+      }),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error, 'AddProjectInvite') });
         return throwError(error);

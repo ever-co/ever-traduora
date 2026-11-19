@@ -4,6 +4,7 @@ import type { User } from '../entity/user.entity';
 import { UserService } from '../services/user.service';
 import { GrantType } from '../domain/http';
 import { config } from '../config';
+import { isPublishedPassword } from '../utils/published-passwords';
 
 /**
  * Seed service for creating default users
@@ -23,18 +24,28 @@ export class UserSeed {
       !config.defaultAdminCredentialConfig.adminEmail ||
       !config.defaultAdminCredentialConfig.adminPassword
     ) {
-      this.logger.warn(chalk.yellow('⚠️ Admin user configuration not found. Skipping admin creation.'));
+      this.logger.log(chalk.yellow('ℹ️ TR_ADMIN_PASSWORD is not set. Skipping admin creation.'));
       return null;
     }
 
     const { adminEmail, adminPassword, adminName } = config.defaultAdminCredentialConfig;
+
+    if (isPublishedPassword(adminPassword)) {
+      this.logger.warn(chalk.yellow('⚠️ TR_ADMIN_PASSWORD is set to a publicly known value. Choose a different one. Skipping admin creation.'));
+      return null;
+    }
 
     try {
       // Check if admin user already exists
       const adminExists = await this.userService.userExists(adminEmail);
 
       if (adminExists) {
-        this.logger.log(chalk.yellow(`ℹ️ Default admin user already exists. Skipping creation.`));
+        // An admin whose published password was removed at sign-in gets the configured one
+        if (await this.userService.setMissingPassword(adminEmail, adminPassword)) {
+          this.logger.log(chalk.green(`✅ Default admin user had no password, set it from TR_ADMIN_PASSWORD: ${chalk.blue(adminEmail)}`));
+        } else {
+          this.logger.log(chalk.yellow(`ℹ️ Default admin user already exists. Skipping creation.`));
+        }
         return null;
       }
 

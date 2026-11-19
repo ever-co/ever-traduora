@@ -14,7 +14,7 @@ In particular you might want to override the folllowing environment variables:
 
 ```sh
 NODE_ENV  # set it to production
-TR_SECRET  # generate a strong secret (used for signing JWT auth tokens)
+TR_SECRET  # required in production, e.g. openssl rand -hex 32
 TR_VIRTUAL_HOST  # i.e. traduora.example.com
 TR_DB_TYPE  # All supported by https://typeorm.io/#/connection-options/common-connection-options (mysql/postgres/sqlite...)
 TR_DB_HOST  # depends on your DataBase config
@@ -38,16 +38,18 @@ Note: if you want to build docker image locally (instead of downloading prebuilt
 
 ## Docker
 
-You can simply run our pre-built image:
+You can simply run our pre-built image. It needs a `TR_SECRET`: generate one
+once and keep it, since changing it signs everyone out.
 
 ```sh
-docker run -d -p 8080:8080 --name traduora everco/ever-traduora:latest
+export TR_SECRET="$(openssl rand -hex 32)"
+docker run -d -p 8080:8080 --name traduora -e TR_SECRET everco/ever-traduora:latest
 ```
 
 You can override the environment variables like this:
 
 ```sh
-docker run -d -p 8080:8080 -e TR_SECRET=mysupersecret -e TR_VIRTUAL_HOST=example.com everco/ever-traduora:latest
+docker run -d -p 8080:8080 -e TR_SECRET -e TR_VIRTUAL_HOST=example.com everco/ever-traduora:latest
 ```
 
 This will run Traduora **without any persistent storage**. You will likely want to point it to the location of your MySQL database, to see the available environment variables checkout the [configuration](configuration.md) section.

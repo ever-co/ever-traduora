@@ -2,7 +2,8 @@ import { toEqualIgnoringIndentation } from './util';
 import { config } from '../config';
 import { loadFixture, simpleFormatFixture } from './fixtures';
 import { jsonNestedExporter, jsonNestedParser } from './jsonnested';
-import { IntermediateTranslationFormat } from '../domain/formatters';
+import { NestedKeyConflictError } from './nested-key-conflict';
+import { IntermediateTranslation, IntermediateTranslationFormat } from '../domain/formatters';
 
 expect.extend(toEqualIgnoringIndentation);
 
@@ -170,5 +171,47 @@ test('should fail with conflicting nested object on export', async () => {
       },
     ],
   };
-  await expect(jsonNestedExporter(input)).rejects.toBeDefined();
+  await expect(jsonNestedExporter(input)).rejects.toBeInstanceOf(NestedKeyConflictError);
+  await expect(jsonNestedExporter(input)).rejects.toThrow('"button"');
+});
+
+test('should export a term named hasOwnProperty next to nested terms', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'hasOwnProperty', translation: 'own' },
+      { term: 'home.title', translation: 'Home' },
+    ],
+  };
+  const result = await jsonNestedExporter(input);
+  expect(JSON.parse(result.toString())).toEqual({ hasOwnProperty: 'own', home: { title: 'Home' } });
+});
+
+// On a plain object, obj['__proto__'] = value calls the prototype setter and adds no key, so these terms were dropped
+const protoCases: { name: string; translations: IntermediateTranslation[]; expected: string }[] = [
+  {
+    name: 'a term under __proto__ next to another term',
+    translations: [
+      { term: '__proto__.x', translation: 'X' },
+      { term: 'a', translation: 'A' },
+    ],
+    expected: '{ "__proto__": { "x": "X" }, "a": "A" }',
+  },
+  {
+    name: 'a term named __proto__',
+    translations: [{ term: '__proto__', translation: 'P' }],
+    expected: '{ "__proto__": "P" }',
+  },
+  {
+    name: 'a term ending in __proto__',
+    translations: [{ term: 'a.__proto__', translation: 'A' }],
+    expected: '{ "a": { "__proto__": "A" } }',
+  },
+];
+
+test.each(protoCases)('should export and parse back $name', async ({ translations, expected }) => {
+  const result = await jsonNestedExporter({ translations });
+  expect(result).toEqualIgnoringIndentation(expected);
+
+  const parsed = await jsonNestedParser(result.toString());
+  expect(parsed.translations).toEqual(translations);
 });

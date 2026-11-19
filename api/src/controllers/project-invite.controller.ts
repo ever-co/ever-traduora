@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, ConflictException, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,6 +17,7 @@ import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
+import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
@@ -56,7 +57,12 @@ export default class ProjectInviteController {
   @Post(':projectId/invites')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a new project invite' })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'Created', type: ProjectInviteCreatedResponse })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Created: a project user for an account with a verified email, otherwise an invite with its link',
+    type: ProjectInviteCreatedResponse,
+  })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'The user is already part of the project' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
@@ -68,7 +74,16 @@ export default class ProjectInviteController {
       where: { email: normalizeEmail(inviteUserRequest.email) },
     });
 
-    if (targetUser) {
+    // Anyone can create an account with any email, so only an account that proved it reads this email joins directly.
+    // Any other account gets an invite like a new user, accepted with the link sent to the email.
+    if (targetUser && !targetUser.emailVerified) {
+      const membership = await this.projectUserRepo.findOne({ where: { project: { id: projectId }, user: { id: targetUser.id } } });
+      if (membership) {
+        throw new ConflictException('this user is already part of the project');
+      }
+    }
+
+    if (targetUser?.emailVerified) {
       const record = this.projectUserRepo.create({
         project: { id: projectId },
         user: targetUser,
@@ -84,6 +99,14 @@ export default class ProjectInviteController {
 
       this.mail.invitedToProject(newProjectUser);
 
+      // An invite sent before they had an account is no longer needed
+      const staleInvite = await this.inviteRepo.findOne({
+        where: { project: { id: projectId }, email: normalizeEmail(inviteUserRequest.email) },
+      });
+      if (staleInvite) {
+        await this.inviteRepo.remove(staleInvite);
+      }
+
       return {
         data: {
           userId: newProjectUser.user.id,
@@ -93,15 +116,23 @@ export default class ProjectInviteController {
         },
       };
     } else {
-      const record = this.inviteRepo.create({
-        email: normalizeEmail(inviteUserRequest.email),
-        project: { id: projectId },
-        role: inviteUserRequest.role,
+      const email = normalizeEmail(inviteUserRequest.email);
+      const token = generateInviteToken();
+
+      // Inviting the same email again sends a new link and invalidates the previous one
+      const existingInvite = await this.inviteRepo.findOne({
+        where: { project: { id: projectId }, email },
       });
+      const record = existingInvite ?? this.inviteRepo.create({ email, project: { id: projectId } });
+      record.role = inviteUserRequest.role;
+      record.status = InviteStatus.Sent;
+      record.tokenHash = hashInviteToken(token);
 
       const newInvite = await this.inviteRepo.save(record, { reload: true });
+      const inviteUrl = inviteSignupUrl(token);
 
-      this.mail.invitedToPlatform({ ...record, project });
+      // Not awaited: the admin also gets the link, and MailService logs delivery failures
+      void this.mail.invitedToPlatform({ ...newInvite, project }, inviteUrl);
 
       return {
         data: {
@@ -109,6 +140,7 @@ export default class ProjectInviteController {
           role: newInvite.role,
           email: newInvite.email,
           status: newInvite.status,
+          inviteUrl,
         },
       };
     }
@@ -130,13 +162,12 @@ export default class ProjectInviteController {
     await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.EditProjectInvites);
 
     const targetInvite = await this.inviteRepo.findOneOrFail({
-      where: { id: inviteId },
-      relations: ['project'],
+      where: { project: { id: projectId }, id: inviteId },
     });
 
-    targetInvite.role = updateProjectInviteRequest.role;
-
-    const updated = await this.inviteRepo.save(targetInvite, { reload: true });
+    // Persist only the role: saving the loaded invite would write back a link or status changed in the meantime
+    await this.inviteRepo.update({ id: targetInvite.id }, { role: updateProjectInviteRequest.role });
+    const updated = await this.inviteRepo.findOneByOrFail({ id: targetInvite.id });
 
     return {
       data: {
@@ -160,7 +191,7 @@ export default class ProjectInviteController {
     await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.DeleteProjectInvites);
 
     const targetInvite = await this.inviteRepo.findOneOrFail({
-      where: { id: inviteId },
+      where: { project: { id: projectId }, id: inviteId },
     });
 
     await this.inviteRepo.remove(targetInvite);

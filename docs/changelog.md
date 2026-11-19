@@ -8,7 +8,161 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- TODO
+- XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`
+
+- The translations page no longer keeps the error of a failed save when you
+  pick another locale. Before, the red message of the previous locale stayed
+  above the list of the new one, so it looked as if that locale had failed to
+  load or to save. An error that comes up while loading or saving in the new
+  locale still shows, and so does an error of the terms, which belong to
+  every locale
+
+- Screen readers announce error messages when they appear. Before, nothing was read out: on the translations page the error of a failed save shows above the list, out of view when the edited row is further down, so a screen reader user believed the value was saved. The same held for the errors of the other pages (terms, labels, locales, team, API keys, project settings) and of a failed import or export. The warning icon of these messages is no longer read out as "warning". A translation save or an import that is tried again and fails with the same error is announced again, since the old error is removed while the retry runs
+
+- Security: CSV export also removes the `=`, `+`, `-`, `@`, tab and carriage
+  return characters right after each `;` in a term or translation. A
+  spreadsheet whose list separator is `;` (the default in many European
+  locales) starts a new cell there, so a value such as `x;=1+1` or
+  `x;=cmd|' /C calc'!A0` gave a cell with a live formula. Now `x;=1+1` is
+  exported as `x;1+1`. The `;` itself and every other character stay, so
+  `a; =b` (with a space after the `;`) is exported unchanged. The same
+  characters also go right after a line break in a value, and after quotes
+  right after a `;` or a line break (`x;"=1+1` is exported as `x;"1+1`):
+  such a spreadsheet does not see the quotes around a translation, so it
+  started a new row at a line break inside it, and read `""=1+1` as `=1+1`.
+  A line of a multi-line value that starts with one of these characters
+  loses it in the CSV export
+
+- When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
+
+- Security: sign-ins sent at the same time no longer get past the lockout after
+  failed sign-ins (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default). Each sign-in read the
+  count before any failure was stored, so a burst of wrong passwords for one
+  account was checked in full: with the default limit of 100 sign-ins per minute
+  per IP, about 100 guesses a minute instead of the 3 that lock the account. Now
+  each sign-in counts before its password is checked, and those beyond the
+  maximum get 429. Without Redis, a refused sign-in no longer adds to the stored
+  count, which stops at the maximum. With Redis, the count is no longer extended
+  by each attempt: it ends `TR_LOGIN_ATTEMPTS_TTL` (15 minutes by default) after
+  it started, at the first sign-in it counted or at the last successful one
+
+- The emails show names, project names and email addresses as typed. They are plain text, but were written with HTML escaping, so a user named `O'Neil` got `Hi O&#x27;Neil,` and an invitation to the project `R&D` named it `R&amp;D`. The links in the emails do not change
+
+- XLIFF 1.2 import no longer refuses the whole file as malformed when a unit has no `<target>` in a file with `target-language` (such units are skipped now, the others are imported), when a value is a single placeholder (`<target><x id="INTERPOLATION" equiv-text="{{ n }}"/></target>`), or when units sit inside `<group>`. It also keeps the text of every placeholder that has an `equiv-text` (`INTERPOLATION_1` and the others, not only `INTERPOLATION`) and the text inside `<g>`, `<mrk>` and `<ph>`. Before, that text was left out and the stored translation was overwritten with words and placeholders missing
+
+- The translations, API keys and team pages show the error when a save fails. Before, a translation the API refused (a value over 8192 characters, or a term a teammate had just deleted) kept the new text on screen with no message and was gone after a reload, and a failed role change or revoke of an API key or an invitation showed nothing. The team page now also clears its errors when you leave it, so they no longer show up later on the API keys page
+
+- Security: CSV export removes all the `=`, `+`, `-`, `@`, tab and carriage return characters at the start of a term or translation, not only the first one, so a doubled trigger such as `==1+1` or `+=cmd|' /C calc'!A0` no longer reaches the file as a formula. Values that start with a digit, `/`, `\`, `,`, `;` or `|` are exported unchanged: before, their first character was cut off (`404.title` became `04.title` and `/help` became `help`), so importing the file again created the wrong terms. A value with a carriage return inside is now quoted: unquoted, a spreadsheet started a new row there, so `hello\r=1+1` still gave a cell with a live formula
+
+- Java properties (`.properties`) import keeps every value as the text in the file. Before, `0`, `false`, `null` and `undefined` were imported as empty translations, and numbers were rewritten: `1.10` became `1.1`, `007` became `7`, `+33` became `33` and `0x1F` became `31`. A term whose value was a number or `true` also got a new history entry each time the same file was imported again
+
+- Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again
+
+- Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password
+
+- RESX export no longer puts a backslash before `'`, `"`, `?` and `@` (that is Android string escaping; .NET shows the backslashes as text). RESX import keeps double quotes instead of dropping them, reads `<value>` even when `<comment>` comes first, and imports an empty `<value />` as an empty translation instead of rejecting the whole file as malformed. A RESX file exported by an earlier version still has those backslashes, and import now keeps them as text: before you import such a file, remove the backslash from `\'`, `\"`, `\?` and `\@`, or export the file again from this version
+
+- The password reset email links to the reset page again: the link kept one slash after `https:` (`https:/host/reset-password`), so mail clients did not open it, and it did not encode the email, so an address with a `+` (`jane+tr@example.com`) reached the reset page with a space instead and could not be reset
+
+- The locale and label pickers (export, import, new locale, reference locale, assign label) work with a keyboard: each result is a button that Tab reaches and Enter or Space chooses, and screen readers announce which one is selected. Their search boxes have a label
+- On Export, screen readers tell the two locale pickers apart: each search box is named by its own visible label, each list of locales has its own name, and the two inputs no longer share an id. The decorative search and label icons are no longer read out, so a label option is announced by its name alone
+- The locale pickers on Export ("Select the locale to export", "Select the fallback locale (optional)") and Import ("Select the destination locale") link their visible label to their search box: clicking the label focuses the box, and screen readers and voice control name the box by that label. Before, the labels pointed at nothing, the Export boxes had a different hidden name, and the Import box was named only "Search locales"
+- Security: rotating an API client's secret now ends the tokens issued with the old secret. Before, they kept working until they expired (24 hours by default, `TR_AUTH_TOKEN_EXPIRES`), so only deleting the client cut off whoever had the leaked secret
+- **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret (grant type `client_credentials`), as they do when a token expires
+- Export in `jsonnested` or `yamlnested` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), which these formats cannot hold, and the webapp says so instead of asking to try again. A term named `hasOwnProperty` no longer breaks these exports
+- Export in `jsonnested` or `yamlnested` keeps terms named `__proto__` (`__proto__`, `__proto__.x`, `a.__proto__`). Before, the export left them out without a warning, so importing such a file and exporting it again lost them
+- Support for Flutter ARB (`.arb`) files added: import and export with format `arb`. Export writes `@@locale`; import skips `@@…` and `@key` metadata entries (descriptions and placeholders are not kept), and export answers 400 when a term key starts with `@`, which ARB reserves for metadata
+- Android XML import keeps the whole value of a string. A CDATA string was imported empty and a string with an inline tag (`<b>`, `<xliff:g>`) was cut at that tag, and either way the stored translation was overwritten. Now CDATA is read as text, `<xliff:g>` is replaced by its content as the Android build does, and other inline tags are kept as markup. `plurals`, `string-array` and other resource types are skipped instead of being added as empty terms
+
+## 0.23.0
+
+### Security
+
+Please upgrade. The advisories are on
+[GitHub](https://github.com/ever-co/ever-traduora/security/advisories).
+
+- [PR-571:](https://github.com/ever-co/ever-traduora/pull/571) Since 0.21.0
+  the startup seed created the admin account `local.admin@ever.co` with a
+  default password published in the README whenever `TR_ADMIN_PASSWORD` was
+  not set, so anyone could sign in to it (GHSA-vjr4-28gx-35p8)
+- [PR-572:](https://github.com/ever-co/ever-traduora/pull/572) An account
+  registered with an email its owner had not verified was added to every
+  project that later invited that email (GHSA-gp83-wv43-h962)
+
+### Upgrade notes
+
+- **The default admin account has no default password anymore.** It is
+  created only when `TR_ADMIN_PASSWORD` is set. If an instance created it
+  with the former default password, that password no longer signs in: the
+  first attempt removes it. Set a new one with "Forgot password", or without
+  email: try to sign in once, then restart with `TR_ADMIN_PASSWORD` set.
+  Anyone could have used that account before the upgrade: change
+  `TR_SECRET` to end all sessions and review the members and API clients of
+  its projects.
+- **Account emails are now verified.** New accounts get a link in their
+  welcome email; existing accounts start unverified and can send a new link
+  from their account settings. A password reset or a Google sign-in that
+  reports the email as verified also verifies it. Inviting an account whose
+  email is not verified sends an invitation link instead of adding it
+  directly; verifying the email accepts its pending invitations.
+- A Google sign-in to an existing account needs Google to report the email
+  as verified. If it verifies an account that had not proved its email, it
+  removes that account's password and ends its other sessions; a password
+  reset also ends other sessions.
+- Database migrations add columns to `user` and make its password column
+  nullable on PostgreSQL. They run automatically unless
+  `TR_DB_AUTOMIGRATE=false`.
+
+### Also
+
+- Google sign-up works on PostgreSQL: the password column had never been
+  made nullable there
+- The login page shows "Bad credentials" for a wrong password instead of a
+  generic error
+
+## 0.22.0
+
+### Security
+
+Please upgrade. The advisories are on
+[GitHub](https://github.com/ever-co/ever-traduora/security/advisories).
+
+- [PR-560:](https://github.com/ever-co/ever-traduora/pull/560) A project
+  admin could change or delete invitations of another project, e.g. raise a
+  pending invite to admin (GHSA-cx96-m99q-j695, thanks @kats1123,
+  @lighthousekeeper1212 and @Tike00)
+- [PR-562:](https://github.com/ever-co/ever-traduora/pull/562) Auth tokens
+  were signed with the publicly known secret `secret` when `TR_SECRET` was
+  not set, which let anyone forge them (GHSA-w5wm-pf8g-hmgc, thanks
+  @EQSTLab)
+- [PR-563:](https://github.com/ever-co/ever-traduora/pull/563) Signing up
+  with an invited email accepted the invitation without proof of owning that
+  email (GHSA-pfvf-33wh-gwwr, thanks @Tike00)
+
+### Upgrade notes
+
+- `TR_SECRET` is now **required** when `NODE_ENV=production` (the Docker
+  image default), and the example values published in this repository are
+  refused everywhere. Generate one with `openssl rand -hex 32` and keep it;
+  setting it signs everyone out once. Without it, outside production a
+  random secret is used per process.
+- Invitations are now accepted through the link in the invitation email.
+  Admins also get the link when they invite someone, to share it themselves
+  if the server cannot send email, and people who already have an account
+  open the same link after signing in. Invitations sent before this release
+  have no link: invite those people again to send them one (signing in with
+  Google still accepts them).
+- A new database migration adds a column to `invite`; it runs automatically
+  on start unless `TR_DB_AUTOMIGRATE=false`.
+
+### Also in this release
+
+- Node 26.12.1, NestJS 11, Angular 19, TypeORM 0.3 and many dependency
+  updates
+- Requests for missing resources return 404 again instead of 500
+- A failure to send an email no longer stops the API process
+- The Docker entrypoint no longer prints environment values, secrets
+  included, to the container logs (set `ENV_SECRETS_DEBUG` to trace it)
 
 ## 0.19.4
 

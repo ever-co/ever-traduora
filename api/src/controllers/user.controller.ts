@@ -3,7 +3,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateUserDataRequest, UserInfoResponse } from '../domain/http';
 import AuthorizationService from '../services/authorization.service';
+import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
+import { verifyEmailUrl } from '../utils/email-verification-token';
 
 @Controller('api/v1/users')
 @UseGuards(AuthGuard())
@@ -13,6 +15,7 @@ export default class UserController {
   constructor(
     private auth: AuthorizationService,
     private userService: UserService,
+    private mail: MailService,
   ) {}
 
   @Get('me')
@@ -30,12 +33,22 @@ export default class UserController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async update(@Req() req, @Body() payload: UpdateUserDataRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    const updated = await this.userService.updateUserData(user.id, payload);
+    const { user: updated, emailChanged } = await this.userService.updateUserData(user.id, payload);
+
+    // A new email starts unverified, so ask the owner to confirm it
+    if (emailChanged) {
+      const token = await this.userService.startEmailVerification(updated);
+      if (token) {
+        void this.mail.verifyEmail(updated, verifyEmailUrl(token));
+      }
+    }
+
     return {
       data: {
         id: updated.id,
         name: updated.name,
         email: updated.email,
+        emailVerified: updated.emailVerified,
       },
     };
   }

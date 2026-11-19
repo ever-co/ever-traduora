@@ -5,7 +5,7 @@ import { map } from 'rxjs/operators';
 import { Payload } from 'src/app/shared/models/http';
 import { environment } from '../../../environments/environment';
 import { ProjectRole } from '../models/project-role';
-import { ProjectInvite } from '../models/project-invite';
+import { ProjectInvite, ProjectInviteAddedUser } from '../models/project-invite';
 
 @Injectable({
   providedIn: 'root',
@@ -19,8 +19,10 @@ export class ProjectInviteService {
     return this.http.get<Payload<ProjectInvite[]>>(`${this.endpoint}/projects/${projectId}/invites`).pipe(map(res => res.data));
   }
 
-  create(projectId: string, email: string, role: ProjectRole): Observable<ProjectInvite> {
-    return this.http.post<Payload<ProjectInvite>>(`${this.endpoint}/projects/${projectId}/invites`, { email, role }).pipe(map(res => res.data));
+  create(projectId: string, email: string, role: ProjectRole): Observable<ProjectInvite | ProjectInviteAddedUser> {
+    return this.http
+      .post<Payload<ProjectInvite | ProjectInviteAddedUser>>(`${this.endpoint}/projects/${projectId}/invites`, { email, role })
+      .pipe(map(res => res.data));
   }
 
   update(projectId: string, inviteId: string, role: ProjectRole): Observable<ProjectInvite> {

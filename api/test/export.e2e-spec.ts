@@ -4,6 +4,7 @@ import * as request from 'supertest';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 import { propertiesParser } from '../src/formatters/properties';
+import { csvParser } from '../src/formatters/csv';
 
 describe('ExportController (e2e)', () => {
   let app: INestApplication;
@@ -108,6 +109,64 @@ describe('ExportController (e2e)', () => {
         expect(Object.keys(parsed)).toHaveLength(2);
         expect(parsed['term.two']).toEqual('zwei');
         expect(parsed['term.one']).toEqual('eins');
+      });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should fill untranslated terms from the fallback locale, matched by term', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ code: 'nl' })
+      .expect(201);
+
+    // Only the second term is translated, so the locale's own list is shifted against the fallback's
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/nl`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termTwoId, value: 'twee' })
+      .expect(200);
+
+    const exportWithFallback = async (format: string): Promise<string> => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/exports?locale=nl&format=${format}&fallbackLocale=de_DE`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200);
+      return Buffer.from(res.body).toString('utf-8');
+    };
+
+    expect(JSON.parse(await exportWithFallback('jsonflat'))).toEqual({ 'term.one': 'eins', 'term.two': 'twee' });
+
+    // CSV keeps every entry, so a dropped or duplicated term shows up here
+    const csv = await csvParser(await exportWithFallback('csv'));
+    expect(csv.translations).toEqual([
+      { term: 'term.one', translation: 'eins' },
+      { term: 'term.two', translation: 'twee' },
+    ]);
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should include terms without a translation row when exporting untranslated', async () => {
+    // Importing into de_DE creates the term and its de_DE translation only, so "greeting" has no row for fr
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(JSON.stringify({ greeting: 'Hallo' })), 'file')
+      .expect(200);
+
+    // A term with an empty row in fr is untranslated as well
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/fr`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termTwoId, value: '' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=fr&format=jsonflat&untranslated=true`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        // term.one has a fr value, so it stays out
+        expect(parsed).toEqual({ greeting: '', 'term.two': '' });
       });
   });
 
@@ -235,6 +294,55 @@ describe('ExportController (e2e)', () => {
       .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=flatjson&untranslated=false`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(400);
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should answer 400 when a nested format cannot hold a term that is also a parent', async () => {
+    for (const value of ['button', 'button.tooltip']) {
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/terms`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ value })
+        .expect(201);
+    }
+
+    for (const format of ['jsonnested', 'yamlnested', 'php']) {
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=${format}&untranslated=false`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(400)
+        .expect(res => {
+          expect(res.body.error.code).toEqual('BadRequest');
+          // the message names both terms, so the user knows which one to rename
+          expect(res.body.error.message).toContain('cannot hold the term "button" together with "button.tooltip"');
+        });
+    }
+
+    // a flat format holds both terms
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        expect(parsed).toEqual({ button: '', 'button.tooltip': '', 'term.one': 'eins', 'term.two': 'zwei' });
+      });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should answer 400 naming the term when ARB cannot hold a term starting with @', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ value: '@x' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=arb&untranslated=false`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(400)
+      .expect(res => {
+        expect(res.body.error.code).toEqual('BadRequest');
+        expect(res.body.error.message).toContain('rename these terms before exporting: @x');
+      });
   });
 
   it('/api/v1/projects/:projectId/exports?format=jsonflat (GET) should not export if locale does not exist for project', async () => {

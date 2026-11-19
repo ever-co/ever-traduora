@@ -52,18 +52,18 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "browserTarget": "traduora-webapp:build"
+            "buildTarget": "traduora-webapp:build"
           },
           "configurations": {
             "production": {
-              "browserTarget": "traduora-webapp:build:production"
+              "buildTarget": "traduora-webapp:build:production"
             }
           }
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "traduora-webapp:build"
+            "buildTarget": "traduora-webapp:build"
           }
         },
         "test": {

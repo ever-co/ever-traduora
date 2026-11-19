@@ -60,11 +60,11 @@ You can add project team and work together with your team.
 
 ![Terms Listing Screenshot](./assets/images/screenshots/project-team.png)
 
-From import module, you can import translation file in various formats like Android Resources (XML), CSV,XLIFF 1.2, JSON Flat, JSON, YAML Flat, YAML, Java Properties, Gettext (po), Strings, PHP, Resource RESX formats.
+From import module, you can import translation file in various formats like Android Resources (XML), CSV,XLIFF 1.2, JSON Flat, JSON, YAML Flat, YAML, Java Properties, Gettext (po), Strings, PHP, Resource RESX, Flutter ARB formats.
 
 ![Terms Listing Screenshot](./assets/images/screenshots/import-project-translation.png)
 
-From export module, You can export particular locale in various formats like Android Resources (XML), CSV,XLIFF 1.2, JSON Flat, JSON, YAML Flat, YAML, Java Properties, Gettext (po), Strings, PHP, Resource RESX formats.
+From export module, You can export particular locale in various formats like Android Resources (XML), CSV,XLIFF 1.2, JSON Flat, JSON, YAML Flat, YAML, Java Properties, Gettext (po), Strings, PHP, Resource RESX, Flutter ARB formats.
 
 ![Terms Listing Screenshot](./assets/images/screenshots/export.png)
 

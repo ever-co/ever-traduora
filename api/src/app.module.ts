@@ -1,10 +1,11 @@
-import { MorganMiddleware } from './middlewares/morgan-middleware';
+import { MorganMiddleware, SAFE_SHORT_FORMAT } from './middlewares/morgan-middleware';
 import { MiddlewareConsumer, Module, ValidationPipe } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { renderFile } from 'ejs';
@@ -13,7 +14,7 @@ import { AuthController } from './controllers/auth.controller';
 import { ExportsController } from './controllers/exports.controller';
 import HealthController from './controllers/health.controller';
 import { ImportController } from './controllers/import.controller';
-import IndexController from './controllers/index.controller';
+import IndexController, { redirectDemoIndexFile } from './controllers/index.controller';
 import LocaleController from './controllers/locale.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectInviteController from './controllers/project-invite.controller';
@@ -34,13 +35,19 @@ import { Project } from './entity/project.entity';
 import { Label } from './entity/label.entity';
 import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
+import { TranslationHistory } from './entity/translation-history.entity';
 import { User } from './entity/user.entity';
+import { UserIdentity } from './entity/user-identity.entity';
+import { EverIdSession } from './entity/ever-id-session.entity';
+import { EverIdLogoutJti } from './entity/ever-id-logout-jti.entity';
 import { CustomExceptionFilter } from './filters/exception.filter';
 import { AuthService } from './services/auth.service';
 import AuthorizationService from './services/authorization.service';
 import { JwtStrategy } from './services/jwt.strategy';
 import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
+import { OidcProviderService } from './services/oidc-provider.service';
+import { EverIdSessionService } from './services/ever-id-session.service';
 import ProjectStatsController from './controllers/project-stats.controller';
 import { ConfigModule } from '@nestjs/config';
 import { RedisModule } from './redis/redis.module';
@@ -49,6 +56,8 @@ import { CustomThrottlerGuard } from './guards/custom-throttler.guard';
 import { SeedDataService } from './seeds/seed-data.service';
 import { UserSeed } from './seeds/user.seed';
 import { dataSourceOptions } from './connection/datasource';
+import { serializeTransactions } from './connection/serialize-transactions';
+import { DbType } from './utils/database-type-helper';
 
 @Module({
   imports: [
@@ -64,8 +73,28 @@ import { dataSourceOptions } from './connection/datasource';
     RedisModule,
     TypeOrmModule.forRootAsync({
       useFactory: async () => dataSourceOptions(),
+      dataSourceFactory: async options => {
+        const dataSource = new DataSource(options);
+        return options.type === DbType.BETTER_SQLITE3 ? serializeTransactions(dataSource) : dataSource;
+      },
     }),
-    TypeOrmModule.forFeature([User, Invite, ProjectUser, Project, Term, Locale, ProjectLocale, Translation, ProjectClient, Plan, Label]),
+    TypeOrmModule.forFeature([
+      User,
+      Invite,
+      ProjectUser,
+      Project,
+      Term,
+      Locale,
+      ProjectLocale,
+      Translation,
+      TranslationHistory,
+      ProjectClient,
+      Plan,
+      Label,
+      UserIdentity,
+      EverIdSession,
+      EverIdLogoutJti,
+    ]),
     HttpModule,
   ],
   controllers: [
@@ -99,6 +128,8 @@ import { dataSourceOptions } from './connection/datasource';
     UserLoginAttemptsStorage,
     SeedDataService,
     UserSeed,
+    OidcProviderService,
+    EverIdSessionService,
   ],
 })
 export class AppModule {
@@ -111,7 +142,7 @@ export class AppModule {
    */
   configure(consumer: MiddlewareConsumer): void {
     if (config.accessLogsEnabled) {
-      MorganMiddleware.configure('short');
+      MorganMiddleware.configure(SAFE_SHORT_FORMAT);
       consumer.apply(MorganMiddleware).forRoutes('{*splat}');
     }
   }
@@ -147,6 +178,9 @@ export const addPipesAndFilters = (app: NestExpressApplication): void => {
       whitelist: true,
     }),
   );
+
+  // Before the static files: a demo install's index.html must go through IndexController, which adds the demo tag
+  app.use(redirectDemoIndexFile);
 
   app.useStaticAssets(config.publicDir, { index: false, redirect: false });
 

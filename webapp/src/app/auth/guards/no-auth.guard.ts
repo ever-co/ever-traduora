@@ -16,7 +16,9 @@ export class NoAuthGuard {
     return this.store.selectOnce(AuthState.isAuthenticated).pipe(
       map(isAuthenticated => {
         if (isAuthenticated) {
-          this.store.dispatch(new Navigate(['/']));
+          // Signed-in people opening an invitation link accept it with their account
+          const invite = next.queryParamMap.get('invite');
+          this.store.dispatch(invite ? new Navigate(['/accept-invite'], { invite }) : new Navigate(['/']));
           return false;
         }
         return true;
