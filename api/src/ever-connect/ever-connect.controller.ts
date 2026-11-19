@@ -6,7 +6,7 @@ import { EverConnectAcceptRequest, EverConnectConnectRequest, EverConnectPublicU
 import { EverConnectService } from './ever-connect.service';
 
 /** Who acts, as the audit trail names them: the user id, never an e-mail. */
-const actor = (req: { user?: { id?: string } }) => `user:${req.user && req.user.id}`;
+const actor = (req: { user?: { id?: string } }) => (req.user && req.user.id ? `user:${req.user.id}` : 'unknown');
 
 /**
  * The routes of the Ever Platform connection (`/api/v1/ever-connect/*`), present only when the module is loaded
