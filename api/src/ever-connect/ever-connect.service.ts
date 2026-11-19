@@ -299,7 +299,8 @@ export class EverConnectService {
    * touched. When Ever Platform cannot be reached, the connection ends here anyway.
    */
   async disconnect(actorRef: string): Promise<EverConnectStatus> {
-    const live = await this.liveClient();
+    // A connection key that cannot be read any more (TR_SECRET changed) still lets the connection end here
+    const live = await this.liveClient().catch((): null => null);
     const connection = live ? live.connection : await this.read();
     if (!connection) {
       throw conflict('not_connected', 'This installation is not connected');
