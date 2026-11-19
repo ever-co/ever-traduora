@@ -109,6 +109,11 @@ export function signBytes(privateKeyDer: Buffer, bytes: Uint8Array): Buffer {
 
 /** Whether `signature` is the Ed25519 signature of `bytes` by the raw base64url `publicKey`. */
 export function verifyBytes(publicKey: string, bytes: Uint8Array, signature: Uint8Array): boolean {
+  // Only a canonical base64url Ed25519 key (32 bytes) is a key
+  const raw = Buffer.from(String(publicKey), 'base64url');
+  if (raw.length !== 32 || raw.toString('base64url') !== publicKey) {
+    return false;
+  }
   const key = createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: publicKey }, format: 'jwk' });
   return edVerify(null, bytes, key, signature);
 }

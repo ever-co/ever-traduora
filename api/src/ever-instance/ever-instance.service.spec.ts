@@ -162,6 +162,7 @@ describe('key wrapping', () => {
       const tampered = Buffer.from(bytes);
       tampered[3] = tampered[3] + 1;
       expect(verifyBytes(record.statsPublicKey, tampered, signature)).toBe(false);
+      expect(verifyBytes('not-a-key', bytes, signature)).toBe(false);
     } finally {
       await dataSource.destroy();
     }
