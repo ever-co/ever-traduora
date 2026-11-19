@@ -17,6 +17,7 @@ const sidebars: SidebarsConfig = {
         'deployment',
         'configuration',
         'ever-platform/anonymous-usage-statistics',
+        'ever-platform/connection',
         'ever-platform/outbound-calls',
       ],
     },

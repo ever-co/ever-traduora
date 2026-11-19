@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Optional Ever Platform connection, off by default. With `TR_EVER_CONNECT_ENABLED=true` the operator can connect the
+  installation to an organization with a code from app.ever.co (*Ever Platform* in the account menu). While connected,
+  Traduora sends a daily heartbeat, reads its verified plan and the integrations an owner or admin consented to in
+  app.ever.co (the installation address, linking the anonymous statistics), lets the operator switch each one off, and
+  keeps an audit trail of every change. Nothing is sent before the operator connects, and *Disconnect* ends it. See
+  [Ever Platform connection](ever-platform/connection.md)
+
 - Optional anonymous usage statistics, off by default. With `TR_EVER_STATS_ENABLED=true` the API sends Ever Platform one
   small signed report a day about the installation as a whole: how many users, projects, terms, translations, project
   locales and API clients it has, how many translations changed this month, and whether Google sign-in and sign-ups are
