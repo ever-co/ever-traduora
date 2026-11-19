@@ -39,6 +39,29 @@ describe('Ever Platform settings', () => {
     expect(warnings).toEqual([]);
   });
 
+  describe('TR_EVER_CONNECT_*', () => {
+    it('loads the connection only for the exact value true', () => {
+      expect(read({}).settings.connectEnabled).toBe(false);
+      expect(read({ TR_EVER_CONNECT_ENABLED: 'false' }).settings.connectEnabled).toBe(false);
+      expect(read({ TR_EVER_CONNECT_ENABLED: 'garbage' }).settings.connectEnabled).toBe(false);
+      expect(read({ TR_EVER_CONNECT_ENABLED: 'true' }).settings.connectEnabled).toBe(true);
+    });
+
+    it('reads the feed mode, the deny list and the boot code', () => {
+      const { settings, warnings } = read({
+        TR_EVER_CONNECT_ENABLED: 'true',
+        TR_EVER_CONNECT_FEED_MODE: 'bogus',
+        TR_EVER_CONNECT_INTEGRATIONS_DENY: ' Stats_Link, ,instance_url,stats_link ',
+        TR_EVER_CONNECT_CODE: ' EVC-TEST-0000-0001 ',
+      });
+      expect(settings.connectFeedMode).toBe('longpoll');
+      expect(warnings.some(w => w.includes('TR_EVER_CONNECT_FEED_MODE'))).toBe(true);
+      expect(settings.connectIntegrationsDeny).toEqual(['stats_link', 'instance_url']);
+      expect(settings.connectCode).toBe('EVC-TEST-0000-0001');
+      expect(read({ TR_EVER_CONNECT_FEED_MODE: 'interval' }).settings.connectFeedMode).toBe('interval');
+    });
+  });
+
   describe('TR_EVER_STATS_COUNTRY', () => {
     it('is ZZ when unset', () => {
       expect(read({}).settings.statsCountry).toBe('ZZ');
