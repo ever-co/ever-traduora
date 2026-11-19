@@ -2,6 +2,87 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 import { config } from '../config';
 import { DbType } from '../utils/database-type-helper';
 
+interface ColumnSpec {
+  name: string;
+  type: 'varchar' | 'bigint' | 'int' | 'text';
+  length?: number;
+  nullable?: boolean;
+  default?: number;
+}
+
+interface TableSpec {
+  name: string;
+  columns: ColumnSpec[];
+  primary: string[];
+}
+
+/** The tables, written once: `createTable` renders them for postgres, mysql and better-sqlite3. */
+const TABLES: TableSpec[] = [
+  {
+    name: 'ever_connect_person_link',
+    columns: [
+      { name: 'user_identity_id', type: 'varchar', length: 36 },
+      { name: 'user_id', type: 'varchar', length: 36 },
+      { name: 'reported_at', type: 'bigint', nullable: true },
+      { name: 'updated_at', type: 'bigint' },
+    ],
+    primary: ['user_identity_id'],
+  },
+  {
+    name: 'ever_connect_person_request',
+    columns: [
+      { name: 'job_id', type: 'varchar', length: 64 },
+      { name: 'kind', type: 'varchar', length: 16 },
+      { name: 'result', type: 'varchar', length: 24, nullable: true },
+      { name: 'reason_code', type: 'varchar', length: 64, nullable: true },
+      { name: 'accounts', type: 'int', default: 0 },
+      { name: 'received_at', type: 'bigint' },
+      { name: 'answered_at', type: 'bigint', nullable: true },
+    ],
+    primary: ['job_id'],
+  },
+  {
+    name: 'ever_connect_person_export',
+    columns: [
+      { name: 'job_id', type: 'varchar', length: 64 },
+      { name: 'user_id', type: 'varchar', length: 36 },
+      { name: 'bundle_enc', type: 'text' },
+      { name: 'created_at', type: 'bigint' },
+      { name: 'expires_at', type: 'bigint' },
+    ],
+    primary: ['job_id', 'user_id'],
+  },
+];
+
+function quote(dbType: string, name: string): string {
+  return dbType === DbType.MYSQL ? `\`${name}\`` : `"${name}"`;
+}
+
+function columnType(dbType: string, column: ColumnSpec): string {
+  switch (column.type) {
+    case 'varchar':
+      return `varchar(${column.length})`;
+    case 'int':
+      return dbType === DbType.MYSQL ? 'int' : 'integer';
+    case 'text':
+      // An export can outgrow MySQL's 64 KB `text`
+      return dbType === DbType.MYSQL ? 'mediumtext' : 'text';
+    default:
+      return 'bigint';
+  }
+}
+
+function createTable(dbType: string, table: TableSpec): string {
+  const columns = table.columns.map(column => {
+    const defaultValue = column.default === undefined ? '' : ` DEFAULT ${column.default}`;
+    return `${quote(dbType, column.name)} ${columnType(dbType, column)} ${column.nullable ? 'NULL' : 'NOT NULL'}${defaultValue}`;
+  });
+  const key = table.primary.map(name => quote(dbType, name)).join(', ');
+  const primary = `CONSTRAINT ${quote(dbType, `PK_${table.name}`)} PRIMARY KEY (${key})`;
+  const options = dbType === DbType.MYSQL ? ' ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin' : '';
+  return `CREATE TABLE IF NOT EXISTS ${quote(dbType, table.name)} (${[...columns, primary].join(', ')})${options}`;
+}
+
 /**
  * Tables of a person's requests through the optional Ever Platform connection: the person links this installation
  * reported, the receipts of deletion and export requests, and the exports waiting to be downloaded. Creates new tables
@@ -9,124 +90,19 @@ import { DbType } from '../utils/database-type-helper';
  */
 export class everConnectPerson1795219200000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    switch (config.db.default.type) {
-      case DbType.POSTGRES:
-        await queryRunner.query(
-          `CREATE TABLE IF NOT EXISTS "ever_connect_person_link" (
-            "user_identity_id" varchar(36) NOT NULL,
-            "user_id" varchar(36) NOT NULL,
-            "reported_at" bigint NULL,
-            "updated_at" bigint NOT NULL,
-            CONSTRAINT "PK_ever_connect_person_link" PRIMARY KEY ("user_identity_id")
-          );`,
-        );
-        await queryRunner.query(
-          `CREATE TABLE IF NOT EXISTS "ever_connect_person_request" (
-            "job_id" varchar(64) NOT NULL,
-            "kind" varchar(16) NOT NULL,
-            "result" varchar(24) NULL,
-            "reason_code" varchar(64) NULL,
-            "accounts" integer NOT NULL DEFAULT 0,
-            "received_at" bigint NOT NULL,
-            "answered_at" bigint NULL,
-            CONSTRAINT "PK_ever_connect_person_request" PRIMARY KEY ("job_id")
-          );`,
-        );
-        await queryRunner.query(
-          `CREATE TABLE IF NOT EXISTS "ever_connect_person_export" (
-            "job_id" varchar(64) NOT NULL,
-            "user_id" varchar(36) NOT NULL,
-            "bundle_enc" text NOT NULL,
-            "created_at" bigint NOT NULL,
-            "expires_at" bigint NOT NULL,
-            CONSTRAINT "PK_ever_connect_person_export" PRIMARY KEY ("job_id", "user_id")
-          );`,
-        );
-        break;
-      case DbType.MYSQL:
-        await queryRunner.query(
-          'CREATE TABLE IF NOT EXISTS `ever_connect_person_link` (' +
-            '`user_identity_id` varchar(36) NOT NULL, ' +
-            '`user_id` varchar(36) NOT NULL, ' +
-            '`reported_at` bigint NULL DEFAULT NULL, ' +
-            '`updated_at` bigint NOT NULL, ' +
-            'PRIMARY KEY (`user_identity_id`)' +
-            ') ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
-        );
-        await queryRunner.query(
-          'CREATE TABLE IF NOT EXISTS `ever_connect_person_request` (' +
-            '`job_id` varchar(64) NOT NULL, ' +
-            '`kind` varchar(16) NOT NULL, ' +
-            '`result` varchar(24) NULL DEFAULT NULL, ' +
-            '`reason_code` varchar(64) NULL DEFAULT NULL, ' +
-            '`accounts` int NOT NULL DEFAULT 0, ' +
-            '`received_at` bigint NOT NULL, ' +
-            '`answered_at` bigint NULL DEFAULT NULL, ' +
-            'PRIMARY KEY (`job_id`)' +
-            ') ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
-        );
-        await queryRunner.query(
-          'CREATE TABLE IF NOT EXISTS `ever_connect_person_export` (' +
-            '`job_id` varchar(64) NOT NULL, ' +
-            '`user_id` varchar(36) NOT NULL, ' +
-            '`bundle_enc` mediumtext NOT NULL, ' +
-            '`created_at` bigint NOT NULL, ' +
-            '`expires_at` bigint NOT NULL, ' +
-            'PRIMARY KEY (`job_id`, `user_id`)' +
-            ') ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
-        );
-        break;
-      case DbType.BETTER_SQLITE3:
-        await queryRunner.query(
-          `CREATE TABLE IF NOT EXISTS "ever_connect_person_link" (
-            "user_identity_id" VARCHAR(36) PRIMARY KEY NOT NULL,
-            "user_id" VARCHAR(36) NOT NULL,
-            "reported_at" BIGINT DEFAULT NULL,
-            "updated_at" BIGINT NOT NULL
-          )`,
-        );
-        await queryRunner.query(
-          `CREATE TABLE IF NOT EXISTS "ever_connect_person_request" (
-            "job_id" VARCHAR(64) PRIMARY KEY NOT NULL,
-            "kind" VARCHAR(16) NOT NULL,
-            "result" VARCHAR(24) DEFAULT NULL,
-            "reason_code" VARCHAR(64) DEFAULT NULL,
-            "accounts" INTEGER NOT NULL DEFAULT 0,
-            "received_at" BIGINT NOT NULL,
-            "answered_at" BIGINT DEFAULT NULL
-          )`,
-        );
-        await queryRunner.query(
-          `CREATE TABLE IF NOT EXISTS "ever_connect_person_export" (
-            "job_id" VARCHAR(64) NOT NULL,
-            "user_id" VARCHAR(36) NOT NULL,
-            "bundle_enc" TEXT NOT NULL,
-            "created_at" BIGINT NOT NULL,
-            "expires_at" BIGINT NOT NULL,
-            PRIMARY KEY ("job_id", "user_id")
-          )`,
-        );
-        break;
-      default:
-        throw new Error(`Unknown DB type: ${config.db.default.type}`);
+    const dbType = config.db.default.type;
+    if (dbType !== DbType.POSTGRES && dbType !== DbType.MYSQL && dbType !== DbType.BETTER_SQLITE3) {
+      throw new Error(`Unknown DB type: ${dbType}`);
+    }
+    for (const table of TABLES) {
+      await queryRunner.query(createTable(dbType, table));
     }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    switch (config.db.default.type) {
-      case DbType.POSTGRES:
-      case DbType.BETTER_SQLITE3:
-        await queryRunner.query('DROP TABLE IF EXISTS "ever_connect_person_export"');
-        await queryRunner.query('DROP TABLE IF EXISTS "ever_connect_person_request"');
-        await queryRunner.query('DROP TABLE IF EXISTS "ever_connect_person_link"');
-        break;
-      case DbType.MYSQL:
-        await queryRunner.query('DROP TABLE IF EXISTS `ever_connect_person_export`');
-        await queryRunner.query('DROP TABLE IF EXISTS `ever_connect_person_request`');
-        await queryRunner.query('DROP TABLE IF EXISTS `ever_connect_person_link`');
-        break;
-      default:
-        throw new Error(`Unknown DB type: ${config.db.default.type}`);
+    const dbType = config.db.default.type;
+    for (const table of [...TABLES].reverse()) {
+      await queryRunner.query(`DROP TABLE IF EXISTS ${quote(dbType, table.name)}`);
     }
   }
 }
