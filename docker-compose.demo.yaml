@@ -11,9 +11,9 @@ services:
       TR_DB_TYPE: better-sqlite3
       TR_DB_SQLITE_PATH: ${TR_DB_SQLITE_PATH:-api/data/tr_dev.sqlite3}
       NODE_ENV: ${NODE_ENV:-development}
-      # Anonymous usage statistics are on by default; 'false' turns them off entirely, see
-      # docs/ever-platform/anonymous-usage-statistics.md
-      # TR_EVER_STATS_ENABLED: 'false'
+      # Anonymous usage statistics are on by default; TR_EVER_STATS_ENABLED=false (in the shell or .env) turns them off
+      # entirely, see docs/ever-platform/anonymous-usage-statistics.md
+      TR_EVER_STATS_ENABLED: ${TR_EVER_STATS_ENABLED:-}
     entrypoint: './docker-entrypoint.compose.sh'
     restart: on-failure
     volumes:

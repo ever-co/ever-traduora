@@ -112,9 +112,12 @@ is sent. If `TR_SECRET` changes, the stored key can no longer be read: the insta
 
 | Switch                                                            | Effect                                                                                                                                                                                                                                                                 |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TR_EVER_STATS_ENABLED=false`, then a restart                     | The statistics are not loaded at all: no route (`/api/v1/ever-stats/*` does not exist), no timer, no request, no table row.                                                                                                                                           |
+| `TR_EVER_STATS_ENABLED=false`, then a restart                     | The statistics are not loaded at all: no route (`/api/v1/ever-stats/*` does not exist), no timer, no request, no new table row (reports stored before stay in `ever_stats_report`). |
 | `TR_EVER_STATS_ENABLED` unset (the default), `true`, or anything else | The statistics are loaded and send once a day. The value is compared exactly: anything other than `true` or `false` (`FALSE`, `0`, `off`, ...) keeps the default (on) and is named in the start log.                                                                 |
 | _Ever Platform → Statistics → Turn off_                           | The module stays loaded so the page works, but no report is built or sent and _Send now_ is refused. The switch is read again before every report.                                                                                                                    |
+
+Running the API from source with `yarn start` (in `api`) keeps the statistics off; `yarn start:stats` runs it with them
+on.
 
 The page is shown to the operator of the installation only: a user whose e-mail is listed in `TR_EVER_ADMIN_EMAILS`
 (comma separated), or, when that is unset, the `TR_ADMIN_EMAIL` user, and whose e-mail address is confirmed (an
