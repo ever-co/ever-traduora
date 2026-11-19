@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
+import { EverConnectManagedService } from './ever-connect-managed.service';
 import { EverConnectPersonService } from './ever-connect-person.service';
 import { problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
@@ -32,6 +33,8 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
   private stopped = false;
   private lastFeedAt = 0;
   private running: Promise<void> | null = null;
+  /** Whether the last feed page's handlers failed (its state refresh may not have been applied). */
+  private feedFailed = false;
   /** This process, as the lease names it (random, nothing else). */
   readonly holderId = randomUUID();
 
@@ -41,6 +44,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     private readonly connect: EverConnectService,
     @Optional() @Inject(EVER_CONNECT_AUTOSTART) private readonly autostart?: boolean,
     @Optional() private readonly person?: EverConnectPersonService,
+    @Optional() private readonly managed?: EverConnectManagedService,
   ) {}
 
   onModuleInit(): void {
@@ -80,6 +84,12 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
   /** At boot: the connect code of `TR_EVER_CONNECT_CODE`, when one is set and was never tried. */
   async boot(): Promise<void> {
     await this.connect.connectFromEnv();
+  }
+
+  /** Whether the connection with this key is still the active one. */
+  private async isCurrent(kid: string | null): Promise<boolean> {
+    const current = await this.connect.read();
+    return !!current && current.status === 'active' && current.kid === kid;
   }
 
   /** Takes the lease of the background calls when it is free or expired (or already ours). */
@@ -163,6 +173,18 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       if (connection.status === 'active' && this.person) {
         await this.person.syncLinks().catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
+      if (connection.status === 'active' && this.managed) {
+        const live = await this.connect.liveClient();
+        // Only for the connection that is still active now (the feed may have ended it)
+        if (live && live.connection.status === 'active' && live.connection.kid === connection.kid) {
+          // Not while a state refresh of the feed failed: a revoked consent may not have been applied yet
+          if (!this.feedFailed) {
+            await this.managed
+              .runDue(live.client, connection.kid, Date.now(), () => this.isCurrent(connection.kid))
+              .catch(error => this.connect.handleCallError(error, 'managed', connection.kid));
+          }
+        }
+      }
     } finally {
       await this.release();
     }
@@ -192,20 +214,41 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       await this.connect.handleCallError(error, 'feed');
       return 0;
     }
+    if (!page.events.length) {
+      this.feedFailed = false;
+    }
     if (page.events.length) {
-      try {
-        // A person's deletion and export requests first: a failing state refresh never holds them back
-        if (this.person) {
+      // A person's answer that must be retried never holds back the state refresh (a revoked consent applies at once);
+      // the page is acknowledged only once every handler went through
+      const failures: unknown[] = [];
+      if (this.person) {
+        try {
           await this.person.handleEvents(live.client, page.events);
-          if (page.events.some(event => event.type.startsWith('ever.consent'))) {
-            // The ever_id_login consent decides whether person links are reported
-            this.person.requestSync();
-          }
+        } catch (error) {
+          failures.push(error);
         }
+        if (page.events.some(event => event.type.startsWith('ever.consent'))) {
+          // The ever_id_login consent decides whether person links are reported
+          this.person.requestSync();
+        }
+      }
+      try {
         await this.applyTypes(page.events.map(event => event.type));
+        // After the state refresh: a consent in the same page counts for a request that follows it, and a page that
+        // ended the connection runs no maintenance work
+        if (this.managed && !failures.length && (await this.isCurrent(live.connection.kid))) {
+          await this.managed.handleEvents(live.client, page.events, live.connection.kid, () => this.isCurrent(live.connection.kid));
+        }
       } catch (error) {
-        // Not acknowledged: the same page comes again with the next read, and every handler reads the state again
-        await this.connect.handleCallError(error, 'feed_apply');
+        failures.push(error);
+      }
+      this.feedFailed = failures.length > 0;
+      if (failures.length) {
+        // Not acknowledged: the same page comes again with the next read, and every handler reads the state again.
+        // Each error is handled (a revoked credential ends the connection whichever handler met it)
+        for (const failure of failures) {
+          await this.connect.handleCallError(failure, 'feed_apply', live.connection.kid);
+        }
         return 0;
       }
       await live.client.ack(page.lastId);
@@ -241,6 +284,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     }
     const known = ['ever.registry.instance.', 'ever.registry.tenant_link', 'ever.consent', 'ever.entitlements'];
     if (this.person) known.push('ever.registry.person.deletion_requested', 'ever.registry.person.export_requested');
+    if (this.managed) known.push('ever.registry.managed_operation.requested');
     for (const type of types) {
       if (!known.some(prefix => type.startsWith(prefix))) {
         this.logger.log(`ever_connect.feed event=${type.slice(0, 96)} outcome=acknowledged`);

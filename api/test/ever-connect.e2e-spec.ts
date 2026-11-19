@@ -98,7 +98,7 @@ describe('Ever Platform connection (e2e)', () => {
 
   it('lists the integrations with what they move, and links to app.ever.co for consent', async () => {
     const list = await asOperator(request(server()).get('/api/v1/ever-connect/integrations')).expect(200);
-    expect(list.body.data.map(item => item.key)).toEqual(['instance_url', 'stats_link', 'ever_id_login']);
+    expect(list.body.data.map(item => item.key)).toEqual(['instance_url', 'stats_link', 'ever_id_login', 'managed_operations']);
     expect(list.body.data[0].scope.length).toBeGreaterThan(0);
     await asOperator(request(server()).get('/api/v1/ever-connect/integrations/instance_url/consent-url'))
       .expect(200)

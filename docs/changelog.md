@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- With the Ever Platform connection on, an owner or admin of the organization can ask from app.ever.co for a health
+  report, a backup (SQLite) or a backup check. Each runs only with the organization's consent **and** the operator's
+  opt-in for that kind, inside the operator's windows; Ever Platform receives the status, the version and, for a
+  backup, an opaque reference and its size only (never a path or a file name). Updates are
+  never run from inside the container. See
+  [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
+
 - With the Ever Platform connection on, Traduora answers a person's export and deletion requests sent from app.ever.co
   for the accounts their Ever ID is linked to: an export (profile, Ever ID, projects and roles) that only that account
   can download for 7 days, or the removal of the Ever ID from the account (the account, its password and its projects

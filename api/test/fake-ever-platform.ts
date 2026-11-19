@@ -33,6 +33,8 @@ export class FakeEverPlatform {
   refuseLinksOf = new Set<string>();
   /** The answers to person requests the fake recorded. */
   answers: PersonRequestAnswer[] = [];
+  /** The results of maintenance operations the fake recorded, by operation id. */
+  managedResults: Record<string, unknown> = {};
   /** When set, the next answer to a person request fails with this problem (then the setting clears). */
   answerProblem: { status: number; code: string } | null = null;
   linkState = 'active';
@@ -133,6 +135,10 @@ export class FakeEverPlatform {
           throw new ProblemError(404, 'not_found');
         }
         delete this.personLinks[productUserRef];
+      },
+      managedOperationResult: async (operationId, result) => {
+        this.record('managedOperationResult', operationId, { ...result });
+        this.managedResults[operationId] = { ...result };
       },
       answerPersonRequest: async answer => {
         this.record('answerPersonRequest', { ...answer });

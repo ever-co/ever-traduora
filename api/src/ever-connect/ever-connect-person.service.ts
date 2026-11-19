@@ -496,8 +496,9 @@ export class EverConnectPersonService {
     const identities = (await this.identityRows()).filter(EverConnectPersonService.reportable);
     const byId = new Map(identities.map(identity => [identity.id, identity]));
     const waiting = (row: EverConnectPersonLink | undefined) => !!row && !!row.retryAt && row.retryAt > now;
+    // Only for the connection that made the call (a disconnect meanwhile deleted every link)
     const later = (row: Partial<EverConnectPersonLink>) =>
-      this.links.save(Object.assign(new EverConnectPersonLink(), row, { retryAt: now + PERSON_LINK_RETRY_MS, updatedAt: now }));
+      this.saveIfConnected(connection.kid, Object.assign(new EverConnectPersonLink(), row, { retryAt: now + PERSON_LINK_RETRY_MS, updatedAt: now }));
     let calls = 0;
     let removed = 0;
     let reported = 0;
@@ -532,6 +533,8 @@ export class EverConnectPersonService {
         const row = known.get(identity.id);
         const current = !!row && !!row.reportedAt && row.tenantLinkId === tenantLinkId;
         if (current || waiting(row) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
+        // Checked again before each report: once the integration is switched off here, no further report starts
+        if (!(await this.reporting())) break;
         calls += 1;
         try {
           await client.reportPersonLink({

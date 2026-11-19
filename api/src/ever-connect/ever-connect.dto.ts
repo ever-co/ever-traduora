@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /** Connect with a code an organization owner or admin created in app.ever.co. */
 export class EverConnectConnectRequest {
@@ -28,4 +28,31 @@ export class EverConnectPublicUrlRequest {
   @IsString()
   @MaxLength(2048)
   url: string;
+}
+
+/** The operator's opt-in to maintenance operations requested from app.ever.co. */
+export class EverConnectManagedRequest {
+  @ApiProperty({ description: 'Whether operations may run at all on this installation', required: false })
+  @IsOptional()
+  @IsBoolean()
+  optIn?: boolean;
+
+  @ApiProperty({ description: 'The kinds allowed: health_report, backup, restore_check (backups on SQLite only)', required: false })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(4)
+  @IsString({ each: true })
+  kinds?: string[];
+
+  @ApiProperty({ description: 'Weekly windows in UTC: [{days: [0-6], from: "HH:MM", to: "HH:MM"}]', required: false })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(14)
+  windows?: Array<{ days: number[]; from: string; to: string }>;
+
+  @ApiProperty({ description: 'The absolute directory backups are written to (never shown again; empty removes it)', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  backupDir?: string;
 }

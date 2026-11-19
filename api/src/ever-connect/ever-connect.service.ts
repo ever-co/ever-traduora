@@ -28,7 +28,7 @@ export const CONNECTION_ID = 'self';
 export const CONNECT_MODULE_VERSION = '1.0.0';
 
 /** The integrations Traduora offers, in the order the page lists them. */
-export const TRADUORA_INTEGRATIONS = ['instance_url', 'stats_link', 'ever_id_login'] as const;
+export const TRADUORA_INTEGRATIONS = ['instance_url', 'stats_link', 'ever_id_login', 'managed_operations'] as const;
 
 /** The status ladder of an entitlement document: valid, then stale within its grace period, then paused. */
 export type EntitlementState = 'valid' | 'stale' | 'paused' | 'none';
@@ -392,9 +392,10 @@ export class EverConnectService {
     connection.nextEntitlementAt = null;
     connection.updatedAt = Date.now();
     this.cachedClient = null;
-    // Ever Platform ended the person links with the connection (a later connection reports them again): both together
+    // Ever Platform ended the person links and the consents with the connection (a later connection reads them again)
     await this.connections.manager.transaction(async manager => {
       await manager.save(connection);
+      await manager.createQueryBuilder().delete().from(EverConnectIntegration).execute();
       await manager.createQueryBuilder().delete().from(EverConnectPersonLink).execute();
     });
     await this.audit.record(`instance.${status}`, 'platform', reason);

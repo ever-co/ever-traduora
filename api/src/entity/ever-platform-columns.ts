@@ -9,3 +9,6 @@ export const epochMsTransformer: ValueTransformer = {
   to: (value: number | null | undefined) => (value === undefined ? undefined : value),
   from: (value: string | number | null) => (value === null || value === undefined ? null : Number(value)),
 };
+
+/** A whole number in a `bigint` column (a byte count, for example), read back as a number on every database. */
+export const bigintNumberTransformer: ValueTransformer = epochMsTransformer;

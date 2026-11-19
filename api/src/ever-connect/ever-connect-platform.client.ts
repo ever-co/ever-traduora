@@ -103,6 +103,16 @@ export interface EverConnectPlatformClient {
   removePersonLink(productUserRef: string): Promise<void>;
   /** Answers a person's deletion or export request. */
   answerPersonRequest(answer: PersonRequestAnswer): Promise<void>;
+  /** Reports the result of a maintenance operation: status, version and size only. */
+  managedOperationResult(operationId: string, result: ManagedResult): Promise<void>;
+}
+
+/** The result of a maintenance operation as Ever Platform receives it (never a path or a file name). */
+export interface ManagedResult {
+  status: 'succeeded' | 'failed';
+  version?: string;
+  artefact_ref?: string;
+  size_bytes?: number;
 }
 
 /** What a client is built from. */
@@ -300,6 +310,9 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     },
     async removePersonLink(productUserRef) {
       await client.instances.personLinks.remove(productUserRef);
+    },
+    async managedOperationResult(operationId, result) {
+      await client.instances.managedOperationResult(operationId, { ...result });
     },
     async answerPersonRequest(answer) {
       await client.instances.ack({
