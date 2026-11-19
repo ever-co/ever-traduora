@@ -33,7 +33,12 @@ const SETTINGS: EverConnectSettings = {
 
 const INSTANCE_SETTINGS: EverInstanceSettings = { installSource: 'self-hosted', adminEmails: [], secret: 'unit-test-secret-of-this-installation' };
 const TYPE = 'ever.registry.managed_operation.requested';
-const ALL_WEEK = [{ days: [0, 1, 2, 3, 4, 5, 6], from: '00:00', to: '23:59' }];
+// The whole week, every minute (an end time is exclusive, so the day is two windows: 00:00-12:00 and 12:00-00:00)
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+const ALL_WEEK = [
+  { days: EVERY_DAY, from: '00:00', to: '12:00' },
+  { days: EVERY_DAY, from: '12:00', to: '00:00' },
+];
 
 // Runs the real migrations on an in-memory SQLite database (backups are SQLite-only): only when TR_DB_TYPE is SQLite
 const describeOnSqlite = config.db.default.type === 'better-sqlite3' ? describe : describe.skip;
@@ -214,6 +219,24 @@ describeOnSqlite('EverConnectManagedService', () => {
     expect(await managed.runDue(client, 'kid-1', Date.now())).toBe(0);
     expect(await managed.runDue(client, 'kid-1', later + 1000)).toBe(1);
     expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('lets a request with a later start time wait, and checks consent, opt-in and window only when it starts', async () => {
+    const { connect, managed, client } = await connected();
+    const later = Date.now() + 3600000;
+    const op = request('health_report', { notBefore: later });
+    // Neither consent nor opt-in yet: nothing is refused, the request waits
+    await managed.handle(client, op, 'kid-1');
+    expect(platform.managedResults[op.operation_id]).toBeUndefined();
+    expect((await history())[0]).toMatchObject({ status: 'deferred' });
+    await consent(connect);
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
+    expect(await managed.runDue(client, 'kid-1', later + 1000)).toBe(1);
+    expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
+    // Claimed and done: read again, it runs no second time
+    const calls = platform.calls.length;
+    await managed.handle(client, op, 'kid-1', later + 2000);
+    expect(platform.calls).toHaveLength(calls);
   });
 
   it('cancels the work of an ended connection instead of running it through the next one', async () => {

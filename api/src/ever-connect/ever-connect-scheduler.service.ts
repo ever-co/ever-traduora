@@ -202,27 +202,36 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       return 0;
     }
     if (page.events.length) {
-      try {
-        // A person's deletion and export requests first: a failing state refresh never holds them back
-        if (this.person) {
+      // A person's answer that must be retried never holds back the state refresh (a revoked consent applies at once);
+      // the page is acknowledged only once every handler went through
+      let failure: unknown = null;
+      if (this.person) {
+        try {
           await this.person.handleEvents(live.client, page.events);
-          if (page.events.some(event => event.type.startsWith('ever.consent'))) {
-            // The ever_id_login consent decides whether person links are reported
-            this.person.requestSync();
-          }
+        } catch (error) {
+          failure = error;
         }
+        if (page.events.some(event => event.type.startsWith('ever.consent'))) {
+          // The ever_id_login consent decides whether person links are reported
+          this.person.requestSync();
+        }
+      }
+      try {
         await this.applyTypes(page.events.map(event => event.type));
-        // After the state refresh: a consent in the same page counts for a request that follows it, and a page that ended
-        // the connection runs no maintenance work
-        if (this.managed) {
+        // After the state refresh: a consent in the same page counts for a request that follows it, and a page that
+        // ended the connection runs no maintenance work
+        if (this.managed && !failure) {
           const current = await this.connect.read();
           if (current && current.status === 'active' && current.kid === live.connection.kid) {
             await this.managed.handleEvents(live.client, page.events, current.kid);
           }
         }
       } catch (error) {
+        failure = failure || error;
+      }
+      if (failure) {
         // Not acknowledged: the same page comes again with the next read, and every handler reads the state again
-        await this.connect.handleCallError(error, 'feed_apply');
+        await this.connect.handleCallError(failure, 'feed_apply', live.connection.kid);
         return 0;
       }
       await live.client.ack(page.lastId);

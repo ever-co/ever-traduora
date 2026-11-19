@@ -21,7 +21,12 @@ import './util';
 import { createAndMigrateAppWith, signupTestUser, TestingUser } from './util';
 
 const OPERATOR_EMAIL = 'operator@traduora.test';
-const ALL_WEEK = [{ days: [0, 1, 2, 3, 4, 5, 6], from: '00:00', to: '23:59' }];
+// The whole week, every minute (an end time is exclusive, so the day is two windows: 00:00-12:00 and 12:00-00:00)
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+const ALL_WEEK = [
+  { days: EVERY_DAY, from: '00:00', to: '12:00' },
+  { days: EVERY_DAY, from: '12:00', to: '00:00' },
+];
 const SQLITE = config.db.default.type === 'better-sqlite3';
 
 const operation = (id: string, kind: string) => ({

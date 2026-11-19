@@ -43,7 +43,7 @@ Several API processes on one database count as one installation: one of them mak
 | --- | --- | --- |
 | `instance_url` | Shows the address of this installation to your organization | The `https` address the operator sends, after the consent |
 | `stats_link` | Links the anonymous usage statistics of this installation to your organization | The statistics instance id and public key, with a statement signed by the statistics key (never by the connection key); only when the statistics are on |
-| `managed_operations` | Maintenance operations requested from app.ever.co (see [Maintenance operations](#maintenance-operations)) | The status, version and size of each operation; only with the operator's opt-in |
+| `managed_operations` | Maintenance operations requested from app.ever.co (see [Maintenance operations](#maintenance-operations)) | The status and version of each operation, and a backup's opaque reference and size (never a path or a file name); only with the operator's opt-in |
 | `ever_id_login` | Sign in with Ever ID through Ever Platform | Not available yet as a sign-in option. Once an organization consents to it, the person links of this installation (see [A person's Ever ID](#a-persons-ever-id)) |
 
 **Show scope** on the page lists, for each integration, every field it moves, in which form, how often and why: the same
@@ -65,8 +65,10 @@ that hash only, never by an e-mail address, and never creates or changes an acco
   issuer and subject of the Ever ID, how it was linked, and the installation's link with the organization. No e-mail
   address and no name. Only Ever IDs are reported (an identity that names an Ever person id); identities of another
   OpenID Connect issuer are not. Links are reported only while an owner or admin of the organization consented to
-  `ever_id_login` in app.ever.co and `TR_EVER_CONNECT_INTEGRATIONS_DENY` does not name it; within 5 minutes of a new
-  link, or of the consent. When a user removes their Ever ID here, the link is removed there too.
+  `ever_id_login` in app.ever.co and `TR_EVER_CONNECT_INTEGRATIONS_DENY` does not name it. Traduora compares the links
+  every 5 minutes (and at once after the consent); a report Ever Platform refused or could not take is tried again an
+  hour later, and at most 100 links are sent per comparison, so reporting can take longer then. When a user removes
+  their Ever ID here, the link is removed there too.
 - **Export.** Traduora makes one export per matched account: its profile (name, e-mail, when it was made and last
   signed in), its Ever ID, its projects with the user's role, and how many translation changes it made. The export is
   stored encrypted with a key derived from `TR_SECRET`, and only that account can download it, for 7 days:
@@ -111,8 +113,9 @@ The operator sets it all with `PUT /api/v1/ever-connect/managed` and reads it wi
 
 Windows are in UTC (days 0 = Sunday to 6; a `to` earlier than `from` runs overnight). The backup directory is an
 absolute path on the server, for example a mounted volume. It is stored encrypted and never shown again (only whether
-one is set). A request with a later start time waits until then. Ever Platform receives the status, the version and the
-size of a backup only, never a path or a file name. The history of the last 50 operations and every opt-in change are
+one is set). A request with a later start time waits until then, and its checks run when it starts. Ever Platform
+receives the status, the version and, for a backup, an opaque reference (`bk-<time>-<random>`) and its size only, never a
+path or a file name. The history of the last 50 operations and every opt-in change are
 kept here and in the audit trail.
 
 ## Disconnect

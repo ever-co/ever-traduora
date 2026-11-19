@@ -10,7 +10,7 @@ import {
 import { createHash, randomBytes } from 'crypto';
 import { createReadStream, promises as fs } from 'fs';
 import { isAbsolute, join } from 'path';
-import { IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
+import { In, IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectManagedOperation } from '../entity/ever-connect-managed-operation.entity';
 import { EverConnectManagedPolicy } from '../entity/ever-connect-managed-policy.entity';
@@ -61,6 +61,8 @@ export interface ManagedView {
 
 const POLICY_ID = 'self';
 const HISTORY_KEPT = 50;
+/** A run still `running` after this long was interrupted (the process stopped): it is answered `failed`. */
+const RUNNING_STALE_MS = 6 * 60 * 60 * 1000;
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const OPERATION_ID = /^[0-9A-Za-z_-]{1,64}$/;
 const BACKUP_NAME = /^bk-\d{8}T\d{6}Z-[0-9a-f]{6}$/;
@@ -185,7 +187,37 @@ export class EverConnectManagedService {
   /** Sets the opt-in, the allowed kinds, the windows and (write-only) the backup directory. */
   async update(body: { optIn?: unknown; kinds?: unknown; windows?: unknown; backupDir?: unknown }, actorRef: string): Promise<ManagedView> {
     this.ensureAvailable();
-    const previous = await this.policy();
+    // The fields not given keep their current value, read under a lock: a concurrent change is never written back over
+    let previousOptIn = false;
+    let optIn = false;
+    let kindsSaved: string[] = [];
+    let windowCount = 0;
+    await this.policies.manager.transaction(async manager => {
+      const previous = await manager.findOne(EverConnectManagedPolicy, {
+        where: { id: POLICY_ID },
+        ...(this.dbType === DbType.BETTER_SQLITE3 ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+      });
+      const saved = this.merge(previous, body, actorRef);
+      await manager.save(saved);
+      previousOptIn = !!previous && previous.optIn === true;
+      optIn = saved.optIn;
+      kindsSaved = parseList<string>(saved.kinds);
+      windowCount = parseList<ManagedWindow>(saved.windows).length;
+    });
+    if (optIn !== previousOptIn) {
+      await this.audit.record(optIn ? 'managed.opt_in' : 'managed.opt_out', actorRef, null);
+    } else {
+      await this.audit.record('managed.policy', actorRef, `kinds=${kindsSaved.join('+') || 'none'} windows=${windowCount}`);
+    }
+    return this.view();
+  }
+
+  /** The policy row after `body` is applied to `previous` (checked; the backup directory encrypted). */
+  private merge(
+    previous: EverConnectManagedPolicy | null,
+    body: { optIn?: unknown; kinds?: unknown; windows?: unknown; backupDir?: unknown },
+    actorRef: string,
+  ): EverConnectManagedPolicy {
     const supported = supportedKinds(this.dbType) as string[];
     const kinds = Array.isArray(body.kinds) ? body.kinds : parseList<string>(previous ? previous.kinds : null);
     if (!kinds.every(kind => typeof kind === 'string' && supported.includes(kind))) {
@@ -198,8 +230,10 @@ export class EverConnectManagedService {
         Array.isArray(window.days) &&
         window.days.length > 0 &&
         window.days.every((day: unknown) => Number.isInteger(day) && (day as number) >= 0 && (day as number) <= 6) &&
-        HHMM.test(String(window.from)) &&
-        HHMM.test(String(window.to)) &&
+        typeof window.from === 'string' &&
+        typeof window.to === 'string' &&
+        HHMM.test(window.from) &&
+        HHMM.test(window.to) &&
         window.from !== window.to;
       if (!valid) {
         throw invalid('A window is {days: [0-6], from: "HH:MM", to: "HH:MM"} in UTC');
@@ -213,24 +247,15 @@ export class EverConnectManagedService {
       }
       backupDirEnc = dir ? wrapKey(Buffer.from(dir, 'utf8'), this.instanceSettings.secret, POLICY_ID, BACKUP_DIR_PURPOSE) : null;
     }
-    const optIn = typeof body.optIn === 'boolean' ? body.optIn : !!previous && previous.optIn === true;
-    await this.policies.save(
-      Object.assign(new EverConnectManagedPolicy(), {
-        id: POLICY_ID,
-        optIn,
-        kinds: JSON.stringify(kinds),
-        windows: JSON.stringify(windows.map((window: ManagedWindow) => ({ days: [...window.days], from: window.from, to: window.to }))),
-        backupDirEnc,
-        updatedAt: Date.now(),
-        updatedBy: actorRef,
-      }),
-    );
-    if (optIn !== (!!previous && previous.optIn === true)) {
-      await this.audit.record(optIn ? 'managed.opt_in' : 'managed.opt_out', actorRef, null);
-    } else {
-      await this.audit.record('managed.policy', actorRef, `kinds=${kinds.join('+') || 'none'} windows=${windows.length}`);
-    }
-    return this.view();
+    return Object.assign(new EverConnectManagedPolicy(), {
+      id: POLICY_ID,
+      optIn: typeof body.optIn === 'boolean' ? body.optIn : !!previous && previous.optIn === true,
+      kinds: JSON.stringify(kinds),
+      windows: JSON.stringify(windows.map((window: ManagedWindow) => ({ days: [...window.days], from: window.from, to: window.to }))),
+      backupDirEnc,
+      updatedAt: Date.now(),
+      updatedBy: actorRef,
+    });
   }
 
   private async backupDir(): Promise<string | null> {
@@ -268,7 +293,10 @@ export class EverConnectManagedService {
     }
   }
 
-  /** One requested operation: refused, deferred until its start time, or run through the SDK runner. */
+  /**
+   * One requested operation. A request with a later start time waits (its checks run when it starts). Otherwise it is
+   * claimed first (one API process runs it), then refused or run through the SDK runner.
+   */
   async handle(client: EverConnectPlatformClient, data: Record<string, unknown>, connectionKid: string | null, now = Date.now()): Promise<void> {
     const operationId = typeof data.operation_id === 'string' && OPERATION_ID.test(data.operation_id) ? data.operation_id : null;
     const kind = typeof data.kind === 'string' ? data.kind.slice(0, 24) : '';
@@ -287,7 +315,7 @@ export class EverConnectManagedService {
     const row = Object.assign(new EverConnectManagedOperation(), {
       operationId,
       kind,
-      status: 'failed',
+      status: 'running',
       reason: null,
       sizeBytes: null,
       request: null,
@@ -296,6 +324,15 @@ export class EverConnectManagedService {
       notBefore: null,
       at: now,
     });
+    const notBefore = Date.parse(String(data.not_before));
+    if (!known && !Number.isNaN(notBefore) && notBefore > now) {
+      // Not yet: it waits, and the consent, opt-in and window are checked when it starts
+      await this.remember(Object.assign(row, { status: 'deferred', request: JSON.stringify(data), notBefore }));
+      return;
+    }
+    if (!(await this.claim(row, !!known))) {
+      return;
+    }
     const refusal = await this.refusal(kind, now);
     if (refusal) {
       row.status = 'refused';
@@ -316,14 +353,6 @@ export class EverConnectManagedService {
     }
     const result = this.decided as ManagedResult | null;
     this.decided = null;
-    if (report.outcome === 'deferred') {
-      const notBefore = Date.parse(String(data.not_before));
-      row.status = 'deferred';
-      row.request = JSON.stringify(data);
-      row.notBefore = Number.isNaN(notBefore) ? now : notBefore;
-      await this.remember(row);
-      return;
-    }
     row.status = result && result.status === 'succeeded' ? 'succeeded' : 'failed';
     row.reason = row.status === 'succeeded' ? null : report.outcome;
     row.sizeBytes = result && typeof result.size_bytes === 'number' ? result.size_bytes : null;
@@ -338,9 +367,29 @@ export class EverConnectManagedService {
   }
 
   /**
+   * Claims an operation for this process: a new one is inserted as `running` (the id is unique), a deferred one moves
+   * from `deferred` to `running`. Another API process that read the same request finds it claimed and leaves it.
+   */
+  private async claim(row: EverConnectManagedOperation, wasDeferred: boolean): Promise<boolean> {
+    if (wasDeferred) {
+      const result = await this.operations.update(
+        { operationId: row.operationId, status: 'deferred' },
+        { status: 'running', request: null, notBefore: null, at: row.at, connectionKid: row.connectionKid },
+      );
+      return result.affected === undefined || result.affected === null || result.affected === 1;
+    }
+    try {
+      await this.operations.insert(row);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Runs the deferred operations whose start time came, and sends the results not received yet (each scheduler round),
    * for the current connection only: work received by an ended connection is cancelled, never run or sent through
-   * another one.
+   * another one. A result Ever Platform cannot take now waits for the next round without holding back due work.
    */
   async runDue(client: EverConnectPlatformClient, connectionKid: string | null, now = Date.now()): Promise<number> {
     if (connectionKid) {
@@ -350,8 +399,21 @@ export class EverConnectManagedService {
       );
       await this.operations.update({ connectionKid: Not(connectionKid), unsentResult: Not(IsNull()) }, { unsentResult: null });
     }
+    // A run interrupted (the process stopped) is answered `failed` rather than run twice
+    await this.operations.update(
+      { status: 'running', at: LessThanOrEqual(now - RUNNING_STALE_MS), connectionKid },
+      { status: 'failed', reason: 'interrupted', unsentResult: JSON.stringify({ status: 'failed' }) },
+    );
     for (const row of await this.operations.find({ where: { unsentResult: Not(IsNull()), connectionKid } })) {
-      await this.deliver(client, row);
+      try {
+        await this.deliver(client, row);
+      } catch (error) {
+        const problem = problemOf(error);
+        if (problem && problem.status === 401) {
+          throw error;
+        }
+        this.logger.warn(`ever_connect.managed result=retry_later reason=${problem ? `${problem.status}:${problem.code}` : 'unreachable'}`);
+      }
     }
     const due = await this.operations.find({
       where: { status: 'deferred', notBefore: LessThanOrEqual(now), request: Not(IsNull()), connectionKid },
@@ -364,7 +426,8 @@ export class EverConnectManagedService {
         await this.operations.update({ operationId: row.operationId }, { status: 'failed', reason: 'request_unreadable', request: null });
         continue;
       }
-      await this.handle(client, data, connectionKid, now);
+      // The time each one starts at (an earlier one may have taken a while)
+      await this.handle(client, data, connectionKid, Math.max(now, Date.now()));
     }
     return due.length;
   }
@@ -399,14 +462,20 @@ export class EverConnectManagedService {
       this.logger.warn(`ever_connect.managed result=not_needed reason=${problem.status}:${problem.code}`);
     }
     await this.operations.update({ operationId: row.operationId }, { unsentResult: null });
+    await this.prune();
   }
 
   /** Records an operation, keeping the last 50. */
   private async remember(row: Omit<EverConnectManagedOperation, never>): Promise<void> {
     await this.operations.save(Object.assign(new EverConnectManagedOperation(), row));
+    await this.prune();
+  }
+
+  /** Keeps the last 50 finished operations (waiting, running and unsent ones are never dropped). */
+  private async prune(): Promise<void> {
     const stale = await this.operations.find({
       select: { operationId: true },
-      where: { status: Not('deferred'), unsentResult: IsNull() },
+      where: { status: Not(In(['deferred', 'running'])), unsentResult: IsNull() },
       order: { at: 'DESC' },
       skip: HISTORY_KEPT,
       take: 100,
@@ -470,17 +539,23 @@ export class EverConnectManagedService {
       .replace(/\.\d{3}/, '');
     const ref = `bk-${stamp}-${randomBytes(3).toString('hex')}`;
     const file = join(dir, `${ref}.sqlite3`);
+    const manifestFile = join(dir, `${ref}.manifest.json`);
     await fs.mkdir(dir, { recursive: true, mode: 0o700 });
     // The file exists, readable by this user only, before any data goes into it
     await (await fs.open(file, 'wx', 0o600)).close();
-    await fs.chmod(file, 0o600);
-    await sqlite.backup(file);
-    const { size, sha256 } = await digest(file);
-    await fs.writeFile(join(dir, `${ref}.manifest.json`), JSON.stringify({ ref, createdAt: Date.now(), sizeBytes: size, sha256 }), {
-      mode: 0o600,
-      flag: 'wx',
-    });
-    return { status: 'succeeded', artefact_ref: ref, size_bytes: size };
+    const created = [file];
+    try {
+      await fs.chmod(file, 0o600);
+      await sqlite.backup(file);
+      const { size, sha256 } = await digest(file);
+      created.push(manifestFile);
+      await fs.writeFile(manifestFile, JSON.stringify({ ref, createdAt: Date.now(), sizeBytes: size, sha256 }), { mode: 0o600, flag: 'wx' });
+      return { status: 'succeeded', artefact_ref: ref, size_bytes: size };
+    } catch (error) {
+      // An incomplete backup leaves nothing behind (only the files this attempt created)
+      await Promise.all(created.map(path => fs.rm(path, { force: true }).catch(() => undefined)));
+      throw error;
+    }
   }
 
   /** A backup (the one named, else the newest) still matches its manifest. */
@@ -492,9 +567,16 @@ export class EverConnectManagedService {
       for (const name of await fs.readdir(dir)) {
         const match = /^(bk-.+)\.manifest\.json$/.exec(name);
         if (!match || !BACKUP_NAME.test(match[1]) || (wanted && match[1] !== wanted)) continue;
-        const candidate = JSON.parse(await fs.readFile(join(dir, name), 'utf8'));
+        let candidate: { ref?: unknown; createdAt?: unknown; sizeBytes: number; sha256: string } | null = null;
+        try {
+          candidate = JSON.parse(await fs.readFile(join(dir, name), 'utf8'));
+        } catch {
+          // The named backup's damaged manifest fails the check; an older damaged one does not decide a check of the newest
+          if (wanted) return { status: 'failed', artefact_ref: wanted };
+          continue;
+        }
         if (candidate && candidate.ref === match[1] && (!manifest || Number(candidate.createdAt) > Number(manifest.createdAt))) {
-          manifest = candidate;
+          manifest = candidate as { ref: string; createdAt: number; sizeBytes: number; sha256: string };
         }
       }
       if (!manifest) return { status: 'failed' };

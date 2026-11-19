@@ -10,7 +10,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - With the Ever Platform connection on, an owner or admin of the organization can ask from app.ever.co for a health
   report, a backup (SQLite) or a backup check. Each runs only with the organization's consent **and** the operator's
-  opt-in for that kind, inside the operator's windows; Ever Platform receives the status and sizes only. Updates are
+  opt-in for that kind, inside the operator's windows; Ever Platform receives the status, the version and, for a
+  backup, an opaque reference and its size only (never a path or a file name). Updates are
   never run from inside the container. See
   [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
 
