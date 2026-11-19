@@ -11,7 +11,6 @@ import { createHash, randomBytes } from 'crypto';
 import { createReadStream, promises as fs } from 'fs';
 import { isAbsolute, join } from 'path';
 import { IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
-import { config } from '../config';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectManagedOperation } from '../entity/ever-connect-managed-operation.entity';
 import { EverConnectManagedPolicy } from '../entity/ever-connect-managed-policy.entity';
@@ -144,7 +143,8 @@ export class EverConnectManagedService {
     @Inject(EVER_INSTANCE_SETTINGS) private readonly instanceSettings: EverInstanceSettings,
     private readonly audit: EverConnectAuditService,
   ) {
-    this.dbType = config.db.default.type;
+    // The database this API is connected to (what a backup can copy), read from its own connection
+    this.dbType = String(policies.manager.connection.options.type);
   }
 
   private policy(): Promise<EverConnectManagedPolicy | null> {
