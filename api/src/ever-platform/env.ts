@@ -41,7 +41,11 @@ export interface EverPlatformConfig {
   apiUrl: string | null;
   /** Declared by `TR_EVER_INSTALL_SOURCE`, never inferred. */
   installSource: InstallSource;
-  /** Whether the anonymous usage statistics (and the instance identity they need) are loaded: only `'true'` loads them. */
+  /**
+   * Whether the anonymous usage statistics (and the instance identity they need) are loaded: on unless
+   * `TR_EVER_STATS_ENABLED` is exactly `'false'`. Unset or malformed keeps them on (a malformed value is named once in the
+   * boot log).
+   */
   statsEnabled: boolean;
   /** Where reports go (`TR_EVER_STATS_API_URL`, else `TR_EVER_PLATFORM_API_URL`), or `null`: then nothing is sent. */
   statsApiUrl: string | null;
@@ -238,7 +242,8 @@ export function parseKeyList(raw: string | undefined): string[] {
 
 /** Reads every Ever Platform setting once. A malformed value falls back to its default with a warning. */
 export function readEverPlatformConfig(env: Env = process.env, warn: Warn = consoleWarn): EverPlatformConfig {
-  const statsEnabled = readStrictBool('TR_EVER_STATS_ENABLED', false, env, warn);
+  // Anonymous statistics are on unless switched off with exactly 'false'; the connection is off unless exactly 'true'
+  const statsEnabled = readStrictBool('TR_EVER_STATS_ENABLED', true, env, warn);
   const connectEnabled = readStrictBool('TR_EVER_CONNECT_ENABLED', false, env, warn);
   // The other settings are only reported when a module that reads them is loaded
   const statsWarn: Warn = statsEnabled ? warn : () => undefined;

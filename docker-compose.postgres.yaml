@@ -20,6 +20,9 @@ services:
       TR_DB_HOST: postgresdb
       TR_DB_PORT: 5432
       NODE_ENV: ${NODE_ENV:-development}
+      # Anonymous usage statistics are on by default; 'false' turns them off entirely, see
+      # docs/ever-platform/anonymous-usage-statistics.md
+      # TR_EVER_STATS_ENABLED: 'false'
     entrypoint: './docker-entrypoint.compose.sh'
     restart: on-failure
     depends_on:

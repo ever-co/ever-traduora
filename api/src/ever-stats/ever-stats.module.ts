@@ -20,7 +20,7 @@ import { defaultStatsFetch, EVER_STATS_FETCH, EverStatsSenderService } from './e
  * Anonymous usage statistics: one `ever.stats.v1` report a day about this installation as a whole (row counts and two
  * configuration switches only), signed with its own statistics key and sent to Ever Platform.
  *
- * Loaded only with `TR_EVER_STATS_ENABLED=true` (see `app.module.ts`); the operator can also turn it off on the
+ * Loaded unless `TR_EVER_STATS_ENABLED=false` (see `app.module.ts`); the operator can also turn it off on the
  * Statistics page. See `docs/ever-platform/anonymous-usage-statistics.md`.
  */
 @Module({

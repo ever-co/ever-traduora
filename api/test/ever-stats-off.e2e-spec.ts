@@ -1,3 +1,6 @@
+// The statistics are on by default: this suite switches them off before the configuration is read
+process.env.TR_EVER_STATS_ENABLED = 'false';
+
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
@@ -19,8 +22,7 @@ describe('Anonymous usage statistics left off (e2e)', () => {
     await app.close();
   });
 
-  it('is off unless TR_EVER_STATS_ENABLED is true', () => {
-    expect(process.env.TR_EVER_STATS_ENABLED || '').not.toBe('true');
+  it('is off with TR_EVER_STATS_ENABLED=false', () => {
     expect(config.everPlatform.statsEnabled).toBe(false);
   });
 

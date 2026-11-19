@@ -107,7 +107,8 @@ export class IndexModule {}
       EverIdLogoutJti,
     ]),
     HttpModule,
-    // Optional Ever Platform modules: none unless TR_EVER_STATS_ENABLED is 'true'
+    // Optional Ever Platform modules: the statistics unless TR_EVER_STATS_ENABLED=false, the connection only with
+    // TR_EVER_CONNECT_ENABLED=true
     ...everPlatformModules(config.everPlatform),
     // Keep last (catch-all GET route)
     IndexModule,

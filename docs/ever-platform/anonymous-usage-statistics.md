@@ -10,9 +10,9 @@ whether two settings are on. It never sends anything about the people, projects,
 report follows the published schema `ever.stats.v1`, and the code that builds and sends it is in this repository
 (`api/src/ever-stats`, with the installation identity in `api/src/ever-instance`).
 
-The statistics are **off by default**. Nothing is loaded and nothing is sent unless the operator sets
-`TR_EVER_STATS_ENABLED=true` (see [How to turn it on or off](#how-to-turn-it-on-or-off)). Every existing feature works
-the same either way.
+The statistics are **on by default**, and the operator can turn them off at any time: `TR_EVER_STATS_ENABLED=false`
+unloads them completely, and the switch on the _Ever Platform_ page stops every report without a restart (see
+[How to turn it on or off](#how-to-turn-it-on-or-off)). Every existing feature works the same either way.
 
 ## What is sent
 
@@ -112,8 +112,8 @@ is sent. If `TR_SECRET` changes, the stored key can no longer be read: the insta
 
 | Switch                                                            | Effect                                                                                                                                                                                                                                                                 |
 | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TR_EVER_STATS_ENABLED` unset (the default), or anything but `true` | The statistics are not loaded at all: no route (`/api/v1/ever-stats/*` does not exist), no timer, no request, no table row. The value is compared exactly: anything other than `true` or `false` keeps the default (off) and is logged at start. |
-| `TR_EVER_STATS_ENABLED=true`, then a restart                      | The statistics are loaded and send once a day.                                                                                                                                                                                                                        |
+| `TR_EVER_STATS_ENABLED=false`, then a restart                     | The statistics are not loaded at all: no route (`/api/v1/ever-stats/*` does not exist), no timer, no request, no table row.                                                                                                                                           |
+| `TR_EVER_STATS_ENABLED` unset (the default), `true`, or anything else | The statistics are loaded and send once a day. The value is compared exactly: anything other than `true` or `false` (`FALSE`, `0`, `off`, ...) keeps the default (on) and is named in the start log.                                                                 |
 | _Ever Platform → Statistics → Turn off_                           | The module stays loaded so the page works, but no report is built or sent and _Send now_ is refused. The switch is read again before every report.                                                                                                                    |
 
 The page is shown to the operator of the installation only: a user whose e-mail is listed in `TR_EVER_ADMIN_EMAILS`
@@ -153,7 +153,7 @@ logged with the user id.
 
 | Variable                        | Default                                              | Meaning                                                                         |
 | ------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `TR_EVER_STATS_ENABLED`         | off                                                  | `true` loads the statistics                                                     |
+| `TR_EVER_STATS_ENABLED`         | on                                                   | `false` (exactly) does not load the statistics                                  |
 | `TR_EVER_STATS_API_URL`         | `TR_EVER_PLATFORM_API_URL`, then `https://api.ever.co` | Where reports go                                                              |
 | `TR_EVER_PLATFORM_API_URL`      | `https://api.ever.co`                                | The Ever Platform API                                                           |
 | `TR_EVER_STATS_COUNTRY`         | `ZZ`                                                 | Two letters, as the operator declares                                           |
@@ -163,8 +163,8 @@ logged with the user id.
 
 ## Verify it yourself
 
-- Leave `TR_EVER_STATS_ENABLED` unset and watch the API's outgoing connections: it makes no DNS query for any Ever host
-  and opens no connection to one. Every call the statistics can make is listed in
+- Set `TR_EVER_STATS_ENABLED=false` and watch the API's outgoing connections: it makes no DNS query for any Ever host
+  and opens no connection to one (as long as the connection, `TR_EVER_CONNECT_ENABLED`, stays unset). Every call the statistics can make is listed in
   [Outbound calls](outbound-calls.md).
 - The tests in `api` check that every object of the schema is closed and every string bound, that the vendored schema
   has not drifted from the published one (`api/src/ever-stats/schema/VENDOR.json`), that a report built from an instance

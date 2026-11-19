@@ -16,6 +16,9 @@ services:
       TR_DB_TYPE: better-sqlite3
       TR_DB_SQLITE_PATH: ${TR_DB_SQLITE_PATH:-api/data/tr_dev.sqlite3}
       NODE_ENV: ${NODE_ENV:-development}
+      # Anonymous usage statistics are on by default; 'false' turns them off entirely, see
+      # docs/ever-platform/anonymous-usage-statistics.md
+      # TR_EVER_STATS_ENABLED: 'false'
       # Optional sign-in with Ever ID or any other OpenID Connect issuer (off unless 'true'), see docs/configuration.md
       # TR_AUTH_EVERID_ENABLED: 'true'
       # TR_AUTH_EVERID_ISSUER: https://idp.example.com
