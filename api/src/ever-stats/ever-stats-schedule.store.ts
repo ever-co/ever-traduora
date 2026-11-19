@@ -36,6 +36,8 @@ export class EverStatsScheduleStore {
 
   async patch(patch: EverStatsSchedulePatch): Promise<void> {
     if (Object.keys(patch).length) {
+      // The row must exist for the update to apply
+      await this.read();
       await this.repo.update({ id: STATS_SCHEDULE_ID }, patch);
     }
   }
