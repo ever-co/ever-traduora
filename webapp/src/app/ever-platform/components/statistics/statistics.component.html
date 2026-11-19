@@ -93,7 +93,8 @@
               {{ lastReport.sentAt ? 'Sent ' + (lastReport.sentAt | date: 'medium') : 'Not sent' }} · status {{ lastReport.status }}
               <ng-container *ngIf="lastReport.httpStatus"> · HTTP {{ lastReport.httpStatus }}</ng-container>
             </p>
-            <pre class="bg-light p-2 small">{{ pretty(lastReport.payload) }}</pre>
+            <p class="small text-muted mb-1">The exact bytes that were signed and sent:</p>
+            <pre class="bg-light p-2 small" style="white-space: pre-wrap; word-break: break-all">{{ lastReport.payload }}</pre>
           </ng-container>
           <ng-template #noReport><p class="small text-muted">No report has been sent yet.</p></ng-template>
         </ng-container>

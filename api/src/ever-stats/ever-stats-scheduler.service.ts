@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } f
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomInt } from 'crypto';
 import { Repository } from 'typeorm';
+import { EverInstance } from '../entity/ever-instance.entity';
 import { EverStatsReport } from '../entity/ever-stats-report.entity';
 import { EverStatsSchedule } from '../entity/ever-stats-schedule.entity';
 import { EverInstanceService } from '../ever-instance/ever-instance.service';
@@ -24,6 +25,9 @@ const DAY_MS = 86400000;
 export const EVER_STATS_AUTOSTART = Symbol('ever stats autostart');
 
 const MAX_TIMER_MS = 2147483647;
+
+/** How long a reset waits for the lease: two sends of at most 10 seconds each, and their records. */
+export const STATS_RESET_WAIT_MS = 30000;
 
 /** After a failed slot or start, the next try. */
 const SCHEDULER_RECOVERY_MS = 10 * 60 * 1000;
@@ -57,6 +61,8 @@ export class EverStatsSchedulerService implements OnModuleInit, OnModuleDestroy 
   readonly schedule: EverStatsScheduleStore;
   /** When this process will look next (for the status route). */
   nextAt: number | null = null;
+  /** How long a reset waits for a report another process is sending (tests shorten it). */
+  resetWaitMs = STATS_RESET_WAIT_MS;
 
   constructor(
     @InjectRepository(EverStatsSchedule) scheduleRepo: Repository<EverStatsSchedule>,
@@ -228,6 +234,10 @@ export class EverStatsSchedulerService implements OnModuleInit, OnModuleDestroy 
       if (finalRow.status === 'sent' || finalRow.status === 'rejected') {
         patch.lastFinalSentFor = previous;
       }
+      // Refused until the module is upgraded (by Ever Platform, or by the checks here): nothing more is sent
+      if (finalRow.retry === 'module_upgrade') {
+        return this.record(now, row, rows, patch);
+      }
     }
     // The switch may have been turned off while the closed month was being sent
     const current = await this.sendIfEnabled({ period, final: false });
@@ -296,13 +306,24 @@ export class EverStatsSchedulerService implements OnModuleInit, OnModuleDestroy 
   }
 
   /**
-   * A reset identity starts a new series: its history and any refusal are forgotten. Runs after any report this process
-   * is sending, so that a report of the old identity cannot write itself back into the cleared history.
+   * *Reset instance identity*: a new instance id and statistics key, and a new series (the history and any refusal are
+   * forgotten). It runs under this process's send lock and the shared lease, so no report of the old identity, here or
+   * in another process, is being sent meanwhile and can write itself back. Throws {@link SendNowRefused} `busy` when
+   * another process keeps the lease longer than {@link STATS_RESET_WAIT_MS}.
    */
-  async afterIdentityReset(): Promise<void> {
-    await this.serialize(async () => {
-      await this.sender.clearReports();
-      await this.schedule.patch({ blockedModuleVersion: null, retryAttempt: 0, lastFinalSentFor: null });
+  async resetIdentity(userId: string): Promise<EverInstance> {
+    return this.serialize(async () => {
+      if (!(await this.schedule.acquireWithin(this.clock, this.resetWaitMs))) {
+        throw new SendNowRefused('busy');
+      }
+      try {
+        const record = await this.instance.resetIdentity(userId);
+        await this.sender.clearReports();
+        await this.schedule.patch({ blockedModuleVersion: null, retryAttempt: 0, lastFinalSentFor: null });
+        return record;
+      } finally {
+        await this.schedule.release();
+      }
     });
   }
 }

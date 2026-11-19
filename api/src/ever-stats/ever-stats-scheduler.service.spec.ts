@@ -24,6 +24,7 @@ describe('EverStatsSchedulerService', () => {
   let instance: EverInstanceService;
   let sends: Array<{ period: string; final: boolean }>;
   let status: string;
+  let retry: string | undefined;
   let now: number;
   let scheduler: EverStatsSchedulerService;
 
@@ -35,7 +36,7 @@ describe('EverStatsSchedulerService', () => {
       row.period = input.period;
       row.final = input.final;
       row.status = status;
-      row.retry = status === 'failed' ? 'backoff' : 'none';
+      row.retry = retry ?? (status === 'failed' ? 'backoff' : 'none');
       return row;
     },
     clearReports: async () => undefined,
@@ -52,6 +53,7 @@ describe('EverStatsSchedulerService', () => {
     await instance.ensure();
     sends = [];
     status = 'sent';
+    retry = undefined;
     now = Date.UTC(2026, 10, 19, 12);
     scheduler = new EverStatsSchedulerService(dataSource.getRepository(EverStatsSchedule), CONFIG, () => now, instance, fakeSender, false);
   });
@@ -138,12 +140,34 @@ describe('EverStatsSchedulerService', () => {
     expect(sends).toHaveLength(2);
   });
 
+  it('sends nothing more in a slot once the closing report is refused', async () => {
+    status = 'rejected';
+    retry = 'module_upgrade';
+    now = Date.UTC(2026, 11, 2, 8);
+    await scheduler.tick();
+    expect(sends).toEqual([{ period: '2026-11', final: true }]);
+    expect((await scheduler.schedule.read()).blockedModuleVersion).toBe('1.0.0');
+  });
+
+  it('resets the identity only while it holds the lease', async () => {
+    const other = new EverStatsScheduleStore(dataSource.getRepository(EverStatsSchedule), 5 * 60 * 1000);
+    expect(await other.acquire(now)).toBe(true);
+    scheduler.resetWaitMs = 300;
+    const before = await instance.read();
+    await expect(scheduler.resetIdentity('user-1')).rejects.toBeInstanceOf(SendNowRefused);
+    expect((await instance.read()).instanceId).toBe(before.instanceId);
+    await other.release();
+    const after = await scheduler.resetIdentity('user-1');
+    expect(after.instanceId).not.toBe(before.instanceId);
+    expect((await scheduler.schedule.read()).leasedBy).toBeNull();
+  });
+
   it('stops sending after Ever Platform refused this module version', async () => {
     await scheduler.schedule.patch({ blockedModuleVersion: '1.0.0' });
     await scheduler.tick();
     expect(sends).toEqual([]);
     await expect(scheduler.sendNow(600000)).rejects.toMatchObject({ reason: 'refused_until_upgrade' });
-    await scheduler.afterIdentityReset();
+    await scheduler.resetIdentity('user-1');
     now = (await scheduler.schedule.read()).nextSendAt;
     await scheduler.tick();
     expect(sends).toHaveLength(1);

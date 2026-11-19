@@ -56,9 +56,13 @@ export class EverInstanceService implements OnModuleInit {
     return this.settings.installSource === 'cloud';
   }
 
-  /** Whether `user` operates this installation: a user (never an API client) whose e-mail is in `TR_EVER_ADMIN_EMAILS`. */
+  /**
+   * Whether `user` operates this installation: a user (never an API client; the JWT strategy hands a `User` entity to
+   * the request) whose e-mail is in `TR_EVER_ADMIN_EMAILS` and confirmed. An unconfirmed account never qualifies: anyone
+   * could sign up with a listed address that has no account yet.
+   */
   isOperator(user: unknown): boolean {
-    if (!(user instanceof User) || typeof user.email !== 'string') {
+    if (!(user instanceof User) || typeof user.email !== 'string' || user.emailVerified !== true) {
       return false;
     }
     const email = normalizeEmail(user.email);

@@ -33,7 +33,8 @@ export const EVER_STATS_FETCH = Symbol('ever stats fetch');
 
 /**
  * Posts with Node's own `http`/`https` client: no redirect is ever followed (the client does not follow them), no cookie
- * jar, no proxy, no connection reuse, and the whole exchange is cut after 10 seconds. The answer's body is not read.
+ * jar, no proxy, no connection reuse, and the exchange is cut after 10 seconds. The answer's body is never read: the
+ * connection is closed as soon as the status arrives.
  */
 export const defaultStatsFetch: StatsFetch = (url, init) =>
   new Promise((resolve, reject) => {
@@ -49,8 +50,9 @@ export const defaultStatsFetch: StatsFetch = (url, init) =>
       },
       response => {
         clearTimeout(deadline);
-        response.resume();
         resolve({ status: response.statusCode || 0 });
+        // Only the status is read: the connection ends here, so a slow body cannot hold it open
+        response.destroy();
       },
     );
     const deadline: NodeJS.Timeout = setTimeout(() => request.destroy(new Error('timeout')), STATS_SEND_TIMEOUT_MS);
@@ -162,7 +164,8 @@ export class EverStatsSenderService {
           reportId,
           period: input.period,
           final: input.final,
-          payload: built.text,
+          // A report over the size limit is not kept either
+          payload: built.check.status === 413 ? '' : built.text,
           createdAt: now,
           status: 'rejected',
           retry: 'module_upgrade',

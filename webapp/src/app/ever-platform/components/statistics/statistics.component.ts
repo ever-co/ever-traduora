@@ -10,6 +10,8 @@ const ERRORS: Record<string, string> = {
   no_destination: 'The statistics address of this server cannot be used: nothing was sent.',
   busy: 'Another report is being sent right now. Try again in a few minutes.',
   refused_until_upgrade: 'Ever Platform does not accept the reports of this version: nothing is sent until Traduora is upgraded.',
+  secret_missing: 'TR_SECRET is not set on the server: the statistics key cannot be stored, so nothing can be done here.',
+  key_unreadable: 'The statistics key of this installation cannot be read.',
 };
 
 const GENERIC_ERROR = 'That did not work. Please try again.';
@@ -43,16 +45,9 @@ export class StatisticsComponent implements OnInit {
     return this.reports.length ? this.reports[0] : null;
   }
 
-  /** Pretty-printed JSON of a stored payload (its exact bytes are shown as they were sent when they are not JSON). */
-  pretty(payload: string | Record<string, unknown>): string {
-    if (typeof payload !== 'string') {
-      return JSON.stringify(payload, null, 2);
-    }
-    try {
-      return JSON.stringify(JSON.parse(payload), null, 2);
-    } catch {
-      return payload;
-    }
+  /** The report that would be sent now, indented for reading (the last payload is shown as its exact bytes). */
+  pretty(payload: Record<string, unknown>): string {
+    return JSON.stringify(payload, null, 2);
   }
 
   refresh(): void {

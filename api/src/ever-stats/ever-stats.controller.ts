@@ -4,6 +4,7 @@ import { EverStatsReport } from '../entity/ever-stats-report.entity';
 import { EverPlatformException } from '../errors';
 import { EverAdminGuard } from '../ever-instance/ever-admin.guard';
 import { EverInstanceService } from '../ever-instance/ever-instance.service';
+import { EverInstanceKeyError } from '../ever-instance/key-wrap';
 import { EVER_STATS_CLOCK, EverStatsClock, monthOf } from './ever-stats.clock';
 import { EVER_STATS_CONFIG, EverStatsConfig } from './ever-stats.config';
 import { STATS_REPORTS_KEPT, STATS_SEND_NOW_INTERVAL_MS } from './ever-stats.constants';
@@ -39,6 +40,18 @@ const SEND_NOW_ANSWERS: Record<string, { status: HttpStatus; message: string }> 
   refused_until_upgrade: { status: HttpStatus.CONFLICT, message: 'Ever Platform refused reports of this version until an upgrade' },
   rate_limited: { status: HttpStatus.TOO_MANY_REQUESTS, message: 'Send now can be used once every 10 minutes' },
 };
+
+/**
+ * The answer when the identity of the installation cannot be created or read: without a configured `TR_SECRET` there is
+ * no statistics key, so the page can show the state but not act. Any other error is passed on unchanged.
+ */
+function keyAnswer(error: unknown): unknown {
+  if (error instanceof EverInstanceKeyError) {
+    const code = error.code === 'secret_missing' ? 'secret_missing' : 'key_unreadable';
+    return new EverPlatformException(HttpStatus.CONFLICT, code, 'The statistics key of this installation is not available');
+  }
+  return error;
+}
 
 /**
  * The routes of the anonymous usage statistics (`/api/v1/ever-stats/*`), present only when the module is loaded
@@ -108,7 +121,7 @@ export class EverStatsController {
   @ApiOperation({ summary: 'The report that would be sent now; nothing is sent (instance operator only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success' })
   async preview() {
-    const record = await this.instance.ensure();
+    const record = await this.instance.ensure().catch(error => Promise.reject(keyAnswer(error)));
     const now = this.clock();
     const built = await this.collector.build({ instanceId: record.instanceId, period: monthOf(now), final: false, now });
     return { data: { valid: built.error === null, error: built.error, payload: built.report } };
@@ -160,7 +173,7 @@ export class EverStatsController {
     if (typeof body?.enabled !== 'boolean') {
       throw new BadRequestException('enabled must be true or false');
     }
-    const enabled = await this.instance.setStatsEnabledUi(req.user.id, body.enabled);
+    const enabled = await this.instance.setStatsEnabledUi(req.user.id, body.enabled).catch(error => Promise.reject(keyAnswer(error)));
     return { data: { enabled } };
   }
 
@@ -172,8 +185,14 @@ export class EverStatsController {
   @ApiOperation({ summary: 'Reset the anonymous identity of this installation (instance operator only)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Reset' })
   async resetIdentity(@Req() req) {
-    const record = await this.instance.resetIdentity(req.user.id);
-    await this.scheduler.afterIdentityReset();
-    return { data: this.instance.publicView(record) };
+    try {
+      const record = await this.scheduler.resetIdentity(req.user.id);
+      return { data: this.instance.publicView(record) };
+    } catch (error) {
+      if (error instanceof SendNowRefused) {
+        throw new EverPlatformException(HttpStatus.CONFLICT, 'busy', SEND_NOW_ANSWERS.busy.message);
+      }
+      throw keyAnswer(error);
+    }
   }
 }

@@ -17,10 +17,11 @@ const settings = (overrides: Partial<EverInstanceSettings> = {}): EverInstanceSe
   ...overrides,
 });
 
-const user = (email: string): User => {
+const user = (email: string, emailVerified = true): User => {
   const u = new User();
   u.id = '00000000-0000-4000-8000-000000000001';
   u.email = email;
+  u.emailVerified = emailVerified;
   return u;
 };
 
@@ -104,6 +105,8 @@ describe('EverInstanceService', () => {
     expect(instance.isOperator(user('operator@example.com'))).toBe(true);
     expect(instance.isOperator(user(' OPERATOR@example.com '))).toBe(true);
     expect(instance.isOperator(user('someone@example.com'))).toBe(false);
+    // Anyone could sign up with a listed address that has no account yet: an unconfirmed one never operates
+    expect(instance.isOperator(user('operator@example.com', false))).toBe(false);
     expect(instance.isOperator(new ProjectClient())).toBe(false);
     expect(instance.isOperator({ email: 'operator@example.com' })).toBe(false);
     expect(instance.isOperator(undefined)).toBe(false);
@@ -131,8 +134,8 @@ describe('EverAdminGuard', () => {
   });
 
   it('refuses another user and an API client', async () => {
-    await expect(guard().canActivate(contextFor(user('someone@example.com')))).rejects.toMatchObject({ status: 403 });
-    await expect(guard().canActivate(contextFor(new ProjectClient()))).rejects.toMatchObject({ status: 403 });
+    await expect(guard().canActivate(contextFor(user('someone@example.com')))).rejects.toMatchObject({ status: 404 });
+    await expect(guard().canActivate(contextFor(new ProjectClient()))).rejects.toMatchObject({ status: 404 });
   });
 });
 

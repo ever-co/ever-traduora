@@ -117,7 +117,9 @@ is sent. If `TR_SECRET` changes, the stored key can no longer be read: the insta
 | _Ever Platform → Statistics → Turn off_                           | The module stays loaded so the page works, but no report is built or sent and _Send now_ is refused. The switch is read again before every report.                                                                                                                    |
 
 The page is shown to the operator of the installation only: a user whose e-mail is listed in `TR_EVER_ADMIN_EMAILS`
-(comma separated), or, when that is unset, the `TR_ADMIN_EMAIL` user. Everyone else, project admins included, and every
+(comma separated), or, when that is unset, the `TR_ADMIN_EMAIL` user, and whose e-mail address is confirmed (an
+unconfirmed account never qualifies, since anyone could sign up with a listed address that has no account yet; without a
+mail server, `TR_MAIL_DEBUG=true` logs the confirmation link). Everyone else, project admins included, and every
 API client gets no menu entry and a "not found" answer from the routes. An installation declared with
 `TR_EVER_INSTALL_SOURCE=cloud` shows the switch read-only: its deployment decides.
 
@@ -127,8 +129,8 @@ _Ever Platform → Statistics_ (in the account menu) shows the operator:
 
 - the state and the reason, the next and the last send, the instance id and the key id;
 - **What is sent**: the report built now, with the same code, without sending it;
-- **Last payload**: the exact bytes of the last report, its date, its status and the HTTP answer (the last 12 attempts
-  are kept in the `ever_stats_report` table);
+- **Last payload**: the exact bytes of the last report, unchanged, with its date, its status and the HTTP answer (the
+  last 12 attempts are kept in the `ever_stats_report` table);
 - **Send now** (at most once every 10 minutes) and **Reset instance identity** (a new `instance_id` and a new statistics
   key; the list of past reports is cleared).
 
