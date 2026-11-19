@@ -92,6 +92,7 @@ export class ConnectionComponent implements OnInit {
       next: status => {
         this.busy = false;
         this.code = '';
+        this.consentLink = null;
         this.status = status;
         this.message =
           status.status === 'pending_approval' ? 'Connected: an owner or admin of your organization must approve it in app.ever.co.' : 'Connected.';
@@ -109,6 +110,7 @@ export class ConnectionComponent implements OnInit {
       next: () => {
         this.busy = false;
         this.confirmingDisconnect = false;
+        this.consentLink = null;
         this.message = 'Disconnected. Nothing is sent to Ever Platform any more.';
         this.refresh();
       },
@@ -135,8 +137,12 @@ export class ConnectionComponent implements OnInit {
   enable(key: string): void {
     this.clearMessages();
     this.consentLink = null;
+    const generation = this.generation;
     this.everPlatform.consentUrl(key).subscribe({
-      next: url => (this.consentLink = { key, url }),
+      next: url => {
+        // Dropped when the connection changed meanwhile: the link belongs to the connection that asked for it
+        if (generation === this.generation) this.consentLink = { key, url };
+      },
       error: error => this.fail(error),
     });
   }
@@ -170,7 +176,8 @@ export class ConnectionComponent implements OnInit {
         this.busy = false;
         this.integrations = integrations;
         this.message = done;
-        this.everPlatform.audit().subscribe({ next: rows => (this.audit = rows), error: () => undefined });
+        // The status too: a read started before this change was dropped
+        this.refresh();
       },
       error: error => this.fail(error),
     });

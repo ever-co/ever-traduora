@@ -138,7 +138,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       }
       if (connection.status === 'pending_approval') {
         // Until an owner or admin approves it, Ever Platform answers only the installation's own state
-        await this.connect.refreshSelf().catch(error => this.connect.handleCallError(error, 'state'));
+        await this.connect.refreshSelf().catch(error => this.connect.handleCallError(error, 'state', connection.kid));
         return;
       }
       if (!connection.nextHeartbeatAt || connection.nextHeartbeatAt <= now) {
@@ -220,7 +220,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       await this.connect.refreshIntegrations();
     }
     if (has('ever.entitlements') || has('ever.registry.tenant_link')) {
-      await this.connect.refreshEntitlements();
+      await this.connect.refreshEntitlements('system', true);
     }
     const known = ['ever.registry.instance.', 'ever.registry.tenant_link', 'ever.consent', 'ever.entitlements'];
     for (const type of types) {

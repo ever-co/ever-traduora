@@ -200,7 +200,7 @@ export class EverConnectService {
       throw conflict('already_connected', 'This installation is already connected');
     }
     const previousStatus = existing ? existing.status : 'not_connected';
-    await this.claim();
+    const claimToken = await this.claim();
 
     const key = generateConnectKey();
     const connection = (await this.read()) || new EverConnectConnection();
@@ -231,7 +231,7 @@ export class EverConnectService {
         idempotencyKey: randomUUID(),
       });
     } catch (error) {
-      await this.connections.update({ id: CONNECTION_ID, status: 'connecting' }, { status: previousStatus, updatedAt: Date.now() });
+      await this.connections.update({ id: CONNECTION_ID, claimToken }, { status: previousStatus, claimToken: null, updatedAt: Date.now() });
       const problem = problemOf(error);
       this.logger.warn(`ever_connect.connect outcome=refused reason=${problem ? `${problem.status}:${problem.code}` : 'connection_error'}`);
       if (problem && problem.status < 500) {
@@ -259,8 +259,13 @@ export class EverConnectService {
     // The first heartbeat within five minutes, the documents at once
     connection.nextHeartbeatAt = Date.now() + randomInt(5 * 60 * 1000);
     connection.nextEntitlementAt = Date.now();
+    // Completed only by the attempt that still holds the claim (one that waited past it never overwrites another)
+    const { id, ...fields } = connection;
+    const done = await this.connections.update({ id: CONNECTION_ID, claimToken }, { ...fields, claimToken: null, updatedAt: Date.now() });
+    if (done.affected === 0) {
+      throw conflict('already_connected', 'Another connect completed first');
+    }
     this.cachedClient = { kid: connection.kid, client };
-    await this.save(connection);
     await this.audit.record('instance.connect', actorRef, `status=${connection.status}`);
     if (connection.linkId) {
       await this.audit.record('link.create', actorRef, `link=${connection.linkId}`);
@@ -278,8 +283,9 @@ export class EverConnectService {
    * Claims the connection row for one connect at a time, across API processes: the row moves to `connecting` only from
    * a state that is not connected (or from a `connecting` older than a minute, left by a process that stopped).
    */
-  private async claim(): Promise<void> {
+  private async claim(): Promise<string> {
     const now = Date.now();
+    const token = randomUUID();
     await this.connections
       .createQueryBuilder()
       .insert()
@@ -290,7 +296,7 @@ export class EverConnectService {
     const result = await this.connections
       .createQueryBuilder()
       .update(EverConnectConnection)
-      .set({ status: 'connecting', updatedAt: now })
+      .set({ status: 'connecting', claimToken: token, updatedAt: now })
       .where('id = :id', { id: CONNECTION_ID })
       .andWhere("(status NOT IN ('active', 'pending_approval', 'connecting') OR (status = 'connecting' AND updated_at < :stale))", {
         stale: now - 60000,
@@ -299,6 +305,7 @@ export class EverConnectService {
     if (result.affected === 0) {
       throw conflict('already_connected', 'This installation is already connected, or being connected');
     }
+    return token;
   }
 
   /** Redeems `TR_EVER_CONNECT_CODE` once at boot, when nothing is connected and this code was never tried. */
@@ -424,7 +431,7 @@ export class EverConnectService {
    * Fetches and verifies the entitlement documents (the installation's and its link's). A document is stored only once
    * the SDK verified it (signature, issuer, audience, this installation, sequence); otherwise the previous one stays.
    */
-  async refreshEntitlements(actorRef = 'system'): Promise<EverConnectStatus['entitlement']> {
+  async refreshEntitlements(actorRef = 'system', strict = false): Promise<EverConnectStatus['entitlement']> {
     const live = await this.liveClient();
     if (!live) {
       throw conflict('not_connected', 'This installation is not connected');
@@ -459,6 +466,10 @@ export class EverConnectService {
     if (actorRef !== 'system') {
       await this.audit.record('entitlement.refresh', actorRef, error ? `error=${error}` : null);
     }
+    // For the event feed: a failed refresh must keep its page unacknowledged
+    if (strict && error) {
+      throw new Error(`entitlement refresh failed: ${error}`);
+    }
     return this.entitlementState(await this.read());
   }
 
@@ -478,14 +489,17 @@ export class EverConnectService {
     const status = self.status === 'active' || self.status === 'pending_approval' ? self.status : connection.status;
     const linkId = self.link ? self.link.id : connection.linkId;
     const linkState = self.link ? self.link.state : connection.linkId ? 'unlinked' : null;
-    const stored = parseJson<StoredEntitlements>(connection.entitlements, { instance: null, link: null });
-    if (stored.link && (linkState !== 'active' || linkId !== connection.linkId)) {
-      stored.link = null;
+    const patch: Partial<EverConnectConnection> = { status, linkId, linkState, updatedAt: Date.now() };
+    if (linkState !== 'active' || linkId !== connection.linkId) {
+      // The link ended or changed: its document goes, the installation's (as stored now) stays
+      const latest = await this.read();
+      const stored = parseJson<StoredEntitlements>(latest ? latest.entitlements : null, { instance: null, link: null });
+      if (stored.link) {
+        stored.link = null;
+        patch.entitlements = JSON.stringify(stored);
+      }
     }
-    await this.connections.update(
-      { id: CONNECTION_ID, kid: connection.kid },
-      { status, linkId, linkState, entitlements: JSON.stringify(stored), updatedAt: Date.now() },
-    );
+    await this.connections.update({ id: CONNECTION_ID, kid: connection.kid }, patch);
     if (connection.linkState !== linkState) {
       await this.audit.record('link.state', 'platform', `state=${linkState}`);
     }

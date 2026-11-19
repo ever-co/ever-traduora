@@ -73,6 +73,10 @@ export class EverConnectConnection {
   @Column({ type: 'bigint', name: 'next_entitlement_at', nullable: true, transformer: epochMsTransformer })
   nextEntitlementAt: number | null;
 
+  /** The random token of the connect attempt holding the row (`connecting`): only that attempt may complete it. */
+  @Column({ type: 'varchar', length: 64, name: 'claim_token', nullable: true })
+  claimToken: string | null;
+
   /** SHA-256 of the `TR_EVER_CONNECT_CODE` value already redeemed (or refused): it is never tried twice. */
   @Column({ type: 'varchar', length: 64, name: 'env_code_hash', nullable: true })
   envCodeHash: string | null;

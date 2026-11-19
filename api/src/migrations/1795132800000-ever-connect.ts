@@ -31,6 +31,7 @@ export class everConnect1795132800000 implements MigrationInterface {
             "last_heartbeat_at" bigint NULL,
             "next_heartbeat_at" bigint NULL,
             "next_entitlement_at" bigint NULL,
+            "claim_token" varchar(64) NULL,
             "env_code_hash" varchar(64) NULL,
             "leased_by" varchar(64) NULL,
             "lease_until" bigint NULL,
@@ -87,6 +88,7 @@ export class everConnect1795132800000 implements MigrationInterface {
             '`last_heartbeat_at` bigint NULL DEFAULT NULL, ' +
             '`next_heartbeat_at` bigint NULL DEFAULT NULL, ' +
             '`next_entitlement_at` bigint NULL DEFAULT NULL, ' +
+            '`claim_token` varchar(64) NULL DEFAULT NULL, ' +
             '`env_code_hash` varchar(64) NULL DEFAULT NULL, ' +
             '`leased_by` varchar(64) NULL DEFAULT NULL, ' +
             '`lease_until` bigint NULL DEFAULT NULL, ' +
@@ -143,6 +145,7 @@ export class everConnect1795132800000 implements MigrationInterface {
             "last_heartbeat_at" BIGINT DEFAULT NULL,
             "next_heartbeat_at" BIGINT DEFAULT NULL,
             "next_entitlement_at" BIGINT DEFAULT NULL,
+            "claim_token" VARCHAR(64) DEFAULT NULL,
             "env_code_hash" VARCHAR(64) DEFAULT NULL,
             "leased_by" VARCHAR(64) DEFAULT NULL,
             "lease_until" BIGINT DEFAULT NULL,
