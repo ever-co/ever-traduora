@@ -33,6 +33,10 @@ export class FakeEverPlatform {
   refuseLinksOf = new Set<string>();
   /** The answers to person requests the fake recorded. */
   answers: PersonRequestAnswer[] = [];
+  /** When set, reading the feed answers 410 with this position to continue from. */
+  eventsGone: string | null = null;
+  /** When set, reading the integration states answers 503. */
+  integrationsFailing = false;
   /** The results of maintenance operations the fake recorded, by operation id. */
   managedResults: Record<string, unknown> = {};
   /** When set, the next answer to a person request fails with this problem (then the setting clears). */
@@ -97,6 +101,10 @@ export class FakeEverPlatform {
       },
       events: async (cursor, waitS) => {
         this.record('events', cursor, waitS);
+        if (this.eventsGone) {
+          // The position is older than what the platform keeps: continue from `lastId`
+          throw Object.assign(new ProblemError(410, 'cursor_expired'), { lastId: this.eventsGone });
+        }
         const events = this.events;
         this.events = [];
         return { events, lastId: events.length ? events[events.length - 1].id : cursor || 'cursor-0', hasMore: false };
@@ -104,6 +112,9 @@ export class FakeEverPlatform {
       ack: async lastId => this.record('ack', lastId),
       integrations: async () => {
         this.record('integrations');
+        if (this.integrationsFailing) {
+          throw new ProblemError(503, 'unavailable');
+        }
         return { ...this.integrationStates };
       },
       consentUrl: async key => {

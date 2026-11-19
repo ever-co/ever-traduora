@@ -283,6 +283,46 @@ describeOnSqlite('EverConnectManagedService', () => {
     await expect(build({ installSource: 'cloud' }).managed.view()).rejects.toMatchObject({ status: 404 });
   });
 
+  it('holds due work while a feed page failed, and runs it once a full state re-read (410) succeeds', async () => {
+    const { connect, managed, scheduler } = await connected({ feedMode: 'longpoll' });
+    await consent(connect);
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
+    const op = request('health_report', { notBefore: Date.now() - 1000 });
+    // Due now, waiting in the history
+    await dataSource.getRepository(EverConnectManagedOperation).insert({
+      operationId: op.operation_id,
+      kind: 'health_report',
+      status: 'deferred',
+      reason: null,
+      sizeBytes: null,
+      request: JSON.stringify(op),
+      unsentResult: null,
+      connectionKid: 'kid-1',
+      notBefore: Date.now() - 1000,
+      at: Date.now(),
+    });
+    await dataSource
+      .getRepository(EverConnectConnection)
+      .update({ id: 'self' }, { nextHeartbeatAt: Date.now() + 3600000, nextEntitlementAt: Date.now() + 3600000 });
+
+    // A page whose state refresh fails: due work waits
+    platform.events = [{ id: 'e1', type: 'ever.consent.integration.enabled', data: { integration: 'managed_operations' } }];
+    platform.integrationsFailing = true;
+    await scheduler.tick();
+    expect(platform.managedResults[op.operation_id]).toBeUndefined();
+
+    // A failed re-read keeps it waiting
+    platform.eventsGone = 'evt-9';
+    await expect(scheduler.tick()).rejects.toBeDefined();
+    expect(platform.managedResults[op.operation_id]).toBeUndefined();
+
+    // A successful re-read releases it in the same round
+    platform.integrationsFailing = false;
+    await scheduler.tick();
+    expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
+    expect((await connect.read()).feedCursor).toBe('evt-9');
+  });
+
   it('runs a request whose consent arrives in the same feed page', async () => {
     const { managed, scheduler } = await connected();
     await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
