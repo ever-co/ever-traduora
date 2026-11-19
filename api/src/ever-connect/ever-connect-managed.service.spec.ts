@@ -131,7 +131,7 @@ describeOnSqlite('EverConnectManagedService', () => {
     const { managed, client } = await connected();
     await managed.update({ optIn: true, kinds: ['backup'], windows: ALL_WEEK, backupDir }, 'user:u1');
     const op = request('backup');
-    await managed.handle(client, op);
+    await managed.handle(client, op, 'kid-1');
     expect(platform.managedResults[op.operation_id]).toEqual({ status: 'failed' });
     expect((await history())[0]).toMatchObject({ status: 'refused', reason: 'no_consent' });
     expect(await fs.readdir(backupDir)).toEqual([]);
@@ -141,22 +141,22 @@ describeOnSqlite('EverConnectManagedService', () => {
     const { connect, managed, client } = await connected();
     await consent(connect);
     const first = request('health_report');
-    await managed.handle(client, first);
+    await managed.handle(client, first, 'kid-1');
     expect((await history()).find(row => row.operationId === first.operation_id)).toMatchObject({ status: 'refused', reason: 'no_operator_opt_in' });
 
     const now = new Date();
     const otherDay = (now.getUTCDay() + 3) % 7;
     await managed.update({ optIn: true, kinds: ['health_report'], windows: [{ days: [otherDay], from: '00:00', to: '01:00' }] }, 'user:u1');
     const second = request('health_report');
-    await managed.handle(client, second);
+    await managed.handle(client, second, 'kid-1');
     expect((await history()).find(row => row.operationId === second.operation_id).reason).toBe('outside_window');
 
     await managed.update({ windows: ALL_WEEK, backupDir }, 'user:u1');
     const third = request('backup');
-    await managed.handle(client, third);
+    await managed.handle(client, third, 'kid-1');
     expect((await history()).find(row => row.operationId === third.operation_id).reason).toBe('kind_not_allowed');
     const update = request('update', { params: { target_version: '1.5.0' } });
-    await managed.handle(client, update);
+    await managed.handle(client, update, 'kid-1');
     expect((await history()).find(row => row.operationId === update.operation_id).reason).toBe('update_not_supported');
     expect(Object.values(platform.managedResults).every(result => JSON.stringify(result) === '{"status":"failed"}')).toBe(true);
     expect(await fs.readdir(backupDir)).toEqual([]);
@@ -168,11 +168,11 @@ describeOnSqlite('EverConnectManagedService', () => {
     await managed.update({ optIn: true, kinds: ['health_report', 'backup', 'restore_check'], windows: ALL_WEEK, backupDir }, 'user:u1');
 
     const health = request('health_report');
-    await managed.handle(client, health);
+    await managed.handle(client, health, 'kid-1');
     expect(platform.managedResults[health.operation_id]).toEqual({ status: 'succeeded', version: '0.23.0' });
 
     const backup = request('backup');
-    await managed.handle(client, backup);
+    await managed.handle(client, backup, 'kid-1');
     const result = platform.managedResults[backup.operation_id] as { status: string; artefact_ref: string; size_bytes: number };
     expect(result.status).toBe('succeeded');
     expect(result.size_bytes).toBeGreaterThan(0);
@@ -182,18 +182,18 @@ describeOnSqlite('EverConnectManagedService', () => {
     expect(files).toEqual([`${result.artefact_ref}.manifest.json`, `${result.artefact_ref}.sqlite3`]);
 
     const check = request('restore_check', { params: { artefact_ref: result.artefact_ref } });
-    await managed.handle(client, check);
+    await managed.handle(client, check, 'kid-1');
     expect(platform.managedResults[check.operation_id]).toMatchObject({ status: 'succeeded', size_bytes: result.size_bytes });
 
     // A damaged backup fails its check
     await fs.appendFile(join(backupDir, `${result.artefact_ref}.sqlite3`), 'x');
     const again = request('restore_check', { params: { artefact_ref: result.artefact_ref } });
-    await managed.handle(client, again);
+    await managed.handle(client, again, 'kid-1');
     expect(platform.managedResults[again.operation_id]).toMatchObject({ status: 'failed' });
 
     // The history holds status and size; a repeated delivery changes nothing
     const calls = platform.calls.length;
-    await managed.handle(client, backup);
+    await managed.handle(client, backup, 'kid-1');
     expect(platform.calls).toHaveLength(calls);
     expect((await history()).find(row => row.operationId === backup.operation_id)).toMatchObject({
       status: 'succeeded',
@@ -207,13 +207,25 @@ describeOnSqlite('EverConnectManagedService', () => {
     await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
     const later = Date.now() + 3600000;
     const op = request('health_report', { notBefore: later });
-    await managed.handle(client, op);
+    await managed.handle(client, op, 'kid-1');
     expect(platform.managedResults[op.operation_id]).toBeUndefined();
     expect((await history())[0]).toMatchObject({ status: 'deferred' });
 
-    expect(await managed.runDue(client, Date.now())).toBe(0);
-    expect(await managed.runDue(client, later + 1000)).toBe(1);
+    expect(await managed.runDue(client, 'kid-1', Date.now())).toBe(0);
+    expect(await managed.runDue(client, 'kid-1', later + 1000)).toBe(1);
     expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('cancels the work of an ended connection instead of running it through the next one', async () => {
+    const { connect, managed, client } = await connected();
+    await consent(connect);
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
+    const later = Date.now() + 3600000;
+    const op = request('health_report', { notBefore: later });
+    await managed.handle(client, op, 'kid-old');
+    expect(await managed.runDue(client, 'kid-1', later + 1000)).toBe(0);
+    expect(platform.managedResults[op.operation_id]).toBeUndefined();
+    expect((await history())[0]).toMatchObject({ status: 'failed', reason: 'connection_ended', request: null });
   });
 
   it('keeps a result Ever Platform could not receive, and sends it again', async () => {
@@ -222,10 +234,10 @@ describeOnSqlite('EverConnectManagedService', () => {
     await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
     const op = request('health_report');
     platform.unreachable = true;
-    await expect(managed.handle(client, op)).rejects.toThrow();
+    await expect(managed.handle(client, op, 'kid-1')).rejects.toThrow();
     platform.unreachable = false;
     expect((await history())[0].unsentResult).not.toBeNull();
-    await managed.runDue(client);
+    await managed.runDue(client, 'kid-1');
     expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
     expect((await history())[0].unsentResult).toBeNull();
   });

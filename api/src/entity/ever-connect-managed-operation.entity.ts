@@ -32,6 +32,10 @@ export class EverConnectManagedOperation {
   @Column({ type: 'text', name: 'unsent_result', nullable: true })
   unsentResult: string | null;
 
+  /** The connection key (`kid`) of the connection that received the request: work of an ended connection never runs. */
+  @Column({ type: 'varchar', length: 64, name: 'connection_kid', nullable: true })
+  connectionKid: string | null;
+
   /** When it may run, for a deferred operation. */
   @Column({ type: 'bigint', name: 'not_before', nullable: true, transformer: epochMsTransformer })
   notBefore: number | null;

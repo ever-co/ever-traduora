@@ -8,7 +8,7 @@ import {
   ManagedOperationOutcome,
 } from '@ever-co/connect-sdk';
 import { createHash, randomBytes } from 'crypto';
-import { promises as fs } from 'fs';
+import { createReadStream, promises as fs } from 'fs';
 import { isAbsolute, join } from 'path';
 import { IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
 import { config } from '../config';
@@ -94,6 +94,21 @@ const parseList = <T>(text: string | null): T[] => {
     return [];
   }
 };
+
+/** The size and SHA-256 of a file, read as a stream (a backup can be larger than the memory the API may use). */
+function digest(file: string): Promise<{ size: number; sha256: string }> {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    let size = 0;
+    createReadStream(file)
+      .on('data', (chunk: Buffer) => {
+        hash.update(chunk);
+        size += chunk.length;
+      })
+      .on('error', reject)
+      .on('end', () => resolve({ size, sha256: hash.digest('hex') }));
+  });
+}
 
 const invalid = (message: string) => new EverPlatformException(HttpStatus.BAD_REQUEST, 'invalid_managed', message);
 
@@ -245,16 +260,16 @@ export class EverConnectManagedService {
   // Requests from the feed
 
   /** The maintenance requests of a feed page. Throws when a result could not be sent: the page is read again. */
-  async handleEvents(client: EverConnectPlatformClient, events: ReadonlyArray<PlatformEvent>): Promise<void> {
+  async handleEvents(client: EverConnectPlatformClient, events: ReadonlyArray<PlatformEvent>, connectionKid: string | null): Promise<void> {
     for (const event of events) {
       if (event.type === MANAGED_REQUESTED_TYPE) {
-        await this.handle(client, event.data || {});
+        await this.handle(client, event.data || {}, connectionKid);
       }
     }
   }
 
   /** One requested operation: refused, deferred until its start time, or run through the SDK runner. */
-  async handle(client: EverConnectPlatformClient, data: Record<string, unknown>, now = Date.now()): Promise<void> {
+  async handle(client: EverConnectPlatformClient, data: Record<string, unknown>, connectionKid: string | null, now = Date.now()): Promise<void> {
     const operationId = typeof data.operation_id === 'string' && OPERATION_ID.test(data.operation_id) ? data.operation_id : null;
     const kind = typeof data.kind === 'string' ? data.kind.slice(0, 24) : '';
     if (!operationId) {
@@ -277,6 +292,7 @@ export class EverConnectManagedService {
       sizeBytes: null,
       request: null,
       unsentResult: null,
+      connectionKid,
       notBefore: null,
       at: now,
     });
@@ -284,8 +300,9 @@ export class EverConnectManagedService {
     if (refusal) {
       row.status = 'refused';
       row.reason = refusal;
-      await this.finish(client, row, { status: 'failed' });
+      // Audited with the outcome, whether or not Ever Platform receives it at once
       await this.audit.record('managed.refused', 'platform', `kind=${kind} reason=${refusal}`);
+      await this.finish(client, row, { status: 'failed' });
       this.logger.log(`ever_connect.managed kind=${kind} outcome=refused reason=${refusal}`);
       return;
     }
@@ -310,22 +327,35 @@ export class EverConnectManagedService {
     row.status = result && result.status === 'succeeded' ? 'succeeded' : 'failed';
     row.reason = row.status === 'succeeded' ? null : report.outcome;
     row.sizeBytes = result && typeof result.size_bytes === 'number' ? result.size_bytes : null;
+    await this.audit.record('managed.result', 'platform', `kind=${kind} status=${row.status}${row.reason ? ` reason=${row.reason}` : ''}`);
+    this.logger.log(`ever_connect.managed kind=${kind} outcome=${report.outcome}`);
     if (result) {
       await this.finish(client, row, result);
     } else {
       // Expired (Ever Platform expired it) or a repeated delivery: nothing to send
       await this.remember(row);
     }
-    await this.audit.record('managed.result', 'platform', `kind=${kind} status=${row.status}${row.reason ? ` reason=${row.reason}` : ''}`);
-    this.logger.log(`ever_connect.managed kind=${kind} outcome=${report.outcome}`);
   }
 
-  /** Runs the deferred operations whose start time came, and sends the results not received yet (each scheduler round). */
-  async runDue(client: EverConnectPlatformClient, now = Date.now()): Promise<number> {
-    for (const row of await this.operations.find({ where: { unsentResult: Not(IsNull()) } })) {
+  /**
+   * Runs the deferred operations whose start time came, and sends the results not received yet (each scheduler round),
+   * for the current connection only: work received by an ended connection is cancelled, never run or sent through
+   * another one.
+   */
+  async runDue(client: EverConnectPlatformClient, connectionKid: string | null, now = Date.now()): Promise<number> {
+    if (connectionKid) {
+      await this.operations.update(
+        { connectionKid: Not(connectionKid), status: 'deferred' },
+        { status: 'failed', reason: 'connection_ended', request: null, notBefore: null },
+      );
+      await this.operations.update({ connectionKid: Not(connectionKid), unsentResult: Not(IsNull()) }, { unsentResult: null });
+    }
+    for (const row of await this.operations.find({ where: { unsentResult: Not(IsNull()), connectionKid } })) {
       await this.deliver(client, row);
     }
-    const due = await this.operations.find({ where: { status: 'deferred', notBefore: LessThanOrEqual(now), request: Not(IsNull()) } });
+    const due = await this.operations.find({
+      where: { status: 'deferred', notBefore: LessThanOrEqual(now), request: Not(IsNull()), connectionKid },
+    });
     for (const row of due) {
       let data: Record<string, unknown>;
       try {
@@ -334,7 +364,7 @@ export class EverConnectManagedService {
         await this.operations.update({ operationId: row.operationId }, { status: 'failed', reason: 'request_unreadable', request: null });
         continue;
       }
-      await this.handle(client, data, now);
+      await this.handle(client, data, connectionKid, now);
     }
     return due.length;
   }
@@ -440,15 +470,17 @@ export class EverConnectManagedService {
       .replace(/\.\d{3}/, '');
     const ref = `bk-${stamp}-${randomBytes(3).toString('hex')}`;
     const file = join(dir, `${ref}.sqlite3`);
-    await fs.mkdir(dir, { recursive: true });
+    await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+    // The file exists, readable by this user only, before any data goes into it
+    await (await fs.open(file, 'wx', 0o600)).close();
+    await fs.chmod(file, 0o600);
     await sqlite.backup(file);
-    await fs.chmod(file, 0o600).catch(() => undefined);
-    const data = await fs.readFile(file);
-    const sha256 = createHash('sha256').update(data).digest('hex');
-    await fs.writeFile(join(dir, `${ref}.manifest.json`), JSON.stringify({ ref, createdAt: Date.now(), sizeBytes: data.length, sha256 }), {
+    const { size, sha256 } = await digest(file);
+    await fs.writeFile(join(dir, `${ref}.manifest.json`), JSON.stringify({ ref, createdAt: Date.now(), sizeBytes: size, sha256 }), {
       mode: 0o600,
+      flag: 'wx',
     });
-    return { status: 'succeeded', artefact_ref: ref, size_bytes: data.length };
+    return { status: 'succeeded', artefact_ref: ref, size_bytes: size };
   }
 
   /** A backup (the one named, else the newest) still matches its manifest. */
@@ -466,9 +498,9 @@ export class EverConnectManagedService {
         }
       }
       if (!manifest) return { status: 'failed' };
-      const data = await fs.readFile(join(dir, `${manifest.ref}.sqlite3`));
-      const ok = data.length === manifest.sizeBytes && createHash('sha256').update(data).digest('hex') === manifest.sha256;
-      return ok ? { status: 'succeeded', artefact_ref: manifest.ref, size_bytes: data.length } : { status: 'failed', artefact_ref: manifest.ref };
+      const { size, sha256 } = await digest(join(dir, `${manifest.ref}.sqlite3`));
+      const ok = size === manifest.sizeBytes && sha256 === manifest.sha256;
+      return ok ? { status: 'succeeded', artefact_ref: manifest.ref, size_bytes: size } : { status: 'failed', artefact_ref: manifest.ref };
     } catch {
       return { status: 'failed' };
     }

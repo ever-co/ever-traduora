@@ -42,7 +42,9 @@ function columnType(dbType: string, column: ColumnSpec): string {
 
 export function createTableSql(dbType: string, table: TableSpec): string {
   const columns = table.columns.map(column => {
-    const defaultValue = column.default === undefined ? '' : ` DEFAULT ${column.default}`;
+    // PostgreSQL takes no integer default for a boolean column
+    const literal = column.type === 'boolean' && dbType === DbType.POSTGRES ? (column.default ? 'TRUE' : 'FALSE') : column.default;
+    const defaultValue = column.default === undefined ? '' : ` DEFAULT ${literal}`;
     return `${quoteName(dbType, column.name)} ${columnType(dbType, column)} ${column.nullable ? 'NULL' : 'NOT NULL'}${defaultValue}`;
   });
   const key = table.primary.map(name => quoteName(dbType, name)).join(', ');

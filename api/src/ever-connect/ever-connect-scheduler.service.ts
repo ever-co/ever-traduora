@@ -167,8 +167,9 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       }
       if (connection.status === 'active' && this.managed) {
         const live = await this.connect.liveClient();
-        if (live) {
-          await this.managed.runDue(live.client).catch(error => this.connect.handleCallError(error, 'managed', connection.kid));
+        // Only for the connection that is still active now (the feed may have ended it)
+        if (live && live.connection.status === 'active' && live.connection.kid === connection.kid) {
+          await this.managed.runDue(live.client, connection.kid).catch(error => this.connect.handleCallError(error, 'managed', connection.kid));
         }
       }
     } finally {
@@ -211,9 +212,13 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
           }
         }
         await this.applyTypes(page.events.map(event => event.type));
-        // After the state refresh: a consent in the same page counts for a request that follows it
+        // After the state refresh: a consent in the same page counts for a request that follows it, and a page that ended
+        // the connection runs no maintenance work
         if (this.managed) {
-          await this.managed.handleEvents(live.client, page.events);
+          const current = await this.connect.read();
+          if (current && current.status === 'active' && current.kid === live.connection.kid) {
+            await this.managed.handleEvents(live.client, page.events, current.kid);
+          }
         }
       } catch (error) {
         // Not acknowledged: the same page comes again with the next read, and every handler reads the state again

@@ -26,6 +26,7 @@ const TABLES: TableSpec[] = [
       { name: 'size_bytes', type: 'bigint', nullable: true },
       { name: 'request', type: 'text', nullable: true },
       { name: 'unsent_result', type: 'text', nullable: true },
+      { name: 'connection_kid', type: 'varchar', length: 64, nullable: true },
       { name: 'not_before', type: 'bigint', nullable: true },
       { name: 'at', type: 'bigint' },
     ],
