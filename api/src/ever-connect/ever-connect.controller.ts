@@ -2,7 +2,8 @@ import { Body, Controller, Delete, Get, Header, HttpCode, HttpStatus, Param, Pos
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { EverAdminGuard } from '../ever-instance/ever-admin.guard';
 import { EverConnectAuditService } from './ever-connect-audit.service';
-import { EverConnectAcceptRequest, EverConnectConnectRequest, EverConnectPublicUrlRequest } from './ever-connect.dto';
+import { EverConnectManagedService } from './ever-connect-managed.service';
+import { EverConnectAcceptRequest, EverConnectConnectRequest, EverConnectManagedRequest, EverConnectPublicUrlRequest } from './ever-connect.dto';
 import { EverConnectService } from './ever-connect.service';
 
 /** Who acts, as the audit trail names them: the user id, never an e-mail. */
@@ -19,7 +20,29 @@ export class EverConnectController {
   constructor(
     private readonly connect: EverConnectService,
     private readonly audit: EverConnectAuditService,
+    private readonly managed: EverConnectManagedService,
   ) {}
+
+  @Get('managed')
+  @UseGuards(EverAdminGuard)
+  @ApiOAuth2([])
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'The opt-in to maintenance operations and their history (instance operator only)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success' })
+  async managedView() {
+    return { data: await this.managed.view() };
+  }
+
+  @Put('managed')
+  @UseGuards(EverAdminGuard)
+  @ApiOAuth2([])
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Opt in or out of maintenance operations, their kinds, windows and backup directory (instance operator only)' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Saved' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'A kind, window or directory this installation cannot use' })
+  async managedUpdate(@Req() req, @Body() body: EverConnectManagedRequest) {
+    return { data: await this.managed.update(body || {}, actor(req)) };
+  }
 
   @Get('health')
   @ApiOperation({ summary: 'Whether the Ever Platform connection module is loaded' })

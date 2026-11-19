@@ -1,9 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { config } from '../config';
-import { DbType } from '../utils/database-type-helper';
-import { createTableSql, quoteName, TableSpec } from '../utils/ever-platform-tables';
+import { createTables, dropTables, TableSpec } from '../utils/ever-platform-tables';
 
-/** The tables, written once: `createTableSql` renders them for postgres, mysql and better-sqlite3. */
+/** The tables, written once: `createTables` renders them for postgres, mysql and better-sqlite3. */
 const TABLES: TableSpec[] = [
   {
     name: 'ever_connect_person_link',
@@ -50,19 +48,10 @@ const TABLES: TableSpec[] = [
  */
 export class everConnectPerson1795219200000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const dbType = config.db.default.type;
-    if (dbType !== DbType.POSTGRES && dbType !== DbType.MYSQL && dbType !== DbType.BETTER_SQLITE3) {
-      throw new Error(`Unknown DB type: ${dbType}`);
-    }
-    for (const table of TABLES) {
-      await queryRunner.query(createTableSql(dbType, table));
-    }
+    await createTables(queryRunner, TABLES);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const dbType = config.db.default.type;
-    for (const table of [...TABLES].reverse()) {
-      await queryRunner.query(`DROP TABLE IF EXISTS ${quoteName(dbType, table.name)}`);
-    }
+    await dropTables(queryRunner, TABLES);
   }
 }

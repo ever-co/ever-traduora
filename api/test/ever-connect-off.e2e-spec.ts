@@ -36,6 +36,7 @@ describe('Ever Platform connection left off (e2e)', () => {
       'ever-platform/status',
       'ever-connect/integrations',
       'ever-connect/me/exports',
+      'ever-connect/managed',
     ]) {
       const res = await request(app.getHttpServer()).get(`/api/v1/${path}`).set('Authorization', `Bearer ${operator.accessToken}`);
       // Without the module these are just unknown paths: never an answer of the connection routes

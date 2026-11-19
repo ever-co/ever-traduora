@@ -68,6 +68,16 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/ever-connect/managed",
+      "access": "operator"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/ever-connect/managed",
+      "access": "operator"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/ever-connect/me/exports",
       "access": "self"
     },

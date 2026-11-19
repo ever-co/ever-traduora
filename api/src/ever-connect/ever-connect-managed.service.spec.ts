@@ -1,0 +1,265 @@
+import { promises as fs } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { FakeEverPlatform } from '../../test/fake-ever-platform';
+import { config } from '../config';
+import { EverConnectAudit } from '../entity/ever-connect-audit.entity';
+import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
+import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
+import { EverConnectManagedOperation } from '../entity/ever-connect-managed-operation.entity';
+import { EverConnectManagedPolicy } from '../entity/ever-connect-managed-policy.entity';
+import { EverInstance } from '../entity/ever-instance.entity';
+import { EverInstanceService } from '../ever-instance/ever-instance.service';
+import { EverInstanceSettings } from '../ever-instance/ever-instance.settings';
+import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
+import { EverConnectAuditService } from './ever-connect-audit.service';
+import { EverConnectManagedService, inWindow } from './ever-connect-managed.service';
+import { EverConnectSchedulerService } from './ever-connect-scheduler.service';
+import { EverConnectService } from './ever-connect.service';
+import { EverConnectSettings } from './ever-connect.settings';
+
+const SETTINGS: EverConnectSettings = {
+  apiUrl: 'http://127.0.0.1:8080',
+  installSource: 'self-hosted',
+  version: '0.23.0',
+  connectCode: null,
+  integrationsDeny: [],
+  feedMode: 'interval',
+  issuer: null,
+  rootKeysFile: null,
+  statsLoaded: false,
+};
+
+const INSTANCE_SETTINGS: EverInstanceSettings = { installSource: 'self-hosted', adminEmails: [], secret: 'unit-test-secret-of-this-installation' };
+const TYPE = 'ever.registry.managed_operation.requested';
+const ALL_WEEK = [{ days: [0, 1, 2, 3, 4, 5, 6], from: '00:00', to: '23:59' }];
+
+// Runs the real migrations on an in-memory SQLite database (backups are SQLite-only): only when TR_DB_TYPE is SQLite
+const describeOnSqlite = config.db.default.type === 'better-sqlite3' ? describe : describe.skip;
+
+describeOnSqlite('EverConnectManagedService', () => {
+  let dataSource: DataSource;
+  let platform: FakeEverPlatform;
+  let backupDir: string;
+  let ids = 0;
+
+  /** A distinct operation id (a ULID, as Ever Platform sends). */
+  const nextId = () => `01JQV4Q5BHCZ330557Y206H9${'ABCDEFGHJKMNPQRSTVWXYZ'[Math.floor(ids / 22) % 22]}${'ABCDEFGHJKMNPQRSTVWXYZ'[ids++ % 22]}`;
+
+  const request = (kind: string, options: { params?: Record<string, unknown>; notBefore?: number; id?: string } = {}) => ({
+    operation_id: options.id || nextId(),
+    org_id: '01JNB79NZW2S85GF4A96MMX6BT',
+    instance_id: '01JNE7V9J03J6XQ2WN8H0Z88R5',
+    kind,
+    params: options.params || {},
+    not_before: new Date(options.notBefore || Date.now() - 60000).toISOString(),
+    expires_at: new Date(Date.now() + 86400000).toISOString(),
+  });
+
+  const build = (settings: Partial<EverConnectSettings> = {}) => {
+    const all = { ...SETTINGS, ...settings };
+    const instance = new EverInstanceService(dataSource.getRepository(EverInstance), INSTANCE_SETTINGS);
+    const audit = new EverConnectAuditService(dataSource.getRepository(EverConnectAudit));
+    const connect = new EverConnectService(
+      dataSource.getRepository(EverConnectConnection),
+      dataSource.getRepository(EverConnectIntegration),
+      all,
+      INSTANCE_SETTINGS,
+      platform.factory,
+      instance,
+      audit,
+    );
+    const managed = new EverConnectManagedService(
+      dataSource.getRepository(EverConnectManagedPolicy),
+      dataSource.getRepository(EverConnectManagedOperation),
+      dataSource.getRepository(EverConnectIntegration),
+      all,
+      INSTANCE_SETTINGS,
+      connect,
+      audit,
+    );
+    const scheduler = new EverConnectSchedulerService(dataSource.getRepository(EverConnectConnection), all, connect, false, undefined, managed);
+    return { connect, managed, scheduler };
+  };
+
+  const connected = async (settings: Partial<EverConnectSettings> = {}) => {
+    const built = build(settings);
+    await built.connect.connect('EVC-TEST-0000-0001', 'Translations', 'user:u1');
+    platform.calls.length = 0;
+    const live = await built.connect.liveClient();
+    return { ...built, client: live.client };
+  };
+
+  const consent = async (connect: EverConnectService) => {
+    platform.integrationStates.managed_operations = { state: 'enabled', enabled: true, consentId: 'c-managed', scopeVersion: 1 };
+    await connect.refreshIntegrations();
+    platform.calls.length = 0;
+  };
+
+  const history = () => dataSource.getRepository(EverConnectManagedOperation).find();
+
+  beforeEach(async () => {
+    dataSource = new DataSource({
+      type: 'better-sqlite3',
+      database: ':memory:',
+      entities: [join(__dirname, '../entity/*.entity.ts')],
+      migrations: [join(__dirname, '../migrations/*.ts')],
+      namingStrategy: new SnakeNamingStrategy(),
+      logging: false,
+    } as DataSourceOptions);
+    await dataSource.initialize();
+    await dataSource.runMigrations();
+    platform = new FakeEverPlatform();
+    backupDir = await fs.mkdtemp(join(tmpdir(), 'tr-managed-'));
+  });
+
+  afterEach(async () => {
+    await dataSource.destroy();
+    await fs.rm(backupDir, { recursive: true, force: true });
+  });
+
+  it('knows the windows, overnight ones included (UTC)', () => {
+    const monday = (hhmm: string) => Date.parse(`2026-11-16T${hhmm}:00Z`);
+    expect(inWindow([{ days: [1], from: '02:00', to: '04:00' }], monday('03:00'))).toBe(true);
+    expect(inWindow([{ days: [1], from: '02:00', to: '04:00' }], monday('04:00'))).toBe(false);
+    // Sunday 23:00 to Monday 01:00
+    expect(inWindow([{ days: [0], from: '23:00', to: '01:00' }], monday('00:30'))).toBe(true);
+    expect(inWindow([{ days: [1], from: '23:00', to: '01:00' }], monday('00:30'))).toBe(false);
+  });
+
+  it('refuses every operation without the consent, and writes nothing', async () => {
+    const { managed, client } = await connected();
+    await managed.update({ optIn: true, kinds: ['backup'], windows: ALL_WEEK, backupDir }, 'user:u1');
+    const op = request('backup');
+    await managed.handle(client, op);
+    expect(platform.managedResults[op.operation_id]).toEqual({ status: 'failed' });
+    expect((await history())[0]).toMatchObject({ status: 'refused', reason: 'no_consent' });
+    expect(await fs.readdir(backupDir)).toEqual([]);
+  });
+
+  it("refuses without the operator's opt-in, outside the windows, and for a kind not allowed", async () => {
+    const { connect, managed, client } = await connected();
+    await consent(connect);
+    const first = request('health_report');
+    await managed.handle(client, first);
+    expect((await history()).find(row => row.operationId === first.operation_id)).toMatchObject({ status: 'refused', reason: 'no_operator_opt_in' });
+
+    const now = new Date();
+    const otherDay = (now.getUTCDay() + 3) % 7;
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: [{ days: [otherDay], from: '00:00', to: '01:00' }] }, 'user:u1');
+    const second = request('health_report');
+    await managed.handle(client, second);
+    expect((await history()).find(row => row.operationId === second.operation_id).reason).toBe('outside_window');
+
+    await managed.update({ windows: ALL_WEEK, backupDir }, 'user:u1');
+    const third = request('backup');
+    await managed.handle(client, third);
+    expect((await history()).find(row => row.operationId === third.operation_id).reason).toBe('kind_not_allowed');
+    const update = request('update', { params: { target_version: '1.5.0' } });
+    await managed.handle(client, update);
+    expect((await history()).find(row => row.operationId === update.operation_id).reason).toBe('update_not_supported');
+    expect(Object.values(platform.managedResults).every(result => JSON.stringify(result) === '{"status":"failed"}')).toBe(true);
+    expect(await fs.readdir(backupDir)).toEqual([]);
+  });
+
+  it('backs the database up into the directory, checks it, and tells Ever Platform the status and size only', async () => {
+    const { connect, managed, client } = await connected();
+    await consent(connect);
+    await managed.update({ optIn: true, kinds: ['health_report', 'backup', 'restore_check'], windows: ALL_WEEK, backupDir }, 'user:u1');
+
+    const health = request('health_report');
+    await managed.handle(client, health);
+    expect(platform.managedResults[health.operation_id]).toEqual({ status: 'succeeded', version: '0.23.0' });
+
+    const backup = request('backup');
+    await managed.handle(client, backup);
+    const result = platform.managedResults[backup.operation_id] as { status: string; artefact_ref: string; size_bytes: number };
+    expect(result.status).toBe('succeeded');
+    expect(result.size_bytes).toBeGreaterThan(0);
+    expect(Object.keys(result).sort()).toEqual(['artefact_ref', 'size_bytes', 'status']);
+    expect(JSON.stringify(platform.calls)).not.toContain(backupDir);
+    const files = (await fs.readdir(backupDir)).sort();
+    expect(files).toEqual([`${result.artefact_ref}.manifest.json`, `${result.artefact_ref}.sqlite3`]);
+
+    const check = request('restore_check', { params: { artefact_ref: result.artefact_ref } });
+    await managed.handle(client, check);
+    expect(platform.managedResults[check.operation_id]).toMatchObject({ status: 'succeeded', size_bytes: result.size_bytes });
+
+    // A damaged backup fails its check
+    await fs.appendFile(join(backupDir, `${result.artefact_ref}.sqlite3`), 'x');
+    const again = request('restore_check', { params: { artefact_ref: result.artefact_ref } });
+    await managed.handle(client, again);
+    expect(platform.managedResults[again.operation_id]).toMatchObject({ status: 'failed' });
+
+    // The history holds status and size; a repeated delivery changes nothing
+    const calls = platform.calls.length;
+    await managed.handle(client, backup);
+    expect(platform.calls).toHaveLength(calls);
+    expect((await history()).find(row => row.operationId === backup.operation_id)).toMatchObject({
+      status: 'succeeded',
+      sizeBytes: result.size_bytes,
+    });
+  });
+
+  it('runs a request at its start time, not before', async () => {
+    const { connect, managed, client } = await connected();
+    await consent(connect);
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
+    const later = Date.now() + 3600000;
+    const op = request('health_report', { notBefore: later });
+    await managed.handle(client, op);
+    expect(platform.managedResults[op.operation_id]).toBeUndefined();
+    expect((await history())[0]).toMatchObject({ status: 'deferred' });
+
+    expect(await managed.runDue(client, Date.now())).toBe(0);
+    expect(await managed.runDue(client, later + 1000)).toBe(1);
+    expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('keeps a result Ever Platform could not receive, and sends it again', async () => {
+    const { connect, managed, client } = await connected();
+    await consent(connect);
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
+    const op = request('health_report');
+    platform.unreachable = true;
+    await expect(managed.handle(client, op)).rejects.toThrow();
+    platform.unreachable = false;
+    expect((await history())[0].unsentResult).not.toBeNull();
+    await managed.runDue(client);
+    expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
+    expect((await history())[0].unsentResult).toBeNull();
+  });
+
+  it("keeps the operator's settings checked, and the backup directory write-only", async () => {
+    const { managed } = await connected();
+    await expect(managed.update({ kinds: ['update'] }, 'user:u1')).rejects.toMatchObject({ code: 'invalid_managed' });
+    await expect(managed.update({ backupDir: 'relative/dir' }, 'user:u1')).rejects.toMatchObject({ code: 'invalid_managed' });
+    await expect(managed.update({ windows: [{ days: [7], from: '00:00', to: '01:00' }] }, 'user:u1')).rejects.toMatchObject({
+      code: 'invalid_managed',
+    });
+    const view = await managed.update({ optIn: true, kinds: ['backup'], windows: ALL_WEEK, backupDir }, 'user:u1');
+    expect(view).toMatchObject({ available: true, optIn: true, kinds: ['backup'], backupDirSet: true });
+    expect(JSON.stringify(view)).not.toContain(backupDir);
+    const stored = await dataSource.getRepository(EverConnectManagedPolicy).findOne({ where: { id: 'self' } });
+    expect(stored.backupDirEnc).not.toContain(backupDir);
+    const audit = await dataSource.getRepository(EverConnectAudit).find();
+    expect(audit.map(row => row.action)).toContain('managed.opt_in');
+
+    await expect(build({ installSource: 'cloud' }).managed.view()).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('runs a request whose consent arrives in the same feed page', async () => {
+    const { managed, scheduler } = await connected();
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
+    platform.integrationStates.managed_operations = { state: 'enabled', enabled: true, consentId: 'c-managed', scopeVersion: 1 };
+    const op = request('health_report');
+    platform.events = [
+      { id: 'e1', type: 'ever.consent.integration.enabled', data: { integration: 'managed_operations' } },
+      { id: 'e2', type: TYPE, data: op },
+    ];
+    await scheduler.readFeed(0);
+    expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
+    expect(platform.names()).toContain('ack');
+  });
+});

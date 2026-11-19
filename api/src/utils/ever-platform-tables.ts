@@ -1,3 +1,5 @@
+import { QueryRunner } from 'typeorm';
+import { config } from '../config';
 import { DbType } from './database-type-helper';
 
 /**
@@ -6,7 +8,7 @@ import { DbType } from './database-type-helper';
  */
 export interface ColumnSpec {
   name: string;
-  type: 'varchar' | 'bigint' | 'int' | 'text';
+  type: 'varchar' | 'bigint' | 'int' | 'text' | 'boolean';
   length?: number;
   nullable?: boolean;
   default?: number;
@@ -28,6 +30,8 @@ function columnType(dbType: string, column: ColumnSpec): string {
       return `varchar(${column.length})`;
     case 'int':
       return dbType === DbType.MYSQL ? 'int' : 'integer';
+    case 'boolean':
+      return dbType === DbType.MYSQL ? 'tinyint' : 'boolean';
     case 'text':
       // An export can outgrow MySQL's 64 KB `text`
       return dbType === DbType.MYSQL ? 'mediumtext' : 'text';
@@ -45,4 +49,22 @@ export function createTableSql(dbType: string, table: TableSpec): string {
   const primary = `CONSTRAINT ${quoteName(dbType, `PK_${table.name}`)} PRIMARY KEY (${key})`;
   const options = dbType === DbType.MYSQL ? ' ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin' : '';
   return `CREATE TABLE IF NOT EXISTS ${quoteName(dbType, table.name)} (${[...columns, primary].join(', ')})${options}`;
+}
+
+/** Creates `tables` (if they do not exist) on the configured database. */
+export async function createTables(queryRunner: QueryRunner, tables: TableSpec[]): Promise<void> {
+  const dbType = config.db.default.type;
+  if (dbType !== DbType.POSTGRES && dbType !== DbType.MYSQL && dbType !== DbType.BETTER_SQLITE3) {
+    throw new Error(`Unknown DB type: ${dbType}`);
+  }
+  for (const table of tables) {
+    await queryRunner.query(createTableSql(dbType, table));
+  }
+}
+
+/** Drops `tables`, last first. */
+export async function dropTables(queryRunner: QueryRunner, tables: TableSpec[]): Promise<void> {
+  for (const table of [...tables].reverse()) {
+    await queryRunner.query(`DROP TABLE IF EXISTS ${quoteName(config.db.default.type, table.name)}`);
+  }
 }

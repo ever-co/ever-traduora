@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
+import { EverConnectManagedService } from './ever-connect-managed.service';
 import { EverConnectPersonService } from './ever-connect-person.service';
 import { problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
@@ -41,6 +42,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     private readonly connect: EverConnectService,
     @Optional() @Inject(EVER_CONNECT_AUTOSTART) private readonly autostart?: boolean,
     @Optional() private readonly person?: EverConnectPersonService,
+    @Optional() private readonly managed?: EverConnectManagedService,
   ) {}
 
   onModuleInit(): void {
@@ -163,6 +165,12 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       if (connection.status === 'active' && this.person) {
         await this.person.syncLinks().catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
+      if (connection.status === 'active' && this.managed) {
+        const live = await this.connect.liveClient();
+        if (live) {
+          await this.managed.runDue(live.client).catch(error => this.connect.handleCallError(error, 'managed', connection.kid));
+        }
+      }
     } finally {
       await this.release();
     }
@@ -203,6 +211,10 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
           }
         }
         await this.applyTypes(page.events.map(event => event.type));
+        // After the state refresh: a consent in the same page counts for a request that follows it
+        if (this.managed) {
+          await this.managed.handleEvents(live.client, page.events);
+        }
       } catch (error) {
         // Not acknowledged: the same page comes again with the next read, and every handler reads the state again
         await this.connect.handleCallError(error, 'feed_apply');
@@ -241,6 +253,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     }
     const known = ['ever.registry.instance.', 'ever.registry.tenant_link', 'ever.consent', 'ever.entitlements'];
     if (this.person) known.push('ever.registry.person.deletion_requested', 'ever.registry.person.export_requested');
+    if (this.managed) known.push('ever.registry.managed_operation.requested');
     for (const type of types) {
       if (!known.some(prefix => type.startsWith(prefix))) {
         this.logger.log(`ever_connect.feed event=${type.slice(0, 96)} outcome=acknowledged`);

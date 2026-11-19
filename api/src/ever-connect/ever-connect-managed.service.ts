@@ -1,0 +1,478 @@
+import { HttpStatus, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import {
+  createManagedOperationRunner,
+  ManagedOperation,
+  ManagedOperationExecutor,
+  ManagedOperationKind,
+  ManagedOperationOutcome,
+} from '@ever-co/connect-sdk';
+import { createHash, randomBytes } from 'crypto';
+import { promises as fs } from 'fs';
+import { isAbsolute, join } from 'path';
+import { IsNull, LessThanOrEqual, Not, Repository } from 'typeorm';
+import { config } from '../config';
+import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
+import { EverConnectManagedOperation } from '../entity/ever-connect-managed-operation.entity';
+import { EverConnectManagedPolicy } from '../entity/ever-connect-managed-policy.entity';
+import { EverPlatformException } from '../errors';
+import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
+import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
+import { DbType } from '../utils/database-type-helper';
+import { EverConnectAuditService } from './ever-connect-audit.service';
+import { EverConnectPlatformClient, ManagedResult, PlatformEvent, problemOf } from './ever-connect-platform.client';
+import { EverConnectService } from './ever-connect.service';
+import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
+
+/** The feed event of a requested maintenance operation. */
+export const MANAGED_REQUESTED_TYPE = 'ever.registry.managed_operation.requested';
+
+/**
+ * What Traduora runs from inside its container. `update` is never one: the API cannot replace its own image (the
+ * operator updates the container). `backup` and `restore_check` only on SQLite, whose online backup is a consistent copy
+ * of one file; PostgreSQL and MySQL need their own dump tools, which the image does not ship.
+ */
+export function supportedKinds(dbType: string): ManagedOperationKind[] {
+  return dbType === DbType.BETTER_SQLITE3 ? ['health_report', 'backup', 'restore_check'] : ['health_report'];
+}
+
+/** Why a kind cannot run here at all, for the log and the history. */
+export function unsupportedReason(kind: string, dbType: string): string {
+  if (kind === 'update') return 'update_not_supported';
+  if (kind === 'backup' || kind === 'restore_check') return dbType === DbType.BETTER_SQLITE3 ? 'kind_not_supported' : 'unsupported_dialect';
+  return 'kind_not_supported';
+}
+
+/** A weekly window in UTC: the days (0 = Sunday) and the hours `from` to `to` (`HH:MM`); `to` before `from` is overnight. */
+export interface ManagedWindow {
+  days: number[];
+  from: string;
+  to: string;
+}
+
+/** What the operator sees and sets (the backup directory only as set or not). */
+export interface ManagedView {
+  available: boolean;
+  optIn: boolean;
+  kinds: string[];
+  supportedKinds: string[];
+  windows: ManagedWindow[];
+  backupDirSet: boolean;
+  history: Array<{ operationId: string; kind: string; status: string; reason: string | null; sizeBytes: number | null; at: number }>;
+}
+
+const POLICY_ID = 'self';
+const HISTORY_KEPT = 50;
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const OPERATION_ID = /^[0-9A-Za-z_-]{1,64}$/;
+const BACKUP_NAME = /^bk-\d{8}T\d{6}Z-[0-9a-f]{6}$/;
+
+/** The backup directory is encrypted for its own purpose. */
+const BACKUP_DIR_PURPOSE: KeyPurpose = { info: 'ever-connect/managed-backup-dir', aad: 'ever_connect:managed_backup_dir' };
+
+const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/** Whether `at` (epoch ms) falls in one of the windows (UTC). */
+export function inWindow(windows: ManagedWindow[], at: number): boolean {
+  const date = new Date(at);
+  const day = date.getUTCDay();
+  const yesterday = (day + 6) % 7;
+  const now = date.getUTCHours() * 60 + date.getUTCMinutes();
+  return windows.some(window => {
+    const from = minutes(window.from);
+    const to = minutes(window.to);
+    if (from <= to) return window.days.includes(day) && now >= from && now < to;
+    // Overnight: the late part belongs to the chosen day, the early part to the day after it
+    return (window.days.includes(day) && now >= from) || (window.days.includes(yesterday) && now < to);
+  });
+}
+
+const parseList = <T>(text: string | null): T[] => {
+  try {
+    const value = text ? JSON.parse(text) : [];
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+};
+
+const invalid = (message: string) => new EverPlatformException(HttpStatus.BAD_REQUEST, 'invalid_managed', message);
+
+/**
+ * Maintenance operations an owner or admin of the organization requests in app.ever.co for this self-hosted
+ * installation: a health report, a backup of the SQLite database to the operator's own directory, and a check of a
+ * backup. One runs only when the organization enabled `managed_operations` **and** the operator opted in here, for a
+ * kind the operator allows, inside one of the operator's windows; otherwise the answer is `failed` and nothing else
+ * happens. Ever Platform receives the status, the version and sizes only (never a path or a file name). The
+ * Ever-operated cloud is not a target: Ever operates it.
+ */
+@Injectable()
+export class EverConnectManagedService {
+  private readonly logger = new Logger(EverConnectManagedService.name);
+  private readonly dbType: string;
+  /** The result the runner decided for the operation it is running (this module sends it, so a failed send is retried). */
+  private decided: ManagedResult | null = null;
+  /** The time the operation runs at (the runner checks the start and expiry times against it). */
+  private runAt: number | null = null;
+  private readonly runner = createManagedOperationRunner({
+    executor: this.executor(),
+    postResult: async (_operationId, result) => {
+      this.decided = result as ManagedResult;
+    },
+    now: () => Math.floor((this.runAt === null ? Date.now() : this.runAt) / 1000),
+  });
+
+  constructor(
+    @InjectRepository(EverConnectManagedPolicy) private readonly policies: Repository<EverConnectManagedPolicy>,
+    @InjectRepository(EverConnectManagedOperation) private readonly operations: Repository<EverConnectManagedOperation>,
+    @InjectRepository(EverConnectIntegration) private readonly integrationRows: Repository<EverConnectIntegration>,
+    @Inject(EVER_CONNECT_SETTINGS) private readonly settings: EverConnectSettings,
+    @Inject(EVER_INSTANCE_SETTINGS) private readonly instanceSettings: EverInstanceSettings,
+    private readonly connect: EverConnectService,
+    private readonly audit: EverConnectAuditService,
+  ) {
+    this.dbType = config.db.default.type;
+  }
+
+  private policy(): Promise<EverConnectManagedPolicy | null> {
+    return this.policies.findOne({ where: { id: POLICY_ID } });
+  }
+
+  private ensureAvailable(): void {
+    if (this.settings.installSource === 'cloud') {
+      throw new NotFoundException();
+    }
+  }
+
+  // The operator's opt-in
+
+  /** What the operator sees: the opt-in, kinds, windows, whether a backup directory is set, and the history. */
+  async view(): Promise<ManagedView> {
+    this.ensureAvailable();
+    const policy = await this.policy();
+    const history = await this.operations.find({ order: { at: 'DESC' }, take: HISTORY_KEPT });
+    return {
+      available: true,
+      optIn: !!policy && policy.optIn === true,
+      kinds: parseList<string>(policy ? policy.kinds : null),
+      supportedKinds: supportedKinds(this.dbType),
+      windows: parseList<ManagedWindow>(policy ? policy.windows : null),
+      backupDirSet: !!policy && !!policy.backupDirEnc,
+      history: history.map(row => ({
+        operationId: row.operationId,
+        kind: row.kind,
+        status: row.status,
+        reason: row.reason,
+        sizeBytes: row.sizeBytes,
+        at: row.at,
+      })),
+    };
+  }
+
+  /** Sets the opt-in, the allowed kinds, the windows and (write-only) the backup directory. */
+  async update(body: { optIn?: unknown; kinds?: unknown; windows?: unknown; backupDir?: unknown }, actorRef: string): Promise<ManagedView> {
+    this.ensureAvailable();
+    const previous = await this.policy();
+    const supported = supportedKinds(this.dbType) as string[];
+    const kinds = Array.isArray(body.kinds) ? body.kinds : parseList<string>(previous ? previous.kinds : null);
+    if (!kinds.every(kind => typeof kind === 'string' && supported.includes(kind))) {
+      throw invalid(`The kinds this installation runs are ${supported.join(', ')}`);
+    }
+    const windows = Array.isArray(body.windows) ? body.windows : parseList<ManagedWindow>(previous ? previous.windows : null);
+    for (const window of windows) {
+      const valid =
+        !!window &&
+        Array.isArray(window.days) &&
+        window.days.length > 0 &&
+        window.days.every((day: unknown) => Number.isInteger(day) && (day as number) >= 0 && (day as number) <= 6) &&
+        HHMM.test(String(window.from)) &&
+        HHMM.test(String(window.to)) &&
+        window.from !== window.to;
+      if (!valid) {
+        throw invalid('A window is {days: [0-6], from: "HH:MM", to: "HH:MM"} in UTC');
+      }
+    }
+    let backupDirEnc = previous ? previous.backupDirEnc : null;
+    if (typeof body.backupDir === 'string') {
+      const dir = body.backupDir.trim();
+      if (dir && (!isAbsolute(dir) || dir.length > 1024)) {
+        throw invalid('The backup directory is an absolute path');
+      }
+      backupDirEnc = dir ? wrapKey(Buffer.from(dir, 'utf8'), this.instanceSettings.secret, POLICY_ID, BACKUP_DIR_PURPOSE) : null;
+    }
+    const optIn = typeof body.optIn === 'boolean' ? body.optIn : !!previous && previous.optIn === true;
+    await this.policies.save(
+      Object.assign(new EverConnectManagedPolicy(), {
+        id: POLICY_ID,
+        optIn,
+        kinds: JSON.stringify(kinds),
+        windows: JSON.stringify(windows.map((window: ManagedWindow) => ({ days: [...window.days], from: window.from, to: window.to }))),
+        backupDirEnc,
+        updatedAt: Date.now(),
+        updatedBy: actorRef,
+      }),
+    );
+    if (optIn !== (!!previous && previous.optIn === true)) {
+      await this.audit.record(optIn ? 'managed.opt_in' : 'managed.opt_out', actorRef, null);
+    } else {
+      await this.audit.record('managed.policy', actorRef, `kinds=${kinds.join('+') || 'none'} windows=${windows.length}`);
+    }
+    return this.view();
+  }
+
+  private async backupDir(): Promise<string | null> {
+    const policy = await this.policy();
+    if (!policy || !policy.backupDirEnc) return null;
+    try {
+      return unwrapKey(policy.backupDirEnc, this.instanceSettings.secret, POLICY_ID, BACKUP_DIR_PURPOSE).toString('utf8');
+    } catch {
+      return null;
+    }
+  }
+
+  /** Why an operation may not run now, or `null` when it may. */
+  async refusal(kind: string, now = Date.now()): Promise<string | null> {
+    if (this.settings.installSource === 'cloud') return 'operated_by_ever';
+    if (this.settings.integrationsDeny.includes('managed_operations')) return 'denied_by_policy';
+    const consent = await this.integrationRows.findOne({ where: { key: 'managed_operations' } });
+    if (!consent || consent.state !== 'enabled' || consent.pendingRemoteRevoke) return 'no_consent';
+    const policy = await this.policy();
+    if (!policy || !policy.optIn) return 'no_operator_opt_in';
+    if (!(supportedKinds(this.dbType) as string[]).includes(kind)) return unsupportedReason(kind, this.dbType);
+    if (!parseList<string>(policy.kinds).includes(kind)) return 'kind_not_allowed';
+    if (!inWindow(parseList<ManagedWindow>(policy.windows), now)) return 'outside_window';
+    return null;
+  }
+
+  // Requests from the feed
+
+  /** The maintenance requests of a feed page. Throws when a result could not be sent: the page is read again. */
+  async handleEvents(client: EverConnectPlatformClient, events: ReadonlyArray<PlatformEvent>): Promise<void> {
+    for (const event of events) {
+      if (event.type === MANAGED_REQUESTED_TYPE) {
+        await this.handle(client, event.data || {});
+      }
+    }
+  }
+
+  /** One requested operation: refused, deferred until its start time, or run through the SDK runner. */
+  async handle(client: EverConnectPlatformClient, data: Record<string, unknown>, now = Date.now()): Promise<void> {
+    const operationId = typeof data.operation_id === 'string' && OPERATION_ID.test(data.operation_id) ? data.operation_id : null;
+    const kind = typeof data.kind === 'string' ? data.kind.slice(0, 24) : '';
+    if (!operationId) {
+      this.logger.warn('ever_connect.managed outcome=ignored reason=no_operation_id');
+      return;
+    }
+    const known = await this.operations.findOne({ where: { operationId } });
+    if (known && known.unsentResult) {
+      await this.deliver(client, known);
+      return;
+    }
+    if (known && (known.status !== 'deferred' || (known.notBefore || 0) > now)) {
+      return;
+    }
+    const row = Object.assign(new EverConnectManagedOperation(), {
+      operationId,
+      kind,
+      status: 'failed',
+      reason: null,
+      sizeBytes: null,
+      request: null,
+      unsentResult: null,
+      notBefore: null,
+      at: now,
+    });
+    const refusal = await this.refusal(kind, now);
+    if (refusal) {
+      row.status = 'refused';
+      row.reason = refusal;
+      await this.finish(client, row, { status: 'failed' });
+      await this.audit.record('managed.refused', 'platform', `kind=${kind} reason=${refusal}`);
+      this.logger.log(`ever_connect.managed kind=${kind} outcome=refused reason=${refusal}`);
+      return;
+    }
+    this.decided = null;
+    this.runAt = now;
+    let report;
+    try {
+      report = await this.runner.handle({ type: MANAGED_REQUESTED_TYPE, data } as never);
+    } finally {
+      this.runAt = null;
+    }
+    const result = this.decided as ManagedResult | null;
+    this.decided = null;
+    if (report.outcome === 'deferred') {
+      const notBefore = Date.parse(String(data.not_before));
+      row.status = 'deferred';
+      row.request = JSON.stringify(data);
+      row.notBefore = Number.isNaN(notBefore) ? now : notBefore;
+      await this.remember(row);
+      return;
+    }
+    row.status = result && result.status === 'succeeded' ? 'succeeded' : 'failed';
+    row.reason = row.status === 'succeeded' ? null : report.outcome;
+    row.sizeBytes = result && typeof result.size_bytes === 'number' ? result.size_bytes : null;
+    if (result) {
+      await this.finish(client, row, result);
+    } else {
+      // Expired (Ever Platform expired it) or a repeated delivery: nothing to send
+      await this.remember(row);
+    }
+    await this.audit.record('managed.result', 'platform', `kind=${kind} status=${row.status}${row.reason ? ` reason=${row.reason}` : ''}`);
+    this.logger.log(`ever_connect.managed kind=${kind} outcome=${report.outcome}`);
+  }
+
+  /** Runs the deferred operations whose start time came, and sends the results not received yet (each scheduler round). */
+  async runDue(client: EverConnectPlatformClient, now = Date.now()): Promise<number> {
+    for (const row of await this.operations.find({ where: { unsentResult: Not(IsNull()) } })) {
+      await this.deliver(client, row);
+    }
+    const due = await this.operations.find({ where: { status: 'deferred', notBefore: LessThanOrEqual(now), request: Not(IsNull()) } });
+    for (const row of due) {
+      let data: Record<string, unknown>;
+      try {
+        data = JSON.parse(row.request);
+      } catch {
+        await this.operations.update({ operationId: row.operationId }, { status: 'failed', reason: 'request_unreadable', request: null });
+        continue;
+      }
+      await this.handle(client, data, now);
+    }
+    return due.length;
+  }
+
+  /** Records the operation with its result, then sends the result. */
+  private async finish(client: EverConnectPlatformClient, row: EverConnectManagedOperation, result: ManagedResult): Promise<void> {
+    row.request = null;
+    row.notBefore = null;
+    row.unsentResult = JSON.stringify(result);
+    await this.remember(row);
+    await this.deliver(client, row);
+  }
+
+  /**
+   * Sends a stored result. One Ever Platform no longer wants (already recorded, expired, unknown) is not sent again; a
+   * failed send (no connection, a busy or failing platform) throws and is tried again.
+   */
+  private async deliver(client: EverConnectPlatformClient, row: EverConnectManagedOperation): Promise<void> {
+    let result: ManagedResult;
+    try {
+      result = JSON.parse(row.unsentResult);
+    } catch {
+      result = { status: 'failed' };
+    }
+    try {
+      await client.managedOperationResult(row.operationId, result);
+    } catch (error) {
+      const problem = problemOf(error);
+      if (!problem || problem.status === 401 || problem.status === 429 || problem.status >= 500) {
+        throw error;
+      }
+      this.logger.warn(`ever_connect.managed result=not_needed reason=${problem.status}:${problem.code}`);
+    }
+    await this.operations.update({ operationId: row.operationId }, { unsentResult: null });
+  }
+
+  /** Records an operation, keeping the last 50. */
+  private async remember(row: Omit<EverConnectManagedOperation, never>): Promise<void> {
+    await this.operations.save(Object.assign(new EverConnectManagedOperation(), row));
+    const stale = await this.operations.find({
+      select: { operationId: true },
+      where: { status: Not('deferred'), unsentResult: IsNull() },
+      order: { at: 'DESC' },
+      skip: HISTORY_KEPT,
+      take: 100,
+    });
+    if (stale.length) {
+      await this.operations.delete(stale.map(old => old.operationId));
+    }
+  }
+
+  // The work
+
+  private executor(): ManagedOperationExecutor {
+    return {
+      kinds: () => supportedKinds(this.dbType),
+      dryRun: async (op: ManagedOperation) => {
+        if (op.kind === 'health_report') return { ok: true };
+        const dir = await this.backupDir();
+        if (!dir) return { ok: false, reason: 'no_backup_directory' };
+        try {
+          await fs.mkdir(dir, { recursive: true });
+          await fs.access(dir);
+          return { ok: true };
+        } catch {
+          return { ok: false, reason: 'backup_directory_unwritable' };
+        }
+      },
+      // Never called: `update` is not a kind this installation runs
+      backupBeforeUpdate: async () => ({ ok: false }),
+      execute: async (op: ManagedOperation): Promise<ManagedOperationOutcome> => {
+        if (op.kind === 'health_report') return this.health();
+        if (op.kind === 'backup') return this.backup();
+        if (op.kind === 'restore_check') {
+          const params = (op as { params?: { artefact_ref?: unknown } }).params || {};
+          return this.restoreCheck(typeof params.artefact_ref === 'string' ? params.artefact_ref : null);
+        }
+        return { status: 'failed' };
+      },
+    };
+  }
+
+  /** The API answers and its database is reachable. */
+  private async health(): Promise<ManagedOperationOutcome> {
+    try {
+      await this.policies.query('SELECT 1');
+      return { status: 'succeeded', version: this.settings.version };
+    } catch {
+      this.logger.warn('ever_connect.managed health=database_unreachable');
+      return { status: 'failed', version: this.settings.version };
+    }
+  }
+
+  /** The SQLite online backup (a consistent copy while the API keeps running), and a manifest with its SHA-256. */
+  private async backup(): Promise<ManagedOperationOutcome> {
+    const dir = await this.backupDir();
+    const sqlite = (this.policies.manager.connection.driver as unknown as { databaseConnection?: { backup?: (file: string) => Promise<unknown> } })
+      .databaseConnection;
+    if (!dir || !sqlite || typeof sqlite.backup !== 'function') return { status: 'failed' };
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}/, '');
+    const ref = `bk-${stamp}-${randomBytes(3).toString('hex')}`;
+    const file = join(dir, `${ref}.sqlite3`);
+    await fs.mkdir(dir, { recursive: true });
+    await sqlite.backup(file);
+    await fs.chmod(file, 0o600).catch(() => undefined);
+    const data = await fs.readFile(file);
+    const sha256 = createHash('sha256').update(data).digest('hex');
+    await fs.writeFile(join(dir, `${ref}.manifest.json`), JSON.stringify({ ref, createdAt: Date.now(), sizeBytes: data.length, sha256 }), {
+      mode: 0o600,
+    });
+    return { status: 'succeeded', artefact_ref: ref, size_bytes: data.length };
+  }
+
+  /** A backup (the one named, else the newest) still matches its manifest. */
+  private async restoreCheck(wanted: string | null): Promise<ManagedOperationOutcome> {
+    const dir = await this.backupDir();
+    if (!dir) return { status: 'failed' };
+    try {
+      let manifest: { ref: string; createdAt: number; sizeBytes: number; sha256: string } | null = null;
+      for (const name of await fs.readdir(dir)) {
+        const match = /^(bk-.+)\.manifest\.json$/.exec(name);
+        if (!match || !BACKUP_NAME.test(match[1]) || (wanted && match[1] !== wanted)) continue;
+        const candidate = JSON.parse(await fs.readFile(join(dir, name), 'utf8'));
+        if (candidate && candidate.ref === match[1] && (!manifest || Number(candidate.createdAt) > Number(manifest.createdAt))) {
+          manifest = candidate;
+        }
+      }
+      if (!manifest) return { status: 'failed' };
+      const data = await fs.readFile(join(dir, `${manifest.ref}.sqlite3`));
+      const ok = data.length === manifest.sizeBytes && createHash('sha256').update(data).digest('hex') === manifest.sha256;
+      return ok ? { status: 'succeeded', artefact_ref: manifest.ref, size_bytes: data.length } : { status: 'failed', artefact_ref: manifest.ref };
+    } catch {
+      return { status: 'failed' };
+    }
+  }
+}

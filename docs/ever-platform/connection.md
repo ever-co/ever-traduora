@@ -43,6 +43,7 @@ Several API processes on one database count as one installation: one of them mak
 | --- | --- | --- |
 | `instance_url` | Shows the address of this installation to your organization | The `https` address the operator sends, after the consent |
 | `stats_link` | Links the anonymous usage statistics of this installation to your organization | The statistics instance id and public key, with a statement signed by the statistics key (never by the connection key); only when the statistics are on |
+| `managed_operations` | Maintenance operations requested from app.ever.co (see [Maintenance operations](#maintenance-operations)) | The status, version and size of each operation; only with the operator's opt-in |
 | `ever_id_login` | Sign in with Ever ID through Ever Platform | Not available yet as a sign-in option. Once an organization consents to it, the person links of this installation (see [A person's Ever ID](#a-persons-ever-id)) |
 
 **Show scope** on the page lists, for each integration, every field it moves, in which form, how often and why: the same
@@ -78,6 +79,41 @@ that hash only, never by an e-mail address, and never creates or changes an acco
 
 Each answer is decided once and kept for 90 days with the request id (no e-mail, no name), so a request read again gets
 the same answer; the audit trail records each one with the number of accounts it matched.
+
+## Maintenance operations
+
+An owner or admin of the organization can ask this installation, from app.ever.co, for a health report, a backup or a
+check of a backup. Nothing runs unless **both** agree: the organization enabled `managed_operations` in app.ever.co,
+**and** the operator opted in here, for that kind, with a window it may run in. Otherwise the request is answered
+`failed` and nothing else happens. `TR_EVER_CONNECT_INTEGRATIONS_DENY=managed_operations` refuses every request. An
+installation declared `TR_EVER_INSTALL_SOURCE=cloud` is operated by Ever and takes none.
+
+| Kind | What runs here | Databases |
+| --- | --- | --- |
+| `health_report` | Checks that the API answers and its database is reachable | All |
+| `backup` | An online backup of the database (a consistent copy while Traduora keeps running) and a manifest with its size and SHA-256, written to the operator's backup directory | SQLite |
+| `restore_check` | Checks that a backup in the directory still matches its manifest | SQLite |
+
+PostgreSQL and MySQL backups need their own dump tools, which the Traduora image does not ship: back these databases
+up with your usual tools. Such a request is answered `failed` (`unsupported_dialect` in the history). `update` is never
+run: the API cannot replace its own container image, so update the container yourself.
+
+The operator sets it all with `PUT /api/v1/ever-connect/managed` and reads it with `GET` (operator only):
+
+```json
+{
+  "optIn": true,
+  "kinds": ["health_report", "backup", "restore_check"],
+  "windows": [{ "days": [0, 6], "from": "02:00", "to": "04:00" }],
+  "backupDir": "/app/api/backups"
+}
+```
+
+Windows are in UTC (days 0 = Sunday to 6; a `to` earlier than `from` runs overnight). The backup directory is an
+absolute path on the server, for example a mounted volume. It is stored encrypted and never shown again (only whether
+one is set). A request with a later start time waits until then. Ever Platform receives the status, the version and the
+size of a backup only, never a path or a file name. The history of the last 50 operations and every opt-in change are
+kept here and in the audit trail.
 
 ## Disconnect
 

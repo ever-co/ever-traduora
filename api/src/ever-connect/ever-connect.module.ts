@@ -3,12 +3,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EverConnectAudit } from '../entity/ever-connect-audit.entity';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
+import { EverConnectManagedOperation } from '../entity/ever-connect-managed-operation.entity';
+import { EverConnectManagedPolicy } from '../entity/ever-connect-managed-policy.entity';
 import { EverConnectPersonExport } from '../entity/ever-connect-person-export.entity';
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
 import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.entity';
 import { UserIdentity } from '../entity/user-identity.entity';
 import { EverInstanceModule } from '../ever-instance/ever-instance.module';
 import { EverConnectAuditService } from './ever-connect-audit.service';
+import { EverConnectManagedService } from './ever-connect-managed.service';
 import { EverConnectPersonController, EverSignedInUserGuard } from './ever-connect-person.controller';
 import { EverConnectPersonService } from './ever-connect-person.service';
 import { EVER_CONNECT_CLIENT_FACTORY, sdkPlatformClient } from './ever-connect-platform.client';
@@ -22,7 +25,7 @@ const logger = new Logger('EverConnectModule');
 /**
  * The optional Ever Platform connection: connect this installation to an organization with a code, verified
  * entitlement documents, integrations consented in app.ever.co, a person's deletion and export requests and person
- * links, and disconnect at any time. Loaded only with
+ * links, maintenance operations the operator opted in to, and disconnect at any time. Loaded only with
  * `TR_EVER_CONNECT_ENABLED=true` (see `app.module.ts`); until an operator connects, it calls nothing. See
  * `docs/ever-platform/connection.md`.
  */
@@ -36,6 +39,8 @@ const logger = new Logger('EverConnectModule');
       EverConnectPersonLink,
       EverConnectPersonRequest,
       EverConnectPersonExport,
+      EverConnectManagedPolicy,
+      EverConnectManagedOperation,
       // A person's requests and links read the accounts' Ever IDs (and, for an export, the account's own data)
       UserIdentity,
     ]),
@@ -57,6 +62,7 @@ const logger = new Logger('EverConnectModule');
     EverConnectAuditService,
     EverConnectService,
     EverConnectPersonService,
+    EverConnectManagedService,
     EverSignedInUserGuard,
     EverConnectSchedulerService,
   ],
