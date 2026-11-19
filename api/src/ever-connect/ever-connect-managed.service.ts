@@ -21,7 +21,6 @@ import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
 import { DbType } from '../utils/database-type-helper';
 import { EverConnectAuditService } from './ever-connect-audit.service';
 import { EverConnectPlatformClient, ManagedResult, PlatformEvent, problemOf } from './ever-connect-platform.client';
-import { EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
 
 /** The feed event of a requested maintenance operation. */
@@ -128,7 +127,6 @@ export class EverConnectManagedService {
     @InjectRepository(EverConnectIntegration) private readonly integrationRows: Repository<EverConnectIntegration>,
     @Inject(EVER_CONNECT_SETTINGS) private readonly settings: EverConnectSettings,
     @Inject(EVER_INSTANCE_SETTINGS) private readonly instanceSettings: EverInstanceSettings,
-    private readonly connect: EverConnectService,
     private readonly audit: EverConnectAuditService,
   ) {
     this.dbType = config.db.default.type;

@@ -76,7 +76,6 @@ describeOnSqlite('EverConnectManagedService', () => {
       dataSource.getRepository(EverConnectIntegration),
       all,
       INSTANCE_SETTINGS,
-      connect,
       audit,
     );
     const scheduler = new EverConnectSchedulerService(dataSource.getRepository(EverConnectConnection), all, connect, false, undefined, managed);
