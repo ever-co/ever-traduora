@@ -1,0 +1,159 @@
+<ng-container *ngIf="status">
+  <h5 class="font-serif">Connection</h5>
+  <p class="text-muted">
+    Connect this installation to your organization on Ever Platform with a connect code from app.ever.co. Nothing is sent before
+    you connect. Integrations start only after an owner or admin of your organization consents to each one in app.ever.co, and
+    you can switch any of them off here or disconnect at any time.
+  </p>
+
+  <div *ngIf="message" class="alert alert-success">{{ message }}</div>
+  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+
+  <ng-container *ngIf="!status.connected">
+    <p *ngIf="status.status === 'revoked'" class="alert alert-warning">Ever Platform revoked this connection. Connect again with a new code.</p>
+    <p *ngIf="!status.destinationUsable" class="alert alert-warning">
+      The Ever Platform address of this server (TR_EVER_PLATFORM_API_URL) cannot be used.
+    </p>
+    <form (ngSubmit)="connect()" class="mb-3">
+      <div class="form-group">
+        <label for="everConnectCode">Connect code</label>
+        <input
+          id="everConnectCode"
+          name="code"
+          class="form-control"
+          type="text"
+          placeholder="EVC-XXXX-XXXX-XXXX"
+          autocomplete="off"
+          [(ngModel)]="code"
+        />
+      </div>
+      <div class="form-group">
+        <label for="everConnectName">Name shown to your organization</label>
+        <input id="everConnectName" name="displayName" class="form-control" type="text" maxlength="120" [(ngModel)]="displayName" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm" [disabled]="busy || !code.trim()">Connect</button>
+    </form>
+  </ng-container>
+
+  <ng-container *ngIf="status.connected">
+    <dl class="row small">
+      <dt class="col-sm-4">State</dt>
+      <dd class="col-sm-8">{{ status.status === 'pending_approval' ? 'Waiting for approval in app.ever.co' : 'Connected' }}</dd>
+      <dt class="col-sm-4">Name</dt>
+      <dd class="col-sm-8">{{ status.displayName || '-' }}</dd>
+      <dt class="col-sm-4">Connected</dt>
+      <dd class="col-sm-8">{{ status.connectedAt ? (status.connectedAt | date: 'medium') : '-' }}</dd>
+      <dt class="col-sm-4">Last heartbeat</dt>
+      <dd class="col-sm-8">{{ status.lastHeartbeatAt ? (status.lastHeartbeatAt | date: 'medium') : '-' }}</dd>
+      <dt class="col-sm-4">Plan</dt>
+      <dd class="col-sm-8">
+        {{ status.entitlement.tier || '-' }}
+        <span class="text-muted">({{ status.entitlement.state }})</span>
+      </dd>
+    </dl>
+
+    <h6 class="font-serif">Integrations</h6>
+    <div class="list-group mb-3">
+      <div class="list-group-item" *ngFor="let integration of integrations">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="pr-3">
+            <strong>{{ integration.name }}</strong>
+            <span class="badge badge-light ml-1">{{ integration.state }}</span>
+            <span *ngIf="integration.pendingRemoteRevoke" class="badge badge-warning ml-1">off here, Ever Platform not told yet</span>
+            <p class="small text-muted mb-1">{{ integration.description }}</p>
+            <button type="button" class="btn btn-link btn-sm p-0" (click)="toggleScope(integration.key)">
+              {{ shownScope === integration.key ? 'Hide scope' : 'Show scope' }}
+            </button>
+          </div>
+          <div class="text-nowrap">
+            <button
+              *ngIf="['available', 'disabled', 'revoked'].includes(integration.state)"
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              [disabled]="busy"
+              (click)="enable(integration.key)"
+            >
+              Enable in app.ever.co
+            </button>
+            <ng-container *ngIf="integration.state === 'pending_operator'">
+              <button type="button" class="btn btn-primary btn-sm mr-1" [disabled]="busy" (click)="accept(integration.key, true)">Accept</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="busy" (click)="accept(integration.key, false)">
+                Decline
+              </button>
+            </ng-container>
+            <button
+              *ngIf="integration.state === 'enabled'"
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              [disabled]="busy"
+              (click)="disable(integration.key)"
+            >
+              Switch off
+            </button>
+          </div>
+        </div>
+        <table *ngIf="shownScope === integration.key" class="table table-sm small mt-2 mb-0">
+          <thead>
+            <tr>
+              <th>What</th>
+              <th>Form</th>
+              <th>When</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of integration.scope">
+              <td>{{ row.field_path }}</td>
+              <td>{{ row.form }}</td>
+              <td>{{ row.frequency }}</td>
+              <td>{{ row.purpose }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <form
+          *ngIf="integration.key === 'instance_url' && integration.state === 'enabled'"
+          class="form-inline mt-2"
+          (ngSubmit)="setPublicUrl()"
+        >
+          <input
+            name="publicUrl"
+            class="form-control form-control-sm mr-2"
+            type="url"
+            placeholder="https://translate.example.com"
+            [(ngModel)]="publicUrl"
+          />
+          <button type="submit" class="btn btn-outline-primary btn-sm mr-2" [disabled]="busy || !publicUrl.trim()">Send address</button>
+          <button *ngIf="integration.config?.base_url" type="button" class="btn btn-link btn-sm" [disabled]="busy" (click)="clearPublicUrl()">
+            Remove {{ integration.config.base_url }}
+          </button>
+        </form>
+      </div>
+    </div>
+    <div class="d-flex flex-wrap mb-3">
+      <button type="button" class="btn btn-outline-primary btn-sm mr-2 mb-2" [disabled]="busy" (click)="refreshIntegrations()">Check again</button>
+      <button type="button" class="btn btn-outline-danger btn-sm mb-2" [disabled]="busy" (click)="confirmingDisconnect = true">Disconnect</button>
+    </div>
+    <div *ngIf="confirmingDisconnect" class="alert alert-warning">
+      <p class="mb-2">
+        This installation leaves your organization on Ever Platform: every integration stops and its connection key is deleted here.
+        The anonymous usage statistics are not affected.
+      </p>
+      <button type="button" class="btn btn-danger btn-sm mr-2" [disabled]="busy" (click)="disconnect()">Disconnect</button>
+      <button type="button" class="btn btn-link btn-sm" (click)="confirmingDisconnect = false">Cancel</button>
+    </div>
+  </ng-container>
+
+  <ng-container *ngIf="audit.length">
+    <h6 class="font-serif">Changes</h6>
+    <table class="table table-sm small">
+      <tbody>
+        <tr *ngFor="let row of audit">
+          <td class="text-nowrap">{{ row.at | date: 'medium' }}</td>
+          <td>{{ row.action }}</td>
+          <td>{{ row.actor }}</td>
+          <td>{{ row.detail }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </ng-container>
+</ng-container>
