@@ -32,6 +32,14 @@ describe('Ever Platform settings', () => {
       }
     });
 
+    it('shows the spaces around an otherwise plain value, so "false " is seen not to be false', () => {
+      const { settings, warnings } = read({ TR_EVER_STATS_ENABLED: 'false ' });
+      expect(settings.statsEnabled).toBe(true);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain('"false "');
+      expect(read({ TR_EVER_STATS_ENABLED: 'false.' }).warnings[0]).toContain('"false."');
+    });
+
     it('never repeats a long value in a warning', () => {
       const warnings: string[] = [];
       readStrictBool('X', false, { X: 'someone@example.com' }, message => warnings.push(message));
