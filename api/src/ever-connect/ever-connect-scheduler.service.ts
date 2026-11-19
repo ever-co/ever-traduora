@@ -209,6 +209,8 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         const lastId = (error as { lastId?: string }).lastId || null;
         if (lastId) await live.client.ack(lastId);
         await this.connections.update({ id: CONNECTION_ID }, { feedCursor: lastId });
+        // The state was read again in full: due work no longer waits for an earlier failed page
+        this.feedFailed = false;
         return 0;
       }
       await this.connect.handleCallError(error, 'feed');
