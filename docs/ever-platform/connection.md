@@ -43,7 +43,7 @@ Several API processes on one database count as one installation: one of them mak
 | --- | --- | --- |
 | `instance_url` | Shows the address of this installation to your organization | The `https` address the operator sends, after the consent |
 | `stats_link` | Links the anonymous usage statistics of this installation to your organization | The statistics instance id and public key, with a statement signed by the statistics key (never by the connection key); only when the statistics are on |
-| `ever_id_login` | Sign in with Ever ID through Ever Platform | Not available yet |
+| `ever_id_login` | Sign in with Ever ID through Ever Platform | Not available yet as a sign-in option. Once an organization consents to it, the person links of this installation (see [A person's Ever ID](#a-persons-ever-id)) |
 
 **Show scope** on the page lists, for each integration, every field it moves, in which form, how often and why: the same
 list app.ever.co shows on its consent screen. An integration starts only after an owner or admin of your organization
@@ -52,10 +52,37 @@ operator's **Accept**. The operator can **Switch off** any integration at any ti
 it is off here at once and Ever Platform is told with the next heartbeat. `TR_EVER_CONNECT_INTEGRATIONS_DENY` (a comma
 list of keys) keeps integrations off whatever app.ever.co says.
 
+## A person's Ever ID
+
+People who sign in to Traduora with their Ever ID can ask app.ever.co to export or delete what Ever and the products they
+use hold about them. While the installation is connected, Traduora answers these requests for the accounts their Ever ID
+is linked to. A request names the person by a hash of each Ever ID (issuer and subject): Traduora finds the accounts by
+that hash only, never by an e-mail address, and never creates or changes an account for a request.
+
+- **Person links.** When a user signed in with their Ever ID (and so linked it to their account themselves, from the
+  account settings or by confirming a new account), Traduora tells Ever Platform about the link: the user's id, the
+  issuer and subject of the Ever ID, how it was linked, and the installation's link with the organization. No e-mail
+  address and no name. Only Ever IDs are reported (an identity that names an Ever person id); identities of another
+  OpenID Connect issuer are not. Links are reported only while an owner or admin of the organization consented to
+  `ever_id_login` in app.ever.co and `TR_EVER_CONNECT_INTEGRATIONS_DENY` does not name it; within 5 minutes of a new
+  link, or of the consent. When a user removes their Ever ID here, the link is removed there too.
+- **Export.** Traduora makes one export per matched account: its profile (name, e-mail, when it was made and last
+  signed in), its Ever ID, its projects with the user's role, and how many translation changes it made. The export is
+  stored encrypted with a key derived from `TR_SECRET`, and only that account can download it, for 7 days:
+  `GET /api/v1/ever-connect/me/exports` lists them and `GET /api/v1/ever-connect/me/exports/<id>` returns one, as JSON,
+  to the signed-in user. Ever Platform receives the answer `exported` (or `no_account`), never the export.
+- **Deletion.** Traduora removes the person's Ever ID from the accounts it is linked to and ends the sessions opened with
+  it. The accounts themselves stay, with their projects, passwords and other sign-in methods: the person can still sign
+  in with a password (or reset it) and delete the account in Traduora. Ever Platform receives the answer `anonymised`
+  (or `no_account`), and the person link is removed.
+
+Each answer is decided once and kept for 90 days with the request id (no e-mail, no name), so a request read again gets
+the same answer; the audit trail records each one with the number of accounts it matched.
+
 ## Disconnect
 
 **Disconnect** tells Ever Platform the installation leaves your organization, then deletes the connection key, the
-entitlement documents and the integration states here. When Ever Platform cannot be reached, the connection ends here
+entitlement documents, the integration states and the person links here. When Ever Platform cannot be reached, the connection ends here
 anyway. The anonymous usage statistics are not affected. If Ever Platform revokes the installation, Traduora stops every
 call and the page asks for a new code.
 

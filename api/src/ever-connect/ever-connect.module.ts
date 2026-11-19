@@ -3,8 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EverConnectAudit } from '../entity/ever-connect-audit.entity';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
+import { EverConnectPersonExport } from '../entity/ever-connect-person-export.entity';
+import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
+import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.entity';
+import { UserIdentity } from '../entity/user-identity.entity';
 import { EverInstanceModule } from '../ever-instance/ever-instance.module';
 import { EverConnectAuditService } from './ever-connect-audit.service';
+import { EverConnectPersonController, EverSignedInUserGuard } from './ever-connect-person.controller';
+import { EverConnectPersonService } from './ever-connect-person.service';
 import { EVER_CONNECT_CLIENT_FACTORY, sdkPlatformClient } from './ever-connect-platform.client';
 import { EVER_CONNECT_AUTOSTART, EverConnectSchedulerService } from './ever-connect-scheduler.service';
 import { EverConnectController } from './ever-connect.controller';
@@ -15,13 +21,26 @@ const logger = new Logger('EverConnectModule');
 
 /**
  * The optional Ever Platform connection: connect this installation to an organization with a code, verified
- * entitlement documents, integrations consented in app.ever.co, and disconnect at any time. Loaded only with
+ * entitlement documents, integrations consented in app.ever.co, a person's deletion and export requests and person
+ * links, and disconnect at any time. Loaded only with
  * `TR_EVER_CONNECT_ENABLED=true` (see `app.module.ts`); until an operator connects, it calls nothing. See
  * `docs/ever-platform/connection.md`.
  */
 @Module({
-  imports: [EverInstanceModule, TypeOrmModule.forFeature([EverConnectConnection, EverConnectIntegration, EverConnectAudit])],
-  controllers: [EverConnectController],
+  imports: [
+    EverInstanceModule,
+    TypeOrmModule.forFeature([
+      EverConnectConnection,
+      EverConnectIntegration,
+      EverConnectAudit,
+      EverConnectPersonLink,
+      EverConnectPersonRequest,
+      EverConnectPersonExport,
+      // A person's requests and links read the accounts' Ever IDs (and, for an export, the account's own data)
+      UserIdentity,
+    ]),
+  ],
+  controllers: [EverConnectController, EverConnectPersonController],
   providers: [
     {
       provide: EVER_CONNECT_SETTINGS,
@@ -37,6 +56,8 @@ const logger = new Logger('EverConnectModule');
     { provide: EVER_CONNECT_AUTOSTART, useValue: true },
     EverConnectAuditService,
     EverConnectService,
+    EverConnectPersonService,
+    EverSignedInUserGuard,
     EverConnectSchedulerService,
   ],
   exports: [EVER_CONNECT_SETTINGS, EverConnectService],

@@ -5,6 +5,7 @@ import { createHash, randomInt, randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
+import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
 import { EverPlatformException } from '../errors';
 import { EverInstanceService } from '../ever-instance/ever-instance.service';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
@@ -369,10 +370,11 @@ export class EverConnectService {
     connection.nextEntitlementAt = null;
     connection.updatedAt = Date.now();
     this.cachedClient = null;
-    // The connection and its integration states end together
+    // The connection, its integration states and its person links end together
     await this.connections.manager.transaction(async manager => {
       await manager.save(connection);
       await manager.createQueryBuilder().delete().from(EverConnectIntegration).execute();
+      await manager.createQueryBuilder().delete().from(EverConnectPersonLink).execute();
     });
     await this.audit.record('instance.disconnect', actorRef, `remote=${remote}`);
     this.logger.log(`ever_connect.disconnect remote=${remote}`);
@@ -388,8 +390,13 @@ export class EverConnectService {
     connection.status = status;
     connection.nextHeartbeatAt = null;
     connection.nextEntitlementAt = null;
+    connection.updatedAt = Date.now();
     this.cachedClient = null;
-    await this.save(connection);
+    // Ever Platform ended the person links with the connection (a later connection reports them again): both together
+    await this.connections.manager.transaction(async manager => {
+      await manager.save(connection);
+      await manager.createQueryBuilder().delete().from(EverConnectPersonLink).execute();
+    });
     await this.audit.record(`instance.${status}`, 'platform', reason);
     this.logger.warn(`ever_connect.connection state=${status} reason=${reason}`);
   }

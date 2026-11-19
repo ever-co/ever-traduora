@@ -3,6 +3,9 @@ import {
   EverConnectClientFactory,
   EverConnectClientOptions,
   EverConnectPlatformClient,
+  PersonLinkReport,
+  PersonRequestAnswer,
+  PlatformEvent,
   PlatformIntegrationState,
   StoredEntitlement,
 } from '../src/ever-connect/ever-connect-platform.client';
@@ -23,7 +26,15 @@ export class FakeEverPlatform {
   code = 'EVC-TEST-0000-0001';
   redeemStatus = 'active';
   integrationStates: Record<string, PlatformIntegrationState> = {};
-  events: Array<{ id: string; type: string }> = [];
+  events: PlatformEvent[] = [];
+  /** The person links the fake holds, by Traduora user id. */
+  personLinks: Record<string, PersonLinkReport> = {};
+  /** Person link reports of these Traduora users are refused (422). */
+  refuseLinksOf = new Set<string>();
+  /** The answers to person requests the fake recorded. */
+  answers: PersonRequestAnswer[] = [];
+  /** When set, the next answer to a person request fails with this problem (then the setting clears). */
+  answerProblem: { status: number; code: string } | null = null;
   linkState = 'active';
   instanceStatus = 'active';
   entitlementSeq = 1;
@@ -109,6 +120,29 @@ export class FakeEverPlatform {
       deletePublicUrl: async () => this.record('deletePublicUrl'),
       statsLink: async body => this.record('statsLink', { statsInstanceId: body.statsInstanceId }),
       disconnect: async () => this.record('disconnect'),
+      reportPersonLink: async link => {
+        this.record('reportPersonLink', { ...link });
+        if (this.refuseLinksOf.has(link.productUserRef)) {
+          throw new ProblemError(422, 'schema_violation');
+        }
+        this.personLinks[link.productUserRef] = { ...link };
+      },
+      removePersonLink: async productUserRef => {
+        this.record('removePersonLink', productUserRef);
+        if (!this.personLinks[productUserRef]) {
+          throw new ProblemError(404, 'not_found');
+        }
+        delete this.personLinks[productUserRef];
+      },
+      answerPersonRequest: async answer => {
+        this.record('answerPersonRequest', { ...answer });
+        if (this.answerProblem) {
+          const problem = this.answerProblem;
+          this.answerProblem = null;
+          throw new ProblemError(problem.status, problem.code);
+        }
+        this.answers.push({ ...answer });
+      },
     };
     return client;
   };

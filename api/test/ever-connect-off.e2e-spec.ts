@@ -30,7 +30,13 @@ describe('Ever Platform connection left off (e2e)', () => {
 
   it('has no route', async () => {
     const operator = await signupTestUser(app, config.everPlatform.adminEmails[0]);
-    for (const path of ['ever-connect/health', 'ever-connect/status', 'ever-platform/status', 'ever-connect/integrations']) {
+    for (const path of [
+      'ever-connect/health',
+      'ever-connect/status',
+      'ever-platform/status',
+      'ever-connect/integrations',
+      'ever-connect/me/exports',
+    ]) {
       const res = await request(app.getHttpServer()).get(`/api/v1/${path}`).set('Authorization', `Bearer ${operator.accessToken}`);
       // Without the module these are just unknown paths: never an answer of the connection routes
       expect(res.body?.data).toBeUndefined();

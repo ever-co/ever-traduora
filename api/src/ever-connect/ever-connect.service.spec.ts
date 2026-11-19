@@ -3,6 +3,7 @@ import { FakeEverPlatform } from '../../test/fake-ever-platform';
 import { EverConnectAudit } from '../entity/ever-connect-audit.entity';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
+import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
 import { EverInstance } from '../entity/ever-instance.entity';
 import { EverInstanceService } from '../ever-instance/ever-instance.service';
 import { EverInstanceSettings } from '../ever-instance/ever-instance.settings';
@@ -49,7 +50,7 @@ describe('EverConnectService', () => {
     dataSource = new DataSource({
       type: 'better-sqlite3',
       database: ':memory:',
-      entities: [EverInstance, EverConnectConnection, EverConnectIntegration, EverConnectAudit],
+      entities: [EverInstance, EverConnectConnection, EverConnectIntegration, EverConnectAudit, EverConnectPersonLink],
       synchronize: true,
     });
     await dataSource.initialize();

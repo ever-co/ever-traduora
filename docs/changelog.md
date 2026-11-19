@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- With the Ever Platform connection on, Traduora answers a person's export and deletion requests sent from app.ever.co
+  for the accounts their Ever ID is linked to: an export (profile, Ever ID, projects and roles) that only that account
+  can download for 7 days, or the removal of the Ever ID from the account (the account, its password and its projects
+  stay). While an organization consented to `ever_id_login`, the Ever IDs users signed in with are reported as person
+  links (ids only), so these requests reach the installation. See
+  [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
+
 - Optional Ever Platform connection, off by default. With `TR_EVER_CONNECT_ENABLED=true` the operator can connect the
   installation to an organization with a code from app.ever.co (*Ever Platform* in the account menu). While connected,
   Traduora sends a daily heartbeat, reads its verified plan and the integrations an owner or admin consented to in
