@@ -143,7 +143,7 @@ export class MaintenanceComponent implements OnInit {
     const dir = this.backupDir.trim();
     if (!dir || this.removeBackupDir) return null;
     if (dir.length > 1024) return 'At most 1024 characters.';
-    if (!ABSOLUTE_PATH.test(dir)) return 'Enter an absolute path on the server, such as /app/api/backups.';
+    if (!ABSOLUTE_PATH.test(dir)) return 'Enter an absolute path on the server, such as /app/api/backups (or C:\\backups on Windows).';
     return null;
   }
 
@@ -152,7 +152,7 @@ export class MaintenanceComponent implements OnInit {
   }
 
   get changed(): boolean {
-    return this.serialize() !== this.saved || !!this.backupDir.trim() || this.removeBackupDir;
+    return JSON.stringify(this.request()) !== this.saved;
   }
 
   /** Why nothing would run with these settings, while opted in (saving is still allowed). */
@@ -196,12 +196,7 @@ export class MaintenanceComponent implements OnInit {
 
   save(): void {
     if (this.busy || !this.valid) return;
-    const update: EverManagedUpdate = this.request();
-    if (this.removeBackupDir) {
-      update.backupDir = '';
-    } else if (this.backupDir.trim()) {
-      update.backupDir = this.backupDir.trim();
-    }
+    const update = this.request();
     this.generation++;
     this.message = null;
     this.errorMessage = null;
@@ -216,10 +211,13 @@ export class MaintenanceComponent implements OnInit {
     });
   }
 
-  /** The opt-in, kinds and windows the form holds, as the API takes them. */
+  /**
+   * What the form holds, as the API takes it: the opt-in, kinds and windows, and the backup directory only when a new
+   * one is entered (`''` removes it). Right after a read or a save it has no directory, which is what `saved` holds.
+   */
   private request(): EverManagedUpdate {
     const supported = this.view ? this.view.supportedKinds : [];
-    return {
+    const update: EverManagedUpdate = {
       optIn: this.optIn,
       kinds: supported.filter(kind => this.kinds[kind]),
       windows: this.windows.map(window => ({
@@ -228,10 +226,12 @@ export class MaintenanceComponent implements OnInit {
         to: window.to,
       })),
     };
-  }
-
-  private serialize(): string {
-    return JSON.stringify(this.request());
+    if (this.removeBackupDir) {
+      update.backupDir = '';
+    } else if (this.backupDir.trim()) {
+      update.backupDir = this.backupDir.trim();
+    }
+    return update;
   }
 
   private show(view: EverManagedView): void {
@@ -248,7 +248,7 @@ export class MaintenanceComponent implements OnInit {
     }));
     this.backupDir = '';
     this.removeBackupDir = false;
-    this.saved = this.serialize();
+    this.saved = JSON.stringify(this.request());
   }
 
   private fail(error: unknown): void {

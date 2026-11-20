@@ -73,7 +73,13 @@ describe('MaintenanceComponent', () => {
       kinds: ['health_report', 'backup', 'restore_check'],
       windows: [{ days: [0, 1, 6], from: '02:00', to: '04:00' }],
     });
+    // The fields are locked until the answer replaces them
+    fixture.detectChanges();
+    const fields = fixture.debugElement.query(By.css('form > fieldset')).nativeElement as HTMLFieldSetElement;
+    expect(fields.disabled).toBe(true);
     req.flush({ data: view({ kinds: ['health_report', 'backup', 'restore_check'], windows: [{ days: [0, 1, 6], from: '02:00', to: '04:00' }] }) });
+    fixture.detectChanges();
+    expect(fields.disabled).toBe(false);
     expect(component.message).toBe('Saved.');
     expect(component.changed).toBe(false);
   });

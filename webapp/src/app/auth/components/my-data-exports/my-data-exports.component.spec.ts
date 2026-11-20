@@ -61,7 +61,10 @@ describe('MyDataExportsComponent', () => {
     expect(text(fixture).trim()).toBe('');
   });
 
-  it('offers to try again when the list cannot be read', () => {
+  it('offers to try again when the list cannot be read, or the API did not answer', () => {
+    const offline = render(req => req.error(new ProgressEvent('error')));
+    expect(text(offline)).toContain('Your exports could not be loaded.');
+
     const fixture = render(req => req.flush({}, { status: 500, statusText: 'Server Error' }));
     expect(text(fixture)).toContain('Your exports could not be loaded.');
     buttons(fixture, 'Try again')[0].nativeElement.click();

@@ -38,8 +38,8 @@ export class MyDataExportsComponent implements OnInit {
     this.everPlatform.myExports().subscribe({
       next: rows => (this.exports = rows),
       error: error => {
-        // 404: the connection module is not loaded. 0: no answer at all, which says nothing about the module either
-        if (error instanceof HttpErrorResponse && (error.status === 404 || error.status === 0)) {
+        // 404: the connection module is not loaded (its routes do not exist). Anything else can be tried again
+        if (error instanceof HttpErrorResponse && error.status === 404) {
           this.exports = null;
           return;
         }
