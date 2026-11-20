@@ -512,14 +512,18 @@ export class EverConnectProvisionService {
   private async recordAudit(jti: string): Promise<void> {
     const row = await this.provisions.findOne({ where: { jti } });
     if (!row || row.audited) return;
+    // Claimed first: of the person's request and the background round, only the caller that set the flag writes the row
+    const claim = await this.provisions.update({ jti, audited: false }, { audited: true });
+    if (!claim.affected) return;
     try {
       if (row.state === 'created') {
         await this.audit.record('provision.created', `user:${row.userId}`, `project=${row.projectId}`);
       } else {
         await this.audit.record('provision.refused', 'system', null);
       }
-      await this.provisions.update({ jti, audited: false }, { audited: true });
     } catch (error) {
+      // Released, so that the next round writes it
+      await this.provisions.update({ jti, audited: true }, { audited: false }).catch(() => undefined);
       this.logger.warn(`ever_connect.provision audit=later reason=${error?.name || 'error'}`);
     }
   }
