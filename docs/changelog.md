@@ -8,6 +8,25 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- TODO
+
+## 0.24.0
+
+### Upgrade notes
+
+- **Anonymous usage statistics are on by default.** Once a day the API sends Ever Platform one small signed report
+  about the installation as a whole (counts only; no name, e-mail address, project, term, translation or key). Set
+  `TR_EVER_STATS_ENABLED=false` (or use the switch on the _Ever Platform_ page) to turn them off; the API needs a
+  restart for the variable to apply.
+- **The Ever Platform connection is off by default** and needs `TR_EVER_CONNECT_ENABLED=true`; nothing is sent
+  before the operator connects.
+- **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret
+  (grant type `client_credentials`), as they do when a token expires.
+- Database migrations add Ever ID sign-in, the translation change history, the instance identity and the Ever Platform
+  connection. They run automatically unless `TR_DB_AUTOMIGRATE=false`.
+
+### Changes
+
 - With the Ever Platform connection on, an owner or admin of the organization can ask from app.ever.co for a health
   report, a backup (SQLite) or a backup check. Each runs only with the organization's consent **and** the operator's
   opt-in for that kind, inside the operator's windows; Ever Platform receives the status, the version and, for a
