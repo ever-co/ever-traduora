@@ -140,6 +140,22 @@ describe('MaintenanceComponent', () => {
     expect(component.windows).toHaveSize(13);
   });
 
+  it('warns while backups are allowed without a backup directory', () => {
+    const fixture = render(view({ backupDirSet: false }));
+    const component = fixture.componentInstance;
+    expect(component.warning).toBe('Backups and backup checks need a backup directory: they will not run without one.');
+    component.backupDir = '/app/api/backups';
+    expect(component.warning).toBeNull();
+    component.backupDir = '';
+    component.kinds.backup = false;
+    expect(component.warning).toBeNull();
+
+    const withDirectory = render(view({ backupDirSet: true })).componentInstance;
+    expect(withDirectory.warning).toBeNull();
+    withDirectory.removeBackupDir = true;
+    expect(withDirectory.warning).toContain('need a backup directory');
+  });
+
   it('warns while opted in with no kind allowed', () => {
     const fixture = render(view({ kinds: [] }));
     expect(fixture.componentInstance.warning).toBe('No kind is allowed: nothing will run.');

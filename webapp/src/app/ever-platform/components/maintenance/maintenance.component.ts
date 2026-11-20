@@ -160,6 +160,11 @@ export class MaintenanceComponent implements OnInit {
     if (!this.optIn || !this.view) return null;
     if (!this.view.supportedKinds.some(kind => this.kinds[kind])) return 'No kind is allowed: nothing will run.';
     if (!this.windows.length) return 'There is no window: nothing will run.';
+    // Backups and their checks read and write the operator's directory: without one they fail
+    const directoryAfterSave = !this.removeBackupDir && (this.view.backupDirSet || !!this.backupDir.trim());
+    if (!directoryAfterSave && ['backup', 'restore_check'].some(kind => this.kinds[kind])) {
+      return 'Backups and backup checks need a backup directory: they will not run without one.';
+    }
     return null;
   }
 
