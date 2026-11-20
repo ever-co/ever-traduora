@@ -1,7 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { EverPlatformPages, EverPlatformService } from '../../services/ever-platform.service';
 
-/** Ever Platform: the sections the server has loaded (anonymous usage statistics, connection), for the operator only. */
+/**
+ * Ever Platform: the sections the server has loaded (connection and its maintenance operations, anonymous usage
+ * statistics), for the operator only.
+ */
 @Component({
   standalone: false,
   selector: 'app-ever-platform-page',
