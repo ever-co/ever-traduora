@@ -529,6 +529,8 @@ export class AuthController {
     code_verifier?: string;
   }): Promise<{ data: { id: string; email: string; name: string; accessToken: string } }> {
     const slug = payload.provider;
+    // Before the code exchange and the account checks: a subject-only logout after this ends the sign-in
+    const signedInAt = Date.now();
     const identity = await this.verifyOidcCode(slug, payload);
 
     const linked = await this.everIdSessions.findIdentity(identity.issuer, identity.subject);
@@ -562,7 +564,10 @@ export class AuthController {
       throw new AuthProviderException(HttpStatus.FORBIDDEN, 'signup_disabled', 'Signups are invitation based only.');
     }
 
-    const pending = this.everIdSessions.seal({ purpose: 'signup', ...this.everIdSessions.pendingFrom(slug, identity) }, SIGNUP_PENDING_TTL_SECONDS);
+    const pending = this.everIdSessions.seal(
+      { purpose: 'signup', ...this.everIdSessions.pendingFrom(slug, identity), signedInAt },
+      SIGNUP_PENDING_TTL_SECONDS,
+    );
     throw new AuthProviderException(HttpStatus.CONFLICT, 'signup_confirmation_required', 'Confirm to create your account', {
       pending,
       name: identity.name,
@@ -639,7 +644,7 @@ export class AuthController {
       pending.issuer,
       pending.subject,
       pending.sid,
-      new Date((pending.exp - SIGNUP_PENDING_TTL_SECONDS) * 1000),
+      new Date(typeof pending.signedInAt === 'number' ? pending.signedInAt : (pending.exp - SIGNUP_PENDING_TTL_SECONDS) * 1000),
     );
     return { data: { id: account.id, email: account.email, name: account.name, accessToken } };
   }

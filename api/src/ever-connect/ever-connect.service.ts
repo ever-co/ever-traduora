@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CONSTANTS, codes, entitlementStatus, INTEGRATIONS, signCompactJws } from '@ever-co/connect-sdk';
 import { createHash, randomInt, randomUUID } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
+import { isUniqueViolation } from '../services/ever-id-session.service';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
@@ -546,6 +547,10 @@ export class EverConnectService {
       if (stored ? decision(stored) !== readAt.get(key) : readAt.has(key)) {
         continue;
       }
+      // The decision as read: the write below applies only while the row still holds it
+      const seen = stored
+        ? { updatedAt: stored.updatedAt, state: stored.state, pendingRemoteRevoke: stored.pendingRemoteRevoke, consentId: stored.consentId }
+        : null;
       const row = stored || Object.assign(new EverConnectIntegration(), { key, pendingRemoteRevoke: false });
       const before = row.state;
       const remoteState = remote ? remote.state : INTEGRATIONS[key].status === 'coming_soon' ? 'coming_soon' : 'available';
@@ -564,7 +569,35 @@ export class EverConnectService {
       if (key === 'stats_link' && row.state !== 'enabled') {
         row.config = null;
       }
-      await this.integrationRows.save(row);
+      if (seen) {
+        // One statement compares and writes: a switch-off that lands after the read above wins, and nothing follows
+        const { affected } = await this.integrationRows.update(
+          {
+            key,
+            updatedAt: seen.updatedAt,
+            state: seen.state,
+            pendingRemoteRevoke: seen.pendingRemoteRevoke,
+            consentId: seen.consentId === null ? IsNull() : seen.consentId,
+          },
+          {
+            state: row.state,
+            consentId: row.consentId,
+            scopeVersion: row.scopeVersion,
+            pendingRemoteRevoke: row.pendingRemoteRevoke,
+            updatedAt: row.updatedAt,
+            config: row.config,
+          },
+        );
+        if (!affected) continue;
+      } else {
+        try {
+          await this.integrationRows.insert(row);
+        } catch (error) {
+          // Another refresh or a local decision created the row meanwhile: it stands
+          if (isUniqueViolation(error)) continue;
+          throw error;
+        }
+      }
       // A first reading that finds nothing on is not a change
       if (before !== row.state && (before !== undefined || (row.state !== 'available' && row.state !== 'coming_soon'))) {
         await this.audit.record('integration.state', 'platform', `${key}=${row.state}`);

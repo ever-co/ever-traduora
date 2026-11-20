@@ -553,9 +553,10 @@ export class EverConnectPersonService {
         const row = known.get(identity.id);
         const current = !!row && !!row.reportedAt && row.tenantLinkId === tenantLinkId;
         if (current || waiting(row) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
-        // Checked again before each report: once the integration is switched off here, no further report starts
-        if (!(await this.reporting())) break;
         if (!(await leaseHeld())) break;
+        // Checked again before each report (after the lease renewal): once the integration is switched off here, no
+        // further report starts
+        if (!(await this.reporting())) break;
         calls += 1;
         try {
           await client.reportPersonLink({

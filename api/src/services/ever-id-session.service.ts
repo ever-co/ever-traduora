@@ -37,6 +37,8 @@ export interface PendingIdentity {
   name: string;
   sid?: string;
   personId?: string;
+  // When the sign-in with the provider started (ms since the epoch): a later subject-only logout ends it
+  signedInAt?: number;
   // The account a connect was started from
   userId?: string;
   // Seconds since the epoch
@@ -372,20 +374,27 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
     const key = subjectLogoutKey(issuer, subject);
     // Kept as long as a pending sign-in can wait (the retention sweep deletes it after that)
     const expiresAt = new Date(now.getTime() + Math.max(SIGNUP_PENDING_TTL_SECONDS, CONNECT_PENDING_TTL_SECONDS) * 1000);
-    const { affected: updated } = await this.sessionRepo.update({ sid: key }, { issuedAt: now, expiresAt, revokedAt: now });
-    if (!updated) {
+    // The cutoff only moves forward: an earlier logout that finishes later never lowers it
+    const advance = () => this.sessionRepo.update({ sid: key, issuedAt: LessThan(now) }, { issuedAt: now, expiresAt, revokedAt: now });
+    const { affected: advanced } = await advance();
+    if (!advanced && !(await this.sessionRepo.existsBy({ sid: key }))) {
       try {
         await this.sessionRepo.insert({ sid: key, userId: '', jti: '', issuedAt: now, expiresAt, revokedAt: now });
       } catch (error) {
         if (!isUniqueViolation(error)) throw error;
-        await this.sessionRepo.update({ sid: key }, { issuedAt: now, expiresAt, revokedAt: now });
+        await advance();
       }
     }
     const identities = await this.identityRepo.find({ where: { issuer, subject }, relations: ['user'] });
     let revoked = 0;
     for (const identity of identities) {
-      const { affected } = await this.sessionRepo.update({ userId: identity.user.id, revokedAt: IsNull() }, { revokedAt: now });
-      revoked += affected ?? 0;
+      // With the account's row locked, as openSession locks it: a session being opened is either committed first (and
+      // ended here) or opened after this, when it sees the cutoff
+      revoked += await this.identityRepo.manager.transaction(async entityManager => {
+        await lockAccount(entityManager, identity.user.id);
+        const { affected } = await entityManager.update(EverIdSession, { userId: identity.user.id, revokedAt: IsNull() }, { revokedAt: now });
+        return affected ?? 0;
+      });
     }
     return revoked;
   }

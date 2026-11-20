@@ -187,13 +187,15 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
           .catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
       if (connection.status === 'active' && this.managed) {
+        // Stop when another process took the lease during the person-link round
+        if (!(await this.renew())) return;
         const live = await this.connect.liveClient();
         // Only for the connection that is still active now (the feed may have ended it)
         if (live && live.connection.status === 'active' && live.connection.kid === connection.kid) {
           // Not while a state refresh of the feed failed: a revoked consent may not have been applied yet
           if (!this.feedFailed) {
             await this.managed
-              .runDue(live.client, connection.kid, Date.now(), () => this.isCurrent(connection.kid))
+              .runDue(live.client, connection.kid, Date.now(), async () => (await this.renew()) && (await this.isCurrent(connection.kid)))
               .catch(error => this.connect.handleCallError(error, 'managed', connection.kid));
           }
         }
