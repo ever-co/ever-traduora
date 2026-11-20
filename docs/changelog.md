@@ -8,7 +8,12 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- TODO
+- Ever ID sign-in: a person deletion from Ever Platform now locks the account as a sign-in does, so a sign-in that
+  read the identity just before cannot open a session after it is removed; a logout that names only the subject also
+  ends a sign-up that is still waiting for its confirmation
+- Ever Platform connection: a refresh of the integrations never undoes an integration the operator switched off
+  while the refresh was reading Ever Platform; with several API processes, a long background round renews its lease
+  and stops once another process holds it
 
 ## 0.24.0
 

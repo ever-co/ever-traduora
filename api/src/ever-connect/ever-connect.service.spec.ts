@@ -234,6 +234,39 @@ describe('EverConnectService', () => {
     expect(links()).toEqual([{ statsInstanceId: reset.instanceId }]);
   });
 
+  it('never lets a refresh undo an integration the operator switched off while it read the states', async () => {
+    let during: (() => Promise<void>) | null = null;
+    const original = platform.factory;
+    Object.assign(platform, {
+      factory: (options => {
+        const client = original(options);
+        const integrations = client.integrations;
+        client.integrations = async () => {
+          const states = await integrations();
+          if (during) {
+            const run = during;
+            during = null;
+            await run();
+          }
+          return states;
+        };
+        return client;
+      }) as typeof platform.factory,
+    });
+    const { connect } = build();
+    await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
+    platform.integrationStates.instance_url = { state: 'enabled', enabled: true, consentId: 'c1', scopeVersion: 1 };
+    await connect.refreshIntegrations();
+    expect((await connect.integrations()).find(view => view.key === 'instance_url').state).toBe('enabled');
+
+    // The states are read as enabled, then the operator switches the integration off before they are stored
+    during = async () => {
+      await connect.disableIntegration('instance_url', 'user:u1');
+    };
+    const views = await connect.refreshIntegrations();
+    expect(views.find(view => view.key === 'instance_url').state).toBe('disabled');
+  });
+
   it('waits for approval, reading only its own state, then starts', async () => {
     const { connect, scheduler } = build();
     platform.redeemStatus = 'pending_approval';

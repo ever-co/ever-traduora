@@ -108,6 +108,11 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     return result.affected === 1;
   }
 
+  /** Extends the lease while this process still holds it; false once another process took it over. */
+  private renew(): Promise<boolean> {
+    return this.acquire(Date.now());
+  }
+
   private async release(): Promise<void> {
     await this.connections
       .createQueryBuilder()
@@ -175,7 +180,11 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         await this.connect.syncStatsLink(connection.kid).catch(error => this.connect.handleCallError(error, 'stats_link', connection.kid));
       }
       if (connection.status === 'active' && this.person) {
-        await this.person.syncLinks().catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
+        // Long rounds renew the lease before each call and stop once another process holds it
+        if (!(await this.renew())) return;
+        await this.person
+          .syncLinks(Date.now(), false, () => this.renew())
+          .catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
       if (connection.status === 'active' && this.managed) {
         const live = await this.connect.liveClient();

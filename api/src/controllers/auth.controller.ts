@@ -634,7 +634,13 @@ export class AuthController {
     );
 
     await this.welcomeNewUser(account, true);
-    const accessToken = await this.signOidcUserToken(account, pending.issuer, pending.subject, pending.sid);
+    const accessToken = await this.signOidcUserToken(
+      account,
+      pending.issuer,
+      pending.subject,
+      pending.sid,
+      new Date((pending.exp - SIGNUP_PENDING_TTL_SECONDS) * 1000),
+    );
     return { data: { id: account.id, email: account.email, name: account.name, accessToken } };
   }
 
@@ -849,9 +855,10 @@ export class AuthController {
    * Signs an access token for a sign-in with an OpenID Connect provider. Like any user token, plus the provider's
    * session (`sid`), which a back-channel logout ends, and the token's own id (`jti`).
    */
-  private async signOidcUserToken(user: User, issuer: string, subject: string, providerSid: string | undefined): Promise<string> {
-    // Only while the identity is still the account's (a disconnect at the same moment ends the sign-in)
-    const session = await this.everIdSessions.openSession(user.id, issuer, providerSid, subject);
+  private async signOidcUserToken(user: User, issuer: string, subject: string, providerSid: string | undefined, signedInAt?: Date): Promise<string> {
+    // Only while the identity is still the account's (a disconnect at the same moment ends the sign-in), and not after
+    // a logout that named only the subject once the person signed in with the provider
+    const session = await this.everIdSessions.openSession(user.id, issuer, providerSid, subject, signedInAt);
     if (!session) {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'session_ended', 'This Ever ID session has ended, please sign in again');
     }

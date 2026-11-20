@@ -530,6 +530,10 @@ export class EverConnectService {
     if (!live) {
       return this.integrations();
     }
+    // When each row last changed before the remote states were read: a row changed meanwhile (an operator switched the
+    // integration off or on) keeps that local decision; the next refresh reads both again
+    const decision = (row: EverConnectIntegration) => `${row.updatedAt}|${row.state}|${row.pendingRemoteRevoke}|${row.consentId}`;
+    const readAt = new Map((await this.integrationRows.find()).map(row => [row.key, decision(row)]));
     const states = await live.client.integrations();
     // A disconnect (or another connection) while the states were read: they belong to a connection that has ended
     const current = await this.read();
@@ -538,8 +542,11 @@ export class EverConnectService {
     }
     for (const key of TRADUORA_INTEGRATIONS) {
       const remote = states[key];
-      const row =
-        (await this.integrationRows.findOne({ where: { key } })) || Object.assign(new EverConnectIntegration(), { key, pendingRemoteRevoke: false });
+      const stored = await this.integrationRows.findOne({ where: { key } });
+      if (stored ? decision(stored) !== readAt.get(key) : readAt.has(key)) {
+        continue;
+      }
+      const row = stored || Object.assign(new EverConnectIntegration(), { key, pendingRemoteRevoke: false });
       const before = row.state;
       const remoteState = remote ? remote.state : INTEGRATIONS[key].status === 'coming_soon' ? 'coming_soon' : 'available';
       // Switched off here while Ever Platform could not be told: it stays off here until the revoke is delivered

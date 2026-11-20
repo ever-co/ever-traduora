@@ -19,6 +19,7 @@ import { EverConnectAuditService } from './ever-connect-audit.service';
 import { EverConnectPlatformClient, PersonRequestAnswer, PlatformEvent, problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
+import { lockAccount } from '../services/ever-id-session.service';
 
 /** The feed events of a person's requests, by the kind of request. */
 export const PERSON_REQUEST_TYPES: Readonly<Record<string, 'deletion' | 'export'>> = Object.freeze({
@@ -291,6 +292,11 @@ export class EverConnectPersonService {
    */
   private async deleteIdentities(manager: EntityManager, matches: IdentityRow[]): Promise<void> {
     const now = Date.now();
+    // Each account's row locked first, as a sign-in that opens a session locks it (in one order: two deletions never
+    // deadlock), so a sign-in that read the identity just before cannot open a session once it is removed
+    for (const userId of Array.from(new Set(matches.map(identity => identity.userId))).sort()) {
+      await lockAccount(manager, userId);
+    }
     for (const identity of matches) {
       await manager.update(EverIdSession, { userId: identity.userId, revokedAt: IsNull() }, { revokedAt: new Date(now) });
       await manager.delete(UserIdentity, { id: identity.id });
@@ -482,7 +488,11 @@ export class EverConnectPersonService {
    * tenant link) is reported, while the integration allows it. A call that fails is tried again an hour later, so other
    * links go first meanwhile. Calls nothing while there is nothing to tell.
    */
-  async syncLinks(now = Date.now(), force = false): Promise<{ reported: number; removed: number }> {
+  /**
+   * `keepLease` is asked before each call to Ever Platform (the scheduler renews its lease there): once it answers
+   * false, another API process holds the background calls and this round stops.
+   */
+  async syncLinks(now = Date.now(), force = false, keepLease?: () => Promise<boolean>): Promise<{ reported: number; removed: number }> {
     if (!force && !this.syncRequested && now - this.lastSyncAt < PERSON_LINK_SYNC_MS) {
       return { reported: 0, removed: 0 };
     }
@@ -504,8 +514,15 @@ export class EverConnectPersonService {
     let reported = 0;
 
     // Removals first: a removal names the user, so a link reported for the same user afterwards is not removed with it
+    let leaseLost = false;
+    const leaseHeld = async (): Promise<boolean> => {
+      if (!keepLease || (await keepLease())) return true;
+      leaseLost = true;
+      return false;
+    };
     for (const row of await this.links.find()) {
       if (byId.has(row.userIdentityId) || waiting(row) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
+      if (!(await leaseHeld())) break;
       calls += 1;
       try {
         await client.removePersonLink(row.userId);
@@ -522,6 +539,9 @@ export class EverConnectPersonService {
       removed += 1;
     }
 
+    if (leaseLost) {
+      return { reported, removed };
+    }
     if (!(await this.reporting())) {
       // Nothing is reported while the integration is off; once it is on again, every link is reported again
       await this.links.update({ reportedAt: Not(IsNull()) }, { reportedAt: null, tenantLinkId: null, updatedAt: now });
@@ -535,6 +555,7 @@ export class EverConnectPersonService {
         if (current || waiting(row) || calls >= PERSON_LINK_CALLS_PER_SYNC) continue;
         // Checked again before each report: once the integration is switched off here, no further report starts
         if (!(await this.reporting())) break;
+        if (!(await leaseHeld())) break;
         calls += 1;
         try {
           await client.reportPersonLink({
