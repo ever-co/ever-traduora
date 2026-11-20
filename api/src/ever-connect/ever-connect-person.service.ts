@@ -294,7 +294,7 @@ export class EverConnectPersonService {
     const now = Date.now();
     // Each account's row locked first, as a sign-in that opens a session locks it (in one order: two deletions never
     // deadlock), so a sign-in that read the identity just before cannot open a session once it is removed
-    for (const userId of Array.from(new Set(matches.map(identity => identity.userId))).sort()) {
+    for (const userId of Array.from(new Set(matches.map(identity => identity.userId))).sort((a, b) => a.localeCompare(b))) {
       await lockAccount(manager, userId);
     }
     for (const identity of matches) {
