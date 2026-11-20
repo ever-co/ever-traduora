@@ -1,0 +1,119 @@
+/**
+ * The Ever Traduora adapter of the egress audit (see README.md). It runs inside the sealed audit setup, in the
+ * harness's driver container, so it reaches the API as `api` and the mail catcher as `mailpit`.
+ *
+ * Nothing here is a secret: the operator account exists only in the run's throwaway database (see
+ * docker-compose.audit.yml), which nothing outside the sealed setup can reach.
+ */
+const OPERATOR_EMAIL = 'egress-audit-operator@example.test';
+const OPERATOR_PASSWORD = 'egress-audit-only-operator-account';
+// Plain http on purpose: the mail catcher inside the sealed audit setup.
+const MAIL = 'http://mailpit:8025'; // NOSONAR
+
+/** How long the adapter waits for the verification mail. */
+const MAIL_TIMEOUT_MS = 120_000;
+
+async function json(fetch, url, init) {
+  const response = await fetch(url, init);
+  const text = await response.text();
+  let body = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = null;
+  }
+  return { status: response.status, body };
+}
+
+/** The verification token of the newest mail to the operator in the catcher, once it arrived. */
+async function verificationToken({ fetch, log }) {
+  const deadline = Date.now() + MAIL_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const list = await json(fetch, `${MAIL}/api/v1/messages?limit=20`);
+      for (const message of list.body?.messages ?? []) {
+        if (!(message.To ?? []).some(to => String(to.Address).toLowerCase() === OPERATOR_EMAIL)) continue;
+        const full = await json(fetch, `${MAIL}/api/v1/message/${encodeURIComponent(message.ID)}`);
+        const match = /verify-email\?token=([A-Za-z0-9_-]+)/.exec(`${full.body?.Text ?? ''}\n${full.body?.HTML ?? ''}`);
+        if (match) return match[1];
+      }
+    } catch (error) {
+      log?.(`mail catcher: ${error.message}`);
+    }
+    if (Date.now() >= deadline) {
+      throw new Error('the verification mail never reached the mail catcher');
+    }
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+}
+
+export default {
+  /**
+   * Extra environment of each mode, without the product prefix (the harness adds TR_). loaded_off: a local reporting
+   * address outside the sealed setup and a 90-second interval, so the statistics scheduler asks after the operator's
+   * switch-off within the watched window (and a report, if one were sent, would show as a connection attempt).
+   */
+  env: {
+    // A private address outside the sealed setup: nothing answers there, and a send would show.
+    loaded_off: { EVER_STATS_API_URL: 'http://10.231.8.1:8080', EVER_STATS_SEND_INTERVAL_S: '90' }, // NOSONAR
+  },
+
+  /** Signs in as the operator the API created at its first start; later hooks send these headers. */
+  async login({ baseUrl, fetch, log }) {
+    const token = await json(fetch, `${baseUrl}/api/v1/auth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ grant_type: 'password', username: OPERATOR_EMAIL, password: OPERATOR_PASSWORD }),
+    });
+    if (token.status !== 200 || !token.body?.access_token) {
+      throw new Error(`the operator could not sign in (${token.status})`);
+    }
+    log?.('operator: signed in');
+    return { Authorization: `Bearer ${token.body.access_token}` };
+  },
+
+  /** What a user would create; nothing is needed for the statistics. */
+  async createFixtures() {
+    return {};
+  },
+
+  /** Opens what the Ever Platform page reads (404 when the modules are off). */
+  async openSettings({ baseUrl, fetch, headers, log }) {
+    for (const path of ['/api/v1/ever-platform/status', '/api/v1/ever-stats/status', '/api/v1/ever-stats/reports']) {
+      const response = await fetch(`${baseUrl}${path}`, { headers });
+      await response.text();
+      log?.(`${path}: ${response.status}`);
+    }
+  },
+
+  /**
+   * The operator confirms their e-mail (an operator must have one: a verification link through the mail catcher, as a
+   * person would), then switches the statistics off on the Ever Platform page.
+   */
+  async prepareLoadedOff({ baseUrl, fetch, headers, log }) {
+    const resend = await fetch(`${baseUrl}/api/v1/auth/resend-verification-email`, { method: 'POST', headers });
+    await resend.text();
+    log?.(`verification mail: ${resend.status}`);
+    const token = await verificationToken({ fetch, log });
+    const verified = await fetch(`${baseUrl}/api/v1/auth/verify-email`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    await verified.text();
+    log?.(`verify e-mail: ${verified.status}`);
+    if (verified.status !== 200) {
+      throw new Error(`the operator could not confirm their e-mail (${verified.status})`);
+    }
+    const response = await fetch(`${baseUrl}/api/v1/ever-stats/enabled`, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: false }),
+    });
+    await response.text();
+    log?.(`switch off: ${response.status}`);
+    if (response.status !== 200) {
+      throw new Error(`the operator could not switch the statistics off (${response.status})`);
+    }
+  },
+};

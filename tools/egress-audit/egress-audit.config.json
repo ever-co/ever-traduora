@@ -1,0 +1,33 @@
+{
+  "product": "traduora",
+  "compose": [
+    "docker-compose.audit.yml"
+  ],
+  "project": "ever-audit-traduora",
+  "env_prefix": "TR_EVER_",
+  "api_service": "api",
+  "process_services": [
+    "api"
+  ],
+  "services": [
+    "api",
+    "mailpit"
+  ],
+  "health_url": "http://api:8080/health",
+  "health_timeout_s": 600,
+  "module_routes": [
+    "/api/v1/ever-platform/status",
+    "/api/v1/ever-stats/health",
+    "/api/v1/ever-stats/status",
+    "/api/v1/ever-stats/reports",
+    "/api/v1/ever-connect/health",
+    "/api/v1/ever-connect/status",
+    "/api/v1/ever-connect/me/exports",
+    "/api/v1/ever-connect/managed"
+  ],
+  "adapter": "adapter.mjs",
+  "wait_s": 180,
+  "allowed_external_hosts": [],
+  "web_service": null,
+  "no_web_reason": "This config is the API leg. The Traduora web app is static files served by the same API process (no web server of its own); a browser leg that walks its pages is a separate change."
+}

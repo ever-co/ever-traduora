@@ -41,7 +41,10 @@ installation, stops all of them.
 | Disconnect | `POST /v1/instances/me/disconnect` | The operator presses *Disconnect* | Nothing |
 
 The row numbers of the first table are those of the Ever Platform SDK's list of calls (`ever-co/ever-connect-sdk`, contract version
-1.0.0-rc.8). There is no other call: Traduora has no other telemetry. See
+1.0.0-rc.8). There is no other call: Traduora has no other telemetry. Every pull request proves it at run time: the
+egress audit (`tools/egress-audit/`) runs the image with every network sealed and fails on any DNS question for an Ever
+host or any connection out when the modules are off or switched off, and on any call outside these rows when they are
+on. See
 [Anonymous usage statistics](anonymous-usage-statistics.md) for the report, the schedule and the answers.
 
 ## Inbound routes

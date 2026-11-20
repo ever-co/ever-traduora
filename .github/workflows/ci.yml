@@ -95,3 +95,106 @@ jobs:
         env:
           CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: yarn test --watch=false --browsers=ChromeHeadlessCI --progress=false
+
+  # What the Ever Platform modules may send, proven at run time: nothing when they are off, nothing when they are loaded
+  # but switched off, and only their own calls when they are on (tools/egress-audit/README.md). Docker with NET_RAW and
+  # NET_ADMIN is needed for the capture. The steps after the harness install run even when one before them failed, so
+  # that one red step does not hide the result of the others.
+  egress:
+    runs-on: ${{ vars.RUNNER_LINUX_X64_8 || vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
+    timeout-minutes: 120
+    env:
+      AUDIT_CONFIG: tools/egress-audit/egress-audit.config.json
+      AUDIT_ARTIFACTS: egress-audit-artifacts
+      TR_IMAGE: ever-traduora:egress-audit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.12.1'
+      - name: Install the egress audit harness (the version and integrity tools/egress-audit/harness.json pins)
+        run: |
+          name=$(node -p "require('./tools/egress-audit/harness.json').package")
+          version=$(node -p "require('./tools/egress-audit/harness.json').version")
+          expected=$(node -p "require('./tools/egress-audit/harness.json').integrity")
+          mkdir -p "$RUNNER_TEMP/harness"
+          cd "$RUNNER_TEMP/harness"
+          npm pack "${name}@${version}" --registry https://registry.npmjs.org --json > pack.json
+          actual=$(node -p "require('./pack.json')[0].integrity")
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::${name}@${version} does not match the pinned integrity"
+            exit 1
+          fi
+          echo '{"name":"egress-audit-harness","private":true}' > package.json
+          npm install --no-audit --no-fund --ignore-scripts --registry https://registry.npmjs.org ./ever-co-connect-tools-${version}.tgz
+          echo "EGRESS_AUDIT=$RUNNER_TEMP/harness/node_modules/@ever-co/connect-tools/dist/egress-audit/run.mjs" >> "$GITHUB_ENV"
+      - name: 'Static: the Ever Platform code never guesses where it runs'
+        if: ${{ !cancelled() }}
+        run: node "$EGRESS_AUDIT" cloud-inference --dirs api/src/ever-stats,api/src/ever-instance,api/src/ever-platform,api/src/ever-connect
+      - name: Build the image under test
+        if: ${{ !cancelled() }}
+        run: docker build -f Dockerfile --build-arg "VERDACCIO_REGISTRY=${{ vars.VERDACCIO_REGISTRY }}" -t "$TR_IMAGE" .
+      - name: Secrets of this run
+        if: ${{ !cancelled() }}
+        run: |
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::$secret"
+          echo "TR_AUDIT_SECRET=$secret" >> "$GITHUB_ENV"
+      - name: 'off: both modules off (TR_EVER_STATS_ENABLED=false, connection unset)'
+        if: ${{ !cancelled() }}
+        run: node "$EGRESS_AUDIT" --config "$AUDIT_CONFIG" --mode off --legs api --artifacts "$AUDIT_ARTIFACTS" --verbose
+      - name: 'loaded_off: both modules loaded, statistics switched off by the operator, not connected'
+        if: ${{ !cancelled() }}
+        run: node "$EGRESS_AUDIT" --config "$AUDIT_CONFIG" --mode loaded_off --legs api --artifacts "$AUDIT_ARTIFACTS" --verbose
+      - name: 'positive_stats: statistics on, against the mock platform'
+        if: ${{ !cancelled() }}
+        run: node "$EGRESS_AUDIT" --config "$AUDIT_CONFIG" --mode positive_stats --legs api --artifacts "$AUDIT_ARTIFACTS" --verbose
+      - name: 'positive_connect: connected with a mock connect code'
+        if: ${{ !cancelled() }}
+        run: node "$EGRESS_AUDIT" --config "$AUDIT_CONFIG" --mode positive_connect --legs api --artifacts "$AUDIT_ARTIFACTS" --verbose
+      - name: 'Control: positive_stats without the mock platform must fail'
+        if: ${{ !cancelled() }}
+        run: |
+          set +e
+          node "$EGRESS_AUDIT" --config "$AUDIT_CONFIG" --mode positive_stats --no-mock --legs api --artifacts "$AUDIT_ARTIFACTS/control" --verbose
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "::error::without the mock platform the audit must report a violation (exit 1); it exited $code"
+            exit 1
+          fi
+          echo "The control failed as it must (exit 1)."
+      - name: 'The statistics scheduler: not loaded in off, and in loaded_off it asked after the switch-off'
+        if: ${{ !cancelled() }}
+        run: |
+          node -e '
+            const fs = require("fs"), path = require("path");
+            const logOf = (mode) => {
+              const dir = path.join(process.env.AUDIT_ARTIFACTS, mode);
+              const file = fs.existsSync(dir) ? fs.readdirSync(dir).find((name) => /^product-api.*\.log$/.test(name)) : null;
+              return file ? fs.readFileSync(path.join(dir, file), "utf8") : null;
+            };
+            let failed = false;
+            const fail = (message) => { console.error(`::error::${message}`); failed = true; };
+            const off = logOf("off");
+            if (off === null) fail("off: the API log is missing");
+            else if (/ever_(stats|connect)\./.test(off)) fail("off: an Ever Platform module ran");
+            else console.log("off: no Ever Platform module ran.");
+            const loaded = logOf("loaded_off");
+            if (loaded === null) fail("loaded_off: the API log is missing");
+            else if (!loaded.includes("ever_stats.send outcome=skipped_ui_off")) fail("loaded_off: the scheduler never ran after the switch-off: the run proves nothing");
+            else if (/ever_stats\.send outcome=(sent|accepted|rejected|failed)/.test(loaded)) fail("loaded_off: the scheduler tried to send");
+            else console.log("loaded_off: the scheduler ran after the switch-off and sent nothing.");
+            process.exit(failed ? 1 : 0);
+          '
+      - name: Upload the evidence (pcaps, DNS logs, reports)
+        if: always()
+        # The in-cluster runner may have no artifact store: the verdict is the steps above, not this upload
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: egress-audit
+          path: ${{ env.AUDIT_ARTIFACTS }}
+          retention-days: 14

@@ -8,7 +8,11 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- TODO
+- Every pull request runs an egress audit of the Ever Platform modules (`tools/egress-audit/`): with the modules off,
+  or loaded but switched off, the API looks up no Ever host and opens no connection out; with them on, it makes only
+  the calls listed in [Outbound calls](ever-platform/outbound-calls.md).
+- A path under `/api` that no route answers is now a 404 (JSON), never the web app's page: a client asking for a route
+  that does not exist, or of a module that is not loaded, gets a clear answer.
 
 ## 0.24.0
 
