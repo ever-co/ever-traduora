@@ -23,8 +23,11 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** The least time left before the statistics scheduler's first slot when the operator switches them off (loaded_off). */
 const SLOT_MARGIN_MS = 30_000;
 
-/** How long the adapter waits for the scheduler to arm its first slot (it boots a few seconds after the API starts). */
+/** How long the adapter waits for the scheduler to arm its first slot (it boots 5 seconds after the API starts). */
 const SLOT_WAIT_MS = 30_000;
+
+/** The furthest ahead the scheduler's boot timer can be (5 seconds, with room for a slow read). */
+const BOOT_TIMER_MS = 10_000;
 
 /** The harness's fetch, with a timeout on every request. */
 const timed =
@@ -88,24 +91,33 @@ async function confirmEmail({ baseUrl, fetch, headers, log }) {
 }
 
 /**
- * The statistics scheduler's first slot, once it is armed and well ahead. Until the scheduler has booted (a few seconds
- * after the API starts) the status names its boot timer instead, a few seconds ahead: the status is read again until
- * the slot is at least SLOT_MARGIN_MS ahead, for at most SLOT_WAIT_MS; then the run stops as a fault rather than a verdict.
+ * The statistics scheduler's first slot, once it is armed and well ahead, before any report was attempted. Until the
+ * scheduler has booted (5 seconds after the API starts) the status names its boot timer instead, at most BOOT_TIMER_MS
+ * ahead: only then is the status read again (every 2 s, for at most SLOT_WAIT_MS). A slot further ahead than the boot
+ * timer but closer than SLOT_MARGIN_MS is a real slot too close to switch off before it, and any report attempted
+ * already (the status names its result) means the switch-off would come too late: both stop the run as a fault, never as
+ * a verdict.
  */
 async function armedSlot({ baseUrl, fetch, headers, log }) {
   const deadline = Date.now() + SLOT_WAIT_MS;
   for (;;) {
     const status = await json(fetch, `${baseUrl}/api/v1/ever-stats/status`, { headers });
-    const nextSendAt = status.body?.data?.nextSendAt;
     if (status.status !== 200) {
       throw new Error(`the statistics status answered ${status.status}`);
     }
-    if (typeof nextSendAt === 'number' && nextSendAt - Date.now() >= SLOT_MARGIN_MS) {
-      return nextSendAt;
+    const data = status.body?.data ?? {};
+    if (data.lastStatus || data.lastSentAt) {
+      throw new Error('a report was attempted before the switch-off: the run cannot prove anything');
+    }
+    const ahead = typeof data.nextSendAt === 'number' ? data.nextSendAt - Date.now() : null;
+    if (ahead !== null && ahead >= SLOT_MARGIN_MS) {
+      return data.nextSendAt;
+    }
+    if (ahead !== null && ahead > BOOT_TIMER_MS) {
+      throw new Error(`the first statistics slot is ${Math.round(ahead / 1000)} s away: too close to switch off first`);
     }
     if (Date.now() >= deadline) {
-      const away = typeof nextSendAt === 'number' ? `${Math.round((nextSendAt - Date.now()) / 1000)} s away` : 'not named';
-      throw new Error(`the first statistics slot is ${away}: too close to switch off first`);
+      throw new Error('the statistics scheduler never armed its first slot');
     }
     log?.('statistics scheduler: slot not armed yet');
     await new Promise(resolve => setTimeout(resolve, 2000));
