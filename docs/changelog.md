@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
+  allowed and the weekly windows (UTC), set, replace or remove the backup directory (SQLite), and see the recent
+  operations and why one did not run. See
+  [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
+- The account settings have a **My data exports** section while the Ever Platform connection is on: each user sees the
+  exports made of their own account for a request they sent from app.ever.co, and downloads one as a JSON file within
+  7 days. See [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
 - Ever ID sign-in: a person deletion from Ever Platform now locks the account as a sign-in does, so a sign-in that
   read the identity just before cannot open a session after it is removed; a logout that names only the subject also
   ends a sign-up that is still waiting for its confirmation

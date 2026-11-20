@@ -6,6 +6,7 @@ import { SharedModule } from '../shared/shared.module';
 import { AcceptInviteComponent } from './components/accept-invite/accept-invite.component';
 import { ForgotPasswordComponent } from './components/forgot-password/forgot-password.component';
 import { LoginComponent } from './components/login/login.component';
+import { MyDataExportsComponent } from './components/my-data-exports/my-data-exports.component';
 import { AuthCallbackComponent } from './components/callback/callback.component';
 import { ResetPasswordComponent } from './components/reset-password/reset-password.component';
 import { SignupComponent } from './components/signup/signup.component';
@@ -30,6 +31,7 @@ import { ProviderCallbackGuard } from './guards/provider-callback.guard';
     SignInWithComponent,
     VerifyEmailComponent,
     EverIdConfirmComponent,
+    MyDataExportsComponent,
   ],
   imports: [
     CommonModule,
