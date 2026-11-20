@@ -1,6 +1,6 @@
 <div *ngIf="errorMessage" class="mb-3">
-  <div class="alert alert-danger d-flex justify-content-start mb-0">
-    <i class="material-icons mr-3">warning</i>
+  <div class="alert alert-danger d-flex justify-content-start mb-0" role="alert">
+    <i class="material-icons mr-3" aria-hidden="true">warning</i>
     <p class="m-0">{{ errorMessage }}</p>
   </div>
 </div>
@@ -61,12 +61,13 @@
       </div>
     </div>
     <div class="form-group">
-      <label>Select the destination locale</label>
       <app-select-locale
         class="mb-5"
         [locales]="knownLocales"
         [limit]="5"
         [loading]="loading"
+        label="Select the destination locale"
+        listLabel="Destination locale"
         (selectLocale)="onSelectLocale($event)"
       ></app-select-locale>
     </div>

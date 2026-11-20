@@ -15,6 +15,8 @@ import { AuthGuard } from './guards/auth.guard';
 import { NoAuthGuard } from './guards/no-auth.guard';
 import { AuthState } from './stores/auth.state';
 import { SignInWithComponent } from './components/sign-in-with/sign-in-with.component';
+import { EverIdConfirmComponent } from './components/everid-confirm/everid-confirm.component';
+import { ProviderCallbackGuard } from './guards/provider-callback.guard';
 
 @NgModule({
   declarations: [
@@ -27,6 +29,7 @@ import { SignInWithComponent } from './components/sign-in-with/sign-in-with.comp
     AuthCallbackComponent,
     SignInWithComponent,
     VerifyEmailComponent,
+    EverIdConfirmComponent,
   ],
   imports: [
     CommonModule,
@@ -41,6 +44,12 @@ import { SignInWithComponent } from './components/sign-in-with/sign-in-with.comp
       {
         path: 'auth/callback',
         component: AuthCallbackComponent,
+        // NoAuthGuard, except for the callback of connecting Ever ID from the account settings
+        canActivate: [ProviderCallbackGuard],
+      },
+      {
+        path: 'auth/everid/confirm',
+        component: EverIdConfirmComponent,
         canActivate: [NoAuthGuard],
       },
       {

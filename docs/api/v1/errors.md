@@ -28,6 +28,17 @@ In addition to the HTTP response status code, known API errors are wrapped in a 
 }
 ```
 
+An export that the chosen format cannot hold also answers 400 `BadRequest`, with a message that names the terms to rename: a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`. For example:
+
+```json
+{
+  "error": {
+    "code": "BadRequest",
+    "message": "Nested JSON cannot hold the term \"app\" together with \"app.title\": a key cannot have both a value and sub keys. Rename the term or export in a flat format."
+  }
+}
+```
+
 #### Status code: 401
 
 ```json

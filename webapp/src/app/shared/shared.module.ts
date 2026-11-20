@@ -20,6 +20,7 @@ import { DropzoneDirective } from './directives/dropzone.directive';
 import { LabelComponent } from './components/label/label.component';
 import { AutowidthDirective } from './directives/autowidth.directive';
 import { SelectLabelComponent } from './components/select-label/select-label.component';
+import { DemoBannerComponent } from './components/demo-banner/demo-banner.component';
 
 @NgModule({
   imports: [CommonModule, ReactiveFormsModule, FormsModule, NgbModule, RouterModule.forChild([])],
@@ -41,6 +42,7 @@ import { SelectLabelComponent } from './components/select-label/select-label.com
     CanPipe,
     SearchComponent,
     AppBarComponent,
+    DemoBannerComponent,
   ],
   exports: [
     ReactiveFormsModule,
@@ -63,6 +65,7 @@ import { SelectLabelComponent } from './components/select-label/select-label.com
     CanPipe,
     SearchComponent,
     AppBarComponent,
+    DemoBannerComponent,
   ],
 })
 export class SharedModule {}

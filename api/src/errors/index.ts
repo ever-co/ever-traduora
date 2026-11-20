@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 
 export class TooManyRequestsException extends HttpException {
   constructor(message?: string | object | any, error: string = 'TooManyRequests') {
@@ -21,8 +21,48 @@ export class PublishedPasswordException extends HttpException {
   }
 }
 
+/**
+ * An export the chosen format cannot hold, such as a term that is also the parent of other terms in a nested format or a
+ * term starting with "@" in ARB. A BadRequest whose message the client gets as is: it names the terms to rename, which
+ * the user may not find otherwise in a large project. Other 400s answer with a fixed message.
+ */
+export class FormatCannotHoldTermsException extends BadRequestException {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+/**
+ * An error of the OpenID Connect sign-in flow (e.g. Ever ID) that the webapp acts on: answered with its own status and
+ * a stable `code`, plus optional `details` (e.g. what a sign-up confirmation screen shows). Never carries a token.
+ */
+export class AuthProviderException extends HttpException {
+  constructor(
+    status: HttpStatus,
+    readonly code: string,
+    message: string,
+    readonly details?: Record<string, unknown>,
+  ) {
+    super(message, status);
+  }
+}
+
 export class PaymentRequiredException extends HttpException {
   constructor(message?: string | object | any, error: string = 'PaymentRequired') {
     super(HttpException.createBody(message, error, HttpStatus.PAYMENT_REQUIRED), HttpStatus.PAYMENT_REQUIRED);
+  }
+}
+
+/**
+ * An answer of the optional Ever Platform routes (anonymous usage statistics) that the webapp acts on: its own status
+ * and a stable `code`, such as `stats_disabled` or `cloud_managed`. Carries no value of a report and no key.
+ */
+export class EverPlatformException extends HttpException {
+  constructor(
+    status: HttpStatus,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message, status);
   }
 }

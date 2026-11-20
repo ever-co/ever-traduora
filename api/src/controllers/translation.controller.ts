@@ -1,14 +1,30 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOAuth2, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import {
   AddLocaleRequest,
   ListProjectLocalesResponse,
   ListTermTranslatonsResponse,
+  ListTranslationHistoryResponse,
   ProjectLocaleResponse,
   TermTranslatonResponse,
   UpdateTranslationRequest,
@@ -17,8 +33,41 @@ import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
+import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
+import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
+import { lockProject } from '../utils/database-locks';
+import { DbType, isDbType } from '../utils/database-type-helper';
+
+const editLocks = new Map<string, Promise<unknown>>();
+
+/** Runs the work after every earlier work with the same key, one at a time, whether or not the earlier work failed */
+async function withEditLock<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const previous = editLocks.get(key) ?? Promise.resolve();
+  const run = previous.then(work);
+  const tail = run.catch(() => undefined);
+  editLocks.set(key, tail);
+  try {
+    return await run;
+  } finally {
+    if (editLocks.get(key) === tail) {
+      editLocks.delete(key);
+    }
+  }
+}
+
+export const DEFAULT_HISTORY_LIMIT = 50;
+export const MAX_HISTORY_LIMIT = 100;
+
+/** The number of history entries to return: a whole number from 1 to the maximum, the default when absent or not a number */
+export function parseHistoryLimit(raw: unknown): number {
+  const value = typeof raw === 'string' && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+  if (!Number.isSafeInteger(value)) {
+    return DEFAULT_HISTORY_LIMIT;
+  }
+  return Math.min(Math.max(value, 1), MAX_HISTORY_LIMIT);
+}
 
 @Controller('api/v1/projects/:projectId/translations')
 @UseGuards(AuthGuard())
@@ -32,6 +81,7 @@ export default class TranslationController {
     @InjectRepository(Term) private termRepo: Repository<Term>,
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
     @InjectRepository(Project) private projectRepo: Repository<Project>,
+    @InjectRepository(TranslationHistory) private historyRepo: Repository<TranslationHistory>,
   ) {}
 
   @Get()
@@ -80,6 +130,7 @@ export default class TranslationController {
     });
 
     await this.termRepo.manager.transaction(async entityManager => {
+      await lockProject(entityManager, membership.project.id);
       await entityManager.save(projectLocale);
       const terms = await entityManager.find(Term, { where: { project: { id: projectId } }, relations: ['labels'] });
       const translations = terms.map(term =>
@@ -168,8 +219,9 @@ export default class TranslationController {
     const user = this.auth.getRequestUserOrClient(req);
     await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditTranslation);
 
+    let projectLocale: ProjectLocale;
     try {
-      const projectLocale = await this.projectLocaleRepo.findOneOrFail({
+      projectLocale = await this.projectLocaleRepo.findOneOrFail({
         where: {
           locale: {
             code: localeCode,
@@ -179,49 +231,132 @@ export default class TranslationController {
           },
         },
       });
-      try {
-        const term = await this.termRepo.findOneOrFail({
-          where: {
-            project: { id: projectId },
-            id: payload.termId,
-          },
-          relations: ['labels'],
-        });
-        let translation = await this.translationRepo.findOne({
-          where: {
-            termId: term.id,
-            projectLocale: {
-              id: projectLocale.id,
-            },
-          },
-          relations: ['labels'],
-        });
-        if (translation) {
-          translation.value = payload.value;
-        } else {
-          translation = this.translationRepo.create({
-            value: payload.value,
-            projectLocale,
-            term,
-            labels: term.labels, // Copy term labels on creation
-          });
-        }
-
-        await this.translationRepo.save(translation);
-        return {
-          data: {
-            termId: term.id,
-            value: translation.value,
-            labels: translation.labels,
-            date: translation.date,
-          },
-        };
-      } catch (error) {
-        throw new NotFoundException('project term not found');
-      }
     } catch (error) {
       throw new NotFoundException('project locale not found');
     }
+
+    let term: Term;
+    try {
+      term = await this.termRepo.findOneOrFail({
+        where: {
+          project: { id: projectId },
+          id: payload.termId,
+        },
+        relations: ['labels'],
+      });
+    } catch (error) {
+      throw new NotFoundException('project term not found');
+    }
+
+    const translation = await this.saveTranslation(projectLocale, term, payload.value, user instanceof User ? user : null);
+    return {
+      data: {
+        termId: term.id,
+        value: translation.value,
+        labels: translation.labels,
+        date: translation.date,
+      },
+    };
+  }
+
+  /**
+   * Saves the value and the record of the change in one transaction, as one step that no other edit of the same
+   * translation can interleave with: the previous value is read, the new one saved and the history written while the
+   * translation is locked. Within this process the lock is a queue per translation; on databases other than SQLite the
+   * transaction also holds a row lock, which serializes edits across several API instances too. SQLite has a single
+   * connection that TypeORM shares between transactions, so two transactions open at once would nest into each other:
+   * there, every edit waits for the one before it. Elsewhere the edit also holds its locale and its term locked for
+   * share, in that order and before the translation: it waits for an import into that locale and for a delete of the
+   * term to commit, and they wait for it. A locale or term deleted meanwhile is not found.
+   */
+  private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
+    const where = { termId: term.id, projectLocaleId: projectLocale.id };
+    const useRowLock = !isDbType(DbType.BETTER_SQLITE3);
+    const key = useRowLock ? `${projectLocale.id}:${term.id}` : 'sqlite';
+
+    return withEditLock(key, () =>
+      this.translationRepo.manager.transaction(async (em: EntityManager) => {
+        const share = useRowLock ? { lock: { mode: 'pessimistic_read' as const } } : {};
+        if (!(await em.findOne(ProjectLocale, { where: { id: projectLocale.id }, ...share }))) {
+          throw new NotFoundException('project locale not found');
+        }
+        if (!(await em.findOne(Term, { where: { id: term.id }, ...share }))) {
+          throw new NotFoundException('project term not found');
+        }
+        const locked = await em.findOne(Translation, { where, ...(useRowLock ? { lock: { mode: 'pessimistic_write' as const } } : {}) });
+        const previousValue = locked?.value ?? '';
+
+        if (!locked) {
+          await em.save(
+            em.create(Translation, {
+              value,
+              projectLocale,
+              term,
+              labels: term.labels, // Copy term labels on creation
+            }),
+          );
+        } else if (previousValue !== value) {
+          await em.update(Translation, where, { value });
+        }
+
+        if (previousValue !== value) {
+          const latest = await em.findOne(TranslationHistory, { where, order: { revision: 'DESC' } });
+          await em.save(em.create(TranslationHistory, { ...where, revision: (latest?.revision ?? 0) + 1, previousValue, value, user }));
+        }
+
+        return em.findOneOrFail(Translation, { where, relations: ['labels'] });
+      }),
+    );
+  }
+
+  @Get(':localeCode/history')
+  @ApiOperation({ summary: `List the changes made to a term's translation, newest first` })
+  @ApiQuery({ name: 'termId', required: true })
+  @ApiQuery({ name: 'limit', required: false, description: `Between 1 and ${MAX_HISTORY_LIMIT}, ${DEFAULT_HISTORY_LIMIT} by default` })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListTranslationHistoryResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async history(
+    @Req() req,
+    @Param('projectId') projectId: string,
+    @Param('localeCode') localeCode: string,
+    @Query('termId') termId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const user = this.auth.getRequestUserOrClient(req);
+    const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
+
+    if (typeof termId !== 'string' || termId.length === 0) {
+      throw new BadRequestException('termId is required');
+    }
+
+    const projectLocale = await this.projectLocaleRepo.findOne({
+      where: { project: { id: membership.project.id }, locale: { code: localeCode } },
+    });
+    if (!projectLocale) {
+      throw new NotFoundException('project locale not found');
+    }
+
+    const entries = await this.historyRepo.find({
+      where: { termId, projectLocaleId: projectLocale.id },
+      relations: ['user'],
+      // The change number, not the time: the time can tie for edits made within the same second
+      order: { revision: 'DESC' },
+      take: parseHistoryLimit(limit),
+    });
+
+    return {
+      data: entries.map(entry => ({
+        id: entry.id,
+        termId: entry.termId,
+        revision: entry.revision,
+        previousValue: entry.previousValue,
+        value: entry.value,
+        user: entry.user ? { id: entry.user.id, name: entry.user.name } : undefined,
+        date: entry.date.created,
+      })),
+    };
   }
 
   @Delete(':localeCode')
@@ -235,6 +370,7 @@ export default class TranslationController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTranslation);
 
     await this.projectLocaleRepo.manager.transaction(async entityManager => {
+      await lockProject(entityManager, membership.project.id);
       const projectLocale = await entityManager.findOneOrFail(ProjectLocale, {
         where: {
           project: { id: membership.project.id },

@@ -8,6 +8,10 @@ import * as Handlebars from 'handlebars';
 import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
 import * as previewEmail from 'preview-email';
+import { passwordResetUrl } from '../utils/password-reset-url';
+
+// For the debug preview only: it shows the plain text inside HTML, where '<' and '&' would be read as markup
+const escapeHtml = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 @Injectable()
 export default class MailService {
@@ -85,15 +89,13 @@ export default class MailService {
   }
 
   async passwordResetToken(user: User, token: string): Promise<any> {
-    const endpoint = join(config.virtualHost, 'reset-password');
     await this.send({
       to: user.email,
       from: this.from,
       subject: 'Your password reset token is here.',
       text: this.knownTemplates.passwordResetToken({
         user: user,
-        endpoint: endpoint,
-        resetToken: token,
+        resetUrl: passwordResetUrl(user.email, token),
       }),
     });
   }
@@ -131,7 +133,8 @@ export default class MailService {
       }
       if (config.mail.debug) {
         // createTransport({jsonTransport: true})
-        await previewEmail(message);
+        // The preview gets an escaped copy, so a name such as 'R&D <web>' shows as typed; the email itself is not changed
+        await previewEmail(typeof message.text === 'string' ? { ...message, text: escapeHtml(message.text) } : message);
       }
     } catch (error) {
       console.error(`Could not send the email '${message.subject}'`, error);
@@ -140,6 +143,7 @@ export default class MailService {
 
   private mustCompileTemplate(name: string): Handlebars.TemplateDelegate<any> {
     const contents = readFileSync(join(config.templatesDir, 'mail', name)).toString('utf-8');
-    return Handlebars.compile(contents);
+    // The emails are plain text, so names must come out as typed, not as HTML entities
+    return Handlebars.compile(contents, { noEscape: true });
   }
 }

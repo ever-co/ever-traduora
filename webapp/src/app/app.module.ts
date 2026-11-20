@@ -50,6 +50,12 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
           canActivate: [AuthGuard],
         },
         {
+          // Ever Platform pages, for the operator of the installation (the API answers nobody else)
+          path: 'ever-platform',
+          loadChildren: () => import('./ever-platform/ever-platform.module').then(m => m.EverPlatformModule),
+          canActivate: [AuthGuard],
+        },
+        {
           path: '',
           loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule),
         },

@@ -1,4 +1,5 @@
 <div>
+  <label *ngIf="label" [attr.for]="availableLocales().length ? searchId : null">{{ label }}</label>
   <div class="card p-3 mb-3 d-flex flex-column justify-content-start align-items-start" *ngIf="selection">
     <p class="m-0 text-muted">Selected:</p>
     <div class="w-100 d-flex flex-row justify-content-between align-items-center">
@@ -11,30 +12,38 @@
   </div>
   <div *ngIf="availableLocales().length as localeCount" class="input-group input-group mb-3">
     <div class="input-group-prepend">
-      <span class="input-group-text"><i class="material-icons">search</i></span>
+      <span class="input-group-text"><i class="material-icons" aria-hidden="true">search</i></span>
     </div>
     <input
-      id="localeSearch"
-      name="localeSearch"
+      [id]="searchId"
+      [name]="searchId"
       type="text"
       [placeholder]="'Search over ' + localeCount + ' locales...'"
       class="form-control"
       autocomplete="off"
+      [attr.aria-label]="label ? null : searchLabel"
       (keyup)="text$.next($event.target.value)"
     />
   </div>
   <div class="d-flex flex-column">
-    <ul class="list-group w-100 mb-2" [ngStyle]="{ 'min-height': preserveHeight ? limit * 50 + 'px' : 0 }">
-      <li
+    <div
+      class="list-group w-100 mb-2"
+      role="group"
+      [attr.aria-label]="listLabel"
+      [ngStyle]="{ 'min-height': preserveHeight ? limit * 50 + 'px' : 0 }"
+    >
+      <div
         *ngIf="!loading && ((results$ | async) || defaultLocales()).length === 0"
         class="m-0 alert alert-secondary d-flex justify-content-start align-items-center"
       >
         No locales found
-      </li>
-      <li
+      </div>
+      <button
         *ngFor="let locale of (results$ | async) || defaultLocales()"
+        type="button"
         class="list-group-item list-group-item-action d-flex justify-content-start align-items-center"
         [ngClass]="{ active: selection ? selection.code === locale.code : false }"
+        [attr.aria-pressed]="selection ? selection.code === locale.code : false"
         (click)="select(locale)"
       >
         <h5 class="m-0">
@@ -42,8 +51,8 @@
           <app-country-flag class="ml-1 text-sm" [locale]="locale"></app-country-flag>
         </h5>
         <span class="flex-1"></span> <span class="ml-1 badge badge-secondary">{{ locale.code }}</span>
-      </li>
-    </ul>
+      </button>
+    </div>
     <div class="d-flex w-100 justify-content-end">
       <p class="text-sm text-muted m-0">
         <span class="font-weight-bold">{{ availableLocales().length }}</span> available locales

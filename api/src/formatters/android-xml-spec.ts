@@ -27,6 +27,55 @@ test('should parse and export android resources files with quotes', async () => 
   expect(exported).toEqual(loadFixture('android-quotes-out.xml'));
 });
 
+describe('android resources with markup', () => {
+  const parseMarkupFixture = async () => _.keyBy((await androidXmlParser(loadFixture('android-markup-in.xml'))).translations, 'term');
+
+  test('should keep the content of a CDATA string', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.a.translation).toEqual('<b>Hi</b>');
+  });
+
+  test('should replace an xliff:g element by its content', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.b.translation).toEqual('Hello %1$s!');
+  });
+
+  test('should keep inline tags and the text after them', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.inline.translation).toEqual('Hello <b>World</b>, ok');
+  });
+
+  test('should skip resources that are not strings', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.c).toBeUndefined();
+  });
+
+  test('should keep the space between two inline tags', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.spaced.translation).toEqual('%1$s %2$s');
+  });
+
+  test('should keep a space that is the whole content of an inline tag', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.tagspace.translation).toEqual('Hello<b> </b>world');
+  });
+
+  test('should unescape the text and replace xliff:g inside an inline tag', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.nested.translation).toEqual("It's <b>Bob's %1$s</b>");
+  });
+
+  test('should drop the layout around a CDATA string', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.pretty.translation).toEqual('<i>Hi</i>');
+  });
+
+  test('should read an item of type string', async () => {
+    const byTerm = await parseMarkupFixture();
+    expect(byTerm.item.translation).toEqual('An item');
+  });
+});
+
 test('should export android resources files', async () => {
   const result = await androidXmlExporter({ ...simpleFormatFixture, iso: 'de_DE' });
   const expected = loadFixture('simple-android.xml');

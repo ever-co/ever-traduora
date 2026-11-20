@@ -1,10 +1,33 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { saveAs } from 'file-saver';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { from, Observable, throwError } from 'rxjs';
+import { catchError, mergeMap, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { ExportFormat } from '../models/export';
+
+/**
+ * The export downloads as a blob, so the body of an error arrives as a blob too. For a 400 the API names in it the terms
+ * the format cannot hold: read it as JSON so that errorToMessage can show the message. Keeps the error as it is when the
+ * body cannot be read.
+ */
+async function withJsonErrorBody(error: any): Promise<any> {
+  if (!(error instanceof HttpErrorResponse) || error.status !== 400 || !(error.error instanceof Blob)) {
+    return error;
+  }
+  try {
+    const body = JSON.parse(await error.error.text());
+    return new HttpErrorResponse({
+      error: body,
+      headers: error.headers,
+      status: error.status,
+      statusText: error.statusText,
+      url: error.url ?? undefined,
+    });
+  } catch {
+    return error;
+  }
+}
 
 @Injectable({
   providedIn: 'root',
@@ -21,9 +44,11 @@ export class ExportService {
       url.searchParams.append('fallbackLocale', fallbackLocale);
     }
 
-    return this.http.get(url.toString(), {
-      responseType: 'blob',
-    });
+    return this.http
+      .get(url.toString(), {
+        responseType: 'blob',
+      })
+      .pipe(catchError(error => from(withJsonErrorBody(error)).pipe(mergeMap(readable => throwError(() => readable)))));
   }
 
   exportAndDownload(

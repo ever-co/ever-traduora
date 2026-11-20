@@ -1,0 +1,40 @@
+{
+  "description": "Illustrative ID token claims of an Ever ID sign-in, as an OpenID Connect relying party receives them. Values are examples. Claims under urn:ever: and urn:zitadel: are hints: the sign-in works without them.",
+  "examples": [
+    {
+      "name": "personal identity with Ever Platform hints",
+      "claims": {
+        "amr": ["user", "mfa"],
+        "email": "alice@example.com",
+        "email_verified": true,
+        "name": "Alice Example",
+        "given_name": "Alice",
+        "family_name": "Example",
+        "preferred_username": "alice@example.com",
+        "locale": "en",
+        "urn:zitadel:iam:user:resourceowner:id": "329900000000000001",
+        "urn:zitadel:iam:user:resourceowner:name": "example-people",
+        "urn:ever:person_id": "01K6A7Q3ZV9J8X2M4N5P6R7S8T",
+        "urn:ever:claims_ver": 1
+      },
+      "expected": {
+        "email": "alice@example.com",
+        "name": "Alice Example",
+        "personId": "01K6A7Q3ZV9J8X2M4N5P6R7S8T"
+      }
+    },
+    {
+      "name": "identity without any hint",
+      "claims": {
+        "email": "bob@example.com",
+        "email_verified": true,
+        "given_name": "Bob",
+        "family_name": "Example"
+      },
+      "expected": {
+        "email": "bob@example.com",
+        "name": "Bob Example"
+      }
+    }
+  ]
+}

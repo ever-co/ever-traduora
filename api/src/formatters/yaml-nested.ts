@@ -1,6 +1,7 @@
 import * as yaml from 'js-yaml';
 import { config } from '../config';
 import { Exporter, IntermediateTranslationFormat, Parser } from '../domain/formatters';
+import { NestedKeyConflictError } from './nested-key-conflict';
 
 export const yamlNestedParser: Parser = async (data: string) => {
   const parsed = yaml.load(data);
@@ -37,7 +38,8 @@ export const yamlNestedParser: Parser = async (data: string) => {
 };
 
 export const yamlNestedExporter: Exporter = async (data: IntermediateTranslationFormat) => {
-  const result = {};
+  // Null-prototype objects keep a term such as "__proto__" an ordinary key.
+  const result = Object.create(null);
   for (const translation of data.translations) {
     const parts = translation.term.split('.');
     const partsLen = parts.length;
@@ -45,14 +47,14 @@ export const yamlNestedExporter: Exporter = async (data: IntermediateTranslation
       result[parts[0]] = translation.translation;
     } else if (partsLen > 1) {
       let current = result;
-      for (const key of parts.slice(0, partsLen - 1)) {
-        if (!current.hasOwnProperty(key)) {
-          current[key] = {};
+      for (let i = 0; i < partsLen - 1; i++) {
+        const key = parts[i];
+        // not current.hasOwnProperty(): a term named "hasOwnProperty" makes that a string
+        if (!Object.prototype.hasOwnProperty.call(current, key)) {
+          current[key] = Object.create(null);
         }
         if (typeof current[key] === 'string') {
-          throw new Error(
-            `You have a flat key that have both a value and sub keys. This is not allowed on nested YAML. Sub key: ${translation.term}`,
-          );
+          throw new NestedKeyConflictError('Nested YAML', parts.slice(0, i + 1).join('.'), translation.term);
         }
         current = current[key];
       }

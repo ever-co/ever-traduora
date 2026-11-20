@@ -1,4 +1,7 @@
+import * as yaml from 'js-yaml';
+import { IntermediateTranslation, IntermediateTranslationFormat } from '../domain/formatters';
 import { loadFixture, simpleFormatFixture } from './fixtures';
+import { NestedKeyConflictError } from './nested-key-conflict';
 import { yamlNestedExporter, yamlNestedParser } from './yaml-nested';
 
 test('should parse yaml nested files', async () => {
@@ -52,4 +55,56 @@ test('should export yaml nested files', async () => {
   const result = (await yamlNestedExporter(simpleFormatFixture)).toString().split(/\r?\n/).filter(Boolean);
   const expected = loadFixture('simple-nested.yaml').split(/\r?\n/).filter(Boolean);
   expect(result).toEqual(expected);
+});
+
+test('should fail with conflicting nested object on export', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'button', translation: 'Botón' },
+      { term: 'button.test', translation: 'Botón de prueba' },
+    ],
+  };
+  await expect(yamlNestedExporter(input)).rejects.toBeInstanceOf(NestedKeyConflictError);
+  await expect(yamlNestedExporter(input)).rejects.toThrow('"button"');
+});
+
+test('should export a term named hasOwnProperty next to nested terms', async () => {
+  const input: IntermediateTranslationFormat = {
+    translations: [
+      { term: 'hasOwnProperty', translation: 'own' },
+      { term: 'home.title', translation: 'Home' },
+    ],
+  };
+  const result = await yamlNestedExporter(input);
+  expect(yaml.load(result.toString())).toEqual({ hasOwnProperty: 'own', home: { title: 'Home' } });
+});
+
+// On a plain object, obj['__proto__'] = value calls the prototype setter and adds no key, so these terms were dropped
+const protoCases: { name: string; translations: IntermediateTranslation[]; expected: string[] }[] = [
+  {
+    name: 'a term under __proto__ next to another term',
+    translations: [
+      { term: '__proto__.x', translation: 'X' },
+      { term: 'a', translation: 'A' },
+    ],
+    expected: ['__proto__:', '  x: X', 'a: A'],
+  },
+  {
+    name: 'a term named __proto__',
+    translations: [{ term: '__proto__', translation: 'P' }],
+    expected: ['__proto__: P'],
+  },
+  {
+    name: 'a term ending in __proto__',
+    translations: [{ term: 'a.__proto__', translation: 'A' }],
+    expected: ['a:', '  __proto__: A'],
+  },
+];
+
+test.each(protoCases)('should export and parse back $name', async ({ translations, expected }) => {
+  const result = (await yamlNestedExporter({ translations })).toString();
+  expect(result.split(/\r?\n/).filter(Boolean)).toEqual(expected);
+
+  const parsed = await yamlNestedParser(result);
+  expect(parsed.translations).toEqual(translations);
 });

@@ -143,6 +143,29 @@ export async function createAndMigrateApp(): Promise<INestApplication> {
   return app;
 }
 
+/**
+ * Like {@link createAndMigrateApp}, with some providers replaced by fixed values (for instance a module's clock or its
+ * HTTP client), so that a test controls what they do.
+ */
+export async function createAndMigrateAppWith(overrides: Array<{ provide: any; useValue: any }>): Promise<INestApplication> {
+  let builder = Test.createTestingModule({ imports: [AppModule] });
+  for (const override of overrides) {
+    builder = builder.overrideProvider(override.provide).useValue(override.useValue);
+  }
+  const moduleFixture = await builder.compile();
+  const app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
+  addPipesAndFilters(app);
+  await app.init();
+  const connection = app.get(Connection);
+  try {
+    await connection.dropDatabase();
+    await connection.runMigrations();
+  } catch (error) {
+    console.error('Error occurred while dropping database or running migrations:', error);
+  }
+  return app;
+}
+
 expect.extend({
   toHaveExactProperties(received: any, expectedProps: string[]) {
     if (!(received !== null && typeof received === 'object')) {

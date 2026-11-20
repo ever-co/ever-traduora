@@ -1,5 +1,6 @@
 import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import * as request from 'supertest';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import './util';
@@ -239,6 +240,57 @@ describe('ProjectClientController (e2e)', () => {
       .expect(res => {
         expect(res.body.data).toHaveLength(0);
       });
+  });
+
+  it('/api/v1/projects/:projectId/clients/:clientId/rotate-secret (POST) should end the tokens issued with the old secret', async () => {
+    let clientId: string;
+    let oldSecret: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject1b.id}/clients`)
+      .set('Authorization', `Bearer ${testingUser1.accessToken}`)
+      .send({ name: 'Client with a leaked secret', role: ProjectRole.Editor })
+      .expect(201)
+      .expect(res => {
+        clientId = res.body.data.id;
+        oldSecret = res.body.data.secret;
+      });
+
+    const requestToken = (secret: string) =>
+      request(app.getHttpServer()).post('/api/v1/auth/token').send({ grant_type: 'client_credentials', client_id: clientId, client_secret: secret });
+    const getTerms = (token: string) =>
+      request(app.getHttpServer()).get(`/api/v1/projects/${testProject1b.id}/terms`).set('Authorization', `Bearer ${token}`);
+
+    const oldToken = (await requestToken(oldSecret).expect(200)).body.access_token;
+    await getTerms(oldToken).expect(200);
+
+    let newSecret: string;
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject1b.id}/clients/${clientId}/rotate-secret`)
+      .set('Authorization', `Bearer ${testingUser1.accessToken}`)
+      .expect(201)
+      .expect(res => {
+        expect(res.body.data).toHaveExactProperties(['id', 'name', 'role', 'secret']);
+        newSecret = res.body.data.secret;
+        expect(newSecret).not.toEqual(oldSecret);
+      });
+
+    // The token issued with the old secret no longer works
+    await getTerms(oldToken).expect(401);
+
+    // A token issued with the new secret works
+    const newToken = (await requestToken(newSecret).expect(200)).body.access_token;
+    await getTerms(newToken).expect(200);
+
+    // The old secret no longer gets a token
+    await requestToken(oldSecret).expect(401);
+  });
+
+  it('a project client token without the hash of its secret should be refused', async () => {
+    // Like the client tokens issued before the token carried the hash of the client's secret
+    const token = app.get(JwtService).sign({ sub: testProjectClient1.id, type: 'client' });
+
+    await request(app.getHttpServer()).get(`/api/v1/projects/${testProject1.id}/terms`).set('Authorization', `Bearer ${token}`).expect(401);
   });
 
   it('a project client should be able to access endpoints according to its role', async () => {

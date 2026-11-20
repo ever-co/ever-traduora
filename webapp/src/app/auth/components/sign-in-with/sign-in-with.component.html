@@ -1,3 +1,13 @@
-<button class="btn" type="button" (click)="signInWithProvider(provider)">
-  <img style="max-height: 48px" [src]="providerToButton(provider)" alt="Sign in with provider logo" />
+<button
+  *ngIf="providerToLabel(provider) as label; else imageButton"
+  class="btn btn-outline-dark w-100"
+  type="button"
+  (click)="signInWithProvider(provider)"
+>
+  {{ label }}
 </button>
+<ng-template #imageButton>
+  <button class="btn" type="button" (click)="signInWithProvider(provider)">
+    <img style="max-height: 48px" [src]="providerToButton(provider)" alt="Sign in with provider logo" />
+  </button>
+</ng-template>

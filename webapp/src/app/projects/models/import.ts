@@ -17,6 +17,7 @@ export const IMPORT_FORMATS: ImportFormat[] = [
   { displayName: 'Strings', extension: 'strings', code: 'strings' },
   { displayName: 'PHP', extension: 'php', code: 'php' },
   { displayName: 'Resource RESX', extension: 'resx', code: 'resx' },
+  { displayName: 'Flutter ARB', extension: 'arb', code: 'arb' },
 ];
 
 export interface ImportResult {
