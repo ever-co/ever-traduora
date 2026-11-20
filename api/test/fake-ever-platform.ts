@@ -1,5 +1,5 @@
 import { ProblemError } from '@ever-co/connect-sdk';
-import { generateKeyPairSync, KeyObject, sign } from 'crypto';
+import { generateKeyPairSync, KeyObject, randomBytes, sign } from 'node:crypto';
 import {
   EverConnectClientFactory,
   EverConnectClientOptions,
@@ -84,7 +84,7 @@ export class FakeEverPlatform {
     const body = part({
       iss: this.issuer,
       aud: 'ever-connect:traduora',
-      jti: `01JPROVISION${Math.random().toString(36).slice(2, 12).toUpperCase().padEnd(10, '0')}`,
+      jti: `01JPROVISION${randomBytes(5).toString('hex').toUpperCase()}`,
       iat: now,
       exp: now + 600,
       typ: 'ever.provision_intent.v1',

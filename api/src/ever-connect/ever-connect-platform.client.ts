@@ -353,8 +353,8 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
       }
       let key = keySet.find(kid, 'intent', nowS);
       // A key published after the set was read: one refresh, as the SDK allows it (the window is taken before the
-      // request, and concurrent lookups share the refresh in flight)
-      if (!key && !keySet.has(kid) && keySet.unknownKidRefreshAllowed(nowS)) {
+      // request). A lookup that finds a refresh in flight waits for it and looks again, whoever started it.
+      if (!key && !keySet.has(kid) && (refreshing || keySet.unknownKidRefreshAllowed(nowS))) {
         await refreshKeys();
         key = keySet.find(kid, 'intent', nowS);
       }

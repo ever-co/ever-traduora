@@ -17,6 +17,7 @@ import { isLocalHost } from '../ever-platform/env';
 import { EverConnectAuditService } from './ever-connect-audit.service';
 import { EverConnectPlatformClient, ProvisionComplete, problemOf } from './ever-connect-platform.client';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
+import { PROVISION_TXN_MAX } from './ever-connect.dto';
 import { EverConnectService } from './ever-connect.service';
 
 /** The header `typ` of a provisioning intent. */
@@ -63,7 +64,7 @@ export interface IntentClaims {
 }
 
 /** What the sealed `provisionTxn` carries: ids, the organization's handle and name, and when it expires. */
-interface ProvisionTxn {
+export interface ProvisionTxn {
   jti: string;
   sub: string;
   org: { id: string; handle: string; displayName: string };
@@ -86,6 +87,11 @@ function decodePart(part: string): any {
   return value;
 }
 
+/** Seals a confirmation for one installation (its Registry id is the salt): AES-256-GCM with a key derived from TR_SECRET. */
+export function sealTxn(txn: ProvisionTxn, secret: string, registryInstanceId: string): string {
+  return wrapKey(Buffer.from(JSON.stringify(txn), 'utf8'), secret, registryInstanceId, PROVISION_TXN_PURPOSE);
+}
+
 /** An address to send the person back to: an absolute https address (http on a local host only), without credentials. */
 export function returnAddress(value: unknown): string | null {
   if (typeof value !== 'string' || !value || value.length > 2048) return null;
@@ -99,10 +105,41 @@ export function returnAddress(value: unknown): string | null {
   }
 }
 
+/** Whether the claims of an intent have the shape `ever.provision_intent.v1` gives them, within this module's bounds. */
+function wellFormed(claims: IntentClaims): boolean {
+  const org = claims.org;
+  const sub = claims.person?.ever_id_sub;
+  return (
+    claims.typ === INTENT_CLAIMS_TYP &&
+    claims.ever_purpose === 'intent' &&
+    claims.mode === 'handoff' &&
+    typeof claims.jti === 'string' &&
+    JTI.test(claims.jti) &&
+    typeof sub === 'string' &&
+    sub.length > 0 &&
+    sub.length <= SUBJECT_MAX &&
+    typeof org?.id === 'string' &&
+    org.id.length <= ID_MAX &&
+    typeof org.handle === 'string' &&
+    org.handle.length <= ID_MAX &&
+    typeof org.display_name === 'string' &&
+    org.display_name.trim().length > 0 &&
+    Number.isInteger(claims.iat) &&
+    Number.isInteger(claims.exp)
+  );
+}
+
+/** An issuer without its trailing slashes (no regular expression: a long run of slashes costs nothing). */
+function trimSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end--;
+  return value.slice(0, end);
+}
+
 /** Whether a database error is a unique or primary key violation (PostgreSQL, MySQL, SQLite). */
 function isDuplicateKey(error: unknown): boolean {
   const record = error as { code?: unknown; driverError?: { code?: unknown }; message?: unknown } | null;
-  const code = record && (record.code || (record.driverError && record.driverError.code));
+  const code = record?.code || record?.driverError?.code;
   return (
     code === '23505' ||
     code === 'ER_DUP_ENTRY' ||
@@ -196,27 +233,7 @@ export class EverConnectProvisionService {
     if (claims.aud !== INTENT_AUDIENCE) {
       throw refuse(HttpStatus.UNAUTHORIZED, 'wrong_audience', 'This intent is not for Traduora');
     }
-    const org = claims.org;
-    if (
-      claims.typ !== INTENT_CLAIMS_TYP ||
-      claims.ever_purpose !== 'intent' ||
-      claims.mode !== 'handoff' ||
-      typeof claims.jti !== 'string' ||
-      !JTI.test(claims.jti) ||
-      !claims.person ||
-      typeof claims.person.ever_id_sub !== 'string' ||
-      !claims.person.ever_id_sub ||
-      claims.person.ever_id_sub.length > SUBJECT_MAX ||
-      !org ||
-      typeof org.id !== 'string' ||
-      org.id.length > ID_MAX ||
-      typeof org.handle !== 'string' ||
-      org.handle.length > ID_MAX ||
-      typeof org.display_name !== 'string' ||
-      !org.display_name.trim() ||
-      !Number.isInteger(claims.iat) ||
-      !Number.isInteger(claims.exp)
-    ) {
+    if (!wellFormed(claims)) {
       throw doesNotVerify();
     }
     if (claims.product !== 'traduora') {
@@ -253,13 +270,13 @@ export class EverConnectProvisionService {
       // The confirmation is valid while the intent is, and never longer than 15 minutes
       exp: Math.min(claims.exp, this.nowS() + INTENT_MAX_TTL_S),
     };
+    const provisionTxn = sealTxn(txn, this.instanceSettings.secret, connection.registryInstanceId);
+    // Never more than the confirm and reject routes take (the bounds of each field keep real intents far below it)
+    if (provisionTxn.length > PROVISION_TXN_MAX) {
+      throw refuse(HttpStatus.UNPROCESSABLE_ENTITY, 'intent_too_large', 'This intent carries more than a confirmation can hold');
+    }
     return {
-      provisionTxn: wrapKey(
-        Buffer.from(JSON.stringify(txn), 'utf8'),
-        this.instanceSettings.secret,
-        connection.registryInstanceId,
-        PROVISION_TXN_PURPOSE,
-      ),
+      provisionTxn,
       jti: txn.jti,
       handle: txn.org.handle,
       displayName: txn.org.displayName,
@@ -272,7 +289,12 @@ export class EverConnectProvisionService {
     const { connection } = await this.connected();
     let txn: ProvisionTxn;
     try {
-      const text = unwrapKey(String(provisionTxn || ''), this.instanceSettings.secret, connection.registryInstanceId, PROVISION_TXN_PURPOSE);
+      const text = unwrapKey(
+        typeof provisionTxn === 'string' ? provisionTxn : '',
+        this.instanceSettings.secret,
+        connection.registryInstanceId,
+        PROVISION_TXN_PURPOSE,
+      );
       txn = JSON.parse(text.toString('utf8'));
     } catch (error) {
       if (error instanceof EverInstanceKeyError && error.code === 'secret_missing') {
@@ -295,18 +317,12 @@ export class EverConnectProvisionService {
    */
   private async hasEverId(userId: string, subject: string): Promise<boolean> {
     const rows = await this.identities.find({ where: { user: { id: userId }, provider: 'everid', subject } });
-    const issuers = [config.providers.everid.issuer, ...(config.providers.everid.allowedIssuers || [])]
-      .filter((issuer): issuer is string => typeof issuer === 'string' && !!issuer.trim())
-      .map(issuer => issuer.trim().replace(/\/+$/, ''));
-    return rows.some(
-      row =>
-        !!row.everPersonId &&
-        issuers.includes(
-          String(row.issuer || '')
-            .trim()
-            .replace(/\/+$/, ''),
-        ),
+    const issuers = new Set(
+      [config.providers.everid.issuer, ...(config.providers.everid.allowedIssuers || [])]
+        .filter((issuer): issuer is string => typeof issuer === 'string' && !!issuer.trim())
+        .map(issuer => trimSlashes(issuer.trim())),
     );
+    return rows.some(row => !!row.everPersonId && issuers.has(trimSlashes(String(row.issuer || '').trim())));
   }
 
   /**
@@ -408,7 +424,7 @@ export class EverConnectProvisionService {
     } catch (error) {
       if (!isDuplicateKey(error)) throw error;
       const existing = await this.provisions.findOne({ where: { jti } });
-      if (existing && existing.state === 'refused') {
+      if (existing?.state === 'refused') {
         return { status: 'refused', returnTo: txn.returnTo };
       }
       throw consumed();
@@ -504,12 +520,13 @@ export class EverConnectProvisionService {
       }
       await this.provisions.update({ jti, audited: false }, { audited: true });
     } catch (error) {
-      this.logger.warn(`ever_connect.provision audit=later reason=${(error && error.name) || 'error'}`);
+      this.logger.warn(`ever_connect.provision audit=later reason=${error?.name || 'error'}`);
     }
   }
 
   private reason(error: unknown): string {
     const problem = problemOf(error);
-    return problem ? `${problem.status}:${problem.code}` : (error instanceof Error && error.message) || 'error';
+    if (problem) return [problem.status, problem.code].join(':');
+    return (error instanceof Error && error.message) || 'error';
   }
 }

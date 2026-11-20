@@ -13,6 +13,7 @@ export const PROVISION_PATH = '/ever-connect/provision';
 /** What an error code of the provisioning routes means to the person. */
 const ERRORS: Record<string, string> = {
   invalid_intent: 'This link is not valid. Start again from app.ever.co.',
+  intent_too_large: 'This link is not valid. Start again from app.ever.co.',
   wrong_audience: 'This link is not for Traduora. Start again from app.ever.co.',
   product_mismatch: 'This link is for another Ever product. Start again from app.ever.co.',
   instance_mismatch: 'This link is for another Traduora installation. Start again from app.ever.co.',
@@ -27,7 +28,16 @@ const ERRORS: Record<string, string> = {
 };
 
 /** Codes after which this link cannot be used any more. */
-const FINAL = ['invalid_intent', 'wrong_audience', 'product_mismatch', 'instance_mismatch', 'intent_expired', 'intent_consumed', 'invalid_txn'];
+const FINAL = new Set([
+  'invalid_intent',
+  'intent_too_large',
+  'wrong_audience',
+  'product_mismatch',
+  'instance_mismatch',
+  'intent_expired',
+  'intent_consumed',
+  'invalid_txn',
+]);
 
 const NOT_AVAILABLE = 'Creating a project from app.ever.co is not available on this Traduora installation.';
 const GENERIC_ERROR = 'That did not work. Please try again.';
@@ -77,7 +87,7 @@ export class ProvisionComponent implements OnInit, OnDestroy {
     this.subscriptions.add(this.store.select(AuthState.isAuthenticated).subscribe(signedIn => (this.signedIn = !!signedIn)));
     this.subscriptions.add(
       this.store
-        .select(state => state.auth && state.auth.providers)
+        .select(state => state.auth?.providers)
         .subscribe((providers: Provider[] | undefined) => (this.everId = (providers || []).find(provider => provider.slug === 'everid'))),
     );
     this.store.dispatch(new GetProviders());
@@ -164,7 +174,7 @@ export class ProvisionComponent implements OnInit, OnDestroy {
     }
     this.wrongAccount = code === 'intent_subject_mismatch';
     // The link cannot be used any more, or provisioning does not answer here (404): it is not kept
-    if ((code && FINAL.includes(code)) || response?.status === 404) {
+    if ((code && FINAL.has(code)) || response?.status === 404) {
       this.provision.forget();
       this.step = 'failed';
     } else if (this.step === 'loading') {

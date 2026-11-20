@@ -45,5 +45,5 @@ export interface PendingAuthorization {
 
 /** A path of this app to return to after a sign-in: an absolute path, never another site (`//host`, `/\host`). */
 export function localReturnPath(value: unknown): string | undefined {
-  return typeof value === 'string' && /^\/(?![\/\\])/.test(value) && value.length <= 512 ? value : undefined;
+  return typeof value === 'string' && /^\/(?![/\\])/.test(value) && value.length <= 512 ? value : undefined;
 }

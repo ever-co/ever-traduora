@@ -5,7 +5,7 @@ process.env.TR_EVER_STATS_ENABLED = 'false';
 // The Ever ID issuer this installation signs in with (sign-in itself stays off: the identities are written directly)
 process.env.TR_AUTH_EVERID_ISSUER = 'https://auth.ever.test';
 
-import { generateKeyPairSync } from 'crypto';
+import { generateKeyPairSync } from 'node:crypto';
 import { config } from '../src/config';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';

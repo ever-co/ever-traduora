@@ -39,7 +39,7 @@ export class EverConnectProvisionController {
   @ApiResponse({ status: HttpStatus.OK, description: 'The intent verifies: a sealed confirmation and the organization to show' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Expired, already used, or this installation is not connected' })
   async intent(@Body() body: EverConnectProvisionIntentRequest) {
-    return { data: await this.provision.intent(body && body.intent) };
+    return { data: await this.provision.intent(body?.intent) };
   }
 
   @Post('confirm')
@@ -51,7 +51,7 @@ export class EverConnectProvisionController {
   @ApiResponse({ status: HttpStatus.OK, description: '`created`, or `exists` for a replay' })
   @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'The account is not signed in with the Ever ID of the intent' })
   async confirm(@Req() req, @Body() body: EverConnectProvisionConfirmRequest) {
-    return { data: await this.provision.confirm(body && body.provisionTxn, req.user.id) };
+    return { data: await this.provision.confirm(body?.provisionTxn, req.user.id) };
   }
 
   /** The sealed confirmation is the capability: whoever holds it (valid while the intent is) may decline. */
@@ -61,6 +61,6 @@ export class EverConnectProvisionController {
   @ApiOperation({ summary: 'Decline a provisioning intent; Ever Platform is told' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Declined' })
   async reject(@Param('jti') jti: string, @Body() body: EverConnectProvisionConfirmRequest) {
-    return { data: await this.provision.reject(jti, body && body.provisionTxn) };
+    return { data: await this.provision.reject(jti, body?.provisionTxn) };
   }
 }
