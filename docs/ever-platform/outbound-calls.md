@@ -59,7 +59,8 @@ only), which the web app reads to show its menu entry. While a module is not loa
 The web app asks `status` once after sign-in to decide whether to show the _Ever Platform_ menu entry, and calls the
 operator routes only from that page. The account settings page asks `GET /api/v1/ever-connect/me/exports` for the
 signed-in user's own exports, and downloads one with `GET /api/v1/ever-connect/me/exports/<id>`; while the connection
-module is not loaded that route does not exist (404), and the page shows no _My data exports_ section.
+module is not loaded that route does not exist (a 404, or the web app's own page where the API serves it), and the page
+shows no _My data exports_ section.
 
 ## Operator opt-ins
 

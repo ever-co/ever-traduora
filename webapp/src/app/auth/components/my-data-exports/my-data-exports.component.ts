@@ -12,7 +12,7 @@ export function exportFileName(row: EverPersonExport): string {
 /**
  * Account settings → My data exports: the exports of the signed-in user's own account, made for an export request the
  * user sent from app.ever.co, each downloadable as a JSON file for 7 days. Hidden while the Ever Platform connection
- * module is not loaded: its routes do not exist then, so the list answers 404.
+ * module is not loaded: its routes do not exist then (see {@link EverPlatformService.myExports}).
  */
 @Component({
   standalone: false,
@@ -36,15 +36,10 @@ export class MyDataExportsComponent implements OnInit {
   refresh(): void {
     this.loadFailed = false;
     this.everPlatform.myExports().subscribe({
+      // null: the connection module is not loaded, so the section stays hidden
       next: rows => (this.exports = rows),
-      error: error => {
-        // 404: the connection module is not loaded (its routes do not exist). Anything else can be tried again
-        if (error instanceof HttpErrorResponse && error.status === 404) {
-          this.exports = null;
-          return;
-        }
-        this.loadFailed = true;
-      },
+      // Anything else (a server error, no answer) can be tried again
+      error: () => (this.loadFailed = true),
     });
   }
 

@@ -57,7 +57,17 @@ describe('MyDataExportsComponent', () => {
   });
 
   it('shows nothing while the connection module is not loaded', () => {
-    const fixture = render(req => req.flush({ error: { code: 'NotFound' } }, { status: 404, statusText: 'Not Found' }));
+    // The API without the module: no route (404)
+    let fixture = render(req => req.flush({ error: { code: 'NotFound' } }, { status: 404, statusText: 'Not Found' }));
+    expect(text(fixture).trim()).toBe('');
+    // The API that serves the web app answers an unknown path with the app's own index.html (200, not JSON)
+    fixture = render(req => req.flush('<!doctype html><html><body><app-root></app-root></body></html>'));
+    expect(text(fixture).trim()).toBe('');
+    // In a browser that HTML fails to parse as JSON: an error that still carries the status 200
+    fixture = render(req => req.error(new ProgressEvent('error'), { status: 200, statusText: 'OK' }));
+    expect(text(fixture).trim()).toBe('');
+    // Any other body is not a list of exports either
+    fixture = render(req => req.flush({ data: { unexpected: true } }));
     expect(text(fixture).trim()).toBe('');
   });
 

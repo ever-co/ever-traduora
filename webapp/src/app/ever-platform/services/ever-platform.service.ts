@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { Payload } from '../../shared/models/http';
 import { environment } from '../../../environments/environment';
@@ -185,11 +185,18 @@ export class EverPlatformService {
   }
 
   /**
-   * The signed-in user's own exports that can be downloaded now. Any signed-in user may ask; the route exists only while
-   * the connection module is loaded, so a 404 means it is not.
+   * The signed-in user's own exports that can be downloaded now, or `null` while the connection module is not loaded.
+   * Any signed-in user may ask; the route exists only with the module. Without it the API answers 404, or, where it
+   * serves the web app, the app's own index.html for the unknown path (200, not JSON): both mean "not loaded", as any
+   * body other than a list does. Other errors are passed on.
    */
-  myExports(): Observable<EverPersonExport[]> {
-    return this.http.get<Payload<EverPersonExport[]>>(`${this.endpoint}/ever-connect/me/exports`).pipe(map(res => res.data));
+  myExports(): Observable<EverPersonExport[] | null> {
+    return this.http.get<Payload<EverPersonExport[]>>(`${this.endpoint}/ever-connect/me/exports`).pipe(
+      map(res => (res && Array.isArray(res.data) ? res.data : null)),
+      catchError(error =>
+        error instanceof HttpErrorResponse && (error.status === 404 || error.status === 200) ? of(null) : throwError(() => error),
+      ),
+    );
   }
 
   /** One export of the signed-in user's own account, as JSON (404 once it expired). */
