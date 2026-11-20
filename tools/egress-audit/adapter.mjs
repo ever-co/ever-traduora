@@ -23,6 +23,9 @@ const REQUEST_TIMEOUT_MS = 10_000;
 /** The least time left before the statistics scheduler's first slot when the operator switches them off (loaded_off). */
 const SLOT_MARGIN_MS = 30_000;
 
+/** How long the adapter waits for the scheduler to arm its first slot (it boots a few seconds after the API starts). */
+const SLOT_WAIT_MS = 30_000;
+
 /** The harness's fetch, with a timeout on every request. */
 const timed =
   fetch =>
@@ -81,6 +84,31 @@ async function confirmEmail({ baseUrl, fetch, headers, log }) {
   log?.(`verify e-mail: ${verified.status}`);
   if (verified.status !== 200) {
     throw new Error(`the operator could not confirm their e-mail (${verified.status})`);
+  }
+}
+
+/**
+ * The statistics scheduler's first slot, once it is armed and well ahead. Until the scheduler has booted (a few seconds
+ * after the API starts) the status names its boot timer instead, a few seconds ahead: the status is read again until
+ * the slot is at least SLOT_MARGIN_MS ahead, for at most SLOT_WAIT_MS; then the run stops as a fault rather than a verdict.
+ */
+async function armedSlot({ baseUrl, fetch, headers, log }) {
+  const deadline = Date.now() + SLOT_WAIT_MS;
+  for (;;) {
+    const status = await json(fetch, `${baseUrl}/api/v1/ever-stats/status`, { headers });
+    const nextSendAt = status.body?.data?.nextSendAt;
+    if (status.status !== 200) {
+      throw new Error(`the statistics status answered ${status.status}`);
+    }
+    if (typeof nextSendAt === 'number' && nextSendAt - Date.now() >= SLOT_MARGIN_MS) {
+      return nextSendAt;
+    }
+    if (Date.now() >= deadline) {
+      const away = typeof nextSendAt === 'number' ? `${Math.round((nextSendAt - Date.now()) / 1000)} s away` : 'not named';
+      throw new Error(`the first statistics slot is ${away}: too close to switch off first`);
+    }
+    log?.('statistics scheduler: slot not armed yet');
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 }
 
@@ -155,20 +183,13 @@ export default {
   },
 
   /**
-   * The operator (confirmed at sign-in) switches the statistics off on the Ever Platform page. Only while the scheduler's
-   * first slot is still well ahead (its time as the API reports it): otherwise the run could not tell a send before the
-   * switch-off from one after it, and it stops as a fault rather than a verdict.
+   * The operator (confirmed at sign-in) switches the statistics off on the Ever Platform page. Only once the scheduler's
+   * first slot is armed and still well ahead (its time as the API reports it): otherwise the run could not tell a send
+   * before the switch-off from one after it, and it stops as a fault rather than a verdict.
    */
   async prepareLoadedOff({ baseUrl, fetch: untimed, headers, log }) {
     const fetch = timed(untimed);
-    const before = await json(fetch, `${baseUrl}/api/v1/ever-stats/status`, { headers });
-    const nextSendAt = before.body?.data?.nextSendAt;
-    if (before.status !== 200 || typeof nextSendAt !== 'number') {
-      throw new Error(`the statistics status does not name the next slot (${before.status})`);
-    }
-    if (nextSendAt - Date.now() < SLOT_MARGIN_MS) {
-      throw new Error(`the first statistics slot is ${Math.round((nextSendAt - Date.now()) / 1000)} s away: too close to switch off first`);
-    }
+    const nextSendAt = await armedSlot({ baseUrl, fetch, headers, log });
     log?.(`first slot in ${Math.round((nextSendAt - Date.now()) / 1000)} s`);
     const response = await fetch(`${baseUrl}/api/v1/ever-stats/enabled`, {
       method: 'PUT',
