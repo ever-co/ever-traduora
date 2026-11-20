@@ -22,7 +22,7 @@ This directory holds only Traduora's inputs:
 |---|---|
 | `egress-audit.config.json` | The API leg: the API as the audited process, the module routes probed in `off`, the watched window (300 s), `TR_EVER_` as the prefix of the mode variables |
 | `docker-compose.audit.yml` | The image under test (`TR_IMAGE`) on SQLite with a random `TR_SECRET` per run, and a local mail catcher (Mailpit, pinned by digest) |
-| `adapter.mjs` | Signs in as the operator the API creates at its first start, reads the Ever Platform routes, confirms the operator's e-mail through the mail catcher and switches the statistics off (`loaded_off`) |
+| `adapter.mjs` | Signs in as the operator the API creates at its first start and confirms their e-mail through the mail catcher (an operator must have a confirmed one), opens the Ever Platform routes and checks that each answers as the mode loads it (200 for a loaded module, 404 otherwise), and switches the statistics off (`loaded_off`) |
 | `harness.json` | The harness version and integrity |
 
 The Traduora web app is static files served by the API process itself, so this config is the API leg only

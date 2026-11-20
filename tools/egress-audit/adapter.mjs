@@ -51,6 +51,35 @@ async function verificationToken({ fetch, log }) {
   }
 }
 
+/**
+ * The operator confirms their e-mail (an operator of the Ever Platform routes must have a confirmed one), through a
+ * verification link read from the mail catcher, as a person would.
+ */
+async function confirmEmail({ baseUrl, fetch, headers, log }) {
+  const resend = await fetch(`${baseUrl}/api/v1/auth/resend-verification-email`, { method: 'POST', headers });
+  await resend.text();
+  log?.(`verification mail: ${resend.status}`);
+  const token = await verificationToken({ fetch, log });
+  const verified = await fetch(`${baseUrl}/api/v1/auth/verify-email`, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  });
+  await verified.text();
+  log?.(`verify e-mail: ${verified.status}`);
+  if (verified.status !== 200) {
+    throw new Error(`the operator could not confirm their e-mail (${verified.status})`);
+  }
+}
+
+/** What the Ever Platform routes must answer the operator, by mode: the modules loaded in it, or none in off. */
+const LOADED = {
+  off: { stats: false, connect: false },
+  loaded_off: { stats: true, connect: true },
+  positive_stats: { stats: true, connect: false },
+  positive_connect: { stats: false, connect: true },
+};
+
 export default {
   /**
    * Extra environment of each mode, without the product prefix (the harness adds TR_). loaded_off: a local reporting
@@ -63,7 +92,10 @@ export default {
     loaded_off: { EVER_STATS_API_URL: 'http://10.231.8.1:8080', EVER_STATS_SEND_INTERVAL_S: '240' }, // NOSONAR
   },
 
-  /** Signs in as the operator the API created at its first start; later hooks send these headers. */
+  /**
+   * Signs in as the operator the API created at its first start, and confirms their e-mail so that the operator routes
+   * answer them in every mode; later hooks send these headers.
+   */
   async login({ baseUrl, fetch, log }) {
     const token = await json(fetch, `${baseUrl}/api/v1/auth/token`, {
       method: 'POST',
@@ -74,7 +106,9 @@ export default {
       throw new Error(`the operator could not sign in (${token.status})`);
     }
     log?.('operator: signed in');
-    return { Authorization: `Bearer ${token.body.access_token}` };
+    const headers = { Authorization: `Bearer ${token.body.access_token}` };
+    await confirmEmail({ baseUrl, fetch, headers, log });
+    return headers;
   },
 
   /** What a user would create; nothing is needed for the statistics. */
@@ -82,34 +116,32 @@ export default {
     return {};
   },
 
-  /** Opens what the Ever Platform page reads (404 when the modules are off). */
-  async openSettings({ baseUrl, fetch, headers, log }) {
-    for (const path of ['/api/v1/ever-platform/status', '/api/v1/ever-stats/status', '/api/v1/ever-stats/reports']) {
+  /**
+   * Opens what the Ever Platform page reads, as the operator, and checks that each route answers as the mode loads it
+   * (200 for a loaded module, 404 otherwise): a run whose settings never opened proves nothing about them.
+   */
+  async openSettings({ baseUrl, fetch, headers, log, mode }) {
+    const loaded = LOADED[mode] ?? null;
+    const routes = [
+      ['/api/v1/ever-platform/status', loaded && (loaded.stats || loaded.connect)],
+      ['/api/v1/ever-stats/status', loaded && loaded.stats],
+      ['/api/v1/ever-stats/reports', loaded && loaded.stats],
+      ['/api/v1/ever-connect/status', loaded && loaded.connect],
+      ['/api/v1/ever-connect/integrations', loaded && loaded.connect],
+      ['/api/v1/ever-connect/managed', loaded && loaded.connect],
+    ];
+    for (const [path, expected] of routes) {
       const response = await fetch(`${baseUrl}${path}`, { headers });
       await response.text();
       log?.(`${path}: ${response.status}`);
+      if (loaded && response.status !== (expected ? 200 : 404)) {
+        throw new Error(`${path} answered ${response.status} to the operator in ${mode}; expected ${expected ? 200 : 404}`);
+      }
     }
   },
 
-  /**
-   * The operator confirms their e-mail (an operator must have one: a verification link through the mail catcher, as a
-   * person would), then switches the statistics off on the Ever Platform page.
-   */
+  /** The operator (confirmed at sign-in) switches the statistics off on the Ever Platform page. */
   async prepareLoadedOff({ baseUrl, fetch, headers, log }) {
-    const resend = await fetch(`${baseUrl}/api/v1/auth/resend-verification-email`, { method: 'POST', headers });
-    await resend.text();
-    log?.(`verification mail: ${resend.status}`);
-    const token = await verificationToken({ fetch, log });
-    const verified = await fetch(`${baseUrl}/api/v1/auth/verify-email`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    });
-    await verified.text();
-    log?.(`verify e-mail: ${verified.status}`);
-    if (verified.status !== 200) {
-      throw new Error(`the operator could not confirm their e-mail (${verified.status})`);
-    }
     const response = await fetch(`${baseUrl}/api/v1/ever-stats/enabled`, {
       method: 'PUT',
       headers: { ...headers, 'Content-Type': 'application/json' },
