@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { config } from '../config';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
+import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectProvision } from '../entity/ever-connect-provision.entity';
 import { Plan } from '../entity/plan.entity';
 import { ProjectUser, ProjectRole } from '../entity/project-user.entity';
@@ -121,6 +122,7 @@ export class EverConnectProvisionService {
   constructor(
     @InjectRepository(EverConnectProvision) private readonly provisions: Repository<EverConnectProvision>,
     @InjectRepository(UserIdentity) private readonly identities: Repository<UserIdentity>,
+    @InjectRepository(EverConnectIntegration) private readonly integrationRows: Repository<EverConnectIntegration>,
     @Inject(EVER_CONNECT_SETTINGS) private readonly settings: EverConnectSettings,
     @Inject(EVER_INSTANCE_SETTINGS) private readonly instanceSettings: EverInstanceSettings,
     private readonly connect: EverConnectService,
@@ -410,7 +412,7 @@ export class EverConnectProvisionService {
     if (!live || live.connection.status !== 'active' || !live.connection.registryInstanceId) {
       throw new Error('not_connected');
     }
-    const app = returnAddress(this.settings.appUrl);
+    const app = await this.publicAddress();
     const body: ProvisionComplete =
       row.state === 'created'
         ? {
@@ -435,6 +437,20 @@ export class EverConnectProvisionService {
     }
     await this.provisions.update({ jti }, { pendingComplete: false, tenantLinkId, completeRefused: finalRefusal });
     this.logger.log(`ever_connect.provision complete=${finalRefusal ? `refused reason=${finalRefusal}` : 'sent'} state=${row.state}`);
+  }
+
+  /**
+   * The address of this installation the operator gave Ever Platform (the `instance_url` integration), sent with a
+   * creation so that app.ever.co can open the project; none when the operator gave none (never guessed from the server).
+   */
+  private async publicAddress(): Promise<string | null> {
+    const row = await this.integrationRows.findOne({ where: { key: 'instance_url' } });
+    if (!row || row.state !== 'enabled' || !row.config) return null;
+    try {
+      return returnAddress(JSON.parse(row.config).base_url);
+    } catch {
+      return null;
+    }
   }
 
   /** Sends the completions Ever Platform has not received yet (called by the background round). */

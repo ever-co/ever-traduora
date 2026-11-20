@@ -5,7 +5,7 @@ import { EverConnectSettings } from './ever-connect.settings';
 
 /** The service with only the settings it reads to decide whether its routes answer. */
 const withSwitch = (provisionEnabled: boolean | undefined) =>
-  new EverConnectProvisionService(null, null, { provisionEnabled } as EverConnectSettings, null, null, null);
+  new EverConnectProvisionService(null, null, null, { provisionEnabled } as EverConnectSettings, null, null, null);
 
 describe('EverConnectProvisionEnabledGuard', () => {
   it('lets the provisioning routes answer only with TR_EVER_CONNECT_PROVISION_ENABLED=true', () => {

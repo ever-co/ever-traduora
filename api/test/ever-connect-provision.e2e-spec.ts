@@ -11,6 +11,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
 import { EverConnectAudit } from '../src/entity/ever-connect-audit.entity';
+import { EverConnectIntegration } from '../src/entity/ever-connect-integration.entity';
 import { EverConnectProvision } from '../src/entity/ever-connect-provision.entity';
 import { Project } from '../src/entity/project.entity';
 import { User } from '../src/entity/user.entity';
@@ -34,7 +35,7 @@ async function connectedApp(platform: FakeEverPlatform, provisionEnabled: boolea
     { provide: EVER_CONNECT_CLIENT_FACTORY, useValue: platform.factory },
     {
       provide: EVER_CONNECT_SETTINGS,
-      useValue: { ...readEverConnectSettings(), apiUrl: 'http://127.0.0.1:8080', provisionEnabled, appUrl: 'https://translate.example.test' },
+      useValue: { ...readEverConnectSettings(), apiUrl: 'http://127.0.0.1:8080', provisionEnabled },
     },
     { provide: EVER_INSTANCE_SETTINGS, useValue: { installSource: 'self-hosted', adminEmails: [OPERATOR_EMAIL], secret: 'e2e-provision-secret' } },
   ]);
@@ -156,6 +157,19 @@ describe('Ever Platform provisioning hand-off, switched on (e2e)', () => {
   });
 
   it('creates one project with the person as its admin, tells Ever Platform, and answers a replay with exists', async () => {
+    // The address the operator gave Ever Platform (instance_url) goes with the creation
+    const integrations = app.get(Connection).getRepository(EverConnectIntegration);
+    await integrations.save(
+      integrations.create({
+        key: 'instance_url',
+        state: 'enabled',
+        consentId: 'c-url',
+        scopeVersion: 1,
+        pendingRemoteRevoke: false,
+        config: JSON.stringify({ base_url: 'https://translate.example.test/' }),
+        updatedAt: Date.now(),
+      }),
+    );
     const before = await projects();
     const intent = platform.intent();
     const { jti } = platform.claimsOf(intent);
