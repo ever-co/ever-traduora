@@ -209,6 +209,17 @@ describeOnSqlite('EverIdSessionService', () => {
       expect(await service.isRevoked(bobs.sid, bob.id)).toBe(false);
     });
 
+    it('refuses a pending sign-in made before a logout that named only the subject', async () => {
+      await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit);
+      const signedIn = new Date(Date.now() - 5000);
+      await service.revokeIdentity(ISSUER, 's1');
+      expect(await service.openSession(alice.id, ISSUER, 'sid-pending', 's1', signedIn)).toBeUndefined();
+      // A sign-in made after the logout opens its session
+      const later = await service.openSession(alice.id, ISSUER, 'sid-after', 's1', new Date(Date.now() + 5000));
+      expect(later).toBeDefined();
+      expect(await service.isRevoked(later.sid, alice.id)).toBe(false);
+    });
+
     it('accepts a logout token id once per issuer, and again after it was released', async () => {
       expect(await service.rememberLogoutJti(ISSUER, 'jti-1')).toBe(true);
       expect(await service.rememberLogoutJti(ISSUER, 'jti-1')).toBe(false);

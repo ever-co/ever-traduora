@@ -529,6 +529,8 @@ export class AuthController {
     code_verifier?: string;
   }): Promise<{ data: { id: string; email: string; name: string; accessToken: string } }> {
     const slug = payload.provider;
+    // Before the code exchange and the account checks: a subject-only logout after this ends the sign-in
+    const signedInAt = Date.now();
     const identity = await this.verifyOidcCode(slug, payload);
 
     const linked = await this.everIdSessions.findIdentity(identity.issuer, identity.subject);
@@ -562,7 +564,10 @@ export class AuthController {
       throw new AuthProviderException(HttpStatus.FORBIDDEN, 'signup_disabled', 'Signups are invitation based only.');
     }
 
-    const pending = this.everIdSessions.seal({ purpose: 'signup', ...this.everIdSessions.pendingFrom(slug, identity) }, SIGNUP_PENDING_TTL_SECONDS);
+    const pending = this.everIdSessions.seal(
+      { purpose: 'signup', ...this.everIdSessions.pendingFrom(slug, identity), signedInAt },
+      SIGNUP_PENDING_TTL_SECONDS,
+    );
     throw new AuthProviderException(HttpStatus.CONFLICT, 'signup_confirmation_required', 'Confirm to create your account', {
       pending,
       name: identity.name,
@@ -634,7 +639,13 @@ export class AuthController {
     );
 
     await this.welcomeNewUser(account, true);
-    const accessToken = await this.signOidcUserToken(account, pending.issuer, pending.subject, pending.sid);
+    const accessToken = await this.signOidcUserToken(
+      account,
+      pending.issuer,
+      pending.subject,
+      pending.sid,
+      new Date(typeof pending.signedInAt === 'number' ? pending.signedInAt : (pending.exp - SIGNUP_PENDING_TTL_SECONDS) * 1000),
+    );
     return { data: { id: account.id, email: account.email, name: account.name, accessToken } };
   }
 
@@ -849,9 +860,10 @@ export class AuthController {
    * Signs an access token for a sign-in with an OpenID Connect provider. Like any user token, plus the provider's
    * session (`sid`), which a back-channel logout ends, and the token's own id (`jti`).
    */
-  private async signOidcUserToken(user: User, issuer: string, subject: string, providerSid: string | undefined): Promise<string> {
-    // Only while the identity is still the account's (a disconnect at the same moment ends the sign-in)
-    const session = await this.everIdSessions.openSession(user.id, issuer, providerSid, subject);
+  private async signOidcUserToken(user: User, issuer: string, subject: string, providerSid: string | undefined, signedInAt?: Date): Promise<string> {
+    // Only while the identity is still the account's (a disconnect at the same moment ends the sign-in), and not after
+    // a logout that named only the subject once the person signed in with the provider
+    const session = await this.everIdSessions.openSession(user.id, issuer, providerSid, subject, signedInAt);
     if (!session) {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'session_ended', 'This Ever ID session has ended, please sign in again');
     }
