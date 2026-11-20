@@ -8,6 +8,10 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- TODO
+
+## 0.24.1
+
 - The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
   allowed and the weekly windows (UTC), set, replace or remove the backup directory (SQLite), and see the recent
   operations and why one did not run. See
