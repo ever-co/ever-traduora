@@ -18,8 +18,8 @@ To download the source code for each release, check out [GitHub](https://github.
   about the installation as a whole (counts only; no name, e-mail address, project, term, translation or key). Set
   `TR_EVER_STATS_ENABLED=false` (or use the switch on the _Ever Platform_ page) to turn them off; the API needs a
   restart for the variable to apply.
-- **The Ever Platform connection is off by default** and needs `TR_EVER_CONNECT_ENABLED=true`; nothing is sent
-  before the operator connects.
+- **The Ever Platform connection is off by default** and needs `TR_EVER_CONNECT_ENABLED=true`; no connection data
+  is sent before the operator connects (the anonymous statistics above are separate).
 - **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret
   (grant type `client_credentials`), as they do when a token expires.
 - Database migrations add Ever ID sign-in, the translation change history, the instance identity and the Ever Platform
