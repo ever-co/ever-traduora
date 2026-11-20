@@ -170,6 +170,10 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         this.lastFeedAt = now;
         await this.readFeed(this.settings.feedMode === 'longpoll' ? LONG_POLL_S : 0);
       }
+      if (connection.status === 'active') {
+        // A statistics identity the operator reset is linked again within a tick (no feed event announces it)
+        await this.connect.syncStatsLink(connection.kid).catch(error => this.connect.handleCallError(error, 'stats_link', connection.kid));
+      }
       if (connection.status === 'active' && this.person) {
         await this.person.syncLinks().catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }

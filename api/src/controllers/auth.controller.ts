@@ -539,7 +539,7 @@ export class AuthController {
       }
       await this.everIdSessions.touchLastLogin(linked.id);
       // Unlike the Google sign-in, no pending invite is accepted here: the account accepts them itself
-      const accessToken = await this.signOidcUserToken(user, identity.issuer, identity.sid);
+      const accessToken = await this.signOidcUserToken(user, identity.issuer, identity.subject, identity.sid);
       return { data: { id: user.id, email: user.email, name: user.name, accessToken } };
     }
 
@@ -634,7 +634,7 @@ export class AuthController {
     );
 
     await this.welcomeNewUser(account, true);
-    const accessToken = await this.signOidcUserToken(account, pending.issuer, pending.sid);
+    const accessToken = await this.signOidcUserToken(account, pending.issuer, pending.subject, pending.sid);
     return { data: { id: account.id, email: account.email, name: account.name, accessToken } };
   }
 
@@ -849,8 +849,9 @@ export class AuthController {
    * Signs an access token for a sign-in with an OpenID Connect provider. Like any user token, plus the provider's
    * session (`sid`), which a back-channel logout ends, and the token's own id (`jti`).
    */
-  private async signOidcUserToken(user: User, issuer: string, providerSid: string | undefined): Promise<string> {
-    const session = await this.everIdSessions.openSession(user.id, issuer, providerSid);
+  private async signOidcUserToken(user: User, issuer: string, subject: string, providerSid: string | undefined): Promise<string> {
+    // Only while the identity is still the account's (a disconnect at the same moment ends the sign-in)
+    const session = await this.everIdSessions.openSession(user.id, issuer, providerSid, subject);
     if (!session) {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'session_ended', 'This Ever ID session has ended, please sign in again');
     }

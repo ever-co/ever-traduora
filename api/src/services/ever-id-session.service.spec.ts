@@ -114,6 +114,16 @@ describeOnSqlite('EverIdSessionService', () => {
       expect(await service.isRevoked(session.sid, alice.id)).toBe(true);
       // Another account keeps its sessions
       expect(await service.isRevoked(bobs.sid, bob.id)).toBe(false);
+      // A sign-in that read the identity before the disconnect gets no session
+      expect(await service.openSession(alice.id, 'https://idp.example.test', 'sid-late', 's1')).toBeUndefined();
+    });
+
+    it('opens a session for a named identity only while the account still has it', async () => {
+      await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit);
+      const session = await service.openSession(alice.id, 'https://idp.example.test', 'sid-named', 's1');
+      expect(await service.isRevoked(session.sid, alice.id)).toBe(false);
+      // Another account's identity opens nothing
+      expect(await service.openSession(bob.id, 'https://idp.example.test', 'sid-other', 's1')).toBeUndefined();
     });
 
     it('removes the identities of a deleted account', async () => {

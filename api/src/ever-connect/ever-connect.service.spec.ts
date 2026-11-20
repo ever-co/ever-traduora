@@ -210,7 +210,7 @@ describe('EverConnectService', () => {
   });
 
   it('links the statistics again after the operator resets the instance identity', async () => {
-    const { connect, instance } = build({ statsLoaded: true });
+    const { connect, instance, scheduler } = build({ statsLoaded: true });
     await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
     platform.integrationStates.stats_link = { state: 'enabled', enabled: true, consentId: 'c3', scopeVersion: 1 };
     const links = () => platform.calls.filter(call => call.name === 'statsLink').map(call => call.args[0]);
@@ -220,11 +220,14 @@ describe('EverConnectService', () => {
     const first = (await instance.read()).instanceId;
     expect(links()).toEqual([{ statsInstanceId: first }]);
 
+    // Reset with a quiet feed: the scheduler links the new identity without an integration refresh
     const reset = await instance.resetIdentity('u1');
     expect(reset.instanceId).not.toBe(first);
-    await connect.refreshIntegrations();
-    await connect.refreshIntegrations();
-    expect(links()).toEqual([{ statsInstanceId: first }, { statsInstanceId: reset.instanceId }]);
+    platform.calls.length = 0;
+    await scheduler.tick();
+    await scheduler.tick();
+    expect(platform.names()).not.toContain('integrations');
+    expect(links()).toEqual([{ statsInstanceId: reset.instanceId }]);
   });
 
   it('waits for approval, reading only its own state, then starts', async () => {
