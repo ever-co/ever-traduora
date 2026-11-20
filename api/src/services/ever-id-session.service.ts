@@ -168,8 +168,9 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
   }
 
   /**
-   * Removes one of the account's identities. Returns 'not_found' when the account has no such identity, and
-   * 'last_sign_in_method' when it would leave the account without any way to sign in (no password, no other identity).
+   * Removes one of the account's identities and ends the account's Ever ID sessions. Returns 'not_found' when the
+   * account has no such identity, and 'last_sign_in_method' when it would leave the account without any way to sign in
+   * (no password, no other identity).
    */
   async unlink(userId: string, identityId: string): Promise<'removed' | 'not_found' | 'last_sign_in_method'> {
     // With the account's row locked: two disconnects at once must not remove its last two ways to sign in
@@ -184,6 +185,9 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
         return 'last_sign_in_method' as const;
       }
       await entityManager.delete(UserIdentity, { id: identity.id });
+      // Sessions record the account, not the identity: end the account's Ever ID sessions, so a token issued through
+      // the removed identity stops working now (a later logout that names only its subject can no longer find it)
+      await entityManager.update(EverIdSession, { userId, revokedAt: IsNull() }, { revokedAt: new Date() });
       return 'removed' as const;
     });
   }

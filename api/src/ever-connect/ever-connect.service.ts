@@ -491,7 +491,8 @@ export class EverConnectService {
     const { connection, client } = live;
     const self = await client.self();
     if (self.status === 'revoked' || self.status === 'disconnected') {
-      await this.endedByPlatform(self.status, 'state');
+      // An answer read for a connection that was replaced meanwhile never ends the new one
+      await this.endedByPlatform(self.status, 'state', connection.kid);
       return;
     }
     const status = self.status === 'active' || self.status === 'pending_approval' ? self.status : connection.status;
@@ -556,11 +557,19 @@ export class EverConnectService {
       if (before !== row.state && (before !== undefined || (row.state !== 'available' && row.state !== 'coming_soon'))) {
         await this.audit.record('integration.state', 'platform', `${key}=${row.state}`);
       }
-      // The statistics link is sent until it succeeded once for this consent (a failed send is tried again here)
-      if (key === 'stats_link' && row.state === 'enabled' && !parseJson<{ linked?: boolean }>(row.config, {}).linked) {
-        if (await this.linkStats('platform').catch(error => this.handleCallError(error, 'stats_link', live.connection.kid).then(() => false))) {
-          row.config = JSON.stringify({ linked: true });
-          await this.integrationRows.save(row);
+      // The statistics link is sent until it succeeded once for this consent and the current statistics identity: a
+      // failed send is tried again here, and so is a link of an identity the operator reset since
+      if (key === 'stats_link' && row.state === 'enabled') {
+        const identity = await this.instance.read();
+        const linked = parseJson<{ linked?: boolean; statsInstanceId?: string }>(row.config, {});
+        if (!linked.linked || !identity || linked.statsInstanceId !== identity.instanceId) {
+          const sent = await this.linkStats('platform').catch(error =>
+            this.handleCallError(error, 'stats_link', live.connection.kid).then(() => false as const),
+          );
+          if (sent) {
+            row.config = JSON.stringify({ linked: true, statsInstanceId: sent });
+            await this.integrationRows.save(row);
+          }
         }
       }
     }
@@ -763,7 +772,8 @@ export class EverConnectService {
    * `stats_link`: links the anonymous statistics of this installation to its organization, with a statement signed by
    * the statistics key (the connection key never signs it). Only when the statistics are loaded.
    */
-  async linkStats(actorRef: string): Promise<boolean> {
+  /** Sends the statistics link. Returns the statistics instance id it linked, or `false` when nothing was sent. */
+  async linkStats(actorRef: string): Promise<string | false> {
     if (!this.settings.statsLoaded || this.settings.integrationsDeny.includes('stats_link')) {
       return false;
     }
@@ -787,6 +797,6 @@ export class EverConnectService {
     );
     await live.client.statsLink({ statement, statsInstanceId: record.instanceId, statsPublicKey: record.statsPublicKey }, randomUUID());
     await this.audit.record('stats_link.sent', actorRef, null);
-    return true;
+    return record.instanceId;
   }
 }

@@ -43,7 +43,7 @@ describe('EverConnectService', () => {
       audit,
     );
     const scheduler = new EverConnectSchedulerService(dataSource.getRepository(EverConnectConnection), { ...SETTINGS, ...settings }, connect, false);
-    return { connect, scheduler, audit };
+    return { connect, scheduler, audit, instance };
   };
 
   beforeEach(async () => {
@@ -132,6 +132,42 @@ describe('EverConnectService', () => {
     expect(connection.feedCursor).toBe('e1');
   });
 
+  it('never lets a feed page read for an earlier connection end the connection that replaced it', async () => {
+    // The operator disconnects and connects again while the old connection's long poll is still waiting
+    let reconnect: (() => Promise<void>) | null = null;
+    const original = platform.factory;
+    Object.assign(platform, {
+      factory: (options => {
+        const client = original(options);
+        const events = client.events;
+        client.events = async (cursor, waitS) => {
+          const page = await events(cursor, waitS);
+          if (reconnect) {
+            const run = reconnect;
+            reconnect = null;
+            await run();
+          }
+          return page;
+        };
+        return client;
+      }) as typeof platform.factory,
+    });
+    const { connect, scheduler } = build();
+    await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
+    const before = (await connect.read()).kid;
+    reconnect = async () => {
+      await connect.disconnect('user:u1');
+      await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
+    };
+    platform.events = [{ id: 'e7', type: 'ever.registry.instance.disconnected' }];
+
+    await scheduler.readFeed(0);
+
+    const after = await connect.read();
+    expect(after.kid).not.toBe(before);
+    expect(after.status).toBe('active');
+  });
+
   it('sets the public address only after the instance_url consent', async () => {
     const { connect } = build();
     await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
@@ -171,6 +207,24 @@ describe('EverConnectService', () => {
     const views = await connect.acceptIntegration('stats_link', true, 'user:u1');
     expect(platform.calls.find(call => call.name === 'acceptIntegration').args).toEqual(['stats_link', 'c2', true]);
     expect(views.find(view => view.key === 'stats_link').state).toBe('enabled');
+  });
+
+  it('links the statistics again after the operator resets the instance identity', async () => {
+    const { connect, instance } = build({ statsLoaded: true });
+    await connect.connect('EVC-TEST-0000-0001', '', 'user:u1');
+    platform.integrationStates.stats_link = { state: 'enabled', enabled: true, consentId: 'c3', scopeVersion: 1 };
+    const links = () => platform.calls.filter(call => call.name === 'statsLink').map(call => call.args[0]);
+
+    await connect.refreshIntegrations();
+    await connect.refreshIntegrations();
+    const first = (await instance.read()).instanceId;
+    expect(links()).toEqual([{ statsInstanceId: first }]);
+
+    const reset = await instance.resetIdentity('u1');
+    expect(reset.instanceId).not.toBe(first);
+    await connect.refreshIntegrations();
+    await connect.refreshIntegrations();
+    expect(links()).toEqual([{ statsInstanceId: first }, { statsInstanceId: reset.instanceId }]);
   });
 
   it('waits for approval, reading only its own state, then starts', async () => {
