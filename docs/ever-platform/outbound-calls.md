@@ -38,6 +38,7 @@ installation, stops all of them.
 | Person link | `POST /v1/instances/me/person-links`, `DELETE /v1/instances/me/person-links/{user}` | Within 5 minutes of a user linking (or removing) their Ever ID, while an organization consented to `ever_id_login` | The Traduora user id, the Ever ID issuer and subject, `explicit` or `confirmed`, the installation's tenant (`*`), link and name; no e-mail, no name of a person |
 | Maintenance operation result | `POST /v1/instances/me/managed-operations/{operation}/result` | After a requested operation ran or was refused | `succeeded` or `failed`, the version, and a backup's opaque reference and size; never a path or a file name |
 | Answer to a person's request | `POST /v1/instances/me/ack` | After a deletion or export request from the event feed | The request id, the answer (`anonymised`, `exported` or `no_account`) and a reason code; never the export |
+| Provisioning answer | `POST /v1/provision-intents/{jti}/complete` | A person created or declined a project handed off from app.ever.co (`TR_EVER_CONNECT_PROVISION_ENABLED=true` only); sent again until received | The installation id, the project id and the user id (or `none`), the address of this installation, `created` or `refused`; no e-mail, no name of a person |
 | Disconnect | `POST /v1/instances/me/disconnect` | The operator presses *Disconnect* | Nothing |
 
 The row numbers of the first table are those of the Ever Platform SDK's list of calls (`ever-co/ever-connect-sdk`, contract version
@@ -48,6 +49,7 @@ The row numbers of the first table are those of the Ever Platform SDK's list of 
 
 The statistics module adds these routes to the API; the list is `api/src/ever-stats/ever-stats.routes.json`. The
 connection module adds `/api/v1/ever-connect/*` (`health` public, `me/exports` for each signed-in user's own exports,
+`provision/*` for the hand-off from app.ever.co, which answers 404 unless `TR_EVER_CONNECT_PROVISION_ENABLED=true`,
 `managed` and every other route for the operator only; the list is `api/src/ever-connect/ever-connect.routes.json`), and either module adds `GET /api/v1/ever-platform/status` (operator
 only), which the web app reads to show its menu entry. While a module is not loaded none of its routes exists.
 

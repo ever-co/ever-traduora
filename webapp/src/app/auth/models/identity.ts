@@ -39,4 +39,11 @@ export interface PendingAuthorization {
   codeVerifier: string;
   intent: 'signin' | 'connect';
   createdAt: number;
+  /** Where a sign-in returns to once it succeeds: a path of this app (for example the provisioning page). */
+  returnTo?: string;
+}
+
+/** A path of this app to return to after a sign-in: an absolute path, never another site (`//host`, `/\host`). */
+export function localReturnPath(value: unknown): string | undefined {
+  return typeof value === 'string' && /^\/(?![\/\\])/.test(value) && value.length <= 512 ? value : undefined;
 }

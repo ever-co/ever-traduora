@@ -118,6 +118,38 @@ receives the status, the version and, for a backup, an opaque reference (`bk-<ti
 path or a file name. The history of the last 50 operations and every opt-in change are
 kept here and in the audit trail.
 
+## Provisioning from app.ever.co
+
+An owner or admin of an organization can start Traduora from app.ever.co ("Start your company") and have its project
+created on a connected Traduora installation, usually the Ever-operated Traduora cloud. This is a **hand-off**: nothing
+is created until the person confirms on a Traduora page. It is **off by default**: every route below answers 404 unless
+`TR_EVER_CONNECT_PROVISION_ENABLED=true` (exactly), and only with `TR_EVER_CONNECT_ENABLED=true`.
+
+1. app.ever.co sends the person to `/ever-connect/provision#intent=<signed intent>`. The intent rides in the address
+   fragment, which browsers do not send to any server; the page removes it from the address bar at once and keeps it for
+   this browser tab only.
+2. The page posts it to `POST /api/v1/ever-connect/provision/intent` (public, a few requests a minute per address). The
+   API checks the signed intent: a compact JWS signed with EdDSA, header `typ` `ever-intent+jwt`, a key of purpose
+   `intent` in the root-verified key set of Ever Platform (the SDK's), the issuer, `aud` `ever-connect:traduora`,
+   `product` `traduora`, `mode` `handoff`, at most 15 minutes between `iat` and `exp`, this installation's id when the
+   intent names one, and an intent id (`jti`) not answered yet. It answers a sealed confirmation (encrypted with a key
+   derived from `TR_SECRET`, valid while the intent is) and the organization's name and handle. **Nothing is created.**
+   The intent itself is never stored or logged.
+3. The person signs in with the **same Ever ID** they used on app.ever.co (*Continue with Ever ID* returns to the page)
+   and presses **Create**: `POST /api/v1/ever-connect/provision/confirm`. An account without that Ever ID gets
+   `403 intent_subject_mismatch`. In one database transaction the intent id is claimed and **one project** is created,
+   named after the organization, with the person as its admin and the default plan (Traduora has no organizations yet:
+   a project is its unit with an admin). Then Traduora tells Ever Platform
+   `POST /v1/provision-intents/{jti}/complete {instance_id, product_tenant_id: <project id>, product_user_ref: <user id>,
+   urls.app, result: created}`. The same confirmation again answers `exists` and creates nothing.
+4. **Decline** (`POST /api/v1/ever-connect/provision/intents/<jti>/reject`) creates nothing and tells Ever Platform
+   `result: refused` (`product_tenant_id: none`).
+
+When Ever Platform cannot be reached at that moment, the answer is kept and sent again by the background round; an
+answer Ever Platform no longer takes (the intent expired or was withdrawn there) is recorded and not sent again. Each
+answer is kept with the intent id, the project and user ids, and the organization id only (no e-mail, no name of a
+person), and the audit trail records `provision.created` or `provision.refused`.
+
 ## Disconnect
 
 **Disconnect** tells Ever Platform the installation leaves your organization, then deletes the connection key, the
@@ -140,6 +172,7 @@ the newest rows were removed. The page lists the latest changes.
 | `TR_EVER_CONNECT_CODE` | unset | A connect code redeemed once at start |
 | `TR_EVER_CONNECT_INTEGRATIONS_DENY` | unset | Integration keys kept off on this installation |
 | `TR_EVER_CONNECT_FEED_MODE` | `longpoll` | `interval` reads the event feed every 15 minutes instead |
+| `TR_EVER_CONNECT_PROVISION_ENABLED` | off | `true` lets app.ever.co hand off project creation (see [Provisioning](#provisioning-from-appeverco)) |
 | `TR_EVER_PLATFORM_API_URL` | `https://api.ever.co` | The Ever Platform API |
 | `TR_EVER_INSTALL_SOURCE` | `self-hosted` | How this installation was set up, as the operator declares it |
 | `TR_EVER_ADMIN_EMAILS` | `TR_ADMIN_EMAIL` | The operators (comma-separated e-mails) |
