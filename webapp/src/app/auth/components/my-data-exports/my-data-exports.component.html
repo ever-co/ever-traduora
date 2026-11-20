@@ -1,0 +1,30 @@
+<ng-container *ngIf="exports || loadFailed">
+  <br />
+  <hr />
+
+  <h5 class="font-serif">My data exports</h5>
+  <p class="small text-muted">
+    When you ask app.ever.co for an export of your data, this installation makes one for each account your Ever ID is linked to. Download it here as a
+    JSON file within 7 days.
+  </p>
+
+  <div *ngIf="loadFailed" class="alert alert-danger" role="alert">
+    Your exports could not be loaded.
+    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="refresh()">Try again</button>
+  </div>
+  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+
+  <p *ngIf="exports && !exports.length" class="text-muted">You have no export to download.</p>
+
+  <ul *ngIf="exports?.length" class="list-group mb-3">
+    <li *ngFor="let row of exports" class="list-group-item d-flex justify-content-between align-items-center">
+      <span>
+        Made {{ row.createdAt | date: 'medium' }}<br />
+        <small class="text-muted">Available until {{ row.expiresAt | date: 'medium' }}</small>
+      </span>
+      <button type="button" class="btn btn-outline-primary btn-sm" [disabled]="!!downloading" (click)="download(row)">
+        {{ downloading === row.jobId ? 'Downloading...' : 'Download' }}
+      </button>
+    </li>
+  </ul>
+</ng-container>
