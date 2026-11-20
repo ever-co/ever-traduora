@@ -45,7 +45,7 @@ To download the source code for each release, check out [GitHub](https://github.
   installation to an organization with a code from app.ever.co (*Ever Platform* in the account menu). While connected,
   Traduora sends a daily heartbeat, reads its verified plan and the integrations an owner or admin consented to in
   app.ever.co (the installation address, linking the anonymous statistics), lets the operator switch each one off, and
-  keeps an audit trail of every change. Nothing is sent before the operator connects, and *Disconnect* ends it. See
+  keeps an audit trail of every change. No connection data is sent before the operator connects, and *Disconnect* ends it. See
   [Ever Platform connection](ever-platform/connection.md)
 
 - Anonymous usage statistics, on by default and turned off with `TR_EVER_STATS_ENABLED=false` (or the switch on the
