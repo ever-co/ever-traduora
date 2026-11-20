@@ -212,7 +212,11 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         await this.applyTypes(['ever.consent', 'ever.entitlements', 'ever.registry.tenant_link'], live.connection.kid);
         const lastId = (error as { lastId?: string }).lastId || null;
         if (lastId) await live.client.ack(lastId);
-        await this.connections.update({ id: CONNECTION_ID }, { feedCursor: lastId });
+        // Only for the connection and the position this read started at (a reconnect meanwhile has its own cursor)
+        await this.connections.update(
+          { id: CONNECTION_ID, kid: live.connection.kid, feedCursor: live.connection.feedCursor === null ? IsNull() : live.connection.feedCursor },
+          { feedCursor: lastId },
+        );
         // The state was read again in full: due work no longer waits for an earlier failed page
         this.feedFailed = false;
         return 0;

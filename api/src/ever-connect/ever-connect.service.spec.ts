@@ -135,10 +135,14 @@ describe('EverConnectService', () => {
   it('never lets a feed page read for an earlier connection end the connection that replaced it', async () => {
     // The operator disconnects and connects again while the old connection's long poll is still waiting
     let reconnect: (() => Promise<void>) | null = null;
+    let redemptions = 0;
     const original = platform.factory;
     Object.assign(platform, {
       factory: (options => {
         const client = original(options);
+        // Each redemption gets its own connection key, as Ever Platform gives
+        const redeem = client.redeem;
+        client.redeem = async input => ({ ...(await redeem(input)), kid: `kid-${++redemptions}` });
         const events = client.events;
         client.events = async (cursor, waitS) => {
           const page = await events(cursor, waitS);

@@ -582,8 +582,12 @@ export class EverConnectService {
     if (linked.linked && identity && linked.statsInstanceId === identity.instanceId) return;
     const sent = await this.linkStats('platform').catch(error => this.handleCallError(error, 'stats_link', kid).then(() => false as const));
     if (sent) {
-      row.config = JSON.stringify({ linked: true, statsInstanceId: sent });
-      await this.integrationRows.save(row);
+      // Only the config, and only while the same consent is still enabled: a switch-off made while the link was sent
+      // (state, pendingRemoteRevoke) is never undone, and a row deleted meanwhile is not written again
+      await this.integrationRows.update(
+        { key: 'stats_link', state: 'enabled', consentId: row.consentId === null ? IsNull() : row.consentId, pendingRemoteRevoke: false },
+        { config: JSON.stringify({ linked: true, statsInstanceId: sent }) },
+      );
     }
   }
 
