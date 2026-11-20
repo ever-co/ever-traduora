@@ -141,8 +141,9 @@ is created until the person confirms on a Traduora page. It is **off by default*
    derived from `TR_SECRET`, valid while the intent is) and the organization's name and handle. **Nothing is created.**
    The intent itself is never stored or logged.
 3. The person signs in with the **same Ever ID** they used on app.ever.co (*Continue with Ever ID* returns to the page)
-   and presses **Create**: `POST /api/v1/ever-connect/provision/confirm`. An account without that Ever ID gets
-   `403 intent_subject_mismatch`. In one database transaction the intent id is claimed and **one project** is created,
+   and presses **Create**: `POST /api/v1/ever-connect/provision/confirm`. An account without that Ever ID (a sign-in
+   with the intent's subject at the Ever ID issuer of `TR_AUTH_EVERID_ISSUER`; the issuers of
+   `TR_AUTH_EVERID_ALLOWED_ISSUERS` do not count) gets `403 intent_subject_mismatch`. In one database transaction the intent id is claimed and **one project** is created,
    named after the organization, with the person as its admin and the default plan (Traduora has no organizations yet:
    a project is its unit with an admin). Then Traduora tells Ever Platform
    `POST /v1/provision-intents/{jti}/complete {instance_id, product_tenant_id: <project id>, product_user_ref: <user id>,

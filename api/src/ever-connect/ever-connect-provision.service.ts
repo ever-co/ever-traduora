@@ -132,6 +132,12 @@ function wellFormed(claims: IntentClaims): boolean {
   );
 }
 
+/** The Ever ID issuer this installation signs in with, without its trailing slashes; null when none is set. */
+export function everIdIssuer(): string | null {
+  const issuer = config.providers.everid.issuer;
+  return typeof issuer === 'string' && issuer.trim() ? trimSlashes(issuer.trim()) : null;
+}
+
 /** An issuer without its trailing slashes (no regular expression: a long run of slashes costs nothing). */
 function trimSlashes(value: string): string {
   let end = value.length;
@@ -328,16 +334,15 @@ export class EverConnectProvisionService {
 
   /**
    * Whether the account holds this Ever ID: an Ever ID sign-in (an identity that names an Ever person id) with the
-   * intent's subject, from the Ever ID issuer this installation signs in with.
+   * intent's subject, from the Ever ID issuer this installation signs in with (`TR_AUTH_EVERID_ISSUER`). Only that
+   * issuer: a subject means one person within its issuer, and the issuers of `TR_AUTH_EVERID_ALLOWED_ISSUERS` (others,
+   * for instance during a move of the identity provider) have subjects of their own.
    */
   private async hasEverId(userId: string, subject: string): Promise<boolean> {
+    const issuer = everIdIssuer();
+    if (!issuer) return false;
     const rows = await this.identities.find({ where: { user: { id: userId }, provider: 'everid', subject } });
-    const issuers = new Set(
-      [config.providers.everid.issuer, ...(config.providers.everid.allowedIssuers || [])]
-        .filter((issuer): issuer is string => typeof issuer === 'string' && !!issuer.trim())
-        .map(issuer => trimSlashes(issuer.trim())),
-    );
-    return rows.some(row => !!row.everPersonId && issuers.has(trimSlashes(String(row.issuer || '').trim())));
+    return rows.some(row => !!row.everPersonId && trimSlashes(String(row.issuer || '').trim()) === issuer);
   }
 
   /**

@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { EverConnectProvisionEnabledGuard } from './ever-connect-provision.controller';
+import { config } from '../config';
 import { auditEntry, EverConnectProvisionService, returnAddress, sealTxn } from './ever-connect-provision.service';
 import { PROVISION_TXN_MAX } from './ever-connect.dto';
 import { EverConnectSettings } from './ever-connect.settings';
@@ -138,5 +139,43 @@ describe('the audit row of a provisioning answer', () => {
       actorRef: 'system',
       detail: 'jti=j2',
     });
+  });
+});
+
+describe('the Ever ID of a confirmation', () => {
+  const everid = config.providers.everid;
+  const original = { issuer: everid.issuer, allowedIssuers: everid.allowedIssuers };
+  const identity = (issuer: string) => ({ issuer, subject: 'alice-subject', everPersonId: 'person-alice' });
+
+  /** Whether an account with these identities may confirm an intent for `alice-subject`. */
+  const holds = (rows: unknown[]) => {
+    const identities = { find: jest.fn().mockResolvedValue(rows) };
+    const service = new EverConnectProvisionService(null, identities as never, null, {} as EverConnectSettings, null, null, null, null);
+    return (service as any).hasEverId('u1', 'alice-subject') as Promise<boolean>;
+  };
+
+  beforeEach(() => {
+    everid.issuer = 'https://auth.ever.test/';
+    everid.allowedIssuers = ['https://old-idp.example.test'];
+  });
+
+  afterEach(() => {
+    everid.issuer = original.issuer;
+    everid.allowedIssuers = original.allowedIssuers;
+  });
+
+  it('is the subject at the Ever ID issuer this installation signs in with', async () => {
+    expect(await holds([identity('https://auth.ever.test')])).toBe(true);
+  });
+
+  it('is never the same subject at another issuer, an allowed one included', async () => {
+    expect(await holds([identity('https://old-idp.example.test')])).toBe(false);
+    expect(await holds([identity('https://elsewhere.test')])).toBe(false);
+  });
+
+  it('needs an Ever person id, and an Ever ID issuer set on this installation', async () => {
+    expect(await holds([{ ...identity('https://auth.ever.test'), everPersonId: null }])).toBe(false);
+    everid.issuer = undefined;
+    expect(await holds([identity('https://auth.ever.test')])).toBe(false);
   });
 });
