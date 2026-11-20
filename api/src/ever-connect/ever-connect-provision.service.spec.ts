@@ -61,3 +61,32 @@ describe('sealTxn', () => {
     expect(sealed.length).toBeLessThan(PROVISION_TXN_MAX);
   });
 });
+
+describe('the audit row of a provisioning answer', () => {
+  const settings = { provisionEnabled: true } as EverConnectSettings;
+  const row = { jti: 'j1', state: 'created', userId: 'u1', projectId: 'p1', audited: false };
+
+  it('never makes an answer that is recorded fail when the database cannot be read', async () => {
+    const provisions = { findOne: jest.fn().mockRejectedValue(new Error('database gone')), update: jest.fn() };
+    const audit = { record: jest.fn() };
+    const service = new EverConnectProvisionService(provisions as never, null, null, settings, null, null, audit as never);
+    await expect((service as any).recordAudit('j1')).resolves.toBeUndefined();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('writes the row once, for the caller that claimed it, and releases the claim when the write fails', async () => {
+    const provisions = { findOne: jest.fn().mockResolvedValue(row), update: jest.fn().mockResolvedValue({ affected: 1 }) };
+    const audit = { record: jest.fn().mockRejectedValue(new Error('audit full')) };
+    const service = new EverConnectProvisionService(provisions as never, null, null, settings, null, null, audit as never);
+    await expect((service as any).recordAudit('j1')).resolves.toBeUndefined();
+    expect(provisions.update).toHaveBeenNthCalledWith(1, { jti: 'j1', audited: false }, { audited: true });
+    expect(provisions.update).toHaveBeenNthCalledWith(2, { jti: 'j1', audited: true }, { audited: false });
+
+    // Another caller claimed it first: nothing is written
+    const taken = { findOne: jest.fn().mockResolvedValue(row), update: jest.fn().mockResolvedValue({ affected: 0 }) };
+    const auditTaken = { record: jest.fn() };
+    const other = new EverConnectProvisionService(taken as never, null, null, settings, null, null, auditTaken as never);
+    await (other as any).recordAudit('j1');
+    expect(auditTaken.record).not.toHaveBeenCalled();
+  });
+});

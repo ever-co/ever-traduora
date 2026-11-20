@@ -510,11 +510,18 @@ export class EverConnectProvisionService {
 
   /** Writes the audit row of an answer once (`provision.created` or `provision.refused`); a failure is retried later. */
   private async recordAudit(jti: string): Promise<void> {
-    const row = await this.provisions.findOne({ where: { jti } });
-    if (!row || row.audited) return;
-    // Claimed first: of the person's request and the background round, only the caller that set the flag writes the row
-    const claim = await this.provisions.update({ jti, audited: false }, { audited: true });
-    if (!claim.affected) return;
+    let row: EverConnectProvision | null;
+    try {
+      row = await this.provisions.findOne({ where: { jti } });
+      if (!row || row.audited) return;
+      // Claimed first: of the person's request and the background round, only the caller that set the flag writes it
+      const claim = await this.provisions.update({ jti, audited: false }, { audited: true });
+      if (!claim.affected) return;
+    } catch (error) {
+      // Never an error for an answer that is already recorded: the background round writes the row later
+      this.logger.warn(`ever_connect.provision audit=later reason=${error?.name || 'error'}`);
+      return;
+    }
     try {
       if (row.state === 'created') {
         await this.audit.record('provision.created', `user:${row.userId}`, `project=${row.projectId}`);
