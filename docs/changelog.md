@@ -10,6 +10,119 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - TODO
 
+## 0.24.0
+
+### Upgrade notes
+
+- **Anonymous usage statistics are on by default.** Once a day the API sends Ever Platform one small signed report
+  about the installation as a whole (counts only; no name, e-mail address, project, term, translation or key). Set
+  `TR_EVER_STATS_ENABLED=false` (or use the switch on the _Ever Platform_ page) to turn them off; the API needs a
+  restart for the variable to apply.
+- **The Ever Platform connection is off by default** and needs `TR_EVER_CONNECT_ENABLED=true`; no connection data
+  is sent before the operator connects (the anonymous statistics above are separate).
+- **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret
+  (grant type `client_credentials`), as they do when a token expires.
+- Database migrations add Ever ID sign-in, the translation change history, the instance identity and the Ever Platform
+  connection. They run automatically unless `TR_DB_AUTOMIGRATE=false`.
+
+### Changes
+
+- With the Ever Platform connection on, an owner or admin of the organization can ask from app.ever.co for a health
+  report, a backup (SQLite) or a backup check. Each runs only with the organization's consent **and** the operator's
+  opt-in for that kind, inside the operator's windows; Ever Platform receives the status, the version and, for a
+  backup, an opaque reference and its size only (never a path or a file name). Updates are
+  never run from inside the container. See
+  [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
+
+- With the Ever Platform connection on, Traduora answers a person's export and deletion requests sent from app.ever.co
+  for the accounts their Ever ID is linked to: an export (profile, Ever ID, projects and roles) that only that account
+  can download for 7 days, or the removal of the Ever ID from the account (the account, its password and its projects
+  stay). While an organization consented to `ever_id_login`, the Ever IDs users signed in with are reported as person
+  links (ids only), so these requests reach the installation. See
+  [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
+
+- Optional Ever Platform connection, off by default. With `TR_EVER_CONNECT_ENABLED=true` the operator can connect the
+  installation to an organization with a code from app.ever.co (*Ever Platform* in the account menu). While connected,
+  Traduora sends a daily heartbeat, reads its verified plan and the integrations an owner or admin consented to in
+  app.ever.co (the installation address, linking the anonymous statistics), lets the operator switch each one off, and
+  keeps an audit trail of every change. No connection data is sent before the operator connects, and *Disconnect* ends it. See
+  [Ever Platform connection](ever-platform/connection.md)
+
+- Anonymous usage statistics, on by default and turned off with `TR_EVER_STATS_ENABLED=false` (or the switch on the
+  _Ever Platform_ page). The API sends Ever Platform one small signed report a day about the installation as a whole: how many users, projects, terms, translations, project
+  locales and API clients it has, how many translations changed this month, and whether Google sign-in and sign-ups are
+  on. No name, e-mail address, project, term, translation or key is ever sent. The operator (`TR_EVER_ADMIN_EMAILS`,
+  default `TR_ADMIN_EMAIL`) finds an _Ever Platform_ page in the account menu that shows what is sent, the last report,
+  _Send now_, a switch and _Reset instance identity_. With `TR_EVER_STATS_ENABLED=false` nothing is loaded and nothing is
+  sent. See
+  [Anonymous usage statistics](ever-platform/anonymous-usage-statistics.md)
+
+- XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`
+
+- The translations page no longer keeps the error of a failed save when you
+  pick another locale. Before, the red message of the previous locale stayed
+  above the list of the new one, so it looked as if that locale had failed to
+  load or to save. An error that comes up while loading or saving in the new
+  locale still shows, and so does an error of the terms, which belong to
+  every locale
+
+- Screen readers announce error messages when they appear. Before, nothing was read out: on the translations page the error of a failed save shows above the list, out of view when the edited row is further down, so a screen reader user believed the value was saved. The same held for the errors of the other pages (terms, labels, locales, team, API keys, project settings) and of a failed import or export. The warning icon of these messages is no longer read out as "warning". A translation save or an import that is tried again and fails with the same error is announced again, since the old error is removed while the retry runs
+
+- Security: CSV export also removes the `=`, `+`, `-`, `@`, tab and carriage
+  return characters right after each `;` in a term or translation. A
+  spreadsheet whose list separator is `;` (the default in many European
+  locales) starts a new cell there, so a value such as `x;=1+1` or
+  `x;=cmd|' /C calc'!A0` gave a cell with a live formula. Now `x;=1+1` is
+  exported as `x;1+1`. The `;` itself and every other character stay, so
+  `a; =b` (with a space after the `;`) is exported unchanged. The same
+  characters also go right after a line break in a value, and after quotes
+  right after a `;` or a line break (`x;"=1+1` is exported as `x;"1+1`):
+  such a spreadsheet does not see the quotes around a translation, so it
+  started a new row at a line break inside it, and read `""=1+1` as `=1+1`.
+  A line of a multi-line value that starts with one of these characters
+  loses it in the CSV export
+
+- When an export fails because the format cannot hold some terms (a term that is also the parent of other terms in `jsonnested`, `yamlnested` or `php`, or a term starting with `@` in `arb`), the API answers 400 with a message that names those terms instead of "Your request seems to be invalid or malformed", and the webapp shows that message instead of a general hint, so the term to rename can be found in a large project
+
+- Security: sign-ins sent at the same time no longer get past the lockout after
+  failed sign-ins (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default). Each sign-in read the
+  count before any failure was stored, so a burst of wrong passwords for one
+  account was checked in full: with the default limit of 100 sign-ins per minute
+  per IP, about 100 guesses a minute instead of the 3 that lock the account. Now
+  each sign-in counts before its password is checked, and those beyond the
+  maximum get 429. Without Redis, a refused sign-in no longer adds to the stored
+  count, which stops at the maximum. With Redis, the count is no longer extended
+  by each attempt: it ends `TR_LOGIN_ATTEMPTS_TTL` (15 minutes by default) after
+  it started, at the first sign-in it counted or at the last successful one
+
+- The emails show names, project names and email addresses as typed. They are plain text, but were written with HTML escaping, so a user named `O'Neil` got `Hi O&#x27;Neil,` and an invitation to the project `R&D` named it `R&amp;D`. The links in the emails do not change
+
+- XLIFF 1.2 import no longer refuses the whole file as malformed when a unit has no `<target>` in a file with `target-language` (such units are skipped now, the others are imported), when a value is a single placeholder (`<target><x id="INTERPOLATION" equiv-text="{{ n }}"/></target>`), or when units sit inside `<group>`. It also keeps the text of every placeholder that has an `equiv-text` (`INTERPOLATION_1` and the others, not only `INTERPOLATION`) and the text inside `<g>`, `<mrk>` and `<ph>`. Before, that text was left out and the stored translation was overwritten with words and placeholders missing
+
+- The translations, API keys and team pages show the error when a save fails. Before, a translation the API refused (a value over 8192 characters, or a term a teammate had just deleted) kept the new text on screen with no message and was gone after a reload, and a failed role change or revoke of an API key or an invitation showed nothing. The team page now also clears its errors when you leave it, so they no longer show up later on the API keys page
+
+- Security: CSV export removes all the `=`, `+`, `-`, `@`, tab and carriage return characters at the start of a term or translation, not only the first one, so a doubled trigger such as `==1+1` or `+=cmd|' /C calc'!A0` no longer reaches the file as a formula. Values that start with a digit, `/`, `\`, `,`, `;` or `|` are exported unchanged: before, their first character was cut off (`404.title` became `04.title` and `/help` became `help`), so importing the file again created the wrong terms. A value with a carriage return inside is now quoted: unquoted, a spreadsheet started a new row there, so `hello\r=1+1` still gave a cell with a live formula
+
+- Java properties (`.properties`) import keeps every value as the text in the file. Before, `0`, `false`, `null` and `undefined` were imported as empty translations, and numbers were rewritten: `1.10` became `1.1`, `007` became `7`, `+33` became `33` and `0x1F` became `31`. A term whose value was a number or `true` also got a new history entry each time the same file was imported again
+
+- Export in `php` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), as `jsonnested` and `yamlnested` do, and the webapp says so instead of asking to try again
+
+- Without Redis, failed sign-ins count from zero again once 15 minutes have passed since the last one. Before, the stored count kept growing until a successful sign-in, so a single typo days later could reach the maximum (`TR_LOGIN_ATTEMPTS_MAX`, 3 by default) and lock the account for 15 minutes, even with the right password
+
+- RESX export no longer puts a backslash before `'`, `"`, `?` and `@` (that is Android string escaping; .NET shows the backslashes as text). RESX import keeps double quotes instead of dropping them, reads `<value>` even when `<comment>` comes first, and imports an empty `<value />` as an empty translation instead of rejecting the whole file as malformed. A RESX file exported by an earlier version still has those backslashes, and import now keeps them as text: before you import such a file, remove the backslash from `\'`, `\"`, `\?` and `\@`, or export the file again from this version
+
+- The password reset email links to the reset page again: the link kept one slash after `https:` (`https:/host/reset-password`), so mail clients did not open it, and it did not encode the email, so an address with a `+` (`jane+tr@example.com`) reached the reset page with a space instead and could not be reset
+
+- The locale and label pickers (export, import, new locale, reference locale, assign label) work with a keyboard: each result is a button that Tab reaches and Enter or Space chooses, and screen readers announce which one is selected. Their search boxes have a label
+- On Export, screen readers tell the two locale pickers apart: each search box is named by its own visible label, each list of locales has its own name, and the two inputs no longer share an id. The decorative search and label icons are no longer read out, so a label option is announced by its name alone
+- The locale pickers on Export ("Select the locale to export", "Select the fallback locale (optional)") and Import ("Select the destination locale") link their visible label to their search box: clicking the label focuses the box, and screen readers and voice control name the box by that label. Before, the labels pointed at nothing, the Export boxes had a different hidden name, and the Import box was named only "Search locales"
+- Security: rotating an API client's secret now ends the tokens issued with the old secret. Before, they kept working until they expired (24 hours by default, `TR_AUTH_TOKEN_EXPIRES`), so only deleting the client cut off whoever had the leaked secret
+- **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret (grant type `client_credentials`), as they do when a token expires
+- Export in `jsonnested` or `yamlnested` answers 400 instead of 500 when a term is also the parent of other terms (`app` and `app.title`), which these formats cannot hold, and the webapp says so instead of asking to try again. A term named `hasOwnProperty` no longer breaks these exports
+- Export in `jsonnested` or `yamlnested` keeps terms named `__proto__` (`__proto__`, `__proto__.x`, `a.__proto__`). Before, the export left them out without a warning, so importing such a file and exporting it again lost them
+- Support for Flutter ARB (`.arb`) files added: import and export with format `arb`. Export writes `@@locale`; import skips `@@…` and `@key` metadata entries (descriptions and placeholders are not kept), and export answers 400 when a term key starts with `@`, which ARB reserves for metadata
+- Android XML import keeps the whole value of a string. A CDATA string was imported empty and a string with an inline tag (`<b>`, `<xliff:g>`) was cut at that tag, and either way the stored translation was overwritten. Now CDATA is read as text, `<xliff:g>` is replaced by its content as the Android build does, and other inline tags are kept as markup. `plurals`, `string-array` and other resource types are skipped instead of being added as empty terms
+
 ## 0.23.0
 
 ### Security

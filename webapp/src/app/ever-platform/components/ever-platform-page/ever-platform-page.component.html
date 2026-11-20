@@ -1,0 +1,13 @@
+<div class="h-100 overflow-scroll">
+  <div class="d-flex flex-1 flex-column justify-content-start align-items-center py-5 mb-5">
+    <div class="card w-100" style="max-width: 720px">
+      <div class="card-body">
+        <h4 class="card-title font-serif">Ever Platform</h4>
+        <div *ngIf="loaded && !pages" class="alert alert-secondary">This page is not available.</div>
+        <app-ever-platform-connection *ngIf="pages?.connect"></app-ever-platform-connection>
+        <hr *ngIf="pages?.connect && pages?.stats" class="my-4" />
+        <app-ever-platform-statistics *ngIf="pages?.stats"></app-ever-platform-statistics>
+      </div>
+    </div>
+  </div>
+</div>

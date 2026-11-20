@@ -11,7 +11,15 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Quickstart',
       collapsed: false,
-      items: ['getting-started', 'screenshots', 'deployment', 'configuration'],
+      items: [
+        'getting-started',
+        'screenshots',
+        'deployment',
+        'configuration',
+        'ever-platform/anonymous-usage-statistics',
+        'ever-platform/connection',
+        'ever-platform/outbound-calls',
+      ],
     },
     {
       type: 'category',

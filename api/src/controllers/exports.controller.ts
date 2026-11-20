@@ -22,8 +22,11 @@ import { phpExporter } from '../formatters/php';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiProduces, ApiResponse } from '@nestjs/swagger';
 import { androidXmlExporter } from '../formatters/android-xml';
 import { resXExporter } from '../formatters/resx';
-import { merge } from 'lodash';
+import { ArbReservedTermError, arbExporter } from '../formatters/arb';
+import { NestedKeyConflictError } from '../formatters/nested-key-conflict';
+import { FormatCannotHoldTermsException } from '../errors';
 import { resolveColumnName } from '../utils/alias-helper';
+import { mergeWithFallback } from '../utils/fallback-merge';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
 
 @Controller('api/v1/projects/:projectId/exports')
@@ -42,7 +45,10 @@ export class ExportsController {
   @ApiOperation({ summary: `Export all translated terms for a project's locale` })
   @ApiProduces('application/octet-stream')
   @ApiResponse({ status: HttpStatus.OK, description: 'File exported' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request, or the format cannot hold some terms of the project: the error message then names them',
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async export(@Req() req: Request, @Res() res: Response, @Param('projectId') projectId: string, @Query() query: ExportQuery) {
@@ -79,7 +85,8 @@ export class ExportsController {
     queryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
 
     if (query.untranslated) {
-      queryBuilder.andWhere("translation.value = ''");
+      // A term without a row in this locale joins as NULL (e.g. a term created by an import of another locale)
+      queryBuilder.andWhere("(translation.value = '' OR translation.value IS NULL)");
     }
 
     const termsWithTranslations = await queryBuilder.getMany();
@@ -131,7 +138,7 @@ export class ExportsController {
 
         const dataWithFallback: IntermediateTranslationFormat = {
           iso: query.locale,
-          translations: merge(fallbackTermsWithTranslationsMapped, data.translations),
+          translations: mergeWithFallback(fallbackTermsWithTranslationsMapped, data.translations),
         };
 
         serialized = await this.dump(query.format, dataWithFallback);
@@ -154,11 +161,25 @@ export class ExportsController {
       case 'jsonflat':
         return await jsonFlatExporter(data);
       case 'jsonnested':
-        return await jsonNestedExporter(data);
+        try {
+          return await jsonNestedExporter(data);
+        } catch (err) {
+          if (err instanceof NestedKeyConflictError) {
+            throw new FormatCannotHoldTermsException(err.message);
+          }
+          throw err;
+        }
       case 'yamlflat':
         return await yamlFlatExporter(data);
       case 'yamlnested':
-        return await yamlNestedExporter(data);
+        try {
+          return await yamlNestedExporter(data);
+        } catch (err) {
+          if (err instanceof NestedKeyConflictError) {
+            throw new FormatCannotHoldTermsException(err.message);
+          }
+          throw err;
+        }
       case 'properties':
         return await propertiesExporter(data);
       case 'po':
@@ -166,9 +187,25 @@ export class ExportsController {
       case 'strings':
         return await stringsExporter(data);
       case 'php':
-        return await phpExporter(data);
+        try {
+          return await phpExporter(data);
+        } catch (err) {
+          if (err instanceof NestedKeyConflictError) {
+            throw new FormatCannotHoldTermsException(err.message);
+          }
+          throw err;
+        }
       case 'resx':
         return await resXExporter(data);
+      case 'arb':
+        try {
+          return await arbExporter(data);
+        } catch (err) {
+          if (err instanceof ArbReservedTermError) {
+            throw new FormatCannotHoldTermsException(err.message);
+          }
+          throw err;
+        }
       default:
         throw new Error('Export format not implemented');
     }

@@ -388,6 +388,186 @@ describe('ImportController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/imports (POST) should not count an existing locale again when importing new terms into it', async () => {
+    const project = await createTestProject(app, testingUser);
+    const sixtyTerms = (await jsonFlatExporter({
+      translations: new Array(60).fill(0).map((_, index) => ({ term: `sixty.${index}`, translation: `value ${index}` })),
+    })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ code: 'de_DE' })
+      .expect(201);
+
+    // One locale and 60 strings in total, within the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(sixtyTerms), 'file')
+      .expect(200)
+      .expect({
+        data: {
+          terms: { added: 60, skipped: 0 },
+          translations: { upserted: 60 },
+        },
+      });
+  });
+
+  it('/api/v1/projects/:projectId/imports (POST) should count a locale created by the import once', async () => {
+    const project = await createTestProject(app, testingUser);
+    const fortyTerms = (await jsonFlatExporter({
+      translations: new Array(40).fill(0).map((_, index) => ({ term: `forty.${index}`, translation: `value ${index}` })),
+    })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(fortyTerms), 'file')
+      .expect(200);
+
+    // The same 40 terms into a new locale: two locales and 40 terms are 80 strings, within the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(fortyTerms), 'file')
+      .expect(200)
+      .expect({
+        data: {
+          terms: { added: 0, skipped: 40 },
+          translations: { upserted: 40 },
+        },
+      });
+  });
+
+  it('/api/v1/projects/:projectId/imports (POST) should refuse an import that goes one string over the plan limit', async () => {
+    const project = await createTestProject(app, testingUser);
+    const hundredTerms = (await jsonFlatExporter({
+      translations: new Array(100).fill(0).map((_, index) => ({ term: `hundred.${index}`, translation: `value ${index}` })),
+    })) as string;
+    const oneMoreTerm = (await jsonFlatExporter({ translations: [{ term: 'one.more', translation: 'value' }] })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ code: 'de_DE' })
+      .expect(201);
+
+    // One locale and 100 terms are exactly the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(hundredTerms), 'file')
+      .expect(200);
+
+    // One more term would make 101 strings
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(oneMoreTerm), 'file')
+      .expect(402);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${project.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(100);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/imports (POST) should count the locale an import creates against the plan limit', async () => {
+    const project = await createTestProject(app, testingUser);
+    const fortyTerms = (await jsonFlatExporter({
+      translations: new Array(40).fill(0).map((_, index) => ({ term: `forty.${index}`, translation: `value ${index}` })),
+    })) as string;
+    const elevenNewTerms = (await jsonFlatExporter({
+      translations: new Array(11).fill(0).map((_, index) => ({ term: `eleven.${index}`, translation: `value ${index}` })),
+    })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=de_DE&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(fortyTerms), 'file')
+      .expect(200);
+
+    // A new locale and 11 new terms: two locales and 51 terms are 102 strings, over the limit of 100
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${project.id}/imports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(elevenNewTerms), 'file')
+      .expect(402);
+
+    // The refused import kept nothing: no fr locale and still 40 terms
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${project.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data.map(t => t.locale.code)).toEqual(['de_DE']);
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${project.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(40);
+      });
+  });
+
+  it('/api/v1/projects/:projectId/imports (POST) should import the units of every XLIFF group without an id', async () => {
+    const xliff = `<?xml version="1.0" encoding="UTF-8" ?>
+      <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+        <file source-language="en" target-language="de" datatype="plaintext" original="ng2.template">
+          <body>
+            <group resname="g1">
+              <trans-unit id="group.a">
+                <source>Open</source>
+                <target>Öffnen</target>
+              </trans-unit>
+            </group>
+            <group resname="g2">
+              <trans-unit id="group.b">
+                <source>Close</source>
+                <target>Schließen</target>
+              </trans-unit>
+            </group>
+          </body>
+        </file>
+      </xliff>`;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=de_DE&format=xliff12`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(xliff), 'file')
+      .expect(200)
+      .expect({
+        data: {
+          terms: { added: 2, skipped: 0 },
+          translations: { upserted: 2 },
+        },
+      });
+
+    const terms = await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200);
+    const termIds = new Map<string, string>(terms.body.data.map(term => [term.value, term.id]));
+    expect(termIds.has('group.a')).toBe(true);
+    expect(termIds.has('group.b')).toBe(true);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const values = res.body.data.map(translation => ({ termId: translation.termId, value: translation.value }));
+        expect(values).toContainEqual({ termId: termIds.get('group.a'), value: 'Öffnen' });
+        expect(values).toContainEqual({ termId: termIds.get('group.b'), value: 'Schließen' });
+      });
+  });
+
   it('/api/v1/projects/:projectId/imports (POST) should not import if params are missing or invalid', async () => {
     // Missing payload
     await request(app.getHttpServer())

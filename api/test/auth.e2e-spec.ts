@@ -2,6 +2,7 @@ import { Connection } from 'typeorm';
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as request from 'supertest';
+import { User } from '../src/entity/user.entity';
 import MailService from '../src/services/mail.service';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingUser } from './util';
@@ -248,6 +249,35 @@ describe('AuthController (e2e)', () => {
       })
       .expect(400)
       .expect(res => expect(res.body.data).toBeUndefined());
+  });
+
+  it('/api/v1/auth/token (POST) should count failed sign-ins from zero once the 15 minutes have passed', async () => {
+    const signIn = (password: string) =>
+      request(app.getHttpServer()).post('/api/v1/auth/token').send({ grant_type: 'password', username: testingUser.email, password });
+
+    await signIn('mynotsupersecretpassword').expect(401);
+    await signIn('mynotsupersecretpassword').expect(401);
+
+    // The window has passed since the last failed sign-in
+    const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000);
+    await app.get(Connection).getRepository(User).update({ id: testingUser.id }, { lastLogin: twentyMinutesAgo });
+
+    // One more typo does not add up with the two old ones to the maximum of 3
+    await signIn('mynotsupersecretpassword').expect(401);
+    await signIn('mysupersecretpassword').expect(200);
+  });
+
+  it('/api/v1/auth/token (POST) should check no more parallel wrong passwords than the maximum of 3', async () => {
+    // Listen once, so that supertest does not close a server of its own while parallel requests use it
+    await app.listen(0, '127.0.0.1');
+    const signIn = (password: string) =>
+      request(app.getHttpServer()).post('/api/v1/auth/token').send({ grant_type: 'password', username: testingUser.email, password });
+
+    // Sent at the same time, so all of them have started before the first password is checked. 5 requests stay under
+    // the e2e limit of 10 sign-ins per minute, so each 429 is the account lockout.
+    const responses = await Promise.all(Array.from({ length: 5 }, () => signIn('mynotsupersecretpassword')));
+
+    expect(responses.map(res => res.status).sort()).toEqual([401, 401, 401, 429, 429]);
   });
 
   it('/api/v1/auth/forgot-password (POST) should send forgotten password email to requested user', async () => {

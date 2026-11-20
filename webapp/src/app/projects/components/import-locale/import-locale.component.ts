@@ -51,10 +51,11 @@ export class ImportLocaleComponent {
   }
 
   async import() {
+    // Removed while the import runs, so a failure that repeats the same error is announced again
+    this.errorMessage = undefined;
     this.loading = true;
     try {
       const result = await this.importService.import(this.project.id, this.selectedLocale, this.selectedFormat, this.files[0]).toPromise();
-      this.errorMessage = undefined;
       this.result = result.data;
       this.store.dispatch(new RefreshProjectStats());
     } catch (error) {

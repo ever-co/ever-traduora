@@ -24,8 +24,15 @@
         <span class="badge badge-secondary">{{ invite.role | titlecase }}</span>
       </ng-template>
 
-      <button *ngIf="canDelete" class="ml-3 btn bg-transparent text-dark btn-sm" style="max-height: 2rem" (click)="remove.emit(invite)">
-        <i class="material-icons" style="font-size: 1.25rem">close</i>
+      <button
+        *ngIf="canDelete"
+        type="button"
+        class="ml-3 btn bg-transparent text-dark btn-sm"
+        style="max-height: 2rem"
+        [attr.aria-label]="'Revoke invite for ' + invite.email"
+        (click)="remove.emit(invite)"
+      >
+        <i class="material-icons" style="font-size: 1.25rem" aria-hidden="true">close</i>
       </button>
     </div>
   </div>

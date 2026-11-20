@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as moment from 'moment';
-import { EntityManager, IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, LessThan, MoreThan, Or, Repository } from 'typeorm';
 import { GrantType } from '../domain/http';
 import { normalizeEmail } from '../domain/validators';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
@@ -347,28 +347,25 @@ export class UserService {
       throw new UnauthorizedException('invalid credentials');
     }
 
+    // Only the password grant signs in here, so other grants do not count as sign-in attempts
+    if (grantType !== GrantType.Password) {
+      throw new BadRequestException('Tried to authenticate with unsupported grant type');
+    }
+
     const userKey = `user-${user.id}`;
     const timeThreshold = moment().subtract(15, 'minutes').toDate();
 
-    let loginAttempts = await this.getLoginAttempts(userKey, user);
-
-    // Reset login attempts if the last login is older than 15 minutes
-    if (user.lastLogin < timeThreshold) {
-      loginAttempts = 0;
+    // Reset login attempts if the last login is older than 15 minutes. With Redis the count expires instead.
+    if (user.lastLogin < timeThreshold && !this.loginAttemptsStorage.getRedisClient()) {
+      await this.clearExpiredLoginAttempts(user, timeThreshold);
     }
 
-    // Handle too many login attempts
-    if (loginAttempts >= this.maxLoginAttempts) {
-      await this.incrementLoginAttempts(user, loginAttempts, userKey);
+    // Count this attempt before its password is checked: parallel attempts then cannot all pass on the same count
+    if (!(await this.countLoginAttempt(user, userKey))) {
       throw new TooManyRequestsException('You have made too many requests. Please try again later.');
     }
 
-    // Handle password grant type authentication
-    if (grantType === GrantType.Password) {
-      await this.handlePasswordAuthentication(user, password, loginAttempts, userKey);
-    } else {
-      throw new BadRequestException('Tried to authenticate with unsupported grant type');
-    }
+    await this.handlePasswordAuthentication(user, password, userKey);
 
     // All good, reset login attempts
     await this.resetLoginAttempts(userKey, user);
@@ -376,25 +373,22 @@ export class UserService {
     return user;
   }
 
-  private async getLoginAttempts(userKey: string, user: User): Promise<number> {
-    if (this.loginAttemptsStorage.getRedisClient()) {
-      // Fetch login attempts from Redis if available
-      return await this.loginAttemptsStorage.getUserAttempts(userKey);
-    }
-    // Fall back to using the database
-    return user.loginAttempts;
+  // Without Redis the count is the one stored on the user: once the window has passed it starts again from 0 there too,
+  // else the next failed attempt adds to the old count. Only while lastLogin is still that old, so that a failed attempt
+  // made meanwhile keeps counting.
+  private async clearExpiredLoginAttempts(user: User, timeThreshold: Date): Promise<void> {
+    await this.userRepo.update({ id: user.id, lastLogin: Or(LessThan(timeThreshold), IsNull()) }, { loginAttempts: 0 });
   }
 
-  private async handlePasswordAuthentication(user: User, password: string, loginAttempts: number, userKey: string): Promise<void> {
+  // The attempt was counted before this, so a wrong password or an account without one only throws
+  private async handlePasswordAuthentication(user: User, password: string, userKey: string): Promise<void> {
     if (!user.encryptedPassword) {
-      await this.incrementLoginAttempts(user, loginAttempts, userKey);
       throw new UnprocessableEntityException('No password for this user. Was this account created via a provider?');
     }
 
     const isValidPassword = await bcrypt.compare(password, user.encryptedPassword.toString('utf8'));
 
     if (!isValidPassword) {
-      await this.incrementLoginAttempts(user, loginAttempts, userKey);
       throw new UnauthorizedException('invalid credentials');
     }
 
@@ -403,6 +397,8 @@ export class UserService {
     if (isPublishedPassword(password)) {
       // Only the hash just checked: a password reset that finished during bcrypt.compare must not be undone
       await this.userRepo.update({ id: user.id, encryptedPassword: user.encryptedPassword }, { encryptedPassword: null });
+      // The password was right, so this is not a failed attempt: the count goes back to what it was
+      await this.uncountLoginAttempt(user, userKey);
       throw new UnprocessableEntityException('this account used a publicly known password, please reset it');
     }
   }
@@ -419,15 +415,31 @@ export class UserService {
   }
 
   // Login attempts write only their own columns: saving the loaded user would put back anything changed meanwhile,
-  // e.g. a published password removed by a concurrent sign-in
-  private async incrementLoginAttempts(user: User, loginAttempts: number, userKey: string): Promise<void> {
+  // e.g. a published password removed by a concurrent sign-in.
+  // Counts an attempt and returns whether it may go on, that is whether fewer than the maximum were counted before it.
+  // Each count is one atomic write that returns its own result, so parallel attempts cannot all see the same count.
+  // lastLogin moves first, for refused attempts too: once it has moved, a sign-in that read the user before can no
+  // longer clear the counts made since as older than the window.
+  private async countLoginAttempt(user: User, userKey: string): Promise<boolean> {
     user.lastLogin = new Date();
     await this.userRepo.update({ id: user.id }, { lastLogin: user.lastLogin });
 
     if (this.loginAttemptsStorage.getRedisClient()) {
-      await this.loginAttemptsStorage.setUserAttempts(userKey, loginAttempts + 1, this.loginAttemptsTTL);
+      const loginAttempts = await this.loginAttemptsStorage.incrementUserAttempts(userKey, this.loginAttemptsTTL);
+      return loginAttempts <= this.maxLoginAttempts;
     }
-    await this.userRepo.increment({ id: user.id }, 'loginAttempts', 1);
+    // Only while below the maximum, so the stored count stops there
+    const { affected } = await this.userRepo.increment({ id: user.id, loginAttempts: LessThan(this.maxLoginAttempts) }, 'loginAttempts', 1);
+    return affected > 0;
+  }
+
+  // Takes back the attempt that countLoginAttempt counted
+  private async uncountLoginAttempt(user: User, userKey: string): Promise<void> {
+    if (this.loginAttemptsStorage.getRedisClient()) {
+      await this.loginAttemptsStorage.decrementUserAttempts(userKey);
+      return;
+    }
+    await this.userRepo.decrement({ id: user.id, loginAttempts: MoreThan(0) }, 'loginAttempts', 1);
   }
 
   private async resetLoginAttempts(userKey: string, user: User): Promise<void> {

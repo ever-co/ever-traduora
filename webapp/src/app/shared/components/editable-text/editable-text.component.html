@@ -23,11 +23,18 @@
       (click)="onSave()"
       [disabled]="!valid()"
       type="button"
+      aria-label="Save"
     >
-      <i class="material-icons" style="font-size: 18px">check</i>
+      <i class="material-icons" style="font-size: 18px" aria-hidden="true">check</i>
     </button>
-    <button class="btn btn-sm btn-secondary rounded-t-0 rounded-bl-0 m-0 px-2 d-flex" style="height: 2rem" (click)="revert()" type="button">
-      <i class="material-icons" style="font-size: 18px">undo</i>
+    <button
+      class="btn btn-sm btn-secondary rounded-t-0 rounded-bl-0 m-0 px-2 d-flex"
+      style="height: 2rem"
+      (click)="revert()"
+      type="button"
+      aria-label="Revert changes"
+    >
+      <i class="material-icons" style="font-size: 18px" aria-hidden="true">undo</i>
     </button>
     <div class="flex-1"></div>
     <p *ngIf="showLength" class="px-3 text-muted d-flex justify-content-center align-items-center">

@@ -15,7 +15,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import * as _ from 'lodash';
+import { EntityManager, Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import { IntermediateTranslation, IntermediateTranslationFormat } from '../domain/formatters';
 import { ImportExportFormat, ImportQuery, ImportResponse } from '../domain/http';
@@ -23,7 +24,9 @@ import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
+import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
+import { User } from '../entity/user.entity';
 import { csvParser } from '../formatters/csv';
 import { jsonFlatParser } from '../formatters/jsonflat';
 import { jsonNestedParser } from '../formatters/jsonnested';
@@ -32,6 +35,8 @@ import { xliffParser } from '../formatters/xliff';
 import { yamlFlatParser } from '../formatters/yaml-flat';
 import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
+import { isTransientDatabaseError, lockProject } from '../utils/database-locks';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
 import { ApiOAuth2, ApiConsumes, ApiResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -39,6 +44,7 @@ import { androidXmlParser } from '../formatters/android-xml';
 import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
+import { arbParser } from '../formatters/arb';
 import { PaymentRequiredException } from './../errors';
 
 @Controller('api/v1/projects/:projectId/imports')
@@ -82,15 +88,23 @@ export class ImportController {
 
       const incoming = await this.parse(query.format, contents);
 
-      return await this.termRepo.manager.transaction(async entityManager => {
+      // Other databases than SQLite (which runs one transaction at a time): the locale stays locked until the import
+      // commits, and edits of its translations wait for that, so the values and change numbers the import reads are
+      // still the latest when it writes its history. Read committed (Postgres' default) makes MySQL read them as of the
+      // lock, not as of the import's first read.
+      const lockLocale = !isDbType(DbType.BETTER_SQLITE3);
+      const run = async (entityManager: EntityManager) => {
+        await lockProject(entityManager, membership.project.id);
+
         let projectLocale: ProjectLocale | undefined = await entityManager.findOne(ProjectLocale, {
           where: { project: { id: membership.project.id }, locale: { code: locale.code } },
         });
 
-        if (!projectLocale) {
-          // Authorize if has access to project import and can add 1 locale
-          await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, 0, 1);
+        if (projectLocale && lockLocale) {
+          await entityManager.findOne(ProjectLocale, { where: { id: projectLocale.id }, lock: { mode: 'pessimistic_write' } });
+        }
 
+        if (!projectLocale) {
           // Extract into service for creating project locales
           projectLocale = this.projectLocaleRepo.create({
             locale: locale,
@@ -111,8 +125,12 @@ export class ImportController {
         // Resolve which terms / translations to add or update
         const termsToAdd = this.determineTermsToAdd(existingTerms, incoming.translations, membership.project);
 
-        // Authorize if user would have enough terms left in plan for import
-        await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ImportTranslation, termsToAdd.length, 1);
+        // Check the plan limit against the counts as they stand inside this transaction (the project is locked, and the
+        // locale is already counted if this import created it), so no locale is counted twice
+        const project = await entityManager.findOneOrFail(Project, { where: { id: membership.project.id }, relations: ['plan'] });
+        if (project.localesCount * (project.termsCount + termsToAdd.length) > project.plan.maxStrings) {
+          throw new PaymentRequiredException('request would exceed plan limit');
+        }
 
         const addedTerms = await entityManager.save(Term, termsToAdd);
         const allTerms = [...addedTerms, ...existingTerms];
@@ -121,7 +139,15 @@ export class ImportController {
 
         await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', termsToAdd.length);
 
+        // Read before the values are replaced
+        const historyToAdd = await this.determineHistoryToAdd(entityManager, projectLocale, translationsToAdd, user instanceof User ? user : null);
+
         await entityManager.save(Translation, translationsToAdd);
+
+        // Many rows per statement, in chunks that stay within every database's limit on query parameters
+        for (const chunk of _.chunk(historyToAdd, 500)) {
+          await entityManager.insert(TranslationHistory, chunk);
+        }
 
         return {
           data: {
@@ -134,10 +160,15 @@ export class ImportController {
             },
           },
         };
-      });
+      };
+
+      return await (lockLocale ? this.termRepo.manager.transaction('READ COMMITTED', run) : this.termRepo.manager.transaction(run));
     } catch (error) {
       if (error instanceof PaymentRequiredException) {
         throw new PaymentRequiredException('request would exceed plan limit');
+      } else if (isTransientDatabaseError(error)) {
+        // Answered as such (try again), not as a missing resource
+        throw error;
       } else {
         throw new NotFoundException();
       }
@@ -145,14 +176,16 @@ export class ImportController {
   }
 
   private determineTermsToAdd(existing: Term[], incomingItems: IntermediateTranslation[], project: Project): Term[] {
-    const existingTermsByValue: { [value: string]: Term } = existing.reduce((acc, term) => ({ ...acc, [term.value]: term }), {});
+    // Maps (not plain objects) so keys such as "constructor" or "toString" are not mistaken for existing terms
+    const knownTerms = new Set<string>(existing.map(term => term.value));
 
     const termsToAdd: Term[] = [];
 
     for (const incoming of incomingItems) {
-      const existingTerm = existingTermsByValue[incoming.term];
-      if (!existingTerm) {
-        // If no term exists yet, create it
+      // Skip terms that exist already, and repeats of a term earlier in the same file
+      // (a duplicate would violate the unique (project, value) index and fail the whole import)
+      if (!knownTerms.has(incoming.term)) {
+        knownTerms.add(incoming.term);
         const term = this.termRepo.create({
           project: project,
           value: incoming.term,
@@ -165,18 +198,20 @@ export class ImportController {
   }
 
   private determineTranslationsToAdd(allTerms: Term[], incomingItems: IntermediateTranslation[], projectLocale: ProjectLocale): Translation[] {
-    const termsByValue: { [value: string]: Term } = allTerms.reduce((acc, term) => ({ ...acc, [term.value]: term }), {});
+    const termsByValue = new Map<string, Term>(allTerms.map(term => [term.value, term]));
 
-    const translationsToAdd: Translation[] = [];
+    // One translation per term; if a term is repeated in the file the last value wins
+    const translationsByTermId = new Map<string, Translation>();
 
     // Overwrite term in translation with saved one
     for (const translation of incomingItems) {
-      const term = termsByValue[translation.term];
+      const term = termsByValue.get(translation.term);
       if (!term) {
         throw new Error('missing term for translation');
       }
 
-      translationsToAdd.push(
+      translationsByTermId.set(
+        term.id,
         this.translationRepo.create({
           termId: term.id,
           projectLocaleId: projectLocale.id,
@@ -186,7 +221,47 @@ export class ImportController {
       );
     }
 
-    return translationsToAdd;
+    return Array.from(translationsByTermId.values());
+  }
+
+  /**
+   * The history of the translations an import changes: one entry per translation whose value differs from the stored
+   * one, numbered after that translation's latest change. Two queries for the whole import, whatever its size.
+   */
+  private async determineHistoryToAdd(
+    entityManager: EntityManager,
+    projectLocale: ProjectLocale,
+    translations: Translation[],
+    user: User | null,
+  ): Promise<Partial<TranslationHistory>[]> {
+    if (translations.length === 0) {
+      return [];
+    }
+
+    const stored = await entityManager.find(Translation, { select: { termId: true, value: true }, where: { projectLocaleId: projectLocale.id } });
+    const previousValues = new Map<string, string>(stored.map(translation => [translation.termId, translation.value]));
+    const changed = translations.filter(translation => (previousValues.get(translation.termId) ?? '') !== translation.value);
+    if (changed.length === 0) {
+      return [];
+    }
+
+    const latest: { termId: string; revision: number | string }[] = await entityManager
+      .createQueryBuilder(TranslationHistory, 'history')
+      .select('history.termId', 'termId')
+      .addSelect('MAX(history.revision)', 'revision')
+      .where('history.projectLocaleId = :projectLocaleId', { projectLocaleId: projectLocale.id })
+      .groupBy('history.termId')
+      .getRawMany();
+    const latestRevisions = new Map<string, number>(latest.map(row => [row.termId, Number(row.revision)]));
+
+    return changed.map(translation => ({
+      termId: translation.termId,
+      projectLocaleId: projectLocale.id,
+      revision: (latestRevisions.get(translation.termId) ?? 0) + 1,
+      previousValue: previousValues.get(translation.termId) ?? '',
+      value: translation.value,
+      user,
+    }));
   }
 
   private async parse(format: ImportExportFormat, contents): Promise<IntermediateTranslationFormat> {
@@ -216,6 +291,8 @@ export class ImportController {
           return await phpParser(contents);
         case 'resx':
           return await resXParser(contents);
+        case 'arb':
+          return await arbParser(contents);
         default:
           throw new Error('Export format not implemented');
       }

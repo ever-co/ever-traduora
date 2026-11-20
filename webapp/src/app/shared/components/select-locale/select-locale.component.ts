@@ -3,6 +3,8 @@ import { BehaviorSubject, merge, Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, map } from 'rxjs/operators';
 import { Locale } from '../../../projects/models/locale';
 
+let nextSearchId = 0;
+
 @Component({
   standalone: false,
   selector: 'app-select-locale',
@@ -24,6 +26,20 @@ export class SelectLocaleComponent implements OnChanges {
 
   @Input()
   preserveHeight = false;
+
+  /** Visible label of the search box, linked to it with `for`, so it is also its accessible name. */
+  @Input()
+  label = '';
+
+  /** Accessible name of the search box when it has no visible `label`. Give each picker on a page its own. */
+  @Input()
+  searchLabel = 'Search locales';
+
+  /** Accessible name of the list of locales. Give each picker on a page its own. */
+  @Input()
+  listLabel = 'Locales';
+
+  readonly searchId = `localeSearch-${++nextSearchId}`;
 
   @Output()
   selectLocale = new EventEmitter<Locale>();

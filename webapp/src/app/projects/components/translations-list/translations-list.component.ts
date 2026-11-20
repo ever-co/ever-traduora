@@ -11,6 +11,7 @@ import { Project } from '../../models/project';
 import { ProjectLocale } from '../../models/project-locale';
 import { Term } from '../../models/term';
 import { Translation } from '../../models/translation';
+import { ClipboardService } from '../../../shared/services/clipboard.service';
 import { PreferencesService } from '../../services/preferences.service';
 import { GetProjectLabels, LabelTranslation, ProjectLabelState, UnlabelTranslation } from '../../stores/project-label.state';
 import { ProjectsState } from '../../stores/projects.state';
@@ -58,7 +59,8 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   @Select(state => state.terms.isLoading)
   isLoading$: Observable<boolean>;
 
-  @Select(state => state.terms.errorMessage)
+  // A failed save writes its error to the translations store, a failed load of the terms to the terms store
+  @Select(state => state.translations.errorMessage || state.terms.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   @Select(ProjectLabelState.labels)
@@ -84,6 +86,13 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     ),
   );
 
+  /** Identifies the cell whose text was just copied; see cellKey(). */
+  copiedCell: string | undefined;
+
+  private copiedTimer: ReturnType<typeof setTimeout> | undefined;
+
+  private destroyed = false;
+
   private subs: Subscription[] = [];
 
   constructor(
@@ -91,6 +100,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private preferencesService: PreferencesService,
+    private clipboard: ClipboardService,
   ) {}
 
   ngOnInit() {
@@ -103,7 +113,16 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
             this.store.dispatch(new GetProjectLabels(project.id));
           }),
           mergeMap(project => {
-            return this.localeCode$.pipe(map(localeCode => this.store.dispatch(new GetTranslations(project.id, localeCode))));
+            return this.localeCode$.pipe(
+              map((localeCode, index) => {
+                // Angular keeps this page when another locale is picked: drop the error of the previous locale first,
+                // so an error of loading or saving the new one still shows. The terms store error is the same for every locale.
+                if (index > 0) {
+                  this.store.dispatch(new ClearMessages());
+                }
+                return this.store.dispatch(new GetTranslations(project.id, localeCode));
+              }),
+            );
           }),
         )
         .subscribe(),
@@ -125,6 +144,8 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
+    clearTimeout(this.copiedTimer);
     this.subs.forEach(s => s.unsubscribe());
     this.store.dispatch(new ClearMessages());
   }
@@ -187,6 +208,22 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
       this.preferencesService.forProject(project.id).referenceLanguage.set(locale.code);
     }
     this.referenceLocale.next(locale);
+  }
+
+  /** Includes the locale so the confirmation never carries over to another language's cell. */
+  cellKey(kind: 'main' | 'ref', localeCode: string, termId: string): string {
+    return `${kind}:${localeCode}:${termId}`;
+  }
+
+  async copyTranslation(cell: string, text: string) {
+    const ok = await this.clipboard.copy(text || '');
+    // The page may have been left while the browser was still copying: start no timer on a destroyed component
+    if (!ok || this.destroyed) {
+      return;
+    }
+    this.copiedCell = cell;
+    clearTimeout(this.copiedTimer);
+    this.copiedTimer = setTimeout(() => (this.copiedCell = undefined), 2000);
   }
 
   removeReferenceLocale(project: Project) {

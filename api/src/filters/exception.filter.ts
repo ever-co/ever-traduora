@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
-import { PublishedPasswordException } from '../errors';
+import { AuthProviderException, EverPlatformException, FormatCannotHoldTermsException, PublishedPasswordException } from '../errors';
+import { isTransientDatabaseError } from '../utils/database-locks';
 
 @Catch()
 export class CustomExceptionFilter implements ExceptionFilter {
@@ -7,8 +8,40 @@ export class CustomExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse();
 
-    // Re-map forbidden to not found (TypeORM 0.3 names the error 'EntityNotFoundError', older versions 'EntityNotFound')
-    if (exception.name === 'EntityNotFoundError' || exception.name === 'EntityNotFound' || exception.status === 404 || exception.status === 403) {
+    if (exception instanceof AuthProviderException) {
+      // Sign-in flow outcomes keep their status and code; the details may hold a sealed sign-up or connect record
+      response.setHeader('Cache-Control', 'no-store');
+      response.status(exception.getStatus()).json({
+        error: {
+          code: exception.code,
+          message: exception.message,
+          ...(exception.details ? { details: exception.details } : {}),
+        },
+      });
+    } else if (exception instanceof EverPlatformException) {
+      // Answers of the optional Ever Platform routes keep their status and code
+      response.status(exception.getStatus()).json({
+        error: {
+          code: exception.code,
+          message: exception.message,
+        },
+      });
+    } else if (exception instanceof FormatCannotHoldTermsException) {
+      // The message names the terms the export format cannot hold. Checked before the database errors below: some of them
+      // are recognized by their message, which a term name could repeat.
+      response.status(400).json({
+        error: {
+          code: 'BadRequest',
+          message: exception.message,
+        },
+      });
+    } else if (
+      // Re-map forbidden to not found (TypeORM 0.3 names the error 'EntityNotFoundError', older versions 'EntityNotFound')
+      exception.name === 'EntityNotFoundError' ||
+      exception.name === 'EntityNotFound' ||
+      exception.status === 404 ||
+      exception.status === 403
+    ) {
       response.status(404).json({
         error: {
           code: 'NotFound',
@@ -28,6 +61,15 @@ export class CustomExceptionFilter implements ExceptionFilter {
         error: {
           code: 'AlreadyExists',
           message: 'This resource already exists',
+        },
+      });
+    } else if (isTransientDatabaseError(exception)) {
+      // A deadlock or lock timeout with another request: nothing was changed, and the same request can be sent again
+      response.setHeader('Retry-After', '1');
+      response.status(503).json({
+        error: {
+          code: 'Busy',
+          message: 'The request conflicted with another change, please try again',
         },
       });
     } else if (this.isSqliteError(exception)) {
