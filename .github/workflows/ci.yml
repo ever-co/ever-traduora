@@ -135,7 +135,17 @@ jobs:
         run: node "$EGRESS_AUDIT" cloud-inference --dirs api/src/ever-stats,api/src/ever-instance,api/src/ever-platform,api/src/ever-connect
       - name: Build the image under test
         if: ${{ !cancelled() }}
-        run: docker build -f Dockerfile --build-arg "VERDACCIO_REGISTRY=${{ vars.VERDACCIO_REGISTRY }}" -t "$TR_IMAGE" .
+        # The registry cache can time out under load (ESOCKETTIMEDOUT): the build is tried up to three times, and the
+        # layers that finished are reused
+        run: |
+          for attempt in 1 2 3; do
+            if docker build -f Dockerfile --build-arg "VERDACCIO_REGISTRY=${{ vars.VERDACCIO_REGISTRY }}" -t "$TR_IMAGE" .; then
+              exit 0
+            fi
+            echo "::warning::the image build failed (attempt $attempt of 3)"
+            sleep 30
+          done
+          exit 1
       - name: Secrets of this run
         if: ${{ !cancelled() }}
         run: |
