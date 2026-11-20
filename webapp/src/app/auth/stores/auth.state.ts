@@ -143,7 +143,11 @@ export class ClearMessages {
 
 export class Logout {
   static readonly type = '[Auth] Logout';
-  constructor(public reason: string | undefined = null) {}
+  /** `stay`: sign out without leaving the page (to sign in again with another account from there). */
+  constructor(
+    public reason: string | undefined = null,
+    public stay = false,
+  ) {}
 }
 
 export class MustLogin {
@@ -566,7 +570,9 @@ export class AuthState implements NgxsOnInit {
   logout(ctx: StateContext<AuthStateModel>, action: Logout) {
     this.tokenService.clearToken();
     ctx.patchState({ user: undefined, isAuthenticated: false, errorMessage: action.reason, pendingConnect: undefined, identities: undefined });
-    ctx.dispatch(new Navigate(['/login']));
+    if (!action.stay) {
+      ctx.dispatch(new Navigate(['/login']));
+    }
   }
 
   @Action(ClearMessages)

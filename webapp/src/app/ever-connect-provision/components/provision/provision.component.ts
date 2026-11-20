@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Store } from '@ngxs/store';
 import { Subscription } from 'rxjs';
 import { Provider } from '../../../auth/models/provider';
-import { AuthState, GetProviders, RedirectToAuthProvider } from '../../../auth/stores/auth.state';
+import { AuthState, GetProviders, Logout, RedirectToAuthProvider } from '../../../auth/stores/auth.state';
 import { ProvisionIntent, ProvisionResult, ProvisionService } from '../../services/provision.service';
 
 /** This page, where a sign-in with Ever ID returns to. */
@@ -66,6 +66,8 @@ export class ProvisionComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const fromLink = new URLSearchParams(this.route.snapshot.fragment || '').get('intent');
     if (fromLink) {
+      // A new link replaces whatever this tab kept
+      this.provision.forget();
       this.provision.keep(fromLink);
       // The intent never stays in the address bar or in the history
       history.replaceState(history.state, '', `${location.pathname}${location.search}`);
@@ -78,6 +80,13 @@ export class ProvisionComponent implements OnInit, OnDestroy {
     );
     this.store.dispatch(new GetProviders());
 
+    // Back on the page (after signing in, or a reload): the confirmation checked before, while it is valid
+    const checked = fromLink ? null : this.provision.checkedKept();
+    if (checked) {
+      this.intent = checked;
+      this.step = 'confirm';
+      return;
+    }
     const intent = fromLink || this.provision.kept();
     if (!intent) {
       this.step = 'missing';
@@ -85,6 +94,7 @@ export class ProvisionComponent implements OnInit, OnDestroy {
     }
     this.provision.intent(intent).subscribe({
       next: answer => {
+        this.provision.keepChecked(answer);
         this.intent = answer;
         this.step = 'confirm';
       },
@@ -94,6 +104,13 @@ export class ProvisionComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+  }
+
+  /** Signs out here, staying on this page, so that the person can sign in with the Ever ID of the link. */
+  signOut(): void {
+    this.wrongAccount = false;
+    this.errorMessage = null;
+    this.store.dispatch(new Logout(undefined, true));
   }
 
   /** Signs in with Ever ID and comes back to this page (the intent is kept for this tab meanwhile). */

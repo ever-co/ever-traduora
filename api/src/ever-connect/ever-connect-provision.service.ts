@@ -1,6 +1,6 @@
 import { HttpStatus, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { config } from '../config';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectProvision } from '../entity/ever-connect-provision.entity';
@@ -328,7 +328,9 @@ export class EverConnectProvisionService {
         if (!user) {
           throw new NotFoundException();
         }
-        if (user.numProjectsCreated >= config.maxProjectsPerUser) {
+        // The project is counted first, only while under the limit: two confirmations at once cannot both pass it
+        const counted = await tx.increment(User, { id: user.id, numProjectsCreated: LessThan(config.maxProjectsPerUser) }, 'numProjectsCreated', 1);
+        if (!counted.affected) {
           throw refuse(HttpStatus.CONFLICT, 'project_limit', 'This account cannot create more projects');
         }
         // As the projects route creates one: the person is its admin, it has the default plan
@@ -336,7 +338,6 @@ export class EverConnectProvisionService {
         await tx.save(tx.create(ProjectUser, { user, project, role: ProjectRole.Admin }));
         project.plan = await tx.findOneOrFail(Plan, { where: { code: config.defaultProjectPlan } });
         await tx.save(project);
-        await tx.update(User, { id: user.id }, { numProjectsCreated: user.numProjectsCreated + 1 });
         await tx.update(EverConnectProvision, { jti: txn.jti }, { projectId: project.id });
         return project.id;
       });

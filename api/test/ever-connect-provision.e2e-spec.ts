@@ -6,12 +6,14 @@ process.env.TR_EVER_STATS_ENABLED = 'false';
 process.env.TR_AUTH_EVERID_ISSUER = 'https://auth.ever.test';
 
 import { generateKeyPairSync } from 'crypto';
+import { config } from '../src/config';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
 import { EverConnectAudit } from '../src/entity/ever-connect-audit.entity';
 import { EverConnectProvision } from '../src/entity/ever-connect-provision.entity';
 import { Project } from '../src/entity/project.entity';
+import { User } from '../src/entity/user.entity';
 import { IdentityLinkMethod, UserIdentity } from '../src/entity/user-identity.entity';
 import { EVER_CONNECT_CLIENT_FACTORY } from '../src/ever-connect/ever-connect-platform.client';
 import { EVER_CONNECT_AUTOSTART, EverConnectSchedulerService } from '../src/ever-connect/ever-connect-scheduler.service';
@@ -136,6 +138,21 @@ describe('Ever Platform provisioning hand-off, switched on (e2e)', () => {
       .expect(400);
     expect(await projects()).toBe(before);
     expect(await answers().count()).toBe(0);
+  });
+
+  it('refuses a person who cannot create more projects, and leaves the intent unused', async () => {
+    const users = app.get(Connection).getRepository(User);
+    await users.update({ id: alice.id }, { numProjectsCreated: config.maxProjectsPerUser });
+    const before = await projects();
+    const intent = platform.intent();
+    const provisionTxn = await txnOf(intent);
+    const res = await as(alice, request(server()).post(`${BASE}/confirm`))
+      .send({ provisionTxn })
+      .expect(409);
+    expect(res.body.error.code).toBe('project_limit');
+    expect(await projects()).toBe(before);
+    expect(await answers().findOne({ where: { jti: platform.claimsOf(intent).jti } })).toBeNull();
+    await users.update({ id: alice.id }, { numProjectsCreated: 0 });
   });
 
   it('creates one project with the person as its admin, tells Ever Platform, and answers a replay with exists', async () => {

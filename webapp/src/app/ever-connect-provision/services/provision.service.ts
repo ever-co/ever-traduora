@@ -24,6 +24,9 @@ export interface ProvisionResult {
 /** Where the page keeps the intent for this tab while the person signs in (never in the address bar again). */
 export const PROVISION_INTENT_KEY = 'everConnectProvisionIntent';
 
+/** Where the page keeps the checked confirmation for this tab, until its outcome is known. */
+export const PROVISION_CHECKED_KEY = 'everConnectProvisionChecked';
+
 /** How long the kept intent is used (an intent itself lives at most 15 minutes). */
 const KEPT_MS = 15 * 60 * 1000;
 
@@ -62,7 +65,28 @@ export class ProvisionService {
     }
   }
 
+  /**
+   * Keeps the checked confirmation for this tab until its outcome is known: after a reload (a lost answer to Create,
+   * for instance) the page confirms again with it, which answers `exists`, instead of checking the used intent again.
+   */
+  keepChecked(checked: ProvisionIntent): void {
+    sessionStorage.setItem(PROVISION_CHECKED_KEY, JSON.stringify(checked));
+  }
+
+  /** The checked confirmation kept for this tab, while it is valid. */
+  checkedKept(): ProvisionIntent | null {
+    try {
+      const checked = JSON.parse(sessionStorage.getItem(PROVISION_CHECKED_KEY) || 'null');
+      const valid = checked && typeof checked.provisionTxn === 'string' && typeof checked.jti === 'string' && checked.expiresAt > Date.now();
+      return valid ? checked : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Forgets the intent and its confirmation (the outcome is known, or the link cannot be used). */
   forget(): void {
     sessionStorage.removeItem(PROVISION_INTENT_KEY);
+    sessionStorage.removeItem(PROVISION_CHECKED_KEY);
   }
 }
