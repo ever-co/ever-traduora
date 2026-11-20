@@ -32,6 +32,10 @@ export class EverConnectProvision {
   @Column({ type: 'boolean', name: 'audited', default: false })
   audited: boolean;
 
+  /** When a caller took the writing of the audit row; a claim older than 5 minutes (an interrupted one) is taken again. */
+  @Column({ type: 'bigint', name: 'audit_claimed_at', nullable: true, transformer: epochMsTransformer })
+  auditClaimedAt: number | null;
+
   /** The Ever Platform organization id the intent named. */
   @Column({ type: 'varchar', length: 64, name: 'org_id', nullable: true })
   orgId: string | null;

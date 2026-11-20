@@ -1,12 +1,12 @@
 import { NotFoundException } from '@nestjs/common';
 import { EverConnectProvisionEnabledGuard } from './ever-connect-provision.controller';
-import { EverConnectProvisionService, returnAddress, sealTxn } from './ever-connect-provision.service';
+import { auditEntry, EverConnectProvisionService, returnAddress, sealTxn } from './ever-connect-provision.service';
 import { PROVISION_TXN_MAX } from './ever-connect.dto';
 import { EverConnectSettings } from './ever-connect.settings';
 
 /** The service with only the settings it reads to decide whether its routes answer. */
 const withSwitch = (provisionEnabled: boolean | undefined) =>
-  new EverConnectProvisionService(null, null, null, { provisionEnabled } as EverConnectSettings, null, null, null);
+  new EverConnectProvisionService(null, null, null, { provisionEnabled } as EverConnectSettings, null, null, null, null);
 
 describe('EverConnectProvisionEnabledGuard', () => {
   it('lets the provisioning routes answer only with TR_EVER_CONNECT_PROVISION_ENABLED=true', () => {
@@ -64,29 +64,60 @@ describe('sealTxn', () => {
 
 describe('the audit row of a provisioning answer', () => {
   const settings = { provisionEnabled: true } as EverConnectSettings;
-  const row = { jti: 'j1', state: 'created', userId: 'u1', projectId: 'p1', audited: false };
+  const row = { jti: 'j1', state: 'created', userId: 'u1', projectId: 'p1', audited: false, auditClaimedAt: null };
 
-  it('never makes an answer that is recorded fail when the database cannot be read', async () => {
-    const provisions = { findOne: jest.fn().mockRejectedValue(new Error('database gone')), update: jest.fn() };
-    const audit = { record: jest.fn() };
-    const service = new EverConnectProvisionService(provisions as never, null, null, settings, null, null, audit as never);
-    await expect((service as any).recordAudit('j1')).resolves.toBeUndefined();
+  /** The service over stand-ins: the answers of the provision table, the audit rows already there, the audit writer. */
+  const build = (options: { findOne?: jest.Mock; claims?: number[]; written?: number; record?: jest.Mock }) => {
+    const claims = [...(options.claims ?? [1])];
+    const provisions = {
+      findOne: options.findOne ?? jest.fn().mockResolvedValue(row),
+      update: jest.fn().mockImplementation(async (criteria: Record<string, unknown>) => ({
+        affected: 'auditClaimedAt' in criteria ? (claims.shift() ?? 0) : 1,
+      })),
+    };
+    const auditRows = { count: jest.fn().mockResolvedValue(options.written ?? 0) };
+    const audit = { record: options.record ?? jest.fn().mockResolvedValue(undefined) };
+    const service = new EverConnectProvisionService(provisions as never, null, null, settings, null, null, audit as never, auditRows as never);
+    return { service, provisions, audit, recordAudit: () => (service as any).recordAudit('j1') };
+  };
+
+  it('writes the row once, naming the intent, then sets the flag', async () => {
+    const { recordAudit, audit, provisions } = build({});
+    await expect(recordAudit()).resolves.toBeUndefined();
+    expect(audit.record).toHaveBeenCalledWith('provision.created', 'user:u1', 'project=p1 jti=j1');
+    expect(provisions.update).toHaveBeenLastCalledWith({ jti: 'j1' }, { audited: true, auditClaimedAt: null });
+  });
+
+  it('writes nothing while another caller holds a fresh claim', async () => {
+    const { recordAudit, audit } = build({ claims: [0, 0] });
+    await recordAudit();
     expect(audit.record).not.toHaveBeenCalled();
   });
 
-  it('writes the row once, for the caller that claimed it, and releases the claim when the write fails', async () => {
-    const provisions = { findOne: jest.fn().mockResolvedValue(row), update: jest.fn().mockResolvedValue({ affected: 1 }) };
-    const audit = { record: jest.fn().mockRejectedValue(new Error('audit full')) };
-    const service = new EverConnectProvisionService(provisions as never, null, null, settings, null, null, audit as never);
-    await expect((service as any).recordAudit('j1')).resolves.toBeUndefined();
-    expect(provisions.update).toHaveBeenNthCalledWith(1, { jti: 'j1', audited: false }, { audited: true });
-    expect(provisions.update).toHaveBeenNthCalledWith(2, { jti: 'j1', audited: true }, { audited: false });
+  it('takes an interrupted claim again once it is stale, without writing the row twice', async () => {
+    // The fresh claim fails (held), the stale one succeeds; the row was written before the interruption
+    const { recordAudit, audit, provisions } = build({ claims: [0, 1], written: 1 });
+    await recordAudit();
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(provisions.update).toHaveBeenLastCalledWith({ jti: 'j1' }, { audited: true, auditClaimedAt: null });
+  });
 
-    // Another caller claimed it first: nothing is written
-    const taken = { findOne: jest.fn().mockResolvedValue(row), update: jest.fn().mockResolvedValue({ affected: 0 }) };
-    const auditTaken = { record: jest.fn() };
-    const other = new EverConnectProvisionService(taken as never, null, null, settings, null, null, auditTaken as never);
-    await (other as any).recordAudit('j1');
-    expect(auditTaken.record).not.toHaveBeenCalled();
+  it('never fails the answer: a failed read or write is left for the background round', async () => {
+    const unreadable = build({ findOne: jest.fn().mockRejectedValue(new Error('database gone')) });
+    await expect(unreadable.recordAudit()).resolves.toBeUndefined();
+    expect(unreadable.audit.record).not.toHaveBeenCalled();
+
+    const unwritable = build({ record: jest.fn().mockRejectedValue(new Error('audit full')) });
+    await expect(unwritable.recordAudit()).resolves.toBeUndefined();
+    // The claim is released for the next round, and the flag is not set
+    expect(unwritable.provisions.update).toHaveBeenLastCalledWith({ jti: 'j1', audited: false }, { auditClaimedAt: null });
+  });
+
+  it('names the intent in every entry, with ids only', () => {
+    expect(auditEntry({ jti: 'j2', state: 'refused', userId: null, projectId: null })).toEqual({
+      action: 'provision.refused',
+      actorRef: 'system',
+      detail: 'jti=j2',
+    });
   });
 });

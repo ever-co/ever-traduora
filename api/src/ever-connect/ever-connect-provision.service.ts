@@ -1,7 +1,8 @@
 import { HttpStatus, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { IsNull, LessThan, Repository } from 'typeorm';
 import { config } from '../config';
+import { EverConnectAudit } from '../entity/ever-connect-audit.entity';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectProvision } from '../entity/ever-connect-provision.entity';
@@ -39,6 +40,8 @@ const RETURN_ADDRESS_MAX = 2048;
 /** The longest Ever ID subject, organization id and handle an intent may carry. */
 const SUBJECT_MAX = 255;
 const ID_MAX = 64;
+/** A claim to write an audit row older than this was interrupted (the process stopped): it is taken again. */
+const AUDIT_CLAIM_STALE_MS = 5 * 60 * 1000;
 
 /** The sealed confirmation is encrypted for its own purpose, salted with the Registry id of the installation. */
 const PROVISION_TXN_PURPOSE: KeyPurpose = { info: 'ever-connect/provision-txn', aad: 'ever_connect:provision_txn' };
@@ -136,6 +139,17 @@ function trimSlashes(value: string): string {
   return value.slice(0, end);
 }
 
+/** The audit row of an answer: who, what and the intent id (ids only). */
+export function auditEntry(row: Pick<EverConnectProvision, 'jti' | 'state' | 'userId' | 'projectId'>): {
+  action: string;
+  actorRef: string;
+  detail: string;
+} {
+  return row.state === 'created'
+    ? { action: 'provision.created', actorRef: `user:${row.userId}`, detail: `project=${row.projectId} jti=${row.jti}` }
+    : { action: 'provision.refused', actorRef: 'system', detail: `jti=${row.jti}` };
+}
+
 /** Whether a database error is a unique or primary key violation (PostgreSQL, MySQL, SQLite). */
 function isDuplicateKey(error: unknown): boolean {
   const record = error as { code?: unknown; driverError?: { code?: unknown }; message?: unknown } | null;
@@ -170,6 +184,7 @@ export class EverConnectProvisionService {
     @Inject(EVER_INSTANCE_SETTINGS) private readonly instanceSettings: EverInstanceSettings,
     private readonly connect: EverConnectService,
     private readonly audit: EverConnectAuditService,
+    @InjectRepository(EverConnectAudit) private readonly auditRows: Repository<EverConnectAudit>,
   ) {}
 
   /** The routes exist only with the switch on. */
@@ -508,29 +523,30 @@ export class EverConnectProvisionService {
     }
   }
 
-  /** Writes the audit row of an answer once (`provision.created` or `provision.refused`); a failure is retried later. */
+  /**
+   * Writes the audit row of an answer once (`provision.created` or `provision.refused`, naming the intent id) and never
+   * fails the answer. The writing is claimed first, so that the person's request and the background round do not both
+   * write it; a claim that was interrupted (the process stopped) is taken again after 5 minutes, and a retry first looks
+   * for the row it may have written already, so a row is neither lost nor written twice. The flag is set last.
+   */
   private async recordAudit(jti: string): Promise<void> {
-    let row: EverConnectProvision | null;
     try {
-      row = await this.provisions.findOne({ where: { jti } });
+      const row = await this.provisions.findOne({ where: { jti } });
       if (!row || row.audited) return;
-      // Claimed first: of the person's request and the background round, only the caller that set the flag writes it
-      const claim = await this.provisions.update({ jti, audited: false }, { audited: true });
-      if (!claim.affected) return;
-    } catch (error) {
-      // Never an error for an answer that is already recorded: the background round writes the row later
-      this.logger.warn(`ever_connect.provision audit=later reason=${error?.name || 'error'}`);
-      return;
-    }
-    try {
-      if (row.state === 'created') {
-        await this.audit.record('provision.created', `user:${row.userId}`, `project=${row.projectId}`);
-      } else {
-        await this.audit.record('provision.refused', 'system', null);
+      const now = Date.now();
+      const claimed =
+        (await this.provisions.update({ jti, audited: false, auditClaimedAt: IsNull() }, { auditClaimedAt: now })).affected ||
+        (await this.provisions.update({ jti, audited: false, auditClaimedAt: LessThan(now - AUDIT_CLAIM_STALE_MS) }, { auditClaimedAt: now }))
+          .affected;
+      if (!claimed) return;
+      const entry = auditEntry(row);
+      if (!(await this.auditRows.count({ where: { action: entry.action, detail: entry.detail } }))) {
+        await this.audit.record(entry.action, entry.actorRef, entry.detail);
       }
+      await this.provisions.update({ jti }, { audited: true, auditClaimedAt: null });
     } catch (error) {
-      // Released, so that the next round writes it
-      await this.provisions.update({ jti, audited: true }, { audited: false }).catch(() => undefined);
+      // The answer stands: the background round writes the row later (a claim left behind goes stale)
+      await this.provisions.update({ jti, audited: false }, { auditClaimedAt: null }).catch(() => undefined);
       this.logger.warn(`ever_connect.provision audit=later reason=${error?.name || 'error'}`);
     }
   }
