@@ -31,8 +31,13 @@ export const INTENT_MAX_TTL_S = 900;
 export const INTENT_SKEW_S = 300;
 /** The longest intent accepted (bytes): far more than a real one. */
 const INTENT_MAX_LENGTH = 16384;
-/** The longest project name made from an organization's name. */
+/** The longest project name made from an organization's name (also what the confirmation shows). */
 const PROJECT_NAME_MAX = 120;
+/** The longest address to send the person back to, once normalized. */
+const RETURN_ADDRESS_MAX = 2048;
+/** The longest Ever ID subject, organization id and handle an intent may carry. */
+const SUBJECT_MAX = 255;
+const ID_MAX = 64;
 
 /** The sealed confirmation is encrypted for its own purpose, salted with the Registry id of the installation. */
 const PROVISION_TXN_PURPOSE: KeyPurpose = { info: 'ever-connect/provision-txn', aad: 'ever_connect:provision_txn' };
@@ -87,7 +92,8 @@ export function returnAddress(value: unknown): string | null {
   try {
     const url = new URL(value);
     const secure = url.protocol === 'https:' || (url.protocol === 'http:' && isLocalHost(url.hostname));
-    return secure && !url.username && !url.password ? url.toString() : null;
+    const address = url.toString();
+    return secure && !url.username && !url.password && address.length <= RETURN_ADDRESS_MAX ? address : null;
   } catch {
     return null;
   }
@@ -154,7 +160,7 @@ export class EverConnectProvisionService {
    * the Ed25519 signature, `typ`, the issuer, the audience, the product, the times, the addressed installation, and that
    * its `jti` was not answered yet. The intent itself is never stored or logged.
    */
-  async verifyIntent(jws: unknown): Promise<IntentClaims> {
+  async verifyIntent(jws: unknown): Promise<{ claims: IntentClaims; connection: EverConnectConnection }> {
     const { connection, client } = await this.connected();
     const parts = typeof jws === 'string' && jws.length <= INTENT_MAX_LENGTH ? jws.trim().split('.') : [];
     if (parts.length !== 3) {
@@ -200,9 +206,12 @@ export class EverConnectProvisionService {
       !claims.person ||
       typeof claims.person.ever_id_sub !== 'string' ||
       !claims.person.ever_id_sub ||
+      claims.person.ever_id_sub.length > SUBJECT_MAX ||
       !org ||
       typeof org.id !== 'string' ||
+      org.id.length > ID_MAX ||
       typeof org.handle !== 'string' ||
+      org.handle.length > ID_MAX ||
       typeof org.display_name !== 'string' ||
       !org.display_name.trim() ||
       !Number.isInteger(claims.iat) ||
@@ -225,17 +234,21 @@ export class EverConnectProvisionService {
     if (await this.provisions.findOne({ where: { jti: claims.jti } })) {
       throw consumed();
     }
-    return claims;
+    return { claims, connection };
   }
 
   /** `POST /provision/intent`: checks the intent and seals what the confirmation needs; creates nothing. */
   async intent(jws: unknown) {
-    const claims = await this.verifyIntent(jws);
-    const { connection } = await this.connected();
+    const { claims, connection } = await this.verifyIntent(jws);
+    // Sealed for the installation that verified it: a connection replaced meanwhile cannot open it
+    const current = await this.connected();
+    if (current.connection.registryInstanceId !== connection.registryInstanceId) {
+      throw refuse(HttpStatus.CONFLICT, 'not_connected', 'The connection of this installation changed; open the link again');
+    }
     const txn: ProvisionTxn = {
       jti: claims.jti,
       sub: claims.person.ever_id_sub,
-      org: { id: claims.org.id, handle: claims.org.handle, displayName: claims.org.display_name.trim() },
+      org: { id: claims.org.id, handle: claims.org.handle, displayName: claims.org.display_name.trim().slice(0, PROJECT_NAME_MAX) },
       returnTo: returnAddress(claims.return_to),
       // The confirmation is valid while the intent is, and never longer than 15 minutes
       exp: Math.min(claims.exp, this.nowS() + INTENT_MAX_TTL_S),
@@ -302,7 +315,7 @@ export class EverConnectProvisionService {
    * Platform is told. A replay by the same person answers `exists` and creates nothing.
    */
   async confirm(provisionTxn: unknown, userId: string) {
-    const { txn } = await this.open(provisionTxn);
+    const { txn, connection } = await this.open(provisionTxn);
     if (!(await this.hasEverId(userId, txn.sub))) {
       throw refuse(HttpStatus.FORBIDDEN, 'intent_subject_mismatch', 'Sign in with the same Ever ID you used on app.ever.co');
     }
@@ -320,6 +333,8 @@ export class EverConnectProvisionService {
           state: 'created',
           userId,
           projectId: null,
+          instanceId: connection.registryInstanceId,
+          audited: false,
           orgId: txn.org.id,
           tenantLinkId: null,
           pendingComplete: true,
@@ -353,8 +368,9 @@ export class EverConnectProvisionService {
       }
       throw error;
     }
-    await this.audit.record('provision.created', `user:${userId}`, `project=${projectId}`);
     this.logger.log(`ever_connect.provision outcome=created project=${projectId}`);
+    // The project exists: the answer is the person's, even when the audit row has to be written later
+    await this.recordAudit(txn.jti);
     await this.complete(txn.jti).catch(error => this.logger.warn(`ever_connect.provision complete=later reason=${this.reason(error)}`));
     return { status: 'created', projectId, returnTo: txn.returnTo };
   }
@@ -371,7 +387,7 @@ export class EverConnectProvisionService {
 
   /** `POST /provision/intents/:jti/reject`: the person declines; nothing is created and Ever Platform is told. */
   async reject(jti: string, provisionTxn: unknown) {
-    const { txn } = await this.open(provisionTxn);
+    const { txn, connection } = await this.open(provisionTxn);
     if (txn.jti !== jti) {
       throw invalidTxn();
     }
@@ -381,6 +397,8 @@ export class EverConnectProvisionService {
         state: 'refused',
         userId: null,
         projectId: null,
+        instanceId: connection.registryInstanceId,
+        audited: false,
         orgId: txn.org.id,
         tenantLinkId: null,
         pendingComplete: true,
@@ -395,7 +413,7 @@ export class EverConnectProvisionService {
       }
       throw consumed();
     }
-    await this.audit.record('provision.refused', 'system', null);
+    await this.recordAudit(jti);
     await this.complete(jti).catch(error => this.logger.warn(`ever_connect.provision complete=later reason=${this.reason(error)}`));
     return { status: 'refused', returnTo: txn.returnTo };
   }
@@ -407,10 +425,17 @@ export class EverConnectProvisionService {
    */
   async complete(jti: string): Promise<void> {
     const row = await this.provisions.findOne({ where: { jti } });
-    if (!row || !row.pendingComplete) return;
+    if (!row?.pendingComplete) return;
     const live = await this.connect.liveClient();
-    if (!live || live.connection.status !== 'active' || !live.connection.registryInstanceId) {
+    if (live?.connection.status !== 'active' || !live.connection.registryInstanceId) {
       throw new Error('not_connected');
+    }
+    if (row.instanceId && row.instanceId !== live.connection.registryInstanceId) {
+      // Answered for another connection of this installation (it was disconnected and connected again): never sent under
+      // this one. Kept as answered here, and retired from sending.
+      await this.provisions.update({ jti, pendingComplete: true }, { pendingComplete: false, completeRefused: 'connection_changed' });
+      this.logger.warn(`ever_connect.provision complete=retired reason=connection_changed state=${row.state}`);
+      return;
     }
     const app = await this.publicAddress();
     const body: ProvisionComplete =
@@ -435,7 +460,8 @@ export class EverConnectProvisionService {
       }
       finalRefusal = `${problem.status}:${problem.code}`.slice(0, 48);
     }
-    await this.provisions.update({ jti }, { pendingComplete: false, tenantLinkId, completeRefused: finalRefusal });
+    // Only while still pending: of two overlapping sends (the person's and the background round's) the first answer stays
+    await this.provisions.update({ jti, pendingComplete: true }, { pendingComplete: false, tenantLinkId, completeRefused: finalRefusal });
     this.logger.log(`ever_connect.provision complete=${finalRefusal ? `refused reason=${finalRefusal}` : 'sent'} state=${row.state}`);
   }
 
@@ -455,9 +481,30 @@ export class EverConnectProvisionService {
 
   /** Sends the completions Ever Platform has not received yet (called by the background round). */
   async retryPendingCompletes(): Promise<void> {
+    // Switched off: what is pending waits until the operator turns provisioning on again
+    if (!this.settings.provisionEnabled) return;
+    for (const row of await this.provisions.find({ where: { audited: false }, take: 20 })) {
+      await this.recordAudit(row.jti);
+    }
     const pending = await this.provisions.find({ where: { pendingComplete: true }, take: 20 });
     for (const row of pending) {
       await this.complete(row.jti).catch(() => undefined);
+    }
+  }
+
+  /** Writes the audit row of an answer once (`provision.created` or `provision.refused`); a failure is retried later. */
+  private async recordAudit(jti: string): Promise<void> {
+    const row = await this.provisions.findOne({ where: { jti } });
+    if (!row || row.audited) return;
+    try {
+      if (row.state === 'created') {
+        await this.audit.record('provision.created', `user:${row.userId}`, `project=${row.projectId}`);
+      } else {
+        await this.audit.record('provision.refused', 'system', null);
+      }
+      await this.provisions.update({ jti, audited: false }, { audited: true });
+    } catch (error) {
+      this.logger.warn(`ever_connect.provision audit=later reason=${(error && error.name) || 'error'}`);
     }
   }
 

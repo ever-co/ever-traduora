@@ -182,6 +182,19 @@ describe('ProvisionComponent', () => {
     expect(text(fixture)).toContain('not available on this Traduora installation');
   });
 
+  it('removes the link from the address bar and still checks it when the browser blocks storage', () => {
+    const replaceState = spyOn(history, 'replaceState').and.callThrough();
+    // Storage methods live on Storage.prototype (an assignment on the instance would only store an item)
+    const setItem = spyOn(Storage.prototype, 'setItem').and.throwError('SecurityError');
+    const removeItem = spyOn(Storage.prototype, 'removeItem').and.throwError('SecurityError');
+    const fixture = render(false, req => req.flush({ data: checked }));
+    setItem.and.callThrough();
+    removeItem.and.callThrough();
+    expect(replaceState).toHaveBeenCalledTimes(1);
+    expect(text(fixture)).toContain('Acme Translations');
+    expect(text(fixture)).toContain('This browser does not let the page keep the link');
+  });
+
   it('asks for the link when there is none', () => {
     fragment = null;
     const fixture = render(true);

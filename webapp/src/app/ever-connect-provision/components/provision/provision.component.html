@@ -26,6 +26,9 @@
 
           <ng-template #signIn>
             <p>Sign in with the Ever ID you used on app.ever.co to continue.</p>
+            <p *ngIf="cannotKeep" class="small text-warning">
+              This browser does not let the page keep the link while you sign in: sign in first, then open the link from app.ever.co again.
+            </p>
             <button *ngIf="everId" type="button" class="btn btn-primary mr-2" [disabled]="busy" (click)="continueWithEverId()">
               Continue with Ever ID
             </button>

@@ -10,6 +10,8 @@ const TABLES: TableSpec[] = [
       { name: 'state', type: 'varchar', length: 16 },
       { name: 'user_id', type: 'varchar', length: 64, nullable: true },
       { name: 'project_id', type: 'varchar', length: 64, nullable: true },
+      { name: 'instance_id', type: 'varchar', length: 64, nullable: true },
+      { name: 'audited', type: 'boolean', default: 0 },
       { name: 'org_id', type: 'varchar', length: 64, nullable: true },
       { name: 'tenant_link_id', type: 'varchar', length: 64, nullable: true },
       { name: 'pending_complete', type: 'boolean', default: 0 },

@@ -27,6 +27,16 @@ export const PROVISION_INTENT_KEY = 'everConnectProvisionIntent';
 /** Where the page keeps the checked confirmation for this tab, until its outcome is known. */
 export const PROVISION_CHECKED_KEY = 'everConnectProvisionChecked';
 
+/** Writes to session storage; false when the browser blocks it or it is full (the page then works without it). */
+function write(key: string, value: string): boolean {
+  try {
+    sessionStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** How long the kept intent is used (an intent itself lives at most 15 minutes). */
 const KEPT_MS = 15 * 60 * 1000;
 
@@ -50,9 +60,9 @@ export class ProvisionService {
       .pipe(map(res => res.data));
   }
 
-  /** Keeps the intent for this tab only (session storage). */
-  keep(intent: string): void {
-    sessionStorage.setItem(PROVISION_INTENT_KEY, JSON.stringify({ intent, at: Date.now() }));
+  /** Keeps the intent for this tab only (session storage); false when the browser does not let the page keep it. */
+  keep(intent: string): boolean {
+    return write(PROVISION_INTENT_KEY, JSON.stringify({ intent, at: Date.now() }));
   }
 
   /** The intent kept for this tab, while it is recent. */
@@ -69,8 +79,8 @@ export class ProvisionService {
    * Keeps the checked confirmation for this tab until its outcome is known: after a reload (a lost answer to Create,
    * for instance) the page confirms again with it, which answers `exists`, instead of checking the used intent again.
    */
-  keepChecked(checked: ProvisionIntent): void {
-    sessionStorage.setItem(PROVISION_CHECKED_KEY, JSON.stringify(checked));
+  keepChecked(checked: ProvisionIntent): boolean {
+    return write(PROVISION_CHECKED_KEY, JSON.stringify(checked));
   }
 
   /** The checked confirmation kept for this tab, while it is valid. */
@@ -86,7 +96,12 @@ export class ProvisionService {
 
   /** Forgets the intent and its confirmation (the outcome is known, or the link cannot be used). */
   forget(): void {
-    sessionStorage.removeItem(PROVISION_INTENT_KEY);
-    sessionStorage.removeItem(PROVISION_CHECKED_KEY);
+    for (const key of [PROVISION_INTENT_KEY, PROVISION_CHECKED_KEY]) {
+      try {
+        sessionStorage.removeItem(key);
+      } catch {
+        // Storage the browser blocks holds nothing to forget
+      }
+    }
   }
 }

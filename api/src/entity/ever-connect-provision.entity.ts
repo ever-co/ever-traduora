@@ -24,6 +24,14 @@ export class EverConnectProvision {
   @Column({ type: 'varchar', length: 64, name: 'project_id', nullable: true })
   projectId: string | null;
 
+  /** The Registry id of the installation the intent was verified for: its answer is sent under that connection only. */
+  @Column({ type: 'varchar', length: 64, name: 'instance_id', nullable: true })
+  instanceId: string | null;
+
+  /** Whether the audit trail has the answer (written again by the background round when it could not be at once). */
+  @Column({ type: 'boolean', name: 'audited', default: false })
+  audited: boolean;
+
   /** The Ever Platform organization id the intent named. */
   @Column({ type: 'varchar', length: 64, name: 'org_id', nullable: true })
   orgId: string | null;

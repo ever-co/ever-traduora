@@ -69,6 +69,7 @@ export class EverConnectProvisionIntentRequest {
 export class EverConnectProvisionConfirmRequest {
   @ApiProperty({ description: 'The sealed confirmation answered for the intent' })
   @IsString()
-  @MaxLength(4096)
+  // The largest the API seals: every field it carries is bounded (see ever-connect-provision.service.ts)
+  @MaxLength(8192)
   provisionTxn: string;
 }

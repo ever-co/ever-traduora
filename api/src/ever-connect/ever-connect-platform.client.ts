@@ -175,6 +175,21 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     onWarning: options.onWarning,
   });
   let keySet: KeySet | undefined;
+  /** The key-set refresh in flight, shared by every lookup that needs one meanwhile. */
+  let refreshing: Promise<void> | null = null;
+  const refreshKeys = (): Promise<void> => {
+    if (!refreshing) {
+      refreshing = client.keys
+        .refresh(keySet)
+        .then(update => {
+          keySet = update.keySet;
+        })
+        .finally(() => {
+          refreshing = null;
+        });
+    }
+    return refreshing;
+  };
 
   const verify = async (jws: string, subject: string, cached: StoredEntitlement | null): Promise<StoredEntitlement> => {
     if (!keySet || keySet.needsRefresh()) {
@@ -334,12 +349,13 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     },
     async intentKey(kid, nowS) {
       if (!keySet || keySet.needsRefresh(nowS)) {
-        keySet = (await client.keys.refresh(keySet)).keySet;
+        await refreshKeys();
       }
       let key = keySet.find(kid, 'intent', nowS);
-      // A key published after the set was read: one refresh, as the SDK allows it
+      // A key published after the set was read: one refresh, as the SDK allows it (the window is taken before the
+      // request, and concurrent lookups share the refresh in flight)
       if (!key && !keySet.has(kid) && keySet.unknownKidRefreshAllowed(nowS)) {
-        keySet = (await client.keys.refresh(keySet)).keySet;
+        await refreshKeys();
         key = keySet.find(kid, 'intent', nowS);
       }
       return key ? { x: key.x, issuer: client.issuer } : null;

@@ -54,6 +54,8 @@ export class ProvisionComponent implements OnInit, OnDestroy {
   wrongAccount = false;
   signedIn = false;
   busy = false;
+  /** The browser does not let this page keep the link while the person signs in. */
+  cannotKeep = false;
   everId: Provider | undefined;
   private readonly subscriptions = new Subscription();
 
@@ -66,11 +68,11 @@ export class ProvisionComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const fromLink = new URLSearchParams(this.route.snapshot.fragment || '').get('intent');
     if (fromLink) {
+      // The intent never stays in the address bar or in the history, whatever happens next
+      history.replaceState(history.state, '', `${location.pathname}${location.search}`);
       // A new link replaces whatever this tab kept
       this.provision.forget();
-      this.provision.keep(fromLink);
-      // The intent never stays in the address bar or in the history
-      history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+      this.cannotKeep = !this.provision.keep(fromLink);
     }
     this.subscriptions.add(this.store.select(AuthState.isAuthenticated).subscribe(signedIn => (this.signedIn = !!signedIn)));
     this.subscriptions.add(
