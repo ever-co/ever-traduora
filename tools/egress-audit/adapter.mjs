@@ -10,8 +10,12 @@ const OPERATOR_PASSWORD = 'egress-audit-only-operator-account';
 // Plain http on purpose: the mail catcher inside the sealed audit setup.
 const MAIL = 'http://mailpit:8025'; // NOSONAR
 
-/** How long the adapter waits for the verification mail. */
-const MAIL_TIMEOUT_MS = 120_000;
+/**
+ * How long the adapter waits for the verification mail. With the loaded_off interval below (240 s), the whole setup
+ * (health, sign-in, mail, switch-off) ends long before the statistics scheduler's first slot, and the watched window
+ * (wait_s, 300 s after the setup) still holds that slot.
+ */
+const MAIL_TIMEOUT_MS = 60_000;
 
 async function json(fetch, url, init) {
   const response = await fetch(url, init);
@@ -50,12 +54,13 @@ async function verificationToken({ fetch, log }) {
 export default {
   /**
    * Extra environment of each mode, without the product prefix (the harness adds TR_). loaded_off: a local reporting
-   * address outside the sealed setup and a 90-second interval, so the statistics scheduler asks after the operator's
-   * switch-off within the watched window (and a report, if one were sent, would show as a connection attempt).
+   * address outside the sealed setup and a 240-second interval: the first slot comes after the operator's switch-off
+   * (the setup takes at most about 100 seconds, the mail wait included), and inside the watched window, so the
+   * scheduler asks after the switch-off (and a report, if one were sent, would show as a connection attempt).
    */
   env: {
     // A private address outside the sealed setup: nothing answers there, and a send would show.
-    loaded_off: { EVER_STATS_API_URL: 'http://10.231.8.1:8080', EVER_STATS_SEND_INTERVAL_S: '90' }, // NOSONAR
+    loaded_off: { EVER_STATS_API_URL: 'http://10.231.8.1:8080', EVER_STATS_SEND_INTERVAL_S: '240' }, // NOSONAR
   },
 
   /** Signs in as the operator the API created at its first start; later hooks send these headers. */

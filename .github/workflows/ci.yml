@@ -102,7 +102,7 @@ jobs:
   # that one red step does not hide the result of the others.
   egress:
     runs-on: ${{ vars.RUNNER_LINUX_X64_8 || vars.RUNNER_LINUX_X64_4 || 'ubuntu-latest' }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     env:
       AUDIT_CONFIG: tools/egress-audit/egress-audit.config.json
       AUDIT_ARTIFACTS: egress-audit-artifacts

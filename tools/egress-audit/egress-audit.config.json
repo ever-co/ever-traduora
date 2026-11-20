@@ -26,7 +26,7 @@
     "/api/v1/ever-connect/managed"
   ],
   "adapter": "adapter.mjs",
-  "wait_s": 180,
+  "wait_s": 300,
   "allowed_external_hosts": [],
   "web_service": null,
   "no_web_reason": "This config is the API leg. The Traduora web app is static files served by the same API process (no web server of its own); a browser leg that walks its pages is a separate change."

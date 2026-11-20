@@ -20,7 +20,7 @@ This directory holds only Traduora's inputs:
 
 | File | What it is |
 |---|---|
-| `egress-audit.config.json` | The API leg: the API as the audited process, the module routes probed in `off`, the watched window, `TR_EVER_` as the prefix of the mode variables |
+| `egress-audit.config.json` | The API leg: the API as the audited process, the module routes probed in `off`, the watched window (300 s), `TR_EVER_` as the prefix of the mode variables |
 | `docker-compose.audit.yml` | The image under test (`TR_IMAGE`) on SQLite with a random `TR_SECRET` per run, and a local mail catcher (Mailpit, pinned by digest) |
 | `adapter.mjs` | Signs in as the operator the API creates at its first start, reads the Ever Platform routes, confirms the operator's e-mail through the mail catcher and switches the statistics off (`loaded_off`) |
 | `harness.json` | The harness version and integrity |
@@ -33,7 +33,7 @@ The Traduora web app is static files served by the API process itself, so this c
 | Mode | The API | Passes when |
 |---|---|---|
 | `off` | `TR_EVER_STATS_ENABLED=false`, connection unset | no Ever host looked up, no connection attempt out, every module route answers 404, and the API log has no `ever_stats.` or `ever_connect.` line |
-| `loaded_off` | both modules loaded; the operator confirms their e-mail and switches the statistics off through `PUT /api/v1/ever-stats/enabled`; a local reporting address outside the sealed setup and a 90-second interval; not connected | no call at all; the watched window (180 s) is longer than one interval, and the API must have logged `ever_stats.send outcome=skipped_ui_off` (the scheduler ran after the switch-off), so a run in which it never ran fails |
+| `loaded_off` | both modules loaded; the operator confirms their e-mail and switches the statistics off through `PUT /api/v1/ever-stats/enabled`; a local reporting address outside the sealed setup and a 240-second interval (the setup, mail wait included, ends long before it); not connected | no call at all; the watched window (300 s) holds the first slot, and the API must have logged `ever_stats.send outcome=skipped_ui_off` (the scheduler ran after the switch-off), so a run in which it never ran fails |
 | `positive_stats` | statistics on, reporting to the mock platform every 5 seconds | signed, schema-valid reports accepted, no other call |
 | `positive_connect` | connection on with the mock's connect code (`TR_EVER_CONNECT_CODE`), statistics off | exactly the key manifest, redeem, token, heartbeat, event feed, entitlement and integration states |
 | control | `positive_stats` without the mock platform | must **fail** (exit 1): a green run is not a blind one |
