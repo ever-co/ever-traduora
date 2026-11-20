@@ -33,6 +33,12 @@ services:
       TR_MAIL_PORT: '1025'
       TR_MAIL_SECURE: 'false'
       TR_MAIL_SENDER: traduora@example.test
+      # The driver makes all its requests from one address, faster than a person: the request limits are set high so
+      # that the API does not answer 429 to the audit (they limit request rates only, nothing the audit checks)
+      TR_THROTTLE_TTL: '60000'
+      TR_THROTTLE_LIMIT: '100000'
+      TR_AUTH_THROTTLE_TTL: '60000'
+      TR_AUTH_THROTTLE_LIMIT: '100000'
 
   mailpit:
     # A local mail catcher: the API sends its verification mail here, and the adapter reads it
