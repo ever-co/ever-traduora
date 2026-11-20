@@ -2,7 +2,7 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CONSTANTS, codes, entitlementStatus, INTEGRATIONS, signCompactJws } from '@ever-co/connect-sdk';
 import { createHash, randomInt, randomUUID } from 'crypto';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
@@ -387,17 +387,22 @@ export class EverConnectService {
     if (!connection || connection.status === status) return;
     // An answer about an earlier connection key never ends the connection that replaced it
     if (kid !== undefined && kid !== connection.kid) return;
-    connection.status = status;
-    connection.nextHeartbeatAt = null;
-    connection.nextEntitlementAt = null;
-    connection.updatedAt = Date.now();
-    this.cachedClient = null;
-    // Ever Platform ended the person links and the consents with the connection (a later connection reads them again)
-    await this.connections.manager.transaction(async manager => {
-      await manager.save(connection);
+    // Ever Platform ended the person links and the consents with the connection (a later connection reads them again).
+    // Only the connection read above ends: the update matches its key and state, so a disconnect and a new connect
+    // made meanwhile by another API process are never overwritten, and its rows are deleted only after that update
+    const ended = await this.connections.manager.transaction(async manager => {
+      const { affected } = await manager.update(
+        EverConnectConnection,
+        { id: CONNECTION_ID, kid: connection.kid === null ? IsNull() : connection.kid, status: connection.status },
+        { status, nextHeartbeatAt: null, nextEntitlementAt: null, updatedAt: Date.now() },
+      );
+      if (!affected) return false;
       await manager.createQueryBuilder().delete().from(EverConnectIntegration).execute();
       await manager.createQueryBuilder().delete().from(EverConnectPersonLink).execute();
+      return true;
     });
+    if (!ended) return;
+    this.cachedClient = null;
     await this.audit.record(`instance.${status}`, 'platform', reason);
     this.logger.warn(`ever_connect.connection state=${status} reason=${reason}`);
   }
@@ -491,7 +496,8 @@ export class EverConnectService {
     const { connection, client } = live;
     const self = await client.self();
     if (self.status === 'revoked' || self.status === 'disconnected') {
-      await this.endedByPlatform(self.status, 'state');
+      // An answer read for a connection that was replaced meanwhile never ends the new one
+      await this.endedByPlatform(self.status, 'state', connection.kid);
       return;
     }
     const status = self.status === 'active' || self.status === 'pending_approval' ? self.status : connection.status;
@@ -556,15 +562,33 @@ export class EverConnectService {
       if (before !== row.state && (before !== undefined || (row.state !== 'available' && row.state !== 'coming_soon'))) {
         await this.audit.record('integration.state', 'platform', `${key}=${row.state}`);
       }
-      // The statistics link is sent until it succeeded once for this consent (a failed send is tried again here)
-      if (key === 'stats_link' && row.state === 'enabled' && !parseJson<{ linked?: boolean }>(row.config, {}).linked) {
-        if (await this.linkStats('platform').catch(error => this.handleCallError(error, 'stats_link', live.connection.kid).then(() => false))) {
-          row.config = JSON.stringify({ linked: true });
-          await this.integrationRows.save(row);
-        }
+      if (key === 'stats_link') {
+        await this.syncStatsLink(live.connection.kid);
       }
     }
     return this.integrations();
+  }
+
+  /**
+   * Sends the statistics link while the `stats_link` integration is enabled and the current statistics identity is not
+   * the one linked: never sent, a failed send, or an identity the operator reset since. Two reads when nothing changed;
+   * run after each integration refresh and by the scheduler, so a reset identity is linked without waiting for an event.
+   */
+  async syncStatsLink(kid: string | null): Promise<void> {
+    const row = await this.integrationRows.findOne({ where: { key: 'stats_link' } });
+    if (!row || row.state !== 'enabled') return;
+    const identity = await this.instance.read();
+    const linked = parseJson<{ linked?: boolean; statsInstanceId?: string }>(row.config, {});
+    if (linked.linked && identity && linked.statsInstanceId === identity.instanceId) return;
+    const sent = await this.linkStats('platform').catch(error => this.handleCallError(error, 'stats_link', kid).then(() => false as const));
+    if (sent) {
+      // Only the config, and only while the same consent is still enabled: a switch-off made while the link was sent
+      // (state, pendingRemoteRevoke) is never undone, and a row deleted meanwhile is not written again
+      await this.integrationRows.update(
+        { key: 'stats_link', state: 'enabled', consentId: row.consentId === null ? IsNull() : row.consentId, pendingRemoteRevoke: false },
+        { config: JSON.stringify({ linked: true, statsInstanceId: sent }) },
+      );
+    }
   }
 
   /** The integrations of Traduora with their definitions, states and scopes (what each one moves). */
@@ -763,7 +787,8 @@ export class EverConnectService {
    * `stats_link`: links the anonymous statistics of this installation to its organization, with a statement signed by
    * the statistics key (the connection key never signs it). Only when the statistics are loaded.
    */
-  async linkStats(actorRef: string): Promise<boolean> {
+  /** Sends the statistics link. Returns the statistics instance id it linked, or `false` when nothing was sent. */
+  async linkStats(actorRef: string): Promise<string | false> {
     if (!this.settings.statsLoaded || this.settings.integrationsDeny.includes('stats_link')) {
       return false;
     }
@@ -787,6 +812,6 @@ export class EverConnectService {
     );
     await live.client.statsLink({ statement, statsInstanceId: record.instanceId, statsPublicKey: record.statsPublicKey }, randomUUID());
     await this.audit.record('stats_link.sent', actorRef, null);
-    return true;
+    return record.instanceId;
   }
 }

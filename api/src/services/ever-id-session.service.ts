@@ -168,8 +168,9 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
   }
 
   /**
-   * Removes one of the account's identities. Returns 'not_found' when the account has no such identity, and
-   * 'last_sign_in_method' when it would leave the account without any way to sign in (no password, no other identity).
+   * Removes one of the account's identities and ends the account's Ever ID sessions. Returns 'not_found' when the
+   * account has no such identity, and 'last_sign_in_method' when it would leave the account without any way to sign in
+   * (no password, no other identity).
    */
   async unlink(userId: string, identityId: string): Promise<'removed' | 'not_found' | 'last_sign_in_method'> {
     // With the account's row locked: two disconnects at once must not remove its last two ways to sign in
@@ -184,6 +185,9 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
         return 'last_sign_in_method' as const;
       }
       await entityManager.delete(UserIdentity, { id: identity.id });
+      // Sessions record the account, not the identity: end the account's Ever ID sessions, so a token issued through
+      // the removed identity stops working now (a later logout that names only its subject can no longer find it)
+      await entityManager.update(EverIdSession, { userId, revokedAt: IsNull() }, { revokedAt: new Date() });
       return 'removed' as const;
     });
   }
@@ -249,32 +253,62 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
    * Records a session opened with a provider. Keyed by the issuer and the provider's session id; without one, a local
    * id is used, so the session can still be ended by a logout that names the subject.
    *
-   * @returns The `sid` and `jti` the access token carries, or `undefined` when the provider already ended that session.
+   * With `subject`, the session is opened only while that identity is still the account's, with the account's row
+   * locked as {@link unlink} locks it: a disconnect, which ends the account's sessions, never misses a session opened by
+   * a sign-in that read the identity just before.
+   *
+   * @returns The `sid` and `jti` the access token carries, or `undefined` when the provider already ended that session
+   * or the identity was disconnected.
    */
-  async openSession(userId: string, issuer: string, providerSid: string | undefined): Promise<{ sid: string; jti: string } | undefined> {
+  async openSession(
+    userId: string,
+    issuer: string,
+    providerSid: string | undefined,
+    subject?: string,
+  ): Promise<{ sid: string; jti: string } | undefined> {
     const sid = providerSid ? issuerScopedKey(issuer, providerSid) : `local-${randomBytes(16).toString('hex')}`;
-    return this.openSessionWithKey(userId, sid);
+    if (subject === undefined) {
+      return this.openSessionWithKey(this.sessionRepo.manager, userId, sid, true);
+    }
+    try {
+      return await this.identityRepo.manager.transaction(async entityManager => {
+        await lockAccount(entityManager, userId);
+        const linked = await entityManager.count(UserIdentity, { where: { issuer, subject, user: { id: userId } } });
+        return linked ? this.openSessionWithKey(entityManager, userId, sid, false) : undefined;
+      });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        // A concurrent sign-in with the same provider session opened it first: use it if it is still open
+        return this.openSession(userId, issuer, providerSid, subject);
+      }
+      throw error;
+    }
   }
 
-  private async openSessionWithKey(userId: string, sid: string): Promise<{ sid: string; jti: string } | undefined> {
+  private async openSessionWithKey(
+    entityManager: EntityManager,
+    userId: string,
+    sid: string,
+    retryOnConflict: boolean,
+  ): Promise<{ sid: string; jti: string } | undefined> {
     const jti = randomBytes(16).toString('hex');
     const issuedAt = new Date();
     const expiresAt = new Date(issuedAt.getTime() + config.authTokenExpires * 1000);
 
-    const existing = await this.sessionRepo.findOne({ where: { sid } });
+    const existing = await entityManager.findOne(EverIdSession, { where: { sid } });
     if (existing) {
       if (existing.revokedAt || existing.userId !== userId) {
         return undefined;
       }
-      const { affected } = await this.sessionRepo.update({ sid, userId, revokedAt: IsNull() }, { jti, issuedAt, expiresAt });
+      const { affected } = await entityManager.update(EverIdSession, { sid, userId, revokedAt: IsNull() }, { jti, issuedAt, expiresAt });
       return affected ? { sid, jti } : undefined;
     }
     try {
-      await this.sessionRepo.insert({ sid, userId, jti, issuedAt, expiresAt, revokedAt: null });
+      await entityManager.insert(EverIdSession, { sid, userId, jti, issuedAt, expiresAt, revokedAt: null });
     } catch (error) {
-      if (isUniqueViolation(error)) {
+      if (retryOnConflict && isUniqueViolation(error)) {
         // A concurrent sign-in with the same session: use it if it is still open for this account
-        return this.openSessionWithKey(userId, sid);
+        return this.openSessionWithKey(entityManager, userId, sid, false);
       }
       throw error;
     }

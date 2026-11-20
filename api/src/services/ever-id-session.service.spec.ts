@@ -104,6 +104,28 @@ describeOnSqlite('EverIdSessionService', () => {
       expect(await service.listForUser(alice.id)).toEqual([]);
     });
 
+    it('ends the Ever ID sessions of the account when one of its identities is removed', async () => {
+      const alices = (await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit)) as UserIdentity;
+      const session = await service.openSession(alice.id, 'https://idp.example.test', 'sid-unlink');
+      const bobs = await service.openSession(bob.id, 'https://idp.example.test', 'sid-bob');
+      expect(await service.isRevoked(session.sid, alice.id)).toBe(false);
+
+      expect(await service.unlink(alice.id, alices.id)).toBe('removed');
+      expect(await service.isRevoked(session.sid, alice.id)).toBe(true);
+      // Another account keeps its sessions
+      expect(await service.isRevoked(bobs.sid, bob.id)).toBe(false);
+      // A sign-in that read the identity before the disconnect gets no session
+      expect(await service.openSession(alice.id, 'https://idp.example.test', 'sid-late', 's1')).toBeUndefined();
+    });
+
+    it('opens a session for a named identity only while the account still has it', async () => {
+      await service.link(alice.id, identity('s1'), IdentityLinkMethod.Explicit);
+      const session = await service.openSession(alice.id, 'https://idp.example.test', 'sid-named', 's1');
+      expect(await service.isRevoked(session.sid, alice.id)).toBe(false);
+      // Another account's identity opens nothing
+      expect(await service.openSession(bob.id, 'https://idp.example.test', 'sid-other', 's1')).toBeUndefined();
+    });
+
     it('removes the identities of a deleted account', async () => {
       await service.link(bob.id, identity('s2'), IdentityLinkMethod.Jit);
       await dataSource.getRepository(User).delete({ id: bob.id });

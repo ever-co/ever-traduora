@@ -170,6 +170,10 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         this.lastFeedAt = now;
         await this.readFeed(this.settings.feedMode === 'longpoll' ? LONG_POLL_S : 0);
       }
+      if (connection.status === 'active') {
+        // A statistics identity the operator reset is linked again within a tick (no feed event announces it)
+        await this.connect.syncStatsLink(connection.kid).catch(error => this.connect.handleCallError(error, 'stats_link', connection.kid));
+      }
       if (connection.status === 'active' && this.person) {
         await this.person.syncLinks().catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
@@ -205,15 +209,19 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       const problem = problemOf(error);
       if (problem && problem.status === 410) {
         // The position is older than what Ever Platform keeps: read the state again, then continue from where it says
-        await this.applyTypes(['ever.consent', 'ever.entitlements', 'ever.registry.tenant_link']);
+        await this.applyTypes(['ever.consent', 'ever.entitlements', 'ever.registry.tenant_link'], live.connection.kid);
         const lastId = (error as { lastId?: string }).lastId || null;
         if (lastId) await live.client.ack(lastId);
-        await this.connections.update({ id: CONNECTION_ID }, { feedCursor: lastId });
+        // Only for the connection and the position this read started at (a reconnect meanwhile has its own cursor)
+        await this.connections.update(
+          { id: CONNECTION_ID, kid: live.connection.kid, feedCursor: live.connection.feedCursor === null ? IsNull() : live.connection.feedCursor },
+          { feedCursor: lastId },
+        );
         // The state was read again in full: due work no longer waits for an earlier failed page
         this.feedFailed = false;
         return 0;
       }
-      await this.connect.handleCallError(error, 'feed');
+      await this.connect.handleCallError(error, 'feed', live.connection.kid);
       return 0;
     }
     if (!page.events.length) {
@@ -235,7 +243,10 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         }
       }
       try {
-        await this.applyTypes(page.events.map(event => event.type));
+        await this.applyTypes(
+          page.events.map(event => event.type),
+          live.connection.kid,
+        );
         // After the state refresh: a consent in the same page counts for a request that follows it, and a page that
         // ended the connection runs no maintenance work
         if (this.managed && !failures.length && (await this.isCurrent(live.connection.kid))) {
@@ -265,14 +276,18 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     return page.events.length;
   }
 
-  private async applyTypes(types: string[]): Promise<void> {
+  /**
+   * Applies what a page (or a full re-read) is about. `kid` is the key of the connection the page was read for: a page
+   * read before a disconnect and a new connect never ends or changes the connection that replaced it.
+   */
+  private async applyTypes(types: string[], kid: string | null): Promise<void> {
     const has = (prefix: string) => types.some(type => type.startsWith(prefix));
     if (types.includes('ever.registry.instance.revoked')) {
-      await this.connect.endedByPlatform('revoked', 'feed');
+      await this.connect.endedByPlatform('revoked', 'feed', kid);
       return;
     }
     if (types.includes('ever.registry.instance.disconnected')) {
-      await this.connect.endedByPlatform('disconnected', 'feed');
+      await this.connect.endedByPlatform('disconnected', 'feed', kid);
       return;
     }
     if (has('ever.registry.tenant_link')) {
