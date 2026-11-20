@@ -17,6 +17,18 @@ const MAIL = 'http://mailpit:8025'; // NOSONAR
  */
 const MAIL_TIMEOUT_MS = 60_000;
 
+/** Every request of the adapter ends within this time (the harness's fetch has no timeout of its own). */
+const REQUEST_TIMEOUT_MS = 10_000;
+
+/** The least time left before the statistics scheduler's first slot when the operator switches them off (loaded_off). */
+const SLOT_MARGIN_MS = 30_000;
+
+/** The harness's fetch, with a timeout on every request. */
+const timed =
+  fetch =>
+  (url, init = {}) =>
+    fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+
 async function json(fetch, url, init) {
   const response = await fetch(url, init);
   const text = await response.text();
@@ -33,6 +45,9 @@ async function json(fetch, url, init) {
 async function verificationToken({ fetch, log }) {
   const deadline = Date.now() + MAIL_TIMEOUT_MS;
   for (;;) {
+    if (Date.now() >= deadline) {
+      throw new Error('the verification mail never reached the mail catcher');
+    }
     try {
       const list = await json(fetch, `${MAIL}/api/v1/messages?limit=20`);
       for (const message of list.body?.messages ?? []) {
@@ -43,9 +58,6 @@ async function verificationToken({ fetch, log }) {
       }
     } catch (error) {
       log?.(`mail catcher: ${error.message}`);
-    }
-    if (Date.now() >= deadline) {
-      throw new Error('the verification mail never reached the mail catcher');
     }
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
@@ -96,7 +108,8 @@ export default {
    * Signs in as the operator the API created at its first start, and confirms their e-mail so that the operator routes
    * answer them in every mode; later hooks send these headers.
    */
-  async login({ baseUrl, fetch, log }) {
+  async login({ baseUrl, fetch: untimed, log }) {
+    const fetch = timed(untimed);
     const token = await json(fetch, `${baseUrl}/api/v1/auth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -120,7 +133,8 @@ export default {
    * Opens what the Ever Platform page reads, as the operator, and checks that each route answers as the mode loads it
    * (200 for a loaded module, 404 otherwise): a run whose settings never opened proves nothing about them.
    */
-  async openSettings({ baseUrl, fetch, headers, log, mode }) {
+  async openSettings({ baseUrl, fetch: untimed, headers, log, mode }) {
+    const fetch = timed(untimed);
     const loaded = LOADED[mode] ?? null;
     const routes = [
       ['/api/v1/ever-platform/status', loaded && (loaded.stats || loaded.connect)],
@@ -140,8 +154,22 @@ export default {
     }
   },
 
-  /** The operator (confirmed at sign-in) switches the statistics off on the Ever Platform page. */
-  async prepareLoadedOff({ baseUrl, fetch, headers, log }) {
+  /**
+   * The operator (confirmed at sign-in) switches the statistics off on the Ever Platform page. Only while the scheduler's
+   * first slot is still well ahead (its time as the API reports it): otherwise the run could not tell a send before the
+   * switch-off from one after it, and it stops as a fault rather than a verdict.
+   */
+  async prepareLoadedOff({ baseUrl, fetch: untimed, headers, log }) {
+    const fetch = timed(untimed);
+    const before = await json(fetch, `${baseUrl}/api/v1/ever-stats/status`, { headers });
+    const nextSendAt = before.body?.data?.nextSendAt;
+    if (before.status !== 200 || typeof nextSendAt !== 'number') {
+      throw new Error(`the statistics status does not name the next slot (${before.status})`);
+    }
+    if (nextSendAt - Date.now() < SLOT_MARGIN_MS) {
+      throw new Error(`the first statistics slot is ${Math.round((nextSendAt - Date.now()) / 1000)} s away: too close to switch off first`);
+    }
+    log?.(`first slot in ${Math.round((nextSendAt - Date.now()) / 1000)} s`);
     const response = await fetch(`${baseUrl}/api/v1/ever-stats/enabled`, {
       method: 'PUT',
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -151,6 +179,10 @@ export default {
     log?.(`switch off: ${response.status}`);
     if (response.status !== 200) {
       throw new Error(`the operator could not switch the statistics off (${response.status})`);
+    }
+    const after = await json(fetch, `${baseUrl}/api/v1/ever-stats/status`, { headers });
+    if (after.body?.data?.enabled !== false) {
+      throw new Error('the statistics still read as on after the switch-off');
     }
   },
 };
