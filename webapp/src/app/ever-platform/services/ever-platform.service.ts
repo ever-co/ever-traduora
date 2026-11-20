@@ -55,6 +55,49 @@ export interface EverConnectAuditRow {
   detail: string | null;
 }
 
+/** A weekly window maintenance operations may run in, in UTC: the days (0 = Sunday) and the hours `from` to `to` (`HH:MM`). */
+export interface EverManagedWindow {
+  days: number[];
+  from: string;
+  to: string;
+}
+
+/** One maintenance operation requested from app.ever.co and what became of it (no path, no file name). */
+export interface EverManagedOperation {
+  operationId: string;
+  kind: string;
+  status: string;
+  reason: string | null;
+  sizeBytes: number | null;
+  at: number;
+}
+
+/** The operator's opt-in to maintenance operations, as the API shows it (the backup directory only as set or not). */
+export interface EverManagedView {
+  available: boolean;
+  optIn: boolean;
+  kinds: string[];
+  supportedKinds: string[];
+  windows: EverManagedWindow[];
+  backupDirSet: boolean;
+  history: EverManagedOperation[];
+}
+
+/** A change of the opt-in: the fields not given keep their value; an empty `backupDir` removes the directory. */
+export interface EverManagedUpdate {
+  optIn?: boolean;
+  kinds?: string[];
+  windows?: EverManagedWindow[];
+  backupDir?: string;
+}
+
+/** An export of the signed-in user's own account, made for a request the user sent from app.ever.co. */
+export interface EverPersonExport {
+  jobId: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -130,5 +173,27 @@ export class EverPlatformService {
 
   audit(): Observable<EverConnectAuditRow[]> {
     return this.http.get<Payload<EverConnectAuditRow[]>>(`${this.endpoint}/ever-connect/audit`).pipe(map(res => res.data));
+  }
+
+  /** The opt-in to maintenance operations and their history (operator only; 404 where Ever operates the installation). */
+  managed(): Observable<EverManagedView> {
+    return this.http.get<Payload<EverManagedView>>(`${this.endpoint}/ever-connect/managed`).pipe(map(res => res.data));
+  }
+
+  updateManaged(update: EverManagedUpdate): Observable<EverManagedView> {
+    return this.http.put<Payload<EverManagedView>>(`${this.endpoint}/ever-connect/managed`, update).pipe(map(res => res.data));
+  }
+
+  /**
+   * The signed-in user's own exports that can be downloaded now. Any signed-in user may ask; the route exists only while
+   * the connection module is loaded, so a 404 means it is not.
+   */
+  myExports(): Observable<EverPersonExport[]> {
+    return this.http.get<Payload<EverPersonExport[]>>(`${this.endpoint}/ever-connect/me/exports`).pipe(map(res => res.data));
+  }
+
+  /** One export of the signed-in user's own account, as JSON (404 once it expired). */
+  myExport(jobId: string): Observable<unknown> {
+    return this.http.get<Payload<unknown>>(`${this.endpoint}/ever-connect/me/exports/${encodeURIComponent(jobId)}`).pipe(map(res => res.data));
   }
 }
