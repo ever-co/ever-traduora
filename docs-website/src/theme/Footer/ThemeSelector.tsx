@@ -79,7 +79,7 @@ export function ThemeSelector(): ReactNode {
 					title={label}
 					aria-pressed={isBrowser && colorModeChoice === choice}
 					onClick={() => setColorMode(choice)}
-					className="flex justify-center items-center w-8 h-8 pointer-coarse:w-11 pointer-coarse:h-11 rounded-full border-0 bg-transparent cursor-pointer text-[#231645]/70 dark:text-white/60 hover:text-[#231645] dark:hover:text-white aria-pressed:bg-[#AFB6C1] aria-pressed:text-[#231645] dark:aria-pressed:bg-[#3B4454] dark:aria-pressed:text-white forced-colors:aria-pressed:border-2 forced-colors:aria-pressed:border-[color:CanvasText] transition-colors duration-200 outline-hidden focus-visible:ring-2 focus-visible:ring-[#5468ff]"
+					className="flex justify-center items-center w-8 h-8 pointer-coarse:w-11 pointer-coarse:h-11 rounded-full border-0 bg-transparent cursor-pointer text-[#231645]/70 dark:text-white/60 hover:text-[#231645] dark:hover:text-white aria-pressed:bg-[#AFB6C1] aria-pressed:text-[#231645] dark:aria-pressed:bg-[#3B4454] dark:aria-pressed:text-white forced-colors:aria-pressed:border-2 forced-colors:aria-pressed:border-[color:CanvasText] transition-colors duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#5468ff]"
 				>
 					<Icon aria-hidden className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
 				</button>
