@@ -56,3 +56,19 @@ export class EverConnectManagedRequest {
   @MaxLength(1024)
   backupDir?: string;
 }
+
+/** A provisioning intent as app.ever.co put it in the link (a compact JWS). */
+export class EverConnectProvisionIntentRequest {
+  @ApiProperty({ description: 'The signed intent from app.ever.co (compact JWS)' })
+  @IsString()
+  @MaxLength(16384)
+  intent: string;
+}
+
+/** The sealed confirmation `POST /provision/intent` answered. */
+export class EverConnectProvisionConfirmRequest {
+  @ApiProperty({ description: 'The sealed confirmation answered for the intent' })
+  @IsString()
+  @MaxLength(4096)
+  provisionTxn: string;
+}
