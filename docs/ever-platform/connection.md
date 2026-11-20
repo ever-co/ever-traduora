@@ -141,7 +141,9 @@ is created until the person confirms on a Traduora page. It is **off by default*
    named after the organization, with the person as its admin and the default plan (Traduora has no organizations yet:
    a project is its unit with an admin). Then Traduora tells Ever Platform
    `POST /v1/provision-intents/{jti}/complete {instance_id, product_tenant_id: <project id>, product_user_ref: <user id>,
-   urls.app, result: created}`. The same confirmation again answers `exists` and creates nothing.
+   urls.app, result: created}`, where `urls.app` is the address the operator gave Ever Platform with the `instance_url`
+   integration (left out when there is none; never guessed from the server). The same confirmation again answers
+   `exists` and creates nothing.
 4. **Decline** (`POST /api/v1/ever-connect/provision/intents/<jti>/reject`) creates nothing and tells Ever Platform
    `result: refused` (`product_tenant_id: none`).
 
