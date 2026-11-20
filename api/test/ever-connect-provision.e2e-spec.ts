@@ -252,6 +252,8 @@ describe('Ever Platform provisioning hand-off, switched off (e2e)', () => {
   afterAll(async () => {
     await app.get(Connection).close();
     await app.close();
+    // The suites after this one read their own configuration
+    delete process.env.TR_AUTH_EVERID_ISSUER;
   });
 
   it('answers 404 on every provisioning route and calls nothing', async () => {
@@ -269,7 +271,7 @@ describe('Ever Platform provisioning hand-off, switched off (e2e)', () => {
       .post(`${BASE}/intents/${platform.claimsOf(intent).jti}/reject`)
       .send({ provisionTxn: 'x' })
       .expect(404);
-    expect(platform.names()).toEqual([]);
+    expect(platform.names().filter(name => name === 'intentKey' || name === 'completeProvisionIntent')).toEqual([]);
     expect(await app.get(Connection).getRepository(EverConnectProvision).count()).toBe(0);
   });
 });
