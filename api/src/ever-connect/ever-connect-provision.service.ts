@@ -530,6 +530,8 @@ export class EverConnectProvisionService {
    * for the row it may have written already, so a row is neither lost nor written twice. The flag is set last.
    */
   private async recordAudit(jti: string): Promise<void> {
+    // This caller's claim (a time no other caller uses): only it is checked again and released
+    let mine: number | null = null;
     try {
       const row = await this.provisions.findOne({ where: { jti } });
       if (!row || row.audited) return;
@@ -539,14 +541,19 @@ export class EverConnectProvisionService {
         (await this.provisions.update({ jti, audited: false, auditClaimedAt: LessThan(now - AUDIT_CLAIM_STALE_MS) }, { auditClaimedAt: now }))
           .affected;
       if (!claimed) return;
+      mine = now;
       const entry = auditEntry(row);
       if (!(await this.auditRows.count({ where: { action: entry.action, detail: entry.detail } }))) {
+        // Still this caller's claim right before the write: a caller that stalled past the stale time stops here
+        if (!(await this.provisions.count({ where: { jti, audited: false, auditClaimedAt: mine } }))) return;
         await this.audit.record(entry.action, entry.actorRef, entry.detail);
       }
-      await this.provisions.update({ jti }, { audited: true, auditClaimedAt: null });
+      await this.provisions.update({ jti, auditClaimedAt: mine }, { audited: true, auditClaimedAt: null });
     } catch (error) {
-      // The answer stands: the background round writes the row later (a claim left behind goes stale)
-      await this.provisions.update({ jti, audited: false }, { auditClaimedAt: null }).catch(() => undefined);
+      // The answer stands: the background round writes the row later. Only this caller's own claim is released.
+      if (mine !== null) {
+        await this.provisions.update({ jti, audited: false, auditClaimedAt: mine }, { auditClaimedAt: null }).catch(() => undefined);
+      }
       this.logger.warn(`ever_connect.provision audit=later reason=${error?.name || 'error'}`);
     }
   }

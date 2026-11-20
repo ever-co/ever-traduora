@@ -67,13 +67,16 @@ describe('the audit row of a provisioning answer', () => {
   const row = { jti: 'j1', state: 'created', userId: 'u1', projectId: 'p1', audited: false, auditClaimedAt: null };
 
   /** The service over stand-ins: the answers of the provision table, the audit rows already there, the audit writer. */
-  const build = (options: { findOne?: jest.Mock; claims?: number[]; written?: number; record?: jest.Mock }) => {
+  const build = (options: { findOne?: jest.Mock; claims?: number[]; written?: number; record?: jest.Mock; stillMine?: boolean }) => {
     const claims = [...(options.claims ?? [1])];
     const provisions = {
       findOne: options.findOne ?? jest.fn().mockResolvedValue(row),
+      // The claim updates (on an empty or a stale claim) answer from `claims`; every other update changes the row
       update: jest.fn().mockImplementation(async (criteria: Record<string, unknown>) => ({
-        affected: 'auditClaimedAt' in criteria ? (claims.shift() ?? 0) : 1,
+        affected: 'auditClaimedAt' in criteria && typeof criteria.auditClaimedAt !== 'number' ? (claims.shift() ?? 0) : 1,
       })),
+      // Whether the claim is still this caller's right before the write
+      count: jest.fn().mockResolvedValue(options.stillMine === false ? 0 : 1),
     };
     const auditRows = { count: jest.fn().mockResolvedValue(options.written ?? 0) };
     const audit = { record: options.record ?? jest.fn().mockResolvedValue(undefined) };
@@ -85,7 +88,20 @@ describe('the audit row of a provisioning answer', () => {
     const { recordAudit, audit, provisions } = build({});
     await expect(recordAudit()).resolves.toBeUndefined();
     expect(audit.record).toHaveBeenCalledWith('provision.created', 'user:u1', 'project=p1 jti=j1');
-    expect(provisions.update).toHaveBeenLastCalledWith({ jti: 'j1' }, { audited: true, auditClaimedAt: null });
+    expect(provisions.update).toHaveBeenLastCalledWith({ jti: 'j1', auditClaimedAt: expect.any(Number) }, { audited: true, auditClaimedAt: null });
+  });
+
+  it('writes nothing when its claim went stale and another caller took it before the write', async () => {
+    const { recordAudit, audit } = build({ stillMine: false });
+    await recordAudit();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('never releases a claim it does not hold', async () => {
+    // The read fails before any claim: nothing is released
+    const { recordAudit, provisions } = build({ findOne: jest.fn().mockRejectedValue(new Error('database gone')) });
+    await recordAudit();
+    expect(provisions.update).not.toHaveBeenCalled();
   });
 
   it('writes nothing while another caller holds a fresh claim', async () => {
@@ -99,7 +115,7 @@ describe('the audit row of a provisioning answer', () => {
     const { recordAudit, audit, provisions } = build({ claims: [0, 1], written: 1 });
     await recordAudit();
     expect(audit.record).not.toHaveBeenCalled();
-    expect(provisions.update).toHaveBeenLastCalledWith({ jti: 'j1' }, { audited: true, auditClaimedAt: null });
+    expect(provisions.update).toHaveBeenLastCalledWith({ jti: 'j1', auditClaimedAt: expect.any(Number) }, { audited: true, auditClaimedAt: null });
   });
 
   it('never fails the answer: a failed read or write is left for the background round', async () => {
@@ -109,8 +125,11 @@ describe('the audit row of a provisioning answer', () => {
 
     const unwritable = build({ record: jest.fn().mockRejectedValue(new Error('audit full')) });
     await expect(unwritable.recordAudit()).resolves.toBeUndefined();
-    // The claim is released for the next round, and the flag is not set
-    expect(unwritable.provisions.update).toHaveBeenLastCalledWith({ jti: 'j1', audited: false }, { auditClaimedAt: null });
+    // Its own claim is released for the next round, and the flag is not set
+    expect(unwritable.provisions.update).toHaveBeenLastCalledWith(
+      { jti: 'j1', audited: false, auditClaimedAt: expect.any(Number) },
+      { auditClaimedAt: null },
+    );
   });
 
   it('names the intent in every entry, with ids only', () => {
