@@ -264,7 +264,9 @@ describe('EverConnectService', () => {
       await connect.disableIntegration('instance_url', 'user:u1');
     };
     const views = await connect.refreshIntegrations();
-    expect(views.find(view => view.key === 'instance_url').state).toBe('disabled');
+    // The stale enabled state is never stored: the refresh reads again and finds the consent gone at Ever Platform
+    expect(views.find(view => view.key === 'instance_url').state).toBe('available');
+    expect(platform.names().filter(name => name === 'integrations').length).toBeGreaterThanOrEqual(3);
   });
 
   it('waits for approval, reading only its own state, then starts', async () => {

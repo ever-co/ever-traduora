@@ -525,8 +525,12 @@ export class EverConnectService {
     }
   }
 
-  /** Reads the integration states from Ever Platform and stores them; reports each change once. */
-  async refreshIntegrations(): Promise<EverConnectIntegrationView[]> {
+  /**
+   * Reads the integration states from Ever Platform and stores them. A row another refresh or a local decision changed
+   * while the states were read is not overwritten; the refresh then reads both again (twice at most), so a newer remote
+   * state (a revoked consent) is never left behind by an older one that was stored first.
+   */
+  async refreshIntegrations(attempt = 0): Promise<EverConnectIntegrationView[]> {
     const live = await this.liveClient();
     if (!live) {
       return this.integrations();
@@ -541,10 +545,12 @@ export class EverConnectService {
     if (!current || current.kid !== live.connection.kid || !this.isLive(current)) {
       return this.integrations();
     }
+    let changedMeanwhile = false;
     for (const key of TRADUORA_INTEGRATIONS) {
       const remote = states[key];
       const stored = await this.integrationRows.findOne({ where: { key } });
       if (stored ? decision(stored) !== readAt.get(key) : readAt.has(key)) {
+        changedMeanwhile = true;
         continue;
       }
       // The decision as read: the write below applies only while the row still holds it
@@ -588,13 +594,19 @@ export class EverConnectService {
             config: row.config,
           },
         );
-        if (!affected) continue;
+        if (!affected) {
+          changedMeanwhile = true;
+          continue;
+        }
       } else {
         try {
           await this.integrationRows.insert(row);
         } catch (error) {
           // Another refresh or a local decision created the row meanwhile: it stands
-          if (isUniqueViolation(error)) continue;
+          if (isUniqueViolation(error)) {
+            changedMeanwhile = true;
+            continue;
+          }
           throw error;
         }
       }
@@ -605,6 +617,9 @@ export class EverConnectService {
       if (key === 'stats_link') {
         await this.syncStatsLink(live.connection.kid);
       }
+    }
+    if (changedMeanwhile && attempt < 2) {
+      return this.refreshIntegrations(attempt + 1);
     }
     return this.integrations();
   }
