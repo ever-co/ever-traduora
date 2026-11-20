@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { Payload } from '../../shared/models/http';
 import { environment } from '../../../environments/environment';
@@ -53,6 +53,49 @@ export interface EverConnectAuditRow {
   action: string;
   actor: string;
   detail: string | null;
+}
+
+/** A weekly window maintenance operations may run in, in UTC: the days (0 = Sunday) and the hours `from` to `to` (`HH:MM`). */
+export interface EverManagedWindow {
+  days: number[];
+  from: string;
+  to: string;
+}
+
+/** One maintenance operation requested from app.ever.co and what became of it (no path, no file name). */
+export interface EverManagedOperation {
+  operationId: string;
+  kind: string;
+  status: string;
+  reason: string | null;
+  sizeBytes: number | null;
+  at: number;
+}
+
+/** The operator's opt-in to maintenance operations, as the API shows it (the backup directory only as set or not). */
+export interface EverManagedView {
+  available: boolean;
+  optIn: boolean;
+  kinds: string[];
+  supportedKinds: string[];
+  windows: EverManagedWindow[];
+  backupDirSet: boolean;
+  history: EverManagedOperation[];
+}
+
+/** A change of the opt-in: the fields not given keep their value; an empty `backupDir` removes the directory. */
+export interface EverManagedUpdate {
+  optIn?: boolean;
+  kinds?: string[];
+  windows?: EverManagedWindow[];
+  backupDir?: string;
+}
+
+/** An export of the signed-in user's own account, made for a request the user sent from app.ever.co. */
+export interface EverPersonExport {
+  jobId: string;
+  createdAt: number;
+  expiresAt: number;
 }
 
 @Injectable({
@@ -130,5 +173,34 @@ export class EverPlatformService {
 
   audit(): Observable<EverConnectAuditRow[]> {
     return this.http.get<Payload<EverConnectAuditRow[]>>(`${this.endpoint}/ever-connect/audit`).pipe(map(res => res.data));
+  }
+
+  /** The opt-in to maintenance operations and their history (operator only; 404 where Ever operates the installation). */
+  managed(): Observable<EverManagedView> {
+    return this.http.get<Payload<EverManagedView>>(`${this.endpoint}/ever-connect/managed`).pipe(map(res => res.data));
+  }
+
+  updateManaged(update: EverManagedUpdate): Observable<EverManagedView> {
+    return this.http.put<Payload<EverManagedView>>(`${this.endpoint}/ever-connect/managed`, update).pipe(map(res => res.data));
+  }
+
+  /**
+   * The signed-in user's own exports that can be downloaded now, or `null` while the connection module is not loaded.
+   * Any signed-in user may ask; the route exists only with the module. Without it the API answers 404, or, where it
+   * serves the web app, the app's own index.html for the unknown path (200, not JSON): both mean "not loaded", as any
+   * body other than a list does. Other errors are passed on.
+   */
+  myExports(): Observable<EverPersonExport[] | null> {
+    return this.http.get<Payload<EverPersonExport[]>>(`${this.endpoint}/ever-connect/me/exports`).pipe(
+      map(res => (res && Array.isArray(res.data) ? res.data : null)),
+      catchError(error =>
+        error instanceof HttpErrorResponse && (error.status === 404 || error.status === 200) ? of(null) : throwError(() => error),
+      ),
+    );
+  }
+
+  /** One export of the signed-in user's own account, as JSON (404 once it expired). */
+  myExport(jobId: string): Observable<unknown> {
+    return this.http.get<Payload<unknown>>(`${this.endpoint}/ever-connect/me/exports/${encodeURIComponent(jobId)}`).pipe(map(res => res.data));
   }
 }

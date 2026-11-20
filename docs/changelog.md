@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
+  allowed and the weekly windows (UTC), set, replace or remove the backup directory (SQLite), and see the recent
+  operations and why one did not run. See
+  [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
+- The account settings have a **My data exports** section while the Ever Platform connection is on: each user sees the
+  exports made of their own account for a request they sent from app.ever.co, and downloads one as a JSON file within
+  7 days. See [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
 - Projects can be created from app.ever.co (hand-off provisioning), behind `TR_EVER_CONNECT_PROVISION_ENABLED=true`
   (off by default; needs the Ever Platform connection): the person lands on `/ever-connect/provision`, signs in with
   the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See

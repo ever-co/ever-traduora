@@ -1,0 +1,140 @@
+<ng-container *ngIf="view || errorMessage">
+  <hr class="my-4" />
+  <h5 class="font-serif">Maintenance operations</h5>
+  <div *ngIf="message" class="alert alert-success">{{ message }}</div>
+  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
+    {{ errorMessage }}
+    <button *ngIf="!view" type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="refresh()">Try again</button>
+  </div>
+
+  <ng-container *ngIf="view">
+    <p class="text-muted">
+      An owner or admin of your organization can ask this installation, from app.ever.co, for a health report, a backup or a check of a backup.
+      Nothing runs unless your organization enabled maintenance operations there <strong>and</strong> you allow them here, for that kind, inside one
+      of your windows. Ever Platform receives the status, the version and sizes only, never a path or a file name.
+    </p>
+
+    <form (ngSubmit)="save()" novalidate>
+      <!-- Locked while a save runs: its answer replaces the form, so nothing typed meanwhile would be kept -->
+      <fieldset [disabled]="busy">
+        <div class="form-check mb-3">
+          <input id="everManagedOptIn" name="optIn" class="form-check-input" type="checkbox" [(ngModel)]="optIn" />
+          <label class="form-check-label" for="everManagedOptIn">Allow maintenance operations on this installation</label>
+        </div>
+
+        <fieldset class="form-group">
+          <legend class="col-form-label pt-0">Kinds allowed</legend>
+          <div class="form-check" *ngFor="let kind of view.supportedKinds">
+            <input [id]="'everManagedKind-' + kind" [name]="'kind-' + kind" class="form-check-input" type="checkbox" [(ngModel)]="kinds[kind]" />
+            <label class="form-check-label" [for]="'everManagedKind-' + kind">{{ kindLabel(kind) }}</label>
+          </div>
+          <small *ngIf="!view.supportedKinds.includes('backup')" class="form-text text-muted">
+            Backups run on SQLite only: back up PostgreSQL and MySQL with your usual tools.
+          </small>
+        </fieldset>
+
+        <fieldset class="form-group">
+          <legend class="col-form-label pt-0">Windows (UTC)</legend>
+          <div *ngFor="let window of windows; let i = index" class="border rounded p-2 mb-2">
+            <div class="d-flex flex-wrap">
+              <div class="form-check form-check-inline" *ngFor="let day of dayNames; let d = index">
+                <input
+                  [id]="'everManagedWindow' + i + 'Day' + d"
+                  [name]="'window' + i + 'day' + d"
+                  class="form-check-input"
+                  type="checkbox"
+                  [(ngModel)]="window.days[d]"
+                />
+                <label class="form-check-label small" [for]="'everManagedWindow' + i + 'Day' + d">{{ day }}</label>
+              </div>
+            </div>
+            <div class="form-inline mt-2">
+              <label class="sr-only" [for]="'everManagedWindow' + i + 'From'">From (UTC)</label>
+              <input
+                [id]="'everManagedWindow' + i + 'From'"
+                [name]="'window' + i + 'from'"
+                class="form-control form-control-sm mr-2"
+                type="time"
+                [(ngModel)]="window.from"
+              />
+              <span class="mr-2">to</span>
+              <label class="sr-only" [for]="'everManagedWindow' + i + 'To'">To (UTC)</label>
+              <input
+                [id]="'everManagedWindow' + i + 'To'"
+                [name]="'window' + i + 'to'"
+                class="form-control form-control-sm mr-2"
+                type="time"
+                [(ngModel)]="window.to"
+              />
+              <button type="button" class="btn btn-link btn-sm" [disabled]="busy" (click)="removeWindow(i)">Remove</button>
+            </div>
+            <div *ngIf="windowError(window) as error" class="small text-danger mt-1">{{ error }}</div>
+          </div>
+          <button type="button" class="btn btn-outline-primary btn-sm" [disabled]="busy || windows.length >= maxWindows" (click)="addWindow()">
+            Add a window
+          </button>
+          <small class="form-text text-muted">Days and hours are in UTC. An end time earlier than the start time runs overnight.</small>
+        </fieldset>
+
+        <div *ngIf="view.supportedKinds.includes('backup')" class="form-group">
+          <label for="everManagedBackupDir">Backup directory</label>
+          <p *ngIf="view.backupDirSet" class="small mb-1">A backup directory is set. It is not shown again; enter a new one to replace it.</p>
+          <input
+            id="everManagedBackupDir"
+            name="backupDir"
+            class="form-control"
+            type="text"
+            autocomplete="off"
+            placeholder="/app/api/backups"
+            maxlength="1024"
+            [disabled]="removeBackupDir"
+            [ngClass]="{ 'is-invalid': backupDirError }"
+            [(ngModel)]="backupDir"
+          />
+          <div class="invalid-feedback">{{ backupDirError }}</div>
+          <small class="form-text text-muted">
+            An absolute path on the server, for example a mounted volume. It is stored encrypted and never sent to Ever Platform.
+          </small>
+          <div *ngIf="view.backupDirSet" class="form-check mt-1">
+            <input id="everManagedRemoveBackupDir" name="removeBackupDir" class="form-check-input" type="checkbox" [(ngModel)]="removeBackupDir" />
+            <label class="form-check-label small" for="everManagedRemoveBackupDir">Remove the backup directory</label>
+          </div>
+        </div>
+
+        <p *ngIf="warning" class="small text-warning">{{ warning }}</p>
+      </fieldset>
+      <button type="submit" class="btn btn-primary btn-sm" [disabled]="busy || !valid || !changed">Save</button>
+    </form>
+
+    <h6 class="font-serif mt-4">Recent operations</h6>
+    <p *ngIf="!view.history.length" class="small text-muted">No operation was requested yet.</p>
+    <ng-container *ngIf="view.history.length">
+      <table class="table table-sm small">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Kind</th>
+            <th>Result</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let operation of shownHistory">
+            <td class="text-nowrap">{{ operation.at | date: 'medium' }}</td>
+            <td>{{ kindLabel(operation.kind) }}</td>
+            <td>{{ operation.status }}</td>
+            <td>{{ detail(operation) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <button
+        *ngIf="!showAllHistory && view.history.length > shownHistory.length"
+        type="button"
+        class="btn btn-link btn-sm p-0"
+        (click)="showAllHistory = true"
+      >
+        Show all {{ view.history.length }}
+      </button>
+    </ng-container>
+  </ng-container>
+</ng-container>

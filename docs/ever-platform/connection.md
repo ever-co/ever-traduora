@@ -71,9 +71,11 @@ that hash only, never by an e-mail address, and never creates or changes an acco
   their Ever ID here, the link is removed there too.
 - **Export.** Traduora makes one export per matched account: its profile (name, e-mail, when it was made and last
   signed in), its Ever ID, its projects with the user's role, and how many translation changes it made. The export is
-  stored encrypted with a key derived from `TR_SECRET`, and only that account can download it, for 7 days:
-  `GET /api/v1/ever-connect/me/exports` lists them and `GET /api/v1/ever-connect/me/exports/<id>` returns one, as JSON,
-  to the signed-in user. Ever Platform receives the answer `exported` (or `no_account`), never the export.
+  stored encrypted with a key derived from `TR_SECRET`, and only that account can download it, for 7 days: the user
+  finds it under **My data exports** in the account settings (when it was made, until when it can be downloaded) and
+  downloads it as a JSON file. The page reads `GET /api/v1/ever-connect/me/exports`, which lists them, and
+  `GET /api/v1/ever-connect/me/exports/<id>`, which returns one, as JSON, to the signed-in user. Ever Platform receives
+  the answer `exported` (or `no_account`), never the export.
 - **Deletion.** Traduora removes the person's Ever ID from the accounts it is linked to and ends the sessions opened with
   it. The accounts themselves stay, with their projects, passwords and other sign-in methods: the person can still sign
   in with a password (or reset it) and delete the account in Traduora. Ever Platform receives the answer `anonymised`
@@ -100,7 +102,10 @@ PostgreSQL and MySQL backups need their own dump tools, which the Traduora image
 up with your usual tools. Such a request is answered `failed` (`unsupported_dialect` in the history). `update` is never
 run: the API cannot replace its own container image, so update the container yourself.
 
-The operator sets it all with `PUT /api/v1/ever-connect/managed` and reads it with `GET` (operator only):
+The operator sets it all on the **Ever Platform** page, under **Maintenance operations**: the opt-in, the kinds allowed,
+the windows, the backup directory (on SQLite; it can be replaced or removed, never read back) and the recent operations
+with their result. The page checks each window and the directory before it saves, and shows the reason when the API
+refuses a value. The same settings are `PUT /api/v1/ever-connect/managed`, read with `GET` (operator only):
 
 ```json
 {
