@@ -1,10 +1,11 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { environment } from '../../../../environments/environment';
-import { EverPersonExport } from '../../../ever-platform/services/ever-platform.service';
+import { throwError } from 'rxjs';
+import { EverPersonExport, EverPlatformService } from '../../../ever-platform/services/ever-platform.service';
 import { exportFileName, MyDataExportsComponent } from './my-data-exports.component';
 
 describe('MyDataExportsComponent', () => {
@@ -63,9 +64,6 @@ describe('MyDataExportsComponent', () => {
     // The API that serves the web app answers an unknown path with the app's own index.html (200, not JSON)
     fixture = render(req => req.flush('<!doctype html><html><body><app-root></app-root></body></html>'));
     expect(text(fixture).trim()).toBe('');
-    // In a browser that HTML fails to parse as JSON: an error that still carries the status 200
-    fixture = render(req => req.error(new ProgressEvent('error'), { status: 200, statusText: 'OK' }));
-    expect(text(fixture).trim()).toBe('');
     // Any other body is not a list of exports either
     fixture = render(req => req.flush({ data: { unexpected: true } }));
     expect(text(fixture).trim()).toBe('');
@@ -114,5 +112,32 @@ describe('MyDataExportsComponent', () => {
 
   it('names the file after the day the export was made and its id only', () => {
     expect(exportFileName({ jobId: 'a/b..c', createdAt: made, expiresAt: made + 7 * day })).toBe('traduora-export-2026-11-18-abc.json');
+  });
+});
+
+describe('EverPlatformService.myExports', () => {
+  /** The service over an HttpClient that fails every request with `error`. */
+  const failingWith = (error: HttpErrorResponse) => new EverPlatformService({ get: () => throwError(() => error) } as unknown as HttpClient);
+
+  const answer = (service: EverPlatformService) => {
+    let result: unknown = 'unset';
+    let failed: unknown = null;
+    service.myExports().subscribe({ next: value => (result = value), error: error => (failed = error) });
+    return { result, failed };
+  };
+
+  it('reads the web app page an API answers for an unknown path (200 that is not JSON) as "not loaded"', () => {
+    // What HttpClient reports in a browser when index.html does not parse as JSON
+    const parseError = new HttpErrorResponse({
+      status: 200,
+      statusText: 'OK',
+      error: { error: new SyntaxError('Unexpected token <'), text: '<!doctype html>' },
+    });
+    expect(answer(failingWith(parseError))).toEqual({ result: null, failed: null });
+  });
+
+  it('passes other errors on', () => {
+    const serverError = new HttpErrorResponse({ status: 500, statusText: 'Server Error' });
+    expect(answer(failingWith(serverError))).toEqual({ result: 'unset', failed: serverError });
   });
 });
