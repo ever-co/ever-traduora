@@ -95,7 +95,7 @@ export class MaintenanceComponent implements OnInit {
   /** The settings as last read or saved, to tell whether the form changed them. */
   private saved = '';
 
-  constructor(private everPlatform: EverPlatformService) {}
+  constructor(private readonly everPlatform: EverPlatformService) {}
 
   ngOnInit(): void {
     this.refresh();
@@ -253,10 +253,10 @@ export class MaintenanceComponent implements OnInit {
 
   private fail(error: unknown): void {
     this.busy = false;
-    const body = error instanceof HttpErrorResponse && error.error && error.error.error ? error.error.error : undefined;
-    const known = body && typeof body.code === 'string' ? ERRORS[body.code] : undefined;
+    const body = error instanceof HttpErrorResponse ? error.error?.error : undefined;
+    const known = typeof body?.code === 'string' ? ERRORS[body.code] : undefined;
     // The API says which value it cannot use (a kind, a window or the directory)
-    const detail = body && body.code === 'invalid_managed' && typeof body.message === 'string' ? ` ${body.message}.` : '';
+    const detail = body?.code === 'invalid_managed' && typeof body.message === 'string' ? ` ${body.message}.` : '';
     this.errorMessage = known ? `${known}${detail}` : GENERIC_ERROR;
   }
 }

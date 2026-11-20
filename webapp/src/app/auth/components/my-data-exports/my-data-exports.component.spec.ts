@@ -45,15 +45,15 @@ describe('MyDataExportsComponent', () => {
   it('lists the exports of the signed-in user with when they were made and until when they can be downloaded', () => {
     const fixture = render(req => req.flush({ data: rows }));
     expect(text(fixture)).toContain('My data exports');
-    expect(fixture.debugElement.queryAll(By.css('li')).length).toBe(2);
+    expect(fixture.debugElement.queryAll(By.css('li'))).toHaveSize(2);
     expect(text(fixture)).toContain('Available until');
-    expect(buttons(fixture, 'Download').length).toBe(2);
+    expect(buttons(fixture, 'Download')).toHaveSize(2);
   });
 
   it('says so when there is no export', () => {
     const fixture = render(req => req.flush({ data: [] }));
     expect(text(fixture)).toContain('You have no export to download.');
-    expect(fixture.debugElement.queryAll(By.css('li')).length).toBe(0);
+    expect(fixture.debugElement.queryAll(By.css('li'))).toHaveSize(0);
   });
 
   it('shows nothing while the connection module is not loaded', () => {
@@ -71,7 +71,7 @@ describe('MyDataExportsComponent', () => {
     http.expectOne(url).flush({ data: rows });
     fixture.detectChanges();
     expect(text(fixture)).not.toContain('could not be loaded');
-    expect(fixture.debugElement.queryAll(By.css('li')).length).toBe(2);
+    expect(fixture.debugElement.queryAll(By.css('li'))).toHaveSize(2);
   });
 
   it('downloads one export as a JSON file', async () => {
@@ -79,7 +79,7 @@ describe('MyDataExportsComponent', () => {
     const save = spyOn(fixture.componentInstance, 'save');
     buttons(fixture, 'Download')[1].nativeElement.click();
     fixture.detectChanges();
-    expect(buttons(fixture, 'Downloading...').length).toBe(1);
+    expect(buttons(fixture, 'Downloading...')).toHaveSize(1);
     const bundle = { profile: { name: 'Member' }, projects: [] };
     http.expectOne(`${url}/job_1`).flush({ data: bundle });
     fixture.detectChanges();
@@ -88,7 +88,7 @@ describe('MyDataExportsComponent', () => {
     expect(name).toBe('traduora-export-2026-11-18-job_1.json');
     expect(blob.type).toBe('application/json');
     expect(JSON.parse(await blob.text())).toEqual(bundle);
-    expect(buttons(fixture, 'Download').length).toBe(2);
+    expect(buttons(fixture, 'Download')).toHaveSize(2);
   });
 
   it('drops an export that expired meanwhile from the list', () => {

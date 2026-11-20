@@ -135,9 +135,9 @@ describe('MaintenanceComponent', () => {
     const component = fixture.componentInstance;
     expect(component.warning).toBe('There is no window: nothing will run.');
     for (let i = 0; i < 20; i++) component.addWindow();
-    expect(component.windows.length).toBe(14);
+    expect(component.windows).toHaveSize(14);
     component.removeWindow(0);
-    expect(component.windows.length).toBe(13);
+    expect(component.windows).toHaveSize(13);
   });
 
   it('warns while opted in with no kind allowed', () => {
@@ -177,12 +177,12 @@ describe('MaintenanceComponent', () => {
       at: 1763600000000 - i * 1000,
     }));
     const fixture = render(view({ history }));
-    expect(fixture.debugElement.queryAll(By.css('tbody tr')).length).toBe(10);
+    expect(fixture.debugElement.queryAll(By.css('tbody tr'))).toHaveSize(10);
     expect(text(fixture)).toContain('3.0 MB');
     expect(text(fixture)).toContain('Outside your windows');
     button(fixture, 'Show all 12').nativeElement.click();
     fixture.detectChanges();
-    expect(fixture.debugElement.queryAll(By.css('tbody tr')).length).toBe(12);
+    expect(fixture.debugElement.queryAll(By.css('tbody tr'))).toHaveSize(12);
   });
 
   it('shows nothing where the API does not answer (Ever operates the installation)', () => {

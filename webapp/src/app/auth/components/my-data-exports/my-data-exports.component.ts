@@ -27,7 +27,7 @@ export class MyDataExportsComponent implements OnInit {
   downloading: string | null = null;
   errorMessage: string | null = null;
 
-  constructor(private everPlatform: EverPlatformService) {}
+  constructor(private readonly everPlatform: EverPlatformService) {}
 
   ngOnInit(): void {
     this.refresh();
