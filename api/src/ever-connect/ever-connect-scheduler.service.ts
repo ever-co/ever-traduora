@@ -180,10 +180,11 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         await this.connect.syncStatsLink(connection.kid).catch(error => this.connect.handleCallError(error, 'stats_link', connection.kid));
       }
       if (connection.status === 'active' && this.person) {
-        // Long rounds renew the lease before each call and stop once another process holds it
+        // Long rounds renew the lease before each call and stop once another process holds it, or once this connection
+        // is no longer the active one (as the maintenance round below)
         if (!(await this.renew())) return;
         await this.person
-          .syncLinks(Date.now(), false, () => this.renew())
+          .syncLinks(Date.now(), false, async () => (await this.renew()) && (await this.isCurrent(connection.kid)))
           .catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
       if (connection.status === 'active' && this.managed) {
