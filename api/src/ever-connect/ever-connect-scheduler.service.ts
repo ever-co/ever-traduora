@@ -38,6 +38,8 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
   private feedFailed = false;
   /** This process, as the lease names it (random, nothing else). */
   readonly holderId = randomUUID();
+  /** How often a running round renews its lease: a third of it, so two renewals in a row may fail before it ends. */
+  keepAliveMs = Math.floor(LEASE_MS / 3);
 
   constructor(
     @InjectRepository(EverConnectConnection) private readonly connections: Repository<EverConnectConnection>,
@@ -153,6 +155,14 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     if (!(await this.acquire(now))) {
       return;
     }
+    // While the round runs, a timer renews the lease too: one long step (a backup, a restore check, a slow call) never
+    // outlives it, so another process cannot take over in the middle of it. The renewal in flight is awaited before the
+    // release, so it never takes the lease again after the round
+    let renewing: Promise<unknown> = Promise.resolve();
+    const keepAlive = setInterval(() => {
+      renewing = this.renew().catch(() => false);
+    }, this.keepAliveMs);
+    keepAlive.unref?.();
     try {
       // Read again under the lease: another process may have made the due calls meanwhile
       const connection = await this.connect.read();
@@ -210,6 +220,8 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         }
       }
     } finally {
+      clearInterval(keepAlive);
+      await renewing;
       await this.release();
     }
   }

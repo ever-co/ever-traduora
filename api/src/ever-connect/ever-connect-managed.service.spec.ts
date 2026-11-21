@@ -366,4 +366,31 @@ describeOnSqlite('EverConnectManagedService', () => {
     expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
     expect(platform.names()).toContain('ack');
   });
+
+  it('keeps the lease renewed while one long step of a round runs, and releases it after the round', async () => {
+    const { connect, managed, scheduler } = await connected();
+    await consent(connect);
+    const connections = dataSource.getRepository(EverConnectConnection);
+    await connections.update({ id: 'self' }, { nextHeartbeatAt: Date.now() + 3600000, nextEntitlementAt: Date.now() + 3600000 });
+    scheduler.keepAliveMs = 20;
+    const seen: number[] = [];
+    // One step much longer than the renewal interval (as a backup that outlives the lease would be)
+    const runDue = jest.spyOn(managed, 'runDue').mockImplementation(async () => {
+      for (let i = 0; i < 4; i++) {
+        await new Promise(resolve => setTimeout(resolve, 40));
+        const row = await connections.findOne({ where: { id: 'self' } });
+        expect(row.leasedBy).toBe(scheduler.holderId);
+        seen.push(row.leaseUntil);
+      }
+      return 0;
+    });
+    await scheduler.tick();
+    expect(runDue).toHaveBeenCalledTimes(1);
+    expect(seen).toHaveLength(4);
+    // Renewed while the step ran: each reading is later than the one before
+    expect(seen.every((until, i) => i === 0 || until > seen[i - 1])).toBe(true);
+    // Released after the round, and no renewal still in flight takes it again
+    await new Promise(resolve => setTimeout(resolve, 60));
+    expect(await connections.findOne({ where: { id: 'self' } })).toMatchObject({ leasedBy: null, leaseUntil: null });
+  });
 });
