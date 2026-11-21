@@ -540,8 +540,9 @@ export class AuthController {
         throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'sign_in_failed', 'The account of this identity no longer exists');
       }
       await this.everIdSessions.touchLastLogin(linked.id);
-      // Unlike the Google sign-in, no pending invite is accepted here: the account accepts them itself
-      const accessToken = await this.signOidcUserToken(user, identity.issuer, identity.subject, identity.sid);
+      // Unlike the Google sign-in, no pending invite is accepted here: the account accepts them itself. A logout naming
+      // only the subject that lands while this sign-in is under way (code exchange, account lookup) ends it too
+      const accessToken = await this.signOidcUserToken(user, identity.issuer, identity.subject, identity.sid, new Date(signedInAt));
       return { data: { id: user.id, email: user.email, name: user.name, accessToken } };
     }
 
