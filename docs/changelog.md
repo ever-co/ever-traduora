@@ -18,6 +18,9 @@ To download the source code for each release, check out [GitHub](https://github.
   the calls listed in [Outbound calls](ever-platform/outbound-calls.md).
 - A path under `/api` that no route answers is now a 404 (JSON), never the web app's page: a client asking for a route
   that does not exist, or of a module that is not loaded, gets a clear answer.
+- Ever Platform connection with several API processes: a running background round also renews its lease on a timer, so
+  one long step (a backup or a restore check longer than the 2-minute lease) never lets another process start its own
+  maintenance work alongside it
 
 ## 0.24.1
 
