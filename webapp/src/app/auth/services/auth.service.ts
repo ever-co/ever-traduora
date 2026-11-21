@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Payload } from 'src/app/shared/models/http';
-import { Identity, IdentityConnection, PendingAuthorization } from '../models/identity';
+import { Identity, IdentityConnection, localReturnPath, PendingAuthorization } from '../models/identity';
 import { Provider } from '../models/provider';
 import { User } from '../models/user';
 import { UserLogin } from '../models/user-login';
@@ -125,10 +125,10 @@ export class AuthService {
       .pipe(map(res => ({ accessToken: res.access_token })));
   }
 
-  redirectWithProvider(provider: Provider, options: { intent?: 'signin' | 'connect' } = {}): void | Promise<void> {
+  redirectWithProvider(provider: Provider, options: { intent?: 'signin' | 'connect'; returnTo?: string } = {}): void | Promise<void> {
     // OpenID Connect providers (e.g. Ever ID): state, nonce and PKCE. Google keeps its request as it was.
     if (provider.pkce) {
-      return this.redirectWithOidcProvider(provider, options.intent ?? 'signin');
+      return this.redirectWithOidcProvider(provider, options.intent ?? 'signin', options.returnTo);
     }
     window.open(
       `${provider.url}?redirect_uri=${provider.redirectUrl}&client_id=${provider.clientId}&scope=email profile openid&access_type=offline&prompt=select_account&response_type=code`, // tslint:disable-line max-line-length
@@ -137,7 +137,7 @@ export class AuthService {
   }
 
   /** Builds the authorization request of an OpenID Connect provider (state, nonce, PKCE S256). */
-  async oidcAuthorizeUrl(provider: Provider, intent: 'signin' | 'connect'): Promise<string> {
+  async oidcAuthorizeUrl(provider: Provider, intent: 'signin' | 'connect', returnTo?: string): Promise<string> {
     const codeVerifier = randomBase64Url(32);
     // Fails outside a secure context (crypto.subtle needs https or localhost): before anything is stored
     const codeChallenge = await pkceChallenge(codeVerifier);
@@ -149,6 +149,7 @@ export class AuthService {
       codeVerifier,
       intent,
       createdAt: Date.now(),
+      ...(localReturnPath(returnTo) ? { returnTo: localReturnPath(returnTo) } : {}),
     };
 
     url.searchParams.set('response_type', 'code');
@@ -168,8 +169,8 @@ export class AuthService {
     return url.toString();
   }
 
-  private async redirectWithOidcProvider(provider: Provider, intent: 'signin' | 'connect'): Promise<void> {
-    window.open(await this.oidcAuthorizeUrl(provider, intent), '_self');
+  private async redirectWithOidcProvider(provider: Provider, intent: 'signin' | 'connect', returnTo?: string): Promise<void> {
+    window.open(await this.oidcAuthorizeUrl(provider, intent, returnTo), '_self');
   }
 
   /** The pending authorization request a callback's `state` belongs to, if any, without removing it. */

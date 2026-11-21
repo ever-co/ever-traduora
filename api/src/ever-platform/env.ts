@@ -64,6 +64,11 @@ export interface EverPlatformConfig {
   /** `TR_EVER_CONNECT_FEED_MODE`: `longpoll` (default) or `interval`. */
   connectFeedMode: ConnectFeedMode;
   /**
+   * Whether the hand-off provisioning routes answer (`TR_EVER_CONNECT_PROVISION_ENABLED`): only the exact string `'true'`
+   * turns them on, and only with the connection module loaded; otherwise they answer 404.
+   */
+  connectProvisionEnabled: boolean;
+  /**
    * For a local test platform only (the SDK ignores them for any other address): the issuer its documents name
    * (`TR_EVER_PLATFORM_ISSUER`) and a file of extra root keys (`TR_EVER_PLATFORM_ROOT_KEYS_FILE`).
    */
@@ -273,6 +278,7 @@ export function readEverPlatformConfig(env: Env = process.env, warn: Warn = cons
     connectCode: (env.TR_EVER_CONNECT_CODE || '').trim() || null,
     connectIntegrationsDeny: parseKeyList(env.TR_EVER_CONNECT_INTEGRATIONS_DENY),
     connectFeedMode: readFeedMode(env, connectWarn),
+    connectProvisionEnabled: connectEnabled && readStrictBool('TR_EVER_CONNECT_PROVISION_ENABLED', false, env, connectWarn),
     platformIssuer: (env.TR_EVER_PLATFORM_ISSUER || '').trim() || null,
     platformRootKeysFile: (env.TR_EVER_PLATFORM_ROOT_KEYS_FILE || '').trim() || null,
   };

@@ -8,7 +8,10 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- TODO
+- Projects can be created from app.ever.co (hand-off provisioning), behind `TR_EVER_CONNECT_PROVISION_ENABLED=true`
+  (off by default; needs the Ever Platform connection): the person lands on `/ever-connect/provision`, signs in with
+  the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See
+  [Ever Platform connection](ever-platform/connection.md#provisioning-from-appeverco)
 
 ## 0.24.1
 

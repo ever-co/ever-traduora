@@ -5,6 +5,7 @@ import { IsNull, Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectManagedService } from './ever-connect-managed.service';
 import { EverConnectPersonService } from './ever-connect-person.service';
+import { EverConnectProvisionService } from './ever-connect-provision.service';
 import { problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
@@ -45,6 +46,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     @Optional() @Inject(EVER_CONNECT_AUTOSTART) private readonly autostart?: boolean,
     @Optional() private readonly person?: EverConnectPersonService,
     @Optional() private readonly managed?: EverConnectManagedService,
+    @Optional() private readonly provision?: EverConnectProvisionService,
   ) {}
 
   onModuleInit(): void {
@@ -187,8 +189,14 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
           .syncLinks(Date.now(), false, async () => (await this.renew()) && (await this.isCurrent(connection.kid)))
           .catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
+      if (connection.status === 'active' && this.provision) {
+        // Provisioning answers Ever Platform did not receive yet (it was unreachable when the person answered). Like the
+        // other long rounds: not once another process took the lease during the person-link round
+        if (!(await this.renew())) return;
+        await this.provision.retryPendingCompletes().catch(error => this.connect.handleCallError(error, 'provision_complete', connection.kid));
+      }
       if (connection.status === 'active' && this.managed) {
-        // Stop when another process took the lease during the person-link round
+        // Stop when another process took the lease during the person-link or provisioning round
         if (!(await this.renew())) return;
         const live = await this.connect.liveClient();
         // Only for the connection that is still active now (the feed may have ended it)

@@ -89,6 +89,20 @@ describe('AuthCallbackComponent', () => {
     expect(action.payload.provider).toBe('everid');
   });
 
+  it('returns where an Ever ID sign-in was started', async () => {
+    const url = await TestBed.inject(AuthService).oidcAuthorizeUrl(everid, 'signin', '/ever-connect/provision');
+    createWith({ code: 'everid-code', state: new URL(url).searchParams.get('state') });
+    const action = dispatch.calls.mostRecent().args[0] as ReceiveAuthProviderCode;
+    expect(action.returnTo).toBe('/ever-connect/provision');
+  });
+
+  it('never keeps another site as the place to return to', async () => {
+    for (const returnTo of ['//elsewhere.test/x', 'https://elsewhere.test/', '/' + String.fromCharCode(92) + 'elsewhere.test', 'projects']) {
+      await TestBed.inject(AuthService).oidcAuthorizeUrl(everid, 'signin', returnTo);
+      expect(JSON.parse(sessionStorage.getItem(PENDING_AUTHORIZATION_KEY)).returnTo).toBeUndefined();
+    }
+  });
+
   it('refuses a callback whose state this browser did not start', async () => {
     await startAuthorization('signin');
     const foreignState = btoa(JSON.stringify({ p: 'everid', n: 'someone-else' })).replace(/=+$/, '');

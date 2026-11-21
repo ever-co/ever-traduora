@@ -54,6 +54,13 @@ describe('AuthState provider sign-in', () => {
     req.flush({ data: { accessToken: 'token' } });
   });
 
+  it('goes back where an Ever ID sign-in was started once it succeeds', () => {
+    store.dispatch(new ReceiveAuthProviderCode('everid-code', oidc, '/ever-connect/provision'));
+    http.expectOne(`${endpoint}/auth/signup-provider`).flush({ data: { accessToken: 'token' } });
+    const navigate = dispatched.find(action => action instanceof Navigate) as Navigate;
+    expect(navigate.path).toEqual(['/ever-connect/provision']);
+  });
+
   it('opens the confirmation screen when a new account needs confirming, and creates nothing', () => {
     store.dispatch(new ReceiveAuthProviderCode('everid-code', oidc));
     const details = { pending: 'v1.sealed', name: 'New Person', email: 'new@example.test', invites: [{ id: 'i1', projectName: 'Docs' }] };

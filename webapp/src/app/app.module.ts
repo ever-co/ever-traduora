@@ -56,6 +56,11 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
           canActivate: [AuthGuard],
         },
         {
+          // The hand-off from app.ever.co to create an organization's project: the page asks to sign in with Ever ID itself
+          path: 'ever-connect/provision',
+          loadChildren: () => import('./ever-connect-provision/ever-connect-provision.module').then(m => m.EverConnectProvisionModule),
+        },
+        {
           path: '',
           loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule),
         },

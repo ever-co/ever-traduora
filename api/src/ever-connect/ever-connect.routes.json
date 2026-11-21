@@ -1,5 +1,5 @@
 {
-  "description": "Inbound routes of the Ever Platform connection module. They exist only with TR_EVER_CONNECT_ENABLED=true. access: public = anyone, operator = a signed-in user with a confirmed e-mail listed in TR_EVER_ADMIN_EMAILS (default TR_ADMIN_EMAIL), self = any signed-in user, for their own data only (never an API client).",
+  "description": "Inbound routes of the Ever Platform connection module. They exist only with TR_EVER_CONNECT_ENABLED=true. access: public = anyone, operator = a signed-in user with a confirmed e-mail listed in TR_EVER_ADMIN_EMAILS (default TR_ADMIN_EMAIL), self = any signed-in user, for their own data only (never an API client). The provision routes answer 404 unless TR_EVER_CONNECT_PROVISION_ENABLED=true.",
   "routes": [
     {
       "method": "GET",
@@ -85,6 +85,21 @@
       "method": "GET",
       "path": "/api/v1/ever-connect/me/exports/:jobId",
       "access": "self"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/provision/intent",
+      "access": "public"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/provision/confirm",
+      "access": "self"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ever-connect/provision/intents/:jti/reject",
+      "access": "public"
     }
   ]
 }

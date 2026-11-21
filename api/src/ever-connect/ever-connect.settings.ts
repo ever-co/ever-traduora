@@ -20,6 +20,8 @@ export interface EverConnectSettings {
   rootKeysFile: string | null;
   /** Whether the anonymous usage statistics are loaded (the `stats_link` integration needs their key). */
   statsLoaded: boolean;
+  /** Whether the hand-off provisioning routes answer (`TR_EVER_CONNECT_PROVISION_ENABLED=true`); off when unset. */
+  provisionEnabled?: boolean;
 }
 
 export const EVER_CONNECT_SETTINGS = Symbol('ever connect settings');
@@ -42,5 +44,6 @@ export function readEverConnectSettings(): EverConnectSettings {
     issuer: everPlatform.platformIssuer,
     rootKeysFile: everPlatform.platformRootKeysFile,
     statsLoaded: everPlatform.statsEnabled,
+    provisionEnabled: everPlatform.connectProvisionEnabled,
   };
 }
