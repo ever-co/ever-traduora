@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Projects can be created from app.ever.co (hand-off provisioning), behind `TR_EVER_CONNECT_PROVISION_ENABLED=true`
+  (off by default; needs the Ever Platform connection): the person lands on `/ever-connect/provision`, signs in with
+  the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See
+  [Ever Platform connection](ever-platform/connection.md#provisioning-from-appeverco)
+
+## 0.24.1
+
 - The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
   allowed and the weekly windows (UTC), set, replace or remove the backup directory (SQLite), and see the recent
   operations and why one did not run. See
@@ -15,10 +22,12 @@ To download the source code for each release, check out [GitHub](https://github.
 - The account settings have a **My data exports** section while the Ever Platform connection is on: each user sees the
   exports made of their own account for a request they sent from app.ever.co, and downloads one as a JSON file within
   7 days. See [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
-- Projects can be created from app.ever.co (hand-off provisioning), behind `TR_EVER_CONNECT_PROVISION_ENABLED=true`
-  (off by default; needs the Ever Platform connection): the person lands on `/ever-connect/provision`, signs in with
-  the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See
-  [Ever Platform connection](ever-platform/connection.md#provisioning-from-appeverco)
+- Ever ID sign-in: a person deletion from Ever Platform now locks the account as a sign-in does, so a sign-in that
+  read the identity just before cannot open a session after it is removed; a logout that names only the subject also
+  ends a sign-up that is still waiting for its confirmation
+- Ever Platform connection: a refresh of the integrations never undoes an integration the operator switched off
+  while the refresh was reading Ever Platform; with several API processes, a long background round renews its lease
+  and stops once another process holds it
 
 ## 0.24.0
 

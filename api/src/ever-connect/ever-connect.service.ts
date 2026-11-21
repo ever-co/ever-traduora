@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CONSTANTS, codes, entitlementStatus, INTEGRATIONS, signCompactJws } from '@ever-co/connect-sdk';
 import { createHash, randomInt, randomUUID } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
+import { isUniqueViolation } from '../services/ever-id-session.service';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectIntegration } from '../entity/ever-connect-integration.entity';
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
@@ -524,22 +525,39 @@ export class EverConnectService {
     }
   }
 
-  /** Reads the integration states from Ever Platform and stores them; reports each change once. */
-  async refreshIntegrations(): Promise<EverConnectIntegrationView[]> {
+  /**
+   * Reads the integration states from Ever Platform and stores them. A row another refresh or a local decision changed
+   * while the states were read is not overwritten; the refresh then reads both again (twice at most), so a newer remote
+   * state (a revoked consent) is never left behind by an older one that was stored first.
+   */
+  async refreshIntegrations(attempt = 0): Promise<EverConnectIntegrationView[]> {
     const live = await this.liveClient();
     if (!live) {
       return this.integrations();
     }
+    // When each row last changed before the remote states were read: a row changed meanwhile (an operator switched the
+    // integration off or on) keeps that local decision; the next refresh reads both again
+    const decision = (row: EverConnectIntegration) => `${row.updatedAt}|${row.state}|${row.pendingRemoteRevoke}|${row.consentId}`;
+    const readAt = new Map((await this.integrationRows.find()).map(row => [row.key, decision(row)]));
     const states = await live.client.integrations();
     // A disconnect (or another connection) while the states were read: they belong to a connection that has ended
     const current = await this.read();
     if (!current || current.kid !== live.connection.kid || !this.isLive(current)) {
       return this.integrations();
     }
+    let changedMeanwhile = false;
     for (const key of TRADUORA_INTEGRATIONS) {
       const remote = states[key];
-      const row =
-        (await this.integrationRows.findOne({ where: { key } })) || Object.assign(new EverConnectIntegration(), { key, pendingRemoteRevoke: false });
+      const stored = await this.integrationRows.findOne({ where: { key } });
+      if (stored ? decision(stored) !== readAt.get(key) : readAt.has(key)) {
+        changedMeanwhile = true;
+        continue;
+      }
+      // The decision as read: the write below applies only while the row still holds it
+      const seen = stored
+        ? { updatedAt: stored.updatedAt, state: stored.state, pendingRemoteRevoke: stored.pendingRemoteRevoke, consentId: stored.consentId }
+        : null;
+      const row = stored || Object.assign(new EverConnectIntegration(), { key, pendingRemoteRevoke: false });
       const before = row.state;
       const remoteState = remote ? remote.state : INTEGRATIONS[key].status === 'coming_soon' ? 'coming_soon' : 'available';
       // Switched off here while Ever Platform could not be told: it stays off here until the revoke is delivered
@@ -557,7 +575,41 @@ export class EverConnectService {
       if (key === 'stats_link' && row.state !== 'enabled') {
         row.config = null;
       }
-      await this.integrationRows.save(row);
+      if (seen) {
+        // One statement compares and writes: a switch-off that lands after the read above wins, and nothing follows
+        const { affected } = await this.integrationRows.update(
+          {
+            key,
+            updatedAt: seen.updatedAt,
+            state: seen.state,
+            pendingRemoteRevoke: seen.pendingRemoteRevoke,
+            consentId: seen.consentId === null ? IsNull() : seen.consentId,
+          },
+          {
+            state: row.state,
+            consentId: row.consentId,
+            scopeVersion: row.scopeVersion,
+            pendingRemoteRevoke: row.pendingRemoteRevoke,
+            updatedAt: row.updatedAt,
+            config: row.config,
+          },
+        );
+        if (!affected) {
+          changedMeanwhile = true;
+          continue;
+        }
+      } else {
+        try {
+          await this.integrationRows.insert(row);
+        } catch (error) {
+          // Another refresh or a local decision created the row meanwhile: it stands
+          if (isUniqueViolation(error)) {
+            changedMeanwhile = true;
+            continue;
+          }
+          throw error;
+        }
+      }
       // A first reading that finds nothing on is not a change
       if (before !== row.state && (before !== undefined || (row.state !== 'available' && row.state !== 'coming_soon'))) {
         await this.audit.record('integration.state', 'platform', `${key}=${row.state}`);
@@ -565,6 +617,9 @@ export class EverConnectService {
       if (key === 'stats_link') {
         await this.syncStatsLink(live.connection.kid);
       }
+    }
+    if (changedMeanwhile && attempt < 2) {
+      return this.refreshIntegrations(attempt + 1);
     }
     return this.integrations();
   }
