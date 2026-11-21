@@ -387,8 +387,9 @@ describeOnSqlite('EverConnectManagedService', () => {
     await scheduler.tick();
     expect(runDue).toHaveBeenCalledTimes(1);
     expect(seen).toHaveLength(4);
-    // Renewed while the step ran: each reading is later than the one before
-    expect(seen.every((until, i) => i === 0 || until > seen[i - 1])).toBe(true);
+    // Renewed while the step ran: never moved back, and later at the end than at the start
+    expect(seen.every((until, i) => i === 0 || until >= seen[i - 1])).toBe(true);
+    expect(seen[seen.length - 1]).toBeGreaterThan(seen[0]);
     // Released after the round
     expect(await connections.findOne({ where: { id: 'self' } })).toMatchObject({ leasedBy: null, leaseUntil: null });
   });
@@ -440,5 +441,33 @@ describeOnSqlite('EverConnectManagedService', () => {
     // Released once that renewal settled, and nothing takes it again
     await new Promise(resolve => setTimeout(resolve, 20));
     expect(await connections.findOne({ where: { id: 'self' } })).toMatchObject({ leasedBy: null, leaseUntil: null });
+  });
+
+  it('runs lease renewals one after another, each with the time it starts at', async () => {
+    const { scheduler } = await connected();
+    const internals = scheduler as unknown as { acquire: (now: number) => Promise<boolean>; renew: () => Promise<boolean> };
+    const startedAt: number[] = [];
+    let releaseFirst: () => void = () => undefined;
+    const first = new Promise<void>(resolve => (releaseFirst = resolve));
+    jest.spyOn(internals, 'acquire').mockImplementation(async (now: number) => {
+      startedAt.push(now);
+      if (startedAt.length === 1) {
+        // A slow first renewal (a busy pool connection) that then fails
+        await first;
+        throw new Error('connection reset');
+      }
+      return true;
+    });
+    const older = internals.renew();
+    const newer = internals.renew();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    // The newer one waits for the older one, so it can never be overwritten by it
+    expect(startedAt).toHaveLength(1);
+    releaseFirst();
+    await expect(older).rejects.toThrow('connection reset');
+    // A failed renewal does not stop the next one
+    expect(await newer).toBe(true);
+    expect(startedAt).toHaveLength(2);
+    expect(startedAt[1]).toBeGreaterThanOrEqual(startedAt[0]);
   });
 });
