@@ -1,0 +1,47 @@
+# Egress audit only (see README.md): Traduora from the image under test, on SQLite, and a local mail
+# catcher. Nothing is published to the host: everything runs on the audit's sealed Docker setup, where
+# the API reaches the catcher as `mailpit`.
+#
+# - TR_IMAGE: the image under test (built by the workflow from the repository's Dockerfile).
+# - TR_AUDIT_SECRET: a random value the workflow makes per run (never committed): TR_SECRET.
+#
+# The operator account the API creates at its first start (TR_ADMIN_EMAIL, TR_ADMIN_PASSWORD) exists only
+# in this run's throwaway database, which nothing outside the sealed setup can reach: its password is
+# not a secret, and the adapter signs in with it.
+#
+# The operator must have a confirmed e-mail to switch the statistics off (loaded_off): the adapter asks
+# the API for a verification link, reads it from the catcher and opens it, as a person would.
+#
+# The API runs with its image defaults except what the sealed setup needs. The statistics and
+# connection switches of each mode are set by the audit itself (TR_EVER_*).
+services:
+  api:
+    image: ${TR_IMAGE:?set TR_IMAGE to the image under test}
+    pull_policy: never
+    depends_on:
+      - mailpit
+    environment:
+      NODE_ENV: production
+      TR_PORT: '8080'
+      TR_VIRTUAL_HOST: http://api:8080
+      TR_SECRET: ${TR_AUDIT_SECRET:?set TR_AUDIT_SECRET to a random value}
+      TR_DB_TYPE: better-sqlite3
+      TR_DB_DATABASE: /tmp/traduora-egress-audit.sqlite3
+      TR_ADMIN_EMAIL: egress-audit-operator@example.test
+      TR_ADMIN_PASSWORD: egress-audit-only-operator-account # NOSONAR: test-only operator of the sealed, throwaway audit database
+      TR_MAIL_HOST: mailpit
+      TR_MAIL_PORT: '1025'
+      TR_MAIL_SECURE: 'false'
+      TR_MAIL_SENDER: traduora@example.test
+      # The driver makes all its requests from one address, faster than a person: the request limits are set high so
+      # that the API does not answer 429 to the audit (they limit request rates only, nothing the audit checks)
+      TR_THROTTLE_TTL: '60000'
+      TR_THROTTLE_LIMIT: '100000'
+      TR_AUTH_THROTTLE_TTL: '60000'
+      TR_AUTH_THROTTLE_LIMIT: '100000'
+
+  mailpit:
+    # A local mail catcher: the API sends its verification mail here, and the adapter reads it
+    image: axllent/mailpit:v1.34.0@sha256:23a2ef85bc50853ab3093645d1d64679afd8887e89da5e48a88940c172591a4e
+    environment:
+      MP_DISABLE_VERSION_CHECK: 'true'

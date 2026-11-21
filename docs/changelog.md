@@ -13,6 +13,12 @@ To download the source code for each release, check out [GitHub](https://github.
   the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See
   [Ever Platform connection](ever-platform/connection.md#provisioning-from-appeverco)
 
+- Every pull request runs an egress audit of the Ever Platform modules (`tools/egress-audit/`): with the modules off,
+  or loaded but switched off, the API looks up no Ever host and opens no connection out; with them on, it makes only
+  the calls listed in [Outbound calls](ever-platform/outbound-calls.md).
+- A path under `/api` that no route answers is now a 404 (JSON), never the web app's page: a client asking for a route
+  that does not exist, or of a module that is not loaded, gets a clear answer.
+
 ## 0.24.1
 
 - The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
