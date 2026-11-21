@@ -6,7 +6,7 @@
  * docker-compose.audit.yml), which nothing outside the sealed setup can reach.
  */
 const OPERATOR_EMAIL = 'egress-audit-operator@example.test';
-const OPERATOR_PASSWORD = 'egress-audit-only-operator-account';
+const OPERATOR_PASSWORD = 'egress-audit-only-operator-account'; // NOSONAR: test-only operator of the sealed, throwaway audit database
 // Plain http on purpose: the mail catcher inside the sealed audit setup.
 const MAIL = 'http://mailpit:8025'; // NOSONAR
 

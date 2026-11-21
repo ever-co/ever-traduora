@@ -28,7 +28,7 @@ services:
       TR_DB_TYPE: better-sqlite3
       TR_DB_DATABASE: /tmp/traduora-egress-audit.sqlite3
       TR_ADMIN_EMAIL: egress-audit-operator@example.test
-      TR_ADMIN_PASSWORD: egress-audit-only-operator-account
+      TR_ADMIN_PASSWORD: egress-audit-only-operator-account # NOSONAR: test-only operator of the sealed, throwaway audit database
       TR_MAIL_HOST: mailpit
       TR_MAIL_PORT: '1025'
       TR_MAIL_SECURE: 'false'
