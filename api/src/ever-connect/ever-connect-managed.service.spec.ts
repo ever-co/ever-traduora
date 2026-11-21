@@ -366,4 +366,108 @@ describeOnSqlite('EverConnectManagedService', () => {
     expect(platform.managedResults[op.operation_id]).toMatchObject({ status: 'succeeded' });
     expect(platform.names()).toContain('ack');
   });
+
+  it('keeps the lease renewed while one long step of a round runs, and releases it after the round', async () => {
+    const { connect, managed, scheduler } = await connected();
+    await consent(connect);
+    const connections = dataSource.getRepository(EverConnectConnection);
+    await connections.update({ id: 'self' }, { nextHeartbeatAt: Date.now() + 3600000, nextEntitlementAt: Date.now() + 3600000 });
+    scheduler.keepAliveMs = 20;
+    const seen: number[] = [];
+    // One step much longer than the renewal interval (as a backup that outlives the lease would be)
+    const runDue = jest.spyOn(managed, 'runDue').mockImplementation(async () => {
+      for (let i = 0; i < 4; i++) {
+        await new Promise(resolve => setTimeout(resolve, 40));
+        const row = await connections.findOne({ where: { id: 'self' } });
+        expect(row.leasedBy).toBe(scheduler.holderId);
+        seen.push(row.leaseUntil);
+      }
+      return 0;
+    });
+    await scheduler.tick();
+    expect(runDue).toHaveBeenCalledTimes(1);
+    expect(seen).toHaveLength(4);
+    // Renewed while the step ran: never moved back, and later at the end than at the start
+    expect(seen.every((until, i) => i === 0 || until >= seen[i - 1])).toBe(true);
+    expect(seen[seen.length - 1]).toBeGreaterThan(seen[0]);
+    // Released after the round
+    expect(await connections.findOne({ where: { id: 'self' } })).toMatchObject({ leasedBy: null, leaseUntil: null });
+  });
+
+  it('renews one lease at a time, and releases the lease only after the renewal in flight settled', async () => {
+    const { connect, managed, scheduler } = await connected();
+    await consent(connect);
+    const connections = dataSource.getRepository(EverConnectConnection);
+    await connections.update({ id: 'self' }, { nextHeartbeatAt: Date.now() + 3600000, nextEntitlementAt: Date.now() + 3600000 });
+    scheduler.keepAliveMs = 5;
+    const lease = scheduler as unknown as { renew: () => Promise<boolean> };
+    const realRenew = lease.renew.bind(scheduler);
+    let stepRunning = false;
+    let timerRenewals = 0;
+    let releaseHeld: () => void = () => undefined;
+    const held = new Promise<void>(resolve => (releaseHeld = resolve));
+    let renewalStarted: () => void = () => undefined;
+    const started = new Promise<void>(resolve => (renewalStarted = resolve));
+    jest.spyOn(lease, 'renew').mockImplementation(async () => {
+      if (stepRunning) {
+        // A renewal of the timer that stays pending until the test lets it finish (a slow database)
+        timerRenewals += 1;
+        renewalStarted();
+        await held;
+      }
+      return realRenew();
+    });
+    let stepDone: () => void = () => undefined;
+    const stepFinished = new Promise<void>(resolve => (stepDone = resolve));
+    jest.spyOn(managed, 'runDue').mockImplementation(async () => {
+      stepRunning = true;
+      await started;
+      // Many timer periods pass while that renewal is still pending
+      await new Promise(resolve => setTimeout(resolve, 50));
+      stepRunning = false;
+      stepDone();
+      return 0;
+    });
+    let finished = false;
+    const round = scheduler.tick().then(() => (finished = true));
+    await stepFinished;
+    await new Promise(resolve => setTimeout(resolve, 20));
+    // No second renewal started, and the round waits for the pending one: the lease is still this process's
+    expect(timerRenewals).toBe(1);
+    expect(finished).toBe(false);
+    expect((await connections.findOne({ where: { id: 'self' } })).leasedBy).toBe(scheduler.holderId);
+    releaseHeld();
+    await round;
+    // Released once that renewal settled, and nothing takes it again
+    await new Promise(resolve => setTimeout(resolve, 20));
+    expect(await connections.findOne({ where: { id: 'self' } })).toMatchObject({ leasedBy: null, leaseUntil: null });
+  });
+
+  it('runs lease renewals one after another, each with the time it starts at', async () => {
+    const { scheduler } = await connected();
+    const internals = scheduler as unknown as { acquire: (now: number) => Promise<boolean>; renew: () => Promise<boolean> };
+    const startedAt: number[] = [];
+    let releaseFirst: () => void = () => undefined;
+    const first = new Promise<void>(resolve => (releaseFirst = resolve));
+    jest.spyOn(internals, 'acquire').mockImplementation(async (now: number) => {
+      startedAt.push(now);
+      if (startedAt.length === 1) {
+        // A slow first renewal (a busy pool connection) that then fails
+        await first;
+        throw new Error('connection reset');
+      }
+      return true;
+    });
+    const older = internals.renew();
+    const newer = internals.renew();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    // The newer one waits for the older one, so it can never be overwritten by it
+    expect(startedAt).toHaveLength(1);
+    releaseFirst();
+    await expect(older).rejects.toThrow('connection reset');
+    // A failed renewal does not stop the next one
+    expect(await newer).toBe(true);
+    expect(startedAt).toHaveLength(2);
+    expect(startedAt[1]).toBeGreaterThanOrEqual(startedAt[0]);
+  });
 });
