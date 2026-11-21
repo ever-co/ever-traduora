@@ -27,6 +27,21 @@
   ],
   "adapter": "adapter.mjs",
   "wait_s": 300,
+  "mock_config": {
+    "codes": [
+      {
+        "code": "EVC-TEST-0000-0001",
+        "kind": "connect",
+        "product": "traduora",
+        "org": {
+          "id": "01JMQCK0RG000000000000000A",
+          "handle": "acme"
+        },
+        "expires_in_s": 3600,
+        "pending_approval": false
+      }
+    ]
+  },
   "allowed_external_hosts": [],
   "web_service": null,
   "no_web_reason": "This config is the API leg. The Traduora web app is static files served by the same API process (no web server of its own); a browser leg that walks its pages is a separate change."

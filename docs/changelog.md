@@ -8,11 +8,16 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- TODO
+
 - Every pull request runs an egress audit of the Ever Platform modules (`tools/egress-audit/`): with the modules off,
   or loaded but switched off, the API looks up no Ever host and opens no connection out; with them on, it makes only
   the calls listed in [Outbound calls](ever-platform/outbound-calls.md).
 - A path under `/api` that no route answers is now a 404 (JSON), never the web app's page: a client asking for a route
   that does not exist, or of a module that is not loaded, gets a clear answer.
+
+## 0.24.1
+
 - The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
   allowed and the weekly windows (UTC), set, replace or remove the backup directory (SQLite), and see the recent
   operations and why one did not run. See
@@ -20,6 +25,12 @@ To download the source code for each release, check out [GitHub](https://github.
 - The account settings have a **My data exports** section while the Ever Platform connection is on: each user sees the
   exports made of their own account for a request they sent from app.ever.co, and downloads one as a JSON file within
   7 days. See [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
+- Ever ID sign-in: a person deletion from Ever Platform now locks the account as a sign-in does, so a sign-in that
+  read the identity just before cannot open a session after it is removed; a logout that names only the subject also
+  ends a sign-up that is still waiting for its confirmation
+- Ever Platform connection: a refresh of the integrations never undoes an integration the operator switched off
+  while the refresh was reading Ever Platform; with several API processes, a long background round renews its lease
+  and stops once another process holds it
 
 ## 0.24.0
 

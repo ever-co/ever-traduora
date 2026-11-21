@@ -37,6 +37,8 @@ export interface PendingIdentity {
   name: string;
   sid?: string;
   personId?: string;
+  // When the sign-in with the provider started (ms since the epoch): a later subject-only logout ends it
+  signedInAt?: number;
   // The account a connect was started from
   userId?: string;
   // Seconds since the epoch
@@ -63,8 +65,16 @@ export function issuerScopedKey(issuer: string, value: string): string {
   return createHash('sha256').update(`${issuer}\n${value}`).digest('hex');
 }
 
+/**
+ * The key of the row that records when a logout naming only the subject ended the subject's sessions: a sign-in
+ * made before that moment (a sign-up still waiting for its confirmation) never opens a session afterwards.
+ */
+export function subjectLogoutKey(issuer: string, subject: string): string {
+  return `sub-${issuerScopedKey(issuer, subject)}`;
+}
+
 /** Locks the account's row until the transaction ends (SQLite runs one write transaction at a time instead). */
-const lockAccount = (entityManager: EntityManager, userId: string) =>
+export const lockAccount = (entityManager: EntityManager, userId: string) =>
   entityManager.findOne(User, {
     where: { id: userId },
     select: ['id', 'encryptedPassword'],
@@ -257,6 +267,9 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
    * locked as {@link unlink} locks it: a disconnect, which ends the account's sessions, never misses a session opened by
    * a sign-in that read the identity just before.
    *
+   * `signedInAt` is when the person signed in with the provider (a confirmation comes later): a logout that named only
+   * the subject after that moment ends the sign-in too.
+   *
    * @returns The `sid` and `jti` the access token carries, or `undefined` when the provider already ended that session
    * or the identity was disconnected.
    */
@@ -265,6 +278,7 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
     issuer: string,
     providerSid: string | undefined,
     subject?: string,
+    signedInAt?: Date,
   ): Promise<{ sid: string; jti: string } | undefined> {
     const sid = providerSid ? issuerScopedKey(issuer, providerSid) : `local-${randomBytes(16).toString('hex')}`;
     if (subject === undefined) {
@@ -274,12 +288,17 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
       return await this.identityRepo.manager.transaction(async entityManager => {
         await lockAccount(entityManager, userId);
         const linked = await entityManager.count(UserIdentity, { where: { issuer, subject, user: { id: userId } } });
-        return linked ? this.openSessionWithKey(entityManager, userId, sid, false) : undefined;
+        if (!linked) return undefined;
+        if (signedInAt) {
+          const logout = await entityManager.findOne(EverIdSession, { where: { sid: subjectLogoutKey(issuer, subject) } });
+          if (logout && new Date(logout.issuedAt).getTime() >= signedInAt.getTime()) return undefined;
+        }
+        return this.openSessionWithKey(entityManager, userId, sid, false);
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
         // A concurrent sign-in with the same provider session opened it first: use it if it is still open
-        return this.openSession(userId, issuer, providerSid, subject);
+        return this.openSession(userId, issuer, providerSid, subject, signedInAt);
       }
       throw error;
     }
@@ -346,13 +365,36 @@ export class EverIdSessionService implements OnApplicationBootstrap, OnModuleDes
     return affected ?? 0;
   }
 
-  /** Ends every session opened with the identity (a logout naming only the subject). */
+  /**
+   * Ends every session opened with the identity (a logout naming only the subject), and records when, so a sign-in made
+   * before it that is still waiting for its confirmation cannot open a session afterwards.
+   */
   async revokeIdentity(issuer: string, subject: string): Promise<number> {
+    const now = new Date();
+    const key = subjectLogoutKey(issuer, subject);
+    // Kept as long as a pending sign-in can wait (the retention sweep deletes it after that)
+    const expiresAt = new Date(now.getTime() + Math.max(SIGNUP_PENDING_TTL_SECONDS, CONNECT_PENDING_TTL_SECONDS) * 1000);
+    // The cutoff only moves forward: an earlier logout that finishes later never lowers it
+    const advance = () => this.sessionRepo.update({ sid: key, issuedAt: LessThan(now) }, { issuedAt: now, expiresAt, revokedAt: now });
+    const { affected: advanced } = await advance();
+    if (!advanced && !(await this.sessionRepo.existsBy({ sid: key }))) {
+      try {
+        await this.sessionRepo.insert({ sid: key, userId: '', jti: '', issuedAt: now, expiresAt, revokedAt: now });
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        await advance();
+      }
+    }
     const identities = await this.identityRepo.find({ where: { issuer, subject }, relations: ['user'] });
     let revoked = 0;
     for (const identity of identities) {
-      const { affected } = await this.sessionRepo.update({ userId: identity.user.id, revokedAt: IsNull() }, { revokedAt: new Date() });
-      revoked += affected ?? 0;
+      // With the account's row locked, as openSession locks it: a session being opened is either committed first (and
+      // ended here) or opened after this, when it sees the cutoff
+      revoked += await this.identityRepo.manager.transaction(async entityManager => {
+        await lockAccount(entityManager, identity.user.id);
+        const { affected } = await entityManager.update(EverIdSession, { userId: identity.user.id, revokedAt: IsNull() }, { revokedAt: now });
+        return affected ?? 0;
+      });
     }
     return revoked;
   }

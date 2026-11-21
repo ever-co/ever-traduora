@@ -20,7 +20,7 @@ This directory holds only Traduora's inputs:
 
 | File | What it is |
 |---|---|
-| `egress-audit.config.json` | The API leg: the API as the audited process, the module routes probed in `off`, the watched window (300 s), `TR_EVER_` as the prefix of the mode variables |
+| `egress-audit.config.json` | The API leg: the API as the audited process, the module routes probed in `off`, the watched window (300 s), `TR_EVER_` as the prefix of the mode variables, and the mock's connect code `EVC-TEST-0000-0001` minted for `traduora` (the mock's own default code is for `gauzy` and is refused with `422 product_mismatch`) |
 | `docker-compose.audit.yml` | The image under test (`TR_IMAGE`) on SQLite with a random `TR_SECRET` per run, and a local mail catcher (Mailpit, pinned by digest) |
 | `adapter.mjs` | Signs in as the operator the API creates at its first start and confirms their e-mail through the mail catcher (an operator must have a confirmed one), opens the Ever Platform routes and checks that each answers as the mode loads it (200 for a loaded module, 404 otherwise), and switches the statistics off (`loaded_off`) |
 | `harness.json` | The harness version and integrity |

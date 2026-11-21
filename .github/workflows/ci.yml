@@ -206,7 +206,7 @@ jobs:
         run: |
           for dir in "$AUDIT_ARTIFACTS"/*/ "$AUDIT_ARTIFACTS"/control/*/; do
             [ -f "$dir/report.json" ] || continue
-            if node -e 'process.exit(require(process.argv[1]).exit === 0 ? 0 : 1)' "$dir/report.json"; then continue; fi
+            if node -e 'process.exit(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).exit === 0 ? 0 : 1)' "$dir/report.json"; then continue; fi
             echo "::group::$dir"
             for file in "$dir"driver-*.log; do [ -f "$file" ] && { echo "--- $file"; tail -n 40 "$file"; }; done
             for file in "$dir"product-*.log; do [ -f "$file" ] && { echo "--- $file"; tail -n 80 "$file"; }; done
