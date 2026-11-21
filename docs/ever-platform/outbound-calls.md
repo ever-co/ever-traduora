@@ -57,7 +57,10 @@ only), which the web app reads to show its menu entry. While a module is not loa
 | `GET /api/v1/ever-stats/status`, `POST /api/v1/ever-stats/preview`, `GET /api/v1/ever-stats/reports`, `POST /api/v1/ever-stats/send`, `PUT /api/v1/ever-stats/enabled`, `POST /api/v1/ever-stats/reset-identity` | The operator of the installation (`TR_EVER_ADMIN_EMAILS`, default `TR_ADMIN_EMAIL`); "not found" for anyone else |
 
 The web app asks `status` once after sign-in to decide whether to show the _Ever Platform_ menu entry, and calls the
-other routes only from that page.
+operator routes only from that page. The account settings page asks `GET /api/v1/ever-connect/me/exports` for the
+signed-in user's own exports, and downloads one with `GET /api/v1/ever-connect/me/exports/<id>`; while the connection
+module is not loaded that route does not exist (a 404, or the web app's own page where the API serves it), and the page
+shows no _My data exports_ section.
 
 ## Operator opt-ins
 

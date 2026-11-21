@@ -306,6 +306,17 @@ describeOnSqlite('EverConnectPersonService', () => {
       expect(platform.calls).toEqual([]);
     });
 
+    it('stops a round once the scheduler lost its lease', async () => {
+      const { connect, person } = await connected();
+      await enableEverIdLogin(connect);
+      await linkIdentity(alice, 's1', { method: IdentityLinkMethod.Explicit });
+      await linkIdentity(bob, 's2', { method: IdentityLinkMethod.Jit });
+      let asked = 0;
+      expect(await person.syncLinks(Date.now(), true, async () => ++asked <= 1)).toEqual({ reported: 1, removed: 0 });
+      // The next round (with the lease) reports the other one
+      expect(await person.syncLinks(Date.now(), true)).toEqual({ reported: 1, removed: 0 });
+    });
+
     it('reports each Ever ID a user signed in with, once, and never anything else', async () => {
       const { connect, person } = await connected();
       await enableEverIdLogin(connect);
