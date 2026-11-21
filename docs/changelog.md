@@ -10,6 +10,28 @@ To download the source code for each release, check out [GitHub](https://github.
 
 - TODO
 
+## 0.24.1
+
+- The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
+  allowed and the weekly windows (UTC), set, replace or remove the backup directory (SQLite), and see the recent
+  operations and why one did not run. See
+  [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
+- The account settings have a **My data exports** section while the Ever Platform connection is on: each user sees the
+  exports made of their own account for a request they sent from app.ever.co, and downloads one as a JSON file within
+  7 days. See [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
+- Ever ID sign-in: a person deletion from Ever Platform now locks the account as a sign-in does, so a sign-in that
+  read the identity just before cannot open a session after it is removed; a logout that names only the subject also
+  ends a sign-up that is still waiting for its confirmation
+- Ever Platform connection: a refresh of the integrations never undoes an integration the operator switched off
+  while the refresh was reading Ever Platform; with several API processes, a long background round renews its lease
+  and stops once another process holds it
+- Ever ID sign-in to an existing account: a logout that names only the subject and lands while the sign-in is under
+  way now ends it too (before, only a sign-up waiting for its confirmation was ended); a sign-in started after the
+  logout works as before
+- Ever Platform connection: saved maintenance-operation results that are sent again also renew the lease before each
+  send, and the person-link round stops once the connection is no longer the active one
+- No database migrations in this release
+
 ## 0.24.0
 
 ### Upgrade notes

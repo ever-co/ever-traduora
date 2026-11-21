@@ -265,6 +265,36 @@ describeOnSqlite('EverConnectManagedService', () => {
     expect((await history())[0].unsentResult).toBeNull();
   });
 
+  it('checks the lease before each saved result it sends again, and stops once another process holds it', async () => {
+    const { connect, managed, client } = await connected();
+    await consent(connect);
+    await managed.update({ optIn: true, kinds: ['health_report'], windows: ALL_WEEK }, 'user:u1');
+    const saved = [request('health_report'), request('health_report')];
+    platform.unreachable = true;
+    for (const op of saved) {
+      await expect(managed.handle(client, op, 'kid-1')).rejects.toThrow();
+    }
+    platform.unreachable = false;
+    const later = Date.now() + 3600000;
+    const deferred = request('health_report', { notBefore: later });
+    await managed.handle(client, deferred, 'kid-1');
+    const unsent = async () => (await history()).filter(row => row.unsentResult !== null).length;
+    expect(await unsent()).toBe(2);
+
+    // The lease holds for the first send only
+    let checks = 0;
+    expect(await managed.runDue(client, 'kid-1', later + 1000, async () => ++checks === 1)).toBe(0);
+    expect(checks).toBe(2);
+    expect(saved.filter(op => platform.managedResults[op.operation_id])).toHaveLength(1);
+    expect(await unsent()).toBe(1);
+    expect(platform.managedResults[deferred.operation_id]).toBeUndefined();
+
+    // The next round that holds the lease sends the rest, then runs the due work
+    expect(await managed.runDue(client, 'kid-1', later + 1000)).toBe(1);
+    expect(await unsent()).toBe(0);
+    expect(platform.managedResults[deferred.operation_id]).toMatchObject({ status: 'succeeded' });
+  });
+
   it("keeps the operator's settings checked, and the backup directory write-only", async () => {
     const { managed } = await connected();
     await expect(managed.update({ kinds: ['update'] }, 'user:u1')).rejects.toMatchObject({ code: 'invalid_managed' });

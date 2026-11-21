@@ -5,6 +5,8 @@
         <h4 class="card-title font-serif">Ever Platform</h4>
         <div *ngIf="loaded && !pages" class="alert alert-secondary">This page is not available.</div>
         <app-ever-platform-connection *ngIf="pages?.connect"></app-ever-platform-connection>
+        <!-- Draws its own rule and heading, and nothing where Ever operates the installation -->
+        <app-ever-platform-maintenance *ngIf="pages?.connect"></app-ever-platform-maintenance>
         <hr *ngIf="pages?.connect && pages?.stats" class="my-4" />
         <app-ever-platform-statistics *ngIf="pages?.stats"></app-ever-platform-statistics>
       </div>

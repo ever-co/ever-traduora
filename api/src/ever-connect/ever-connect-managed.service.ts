@@ -441,6 +441,9 @@ export class EverConnectManagedService {
       { status: 'failed', reason: 'interrupted', unsentResult: JSON.stringify({ status: 'failed' }) },
     );
     for (const row of await this.operations.find({ where: { unsentResult: Not(IsNull()), connectionKid } })) {
+      // Before each send, as before each due run: once another process holds the lease (or the connection changed), it
+      // sends the rest and runs the due work
+      if (!(await stillCurrent())) return 0;
       try {
         await this.deliver(client, row);
       } catch (error) {

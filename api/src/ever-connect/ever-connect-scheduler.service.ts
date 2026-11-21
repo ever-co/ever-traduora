@@ -108,6 +108,11 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     return result.affected === 1;
   }
 
+  /** Extends the lease while this process still holds it; false once another process took it over. */
+  private renew(): Promise<boolean> {
+    return this.acquire(Date.now());
+  }
+
   private async release(): Promise<void> {
     await this.connections
       .createQueryBuilder()
@@ -175,16 +180,23 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         await this.connect.syncStatsLink(connection.kid).catch(error => this.connect.handleCallError(error, 'stats_link', connection.kid));
       }
       if (connection.status === 'active' && this.person) {
-        await this.person.syncLinks().catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
+        // Long rounds renew the lease before each call and stop once another process holds it, or once this connection
+        // is no longer the active one (as the maintenance round below)
+        if (!(await this.renew())) return;
+        await this.person
+          .syncLinks(Date.now(), false, async () => (await this.renew()) && (await this.isCurrent(connection.kid)))
+          .catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
       if (connection.status === 'active' && this.managed) {
+        // Stop when another process took the lease during the person-link round
+        if (!(await this.renew())) return;
         const live = await this.connect.liveClient();
         // Only for the connection that is still active now (the feed may have ended it)
         if (live && live.connection.status === 'active' && live.connection.kid === connection.kid) {
           // Not while a state refresh of the feed failed: a revoked consent may not have been applied yet
           if (!this.feedFailed) {
             await this.managed
-              .runDue(live.client, connection.kid, Date.now(), () => this.isCurrent(connection.kid))
+              .runDue(live.client, connection.kid, Date.now(), async () => (await this.renew()) && (await this.isCurrent(connection.kid)))
               .catch(error => this.connect.handleCallError(error, 'managed', connection.kid));
           }
         }

@@ -104,7 +104,7 @@ describe('Maintenance operations through the Ever Platform connection (e2e)', ()
     const backup = platform.managedResults['01JQV4Q5BHCZ330557Y206H9AC'] as Record<string, unknown>;
     if (SQLITE) {
       expect(backup).toMatchObject({ status: 'succeeded' });
-      expect(Object.keys(backup).sort()).toEqual(['artefact_ref', 'size_bytes', 'status']);
+      expect(Object.keys(backup).sort((a, b) => a.localeCompare(b))).toEqual(['artefact_ref', 'size_bytes', 'status']);
       expect((await fs.readdir(backupDir)).length).toBe(2);
     } else {
       // PostgreSQL and MySQL backups need their own dump tools, which the image does not ship
