@@ -207,7 +207,7 @@ export class EverConnectProvisionService {
   /** The active connection and its client: an intent addresses a connected installation only. */
   private async connected(): Promise<{ connection: EverConnectConnection; client: EverConnectPlatformClient }> {
     const live = await this.connect.liveClient();
-    if (!live || live.connection.status !== 'active' || !live.connection.registryInstanceId) {
+    if (live?.connection.status !== 'active' || !live.connection.registryInstanceId) {
       throw refuse(HttpStatus.CONFLICT, 'not_connected', 'This installation is not connected to Ever Platform');
     }
     return live;
@@ -498,7 +498,8 @@ export class EverConnectProvisionService {
     }
     // Only while still pending: of two overlapping sends (the person's and the background round's) the first answer stays
     await this.provisions.update({ jti, pendingComplete: true }, { pendingComplete: false, tenantLinkId, completeRefused: finalRefusal });
-    this.logger.log(`ever_connect.provision complete=${finalRefusal ? `refused reason=${finalRefusal}` : 'sent'} state=${row.state}`);
+    const outcome = finalRefusal ? `refused reason=${finalRefusal}` : 'sent';
+    this.logger.log(`ever_connect.provision complete=${outcome} state=${row.state}`);
   }
 
   /**
@@ -507,7 +508,7 @@ export class EverConnectProvisionService {
    */
   private async publicAddress(): Promise<string | null> {
     const row = await this.integrationRows.findOne({ where: { key: 'instance_url' } });
-    if (!row || row.state !== 'enabled' || !row.config) return null;
+    if (row?.state !== 'enabled' || !row.config) return null;
     try {
       return returnAddress(JSON.parse(row.config).base_url);
     } catch {

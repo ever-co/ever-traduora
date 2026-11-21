@@ -121,7 +121,7 @@ describe('Ever Platform provisioning hand-off, switched on (e2e)', () => {
     ];
     for (const [intent, status, code] of cases) {
       const res = await request(server()).post(`${BASE}/intent`).send({ intent });
-      expect({ status: res.status, code: res.body.error && res.body.error.code }).toEqual({ status, code });
+      expect({ status: res.status, code: res.body.error?.code }).toEqual({ status, code });
     }
     await request(server()).post(`${BASE}/intent`).send({}).expect(400);
   });

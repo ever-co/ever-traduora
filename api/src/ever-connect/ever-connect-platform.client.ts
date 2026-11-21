@@ -178,16 +178,14 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
   /** The key-set refresh in flight, shared by every lookup that needs one meanwhile. */
   let refreshing: Promise<void> | null = null;
   const refreshKeys = (): Promise<void> => {
-    if (!refreshing) {
-      refreshing = client.keys
-        .refresh(keySet)
-        .then(update => {
-          keySet = update.keySet;
-        })
-        .finally(() => {
-          refreshing = null;
-        });
-    }
+    refreshing ??= client.keys
+      .refresh(keySet)
+      .then(update => {
+        keySet = update.keySet;
+      })
+      .finally(() => {
+        refreshing = null;
+      });
     return refreshing;
   };
 
