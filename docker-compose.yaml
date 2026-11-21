@@ -1,5 +1,3 @@
-version: '3.7'
-
 services:
   traduora:
     image: everco/ever-traduora:latest
