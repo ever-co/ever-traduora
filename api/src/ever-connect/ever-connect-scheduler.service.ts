@@ -156,13 +156,17 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
       return;
     }
     // While the round runs, a timer renews the lease too: one long step (a backup, a restore check, a slow call) never
-    // outlives it, so another process cannot take over in the middle of it. The renewal in flight is awaited before the
-    // release, so it never takes the lease again after the round
-    let renewing: Promise<unknown> = Promise.resolve();
+    // outlives it, so another process cannot take over in the middle of it. One renewal at a time (a slow one is never
+    // overtaken by the next), and the one in flight is awaited before the release, so none takes the lease again after
+    let renewing: Promise<unknown> | null = null;
     const keepAlive = setInterval(() => {
-      renewing = this.renew().catch(() => false);
+      renewing ??= this.renew()
+        .catch(error => this.logger.warn(`ever_connect.lease_renew error=${(error && error.name) || 'error'}`))
+        .finally(() => {
+          renewing = null;
+        });
     }, this.keepAliveMs);
-    keepAlive.unref?.();
+    keepAlive.unref();
     try {
       // Read again under the lease: another process may have made the due calls meanwhile
       const connection = await this.connect.read();

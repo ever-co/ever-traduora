@@ -389,8 +389,56 @@ describeOnSqlite('EverConnectManagedService', () => {
     expect(seen).toHaveLength(4);
     // Renewed while the step ran: each reading is later than the one before
     expect(seen.every((until, i) => i === 0 || until > seen[i - 1])).toBe(true);
-    // Released after the round, and no renewal still in flight takes it again
-    await new Promise(resolve => setTimeout(resolve, 60));
+    // Released after the round
+    expect(await connections.findOne({ where: { id: 'self' } })).toMatchObject({ leasedBy: null, leaseUntil: null });
+  });
+
+  it('renews one lease at a time, and releases the lease only after the renewal in flight settled', async () => {
+    const { connect, managed, scheduler } = await connected();
+    await consent(connect);
+    const connections = dataSource.getRepository(EverConnectConnection);
+    await connections.update({ id: 'self' }, { nextHeartbeatAt: Date.now() + 3600000, nextEntitlementAt: Date.now() + 3600000 });
+    scheduler.keepAliveMs = 5;
+    const lease = scheduler as unknown as { renew: () => Promise<boolean> };
+    const realRenew = lease.renew.bind(scheduler);
+    let stepRunning = false;
+    let timerRenewals = 0;
+    let releaseHeld: () => void = () => undefined;
+    const held = new Promise<void>(resolve => (releaseHeld = resolve));
+    let renewalStarted: () => void = () => undefined;
+    const started = new Promise<void>(resolve => (renewalStarted = resolve));
+    jest.spyOn(lease, 'renew').mockImplementation(async () => {
+      if (stepRunning) {
+        // A renewal of the timer that stays pending until the test lets it finish (a slow database)
+        timerRenewals += 1;
+        renewalStarted();
+        await held;
+      }
+      return realRenew();
+    });
+    let stepDone: () => void = () => undefined;
+    const stepFinished = new Promise<void>(resolve => (stepDone = resolve));
+    jest.spyOn(managed, 'runDue').mockImplementation(async () => {
+      stepRunning = true;
+      await started;
+      // Many timer periods pass while that renewal is still pending
+      await new Promise(resolve => setTimeout(resolve, 50));
+      stepRunning = false;
+      stepDone();
+      return 0;
+    });
+    let finished = false;
+    const round = scheduler.tick().then(() => (finished = true));
+    await stepFinished;
+    await new Promise(resolve => setTimeout(resolve, 20));
+    // No second renewal started, and the round waits for the pending one: the lease is still this process's
+    expect(timerRenewals).toBe(1);
+    expect(finished).toBe(false);
+    expect((await connections.findOne({ where: { id: 'self' } })).leasedBy).toBe(scheduler.holderId);
+    releaseHeld();
+    await round;
+    // Released once that renewal settled, and nothing takes it again
+    await new Promise(resolve => setTimeout(resolve, 20));
     expect(await connections.findOne({ where: { id: 'self' } })).toMatchObject({ leasedBy: null, leaseUntil: null });
   });
 });
