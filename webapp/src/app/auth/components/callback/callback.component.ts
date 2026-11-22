@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Store } from '@ngxs/store';
+import { localReturnPath } from '../../models/identity';
 import { AuthService, providerOfState } from '../../services/auth.service';
 import { ProviderSignInFailed, ReceiveAuthProviderCode, ReceiveIdentityConnectCode } from '../../stores/auth.state';
 
@@ -63,12 +64,16 @@ export class AuthCallbackComponent implements OnInit {
       return;
     }
     this.store.dispatch(
-      new ReceiveAuthProviderCode(params.code, {
-        provider: pending.provider,
-        state: params.state,
-        nonce: pending.nonce,
-        code_verifier: pending.codeVerifier,
-      }),
+      new ReceiveAuthProviderCode(
+        params.code,
+        {
+          provider: pending.provider,
+          state: params.state,
+          nonce: pending.nonce,
+          code_verifier: pending.codeVerifier,
+        },
+        localReturnPath(pending.returnTo),
+      ),
     );
   }
 }

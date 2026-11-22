@@ -1,0 +1,6 @@
+{
+  "description": "The egress audit harness: the egress audit of the public Ever Platform SDK, published as the dev-only npm package below. The workflow downloads exactly this version and refuses it unless its integrity matches.",
+  "package": "@ever-co/connect-tools",
+  "version": "1.0.0-rc.8",
+  "integrity": "sha512-njqMIHzHP5GbdlfVQ/YynohGJISORIidzFEG/AazawHEyQ678wF6CXhBG3PFKVlQy6bYBIxUwHeW54oz1ZFbIA=="
+}

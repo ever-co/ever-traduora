@@ -105,6 +105,24 @@ export interface EverConnectPlatformClient {
   answerPersonRequest(answer: PersonRequestAnswer): Promise<void>;
   /** Reports the result of a maintenance operation: status, version and size only. */
   managedOperationResult(operationId: string, result: ManagedResult): Promise<void>;
+  /**
+   * The public key (raw base64url Ed25519 `x`) of the provisioning-intent key `kid` in the root-verified key set, and the
+   * issuer intents must name; `null` when the set has no such key for intents now. An unknown `kid` refreshes the set
+   * once (at most every 10 minutes).
+   */
+  intentKey(kid: string, nowS: number): Promise<{ x: string; issuer: string } | null>;
+  /** Tells Ever Platform what became of a provisioning intent (`/v1/provision-intents/{jti}/complete`). */
+  completeProvisionIntent(jti: string, body: ProvisionComplete): Promise<{ status: string; tenantLinkId: string | null }>;
+}
+
+/** What this installation tells Ever Platform about a provisioning intent: ids and the result only. */
+export interface ProvisionComplete {
+  instance_id: string;
+  /** The project created for the organization, or `none` for a refusal. */
+  product_tenant_id: string;
+  product_user_ref?: string;
+  urls?: { app: string };
+  result: 'created' | 'refused';
 }
 
 /** The result of a maintenance operation as Ever Platform receives it (never a path or a file name). */
@@ -157,6 +175,19 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     onWarning: options.onWarning,
   });
   let keySet: KeySet | undefined;
+  /** The key-set refresh in flight, shared by every lookup that needs one meanwhile. */
+  let refreshing: Promise<void> | null = null;
+  const refreshKeys = (): Promise<void> => {
+    refreshing ??= client.keys
+      .refresh(keySet)
+      .then(update => {
+        keySet = update.keySet;
+      })
+      .finally(() => {
+        refreshing = null;
+      });
+    return refreshing;
+  };
 
   const verify = async (jws: string, subject: string, cached: StoredEntitlement | null): Promise<StoredEntitlement> => {
     if (!keySet || keySet.needsRefresh()) {
@@ -313,6 +344,23 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
     },
     async managedOperationResult(operationId, result) {
       await client.instances.managedOperationResult(operationId, { ...result });
+    },
+    async intentKey(kid, nowS) {
+      if (!keySet || keySet.needsRefresh(nowS)) {
+        await refreshKeys();
+      }
+      let key = keySet.find(kid, 'intent', nowS);
+      // A key published after the set was read: one refresh, as the SDK allows it (the window is taken before the
+      // request). A lookup that finds a refresh in flight waits for it and looks again, whoever started it.
+      if (!key && !keySet.has(kid) && (refreshing || keySet.unknownKidRefreshAllowed(nowS))) {
+        await refreshKeys();
+        key = keySet.find(kid, 'intent', nowS);
+      }
+      return key ? { x: key.x, issuer: client.issuer } : null;
+    },
+    async completeProvisionIntent(jti, body) {
+      const answer = await client.connect.completeProvisionIntent(jti, { ...body } as never);
+      return { status: answer.status, tenantLinkId: answer.tenant_link_id ?? null };
     },
     async answerPersonRequest(answer) {
       await client.instances.ack({

@@ -66,6 +66,20 @@ describe('Ever Platform settings', () => {
       expect(read({ TR_EVER_CONNECT_ENABLED: 'true' }).settings.connectEnabled).toBe(true);
     });
 
+    it('turns the provisioning routes on only for the exact value true, and only with the connection', () => {
+      const on = { TR_EVER_CONNECT_ENABLED: 'true' };
+      expect(read(on).settings.connectProvisionEnabled).toBe(false);
+      expect(read({ ...on, TR_EVER_CONNECT_PROVISION_ENABLED: 'false' }).settings.connectProvisionEnabled).toBe(false);
+      const malformed = read({ ...on, TR_EVER_CONNECT_PROVISION_ENABLED: 'yes' });
+      expect(malformed.settings.connectProvisionEnabled).toBe(false);
+      expect(malformed.warnings.some(w => w.includes('TR_EVER_CONNECT_PROVISION_ENABLED'))).toBe(true);
+      expect(read({ ...on, TR_EVER_CONNECT_PROVISION_ENABLED: 'true' }).settings.connectProvisionEnabled).toBe(true);
+      // Without the connection module there is nothing to provision through, and nothing is reported
+      const off = read({ TR_EVER_CONNECT_PROVISION_ENABLED: 'true' });
+      expect(off.settings.connectProvisionEnabled).toBe(false);
+      expect(off.warnings.some(w => w.includes('TR_EVER_CONNECT_PROVISION_ENABLED'))).toBe(false);
+    });
+
     it('reads the feed mode, the deny list and the boot code', () => {
       const { settings, warnings } = read({
         TR_EVER_CONNECT_ENABLED: 'true',

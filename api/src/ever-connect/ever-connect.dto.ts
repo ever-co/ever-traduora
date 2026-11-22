@@ -56,3 +56,26 @@ export class EverConnectManagedRequest {
   @MaxLength(1024)
   backupDir?: string;
 }
+
+/**
+ * The longest sealed confirmation: the API refuses an intent whose confirmation would be longer (422 intent_too_large),
+ * and the confirm and reject routes take up to this length, so both sides agree.
+ */
+export const PROVISION_TXN_MAX = 16384;
+
+/** A provisioning intent as app.ever.co put it in the link (a compact JWS). */
+export class EverConnectProvisionIntentRequest {
+  @ApiProperty({ description: 'The signed intent from app.ever.co (compact JWS)' })
+  @IsString()
+  @MaxLength(16384)
+  intent: string;
+}
+
+/** The sealed confirmation `POST /provision/intent` answered. */
+export class EverConnectProvisionConfirmRequest {
+  @ApiProperty({ description: 'The sealed confirmation answered for the intent' })
+  @IsString()
+  // The largest the API seals (it refuses an intent whose confirmation would be longer)
+  @MaxLength(PROVISION_TXN_MAX)
+  provisionTxn: string;
+}

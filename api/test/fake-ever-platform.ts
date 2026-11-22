@@ -1,4 +1,5 @@
 import { ProblemError } from '@ever-co/connect-sdk';
+import { generateKeyPairSync, KeyObject, randomBytes, sign } from 'node:crypto';
 import {
   EverConnectClientFactory,
   EverConnectClientOptions,
@@ -7,6 +8,7 @@ import {
   PersonRequestAnswer,
   PlatformEvent,
   PlatformIntegrationState,
+  ProvisionComplete,
   StoredEntitlement,
 } from '../src/ever-connect/ever-connect-platform.client';
 
@@ -48,6 +50,14 @@ export class FakeEverPlatform {
   unreachable = false;
   /** When set, calls answer `401 credential_revoked`. */
   revoked = false;
+  /** The issuer the fake's documents name, and its key for provisioning intents. */
+  readonly issuer = 'https://api.ever.test';
+  readonly intentKid = 'intent-key-1';
+  private readonly intentKeys = generateKeyPairSync('ed25519');
+  /** The completions of provisioning intents the fake recorded, by intent id. */
+  completions: Record<string, ProvisionComplete> = {};
+  /** When set, the next completion fails with this problem (then the setting clears). */
+  completeProblem: { status: number; code: string } | null = null;
 
   private record(name: string, ...args: unknown[]): void {
     this.calls.push({ name, args });
@@ -61,6 +71,39 @@ export class FakeEverPlatform {
 
   names(): string[] {
     return this.calls.map(call => call.name);
+  }
+
+  /**
+   * A provisioning intent as app.ever.co issues it (`ever.provision_intent.v1`, EdDSA with the fake's intent key), with
+   * `claims` and `header` overriding the defaults; `key` signs it with another key.
+   */
+  intent(claims: Record<string, unknown> = {}, header: Record<string, unknown> = {}, key: KeyObject = this.intentKeys.privateKey): string {
+    const now = Math.floor(Date.now() / 1000);
+    const part = (value: unknown) => Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+    const head = part({ alg: 'EdDSA', typ: 'ever-intent+jwt', kid: this.intentKid, ...header });
+    const body = part({
+      iss: this.issuer,
+      aud: 'ever-connect:traduora',
+      jti: `01JPROVISION${randomBytes(5).toString('hex').toUpperCase()}`,
+      iat: now,
+      exp: now + 600,
+      typ: 'ever.provision_intent.v1',
+      ever_purpose: 'intent',
+      product: 'traduora',
+      mode: 'handoff',
+      org: { id: '01JMQCK0RG000000000000000B', handle: 'acme', display_name: 'Acme Translations' },
+      person: { ever_id_sub: 'alice-subject' },
+      instance_id: '01JMQCKINSTANCE0000000000A',
+      return_to: 'https://app.ever.test/start/done',
+      ...claims,
+    });
+    const signature = sign(null, Buffer.from(`${head}.${body}`, 'utf8'), key).toString('base64url');
+    return `${head}.${body}.${signature}`;
+  }
+
+  /** The claims of an intent the fake made. */
+  claimsOf(intent: string): Record<string, any> {
+    return JSON.parse(Buffer.from(intent.split('.')[1], 'base64url').toString('utf8'));
   }
 
   entitlement(): StoredEntitlement {
@@ -150,6 +193,25 @@ export class FakeEverPlatform {
       managedOperationResult: async (operationId, result) => {
         this.record('managedOperationResult', operationId, { ...result });
         this.managedResults[operationId] = { ...result };
+      },
+      intentKey: async kid => {
+        this.record('intentKey', kid);
+        if (kid !== this.intentKid) {
+          return null;
+        }
+        const x = (this.intentKeys.publicKey.export({ format: 'jwk' }) as { x: string }).x;
+        return { x, issuer: this.issuer };
+      },
+      completeProvisionIntent: async (jti, body) => {
+        this.record('completeProvisionIntent', jti, { ...body });
+        if (this.completeProblem) {
+          const problem = this.completeProblem;
+          this.completeProblem = null;
+          throw new ProblemError(problem.status, problem.code);
+        }
+        const known = !!this.completions[jti];
+        this.completions[jti] = { ...body };
+        return { status: known ? 'already_completed' : 'completed', tenantLinkId: body.result === 'created' ? '01JMQCKLINK00000000000000P' : null };
       },
       answerPersonRequest: async answer => {
         this.record('answerPersonRequest', { ...answer });
