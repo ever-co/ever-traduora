@@ -6,10 +6,6 @@ sidebar_label: Changelog
 
 To download the source code for each release, check out [GitHub](https://github.com/ever-co/ever-traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/everco/repository/docker/everco/ever-traduora).
 
-## next
-
-- TODO
-
 ## 0.24.2
 
 Released 2026-11-22.
