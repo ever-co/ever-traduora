@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 import { epochMsTransformer } from './ever-platform-columns';
 
 /**
@@ -29,6 +29,7 @@ export class EverConnectProvision {
   instanceId: string | null;
 
   /** Whether the audit trail has the answer (written again by the background round when it could not be at once). */
+  @Index('IDX_ever_connect_provision_audited')
   @Column({ type: 'boolean', name: 'audited', default: false })
   audited: boolean;
 
@@ -45,6 +46,7 @@ export class EverConnectProvision {
   tenantLinkId: string | null;
 
   /** Whether Ever Platform has not been told yet (sent again until it is). */
+  @Index('IDX_ever_connect_provision_pending_complete')
   @Column({ type: 'boolean', name: 'pending_complete', default: false })
   pendingComplete: boolean;
 

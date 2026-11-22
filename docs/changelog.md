@@ -6,6 +6,14 @@ sidebar_label: Changelog
 
 To download the source code for each release, check out [GitHub](https://github.com/ever-co/ever-traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/everco/repository/docker/everco/ever-traduora).
 
+## next
+
+- Ever ID sign-in that finds an account with the same email (sign in the usual way, then connect): the usual sign-in
+  now returns where the Ever ID sign-in was started, e.g. the confirmation of a project from app.ever.co
+- A database migration adds two indexes to `ever_connect_provision` (the answers to provisioning intents), for the
+  background round's lookups of unfinished answers; no data changes. It runs automatically at start unless
+  `TR_DB_AUTOMIGRATE=false`
+
 ## 0.24.2
 
 Released 2026-11-22.
