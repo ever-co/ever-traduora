@@ -81,6 +81,8 @@ describe('AuthState provider sign-in', () => {
     expect(store.selectSnapshot(state => state.auth.errorMessage)).toBe(ACCOUNT_EXISTS_MESSAGE);
     expect(dispatched).toEqual([new Navigate(['/login'])]);
     expect(store.selectSnapshot(state => state.auth.isAuthenticated)).toBeFalse();
+    // No return address given: none is kept
+    expect(store.selectSnapshot(state => state.auth.redirectTo)).toBeUndefined();
   });
 
   it('goes back where an Ever ID sign-in was started after the usual sign-in, when an account has the same email', () => {
