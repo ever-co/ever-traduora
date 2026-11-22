@@ -6,21 +6,26 @@ sidebar_label: Changelog
 
 To download the source code for each release, check out [GitHub](https://github.com/ever-co/ever-traduora/releases). Alternatively docker images are available for each release on [Docker Hub](https://cloud.docker.com/u/everco/repository/docker/everco/ever-traduora).
 
-## next
+## 0.24.2
+
+Released 2026-11-22.
 
 - Projects can be created from app.ever.co (hand-off provisioning), behind `TR_EVER_CONNECT_PROVISION_ENABLED=true`
   (off by default; needs the Ever Platform connection): the person lands on `/ever-connect/provision`, signs in with
   the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See
   [Ever Platform connection](ever-platform/connection.md#provisioning-from-appeverco)
-
 - Every pull request runs an egress audit of the Ever Platform modules (`tools/egress-audit/`): with the modules off,
   or loaded but switched off, the API looks up no Ever host and opens no connection out; with them on, it makes only
-  the calls listed in [Outbound calls](ever-platform/outbound-calls.md).
+  the calls listed in [Outbound calls](ever-platform/outbound-calls.md)
 - A path under `/api` that no route answers is now a 404 (JSON), never the web app's page: a client asking for a route
-  that does not exist, or of a module that is not loaded, gets a clear answer.
+  that does not exist, or of a module that is not loaded, gets a clear answer
 - Ever Platform connection with several API processes: a running background round also renews its lease on a timer, so
   one long step (a backup or a restore check longer than the 2-minute lease) never lets another process start its own
   maintenance work alongside it
+- docs.traduora.co never caches a "not found" answer (`Cache-Control: no-store` on every 404), so a docs deploy can no
+  longer leave pages without their scripts for hours
+- One database migration: a new, empty table `ever_connect_provision` (provisioning from app.ever.co); no existing
+  table changes. It runs automatically at start unless `TR_DB_AUTOMIGRATE=false`
 
 ## 0.24.1
 
