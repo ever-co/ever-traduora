@@ -81,6 +81,22 @@ describe('AuthState provider sign-in', () => {
     expect(store.selectSnapshot(state => state.auth.errorMessage)).toBe(ACCOUNT_EXISTS_MESSAGE);
     expect(dispatched).toEqual([new Navigate(['/login'])]);
     expect(store.selectSnapshot(state => state.auth.isAuthenticated)).toBeFalse();
+    // No return address given: none is kept
+    expect(store.selectSnapshot(state => state.auth.redirectTo)).toBeUndefined();
+  });
+
+  it('goes back where an Ever ID sign-in was started after the usual sign-in, when an account has the same email', () => {
+    store.dispatch(new ReceiveAuthProviderCode('everid-code', oidc, '/ever-connect/provision'));
+    http
+      .expectOne(`${endpoint}/auth/signup-provider`)
+      .flush({ error: { code: 'account_exists', message: 'exists' } }, { status: 409, statusText: 'Conflict' });
+    expect(store.selectSnapshot(state => state.auth.redirectTo)).toBe('/ever-connect/provision');
+
+    // The person signs in with their password next
+    store.dispatch(new ReceiveAPIAccessToken({ accessToken: 'token' }));
+    const navigates = dispatched.filter(action => action instanceof Navigate) as Navigate[];
+    expect(navigates.map(action => action.path)).toEqual([['/login'], ['/ever-connect/provision']]);
+    expect(store.selectSnapshot(state => state.auth.redirectTo)).toBeUndefined();
   });
 
   it('shows a message when the Ever ID request cannot be built (no secure context)', async () => {

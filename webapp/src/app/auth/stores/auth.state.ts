@@ -403,6 +403,11 @@ export class AuthState implements NgxsOnInit {
       return EMPTY;
     }
     if (error?.status === 409 && code === 'account_exists') {
+      // The person signs in the usual way next: that sign-in returns where this one was started (e.g. a provisioning
+      // confirmation), as a sign-in asked for by a guard does
+      if (returnTo) {
+        ctx.patchState({ redirectTo: returnTo });
+      }
       return ctx.dispatch(new ProviderSignInFailed(ACCOUNT_EXISTS_MESSAGE));
     }
     return ctx.dispatch(new ProviderSignInFailed(errorToMessage(error, 'ProviderSignIn')));
