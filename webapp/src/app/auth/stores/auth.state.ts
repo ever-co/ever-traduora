@@ -56,6 +56,8 @@ export class ReceiveAuthProviderCode {
   constructor(
     public code: string,
     public oidc?: { provider: string; state: string; nonce: string; code_verifier: string },
+    /** A path of this app to go to once signed in (kept by the sign-in request that started it). */
+    public returnTo?: string,
   ) {}
 }
 
@@ -68,7 +70,8 @@ export class RedirectToAuthProvider {
   static readonly type = '[Auth] Redirect to auth provider sign in';
   constructor(
     public provider: Provider,
-    public options: { intent?: 'signin' | 'connect' } = {},
+    /** `returnTo`: a path of this app the sign-in returns to once it succeeds. */
+    public options: { intent?: 'signin' | 'connect'; returnTo?: string } = {},
   ) {}
 }
 
@@ -140,7 +143,11 @@ export class ClearMessages {
 
 export class Logout {
   static readonly type = '[Auth] Logout';
-  constructor(public reason: string | undefined = null) {}
+  /** `stay`: sign out without leaving the page (to sign in again with another account from there). */
+  constructor(
+    public reason: string | undefined = null,
+    public stay = false,
+  ) {}
 }
 
 export class MustLogin {
@@ -336,10 +343,15 @@ export class AuthState implements NgxsOnInit {
     ctx.patchState({ isLoading: true });
     const request = action.oidc ? { code: action.code, ...action.oidc } : action;
     return this.authService.signInWithProvider(request).pipe(
-      tap(token => ctx.dispatch(new ReceiveAPIAccessToken(token))),
+      tap(token => {
+        if (action.returnTo) {
+          ctx.patchState({ redirectTo: action.returnTo });
+        }
+        ctx.dispatch(new ReceiveAPIAccessToken(token));
+      }),
       catchError(error => {
         if (action.oidc) {
-          return this.onOidcSignInError(ctx, error);
+          return this.onOidcSignInError(ctx, error, action.returnTo);
         }
         ctx.dispatch(new AuthError('Login', error));
         return throwError(error);
@@ -381,11 +393,12 @@ export class AuthState implements NgxsOnInit {
    * An Ever ID sign-in that did not sign in: a new account waits for the confirmation screen, an account with the
    * same email is never signed in to (sign in the usual way, then connect), anything else shows its message.
    */
-  private onOidcSignInError(ctx: StateContext<AuthStateModel>, error: any) {
+  private onOidcSignInError(ctx: StateContext<AuthStateModel>, error: any, returnTo?: string) {
     const code = get(error, 'error.error.code');
     if (error?.status === 409 && code === 'signup_confirmation_required') {
       const details = get(error, 'error.error.details') as ProviderSignupConfirmation;
-      ctx.patchState({ pendingSignup: details, errorMessage: undefined });
+      // A new account is made after its confirmation screen: then the sign-in returns where it was started
+      ctx.patchState({ pendingSignup: details, errorMessage: undefined, ...(returnTo ? { redirectTo: returnTo } : {}) });
       ctx.dispatch(new Navigate(['/auth/everid/confirm']));
       return EMPTY;
     }
@@ -557,7 +570,9 @@ export class AuthState implements NgxsOnInit {
   logout(ctx: StateContext<AuthStateModel>, action: Logout) {
     this.tokenService.clearToken();
     ctx.patchState({ user: undefined, isAuthenticated: false, errorMessage: action.reason, pendingConnect: undefined, identities: undefined });
-    ctx.dispatch(new Navigate(['/login']));
+    if (!action.stay) {
+      ctx.dispatch(new Navigate(['/login']));
+    }
   }
 
   @Action(ClearMessages)

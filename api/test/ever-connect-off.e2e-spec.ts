@@ -42,7 +42,7 @@ describe('Ever Platform connection left off (e2e)', () => {
       // Without the module these are just unknown paths: never an answer of the connection routes
       expect(res.body?.data).toBeUndefined();
     }
-    for (const path of ['connect', 'disconnect', 'integrations/refresh']) {
+    for (const path of ['connect', 'disconnect', 'integrations/refresh', 'provision/intent', 'provision/confirm', 'provision/intents/x/reject']) {
       await request(app.getHttpServer())
         .post(`/api/v1/ever-connect/${path}`)
         .set('Authorization', `Bearer ${operator.accessToken}`)

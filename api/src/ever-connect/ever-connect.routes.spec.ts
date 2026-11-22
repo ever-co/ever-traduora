@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { EverAdminGuard } from '../ever-instance/ever-admin.guard';
 import { EverConnectPersonController, EverSignedInUserGuard } from './ever-connect-person.controller';
+import { EverConnectProvisionController } from './ever-connect-provision.controller';
 import { EverConnectController } from './ever-connect.controller';
 
 interface RouteEntry {
@@ -16,7 +17,7 @@ const manifest: { routes: RouteEntry[] } = JSON.parse(readFileSync(join(__dirnam
 
 /** The routes the controllers declare, read from their Nest metadata. */
 function declaredRoutes(): RouteEntry[] {
-  return [...routesOf(EverConnectController), ...routesOf(EverConnectPersonController)];
+  return [...routesOf(EverConnectController), ...routesOf(EverConnectPersonController), ...routesOf(EverConnectProvisionController)];
 }
 
 function routesOf(controller: { prototype: object }): RouteEntry[] {
@@ -43,7 +44,14 @@ describe('ever-connect.routes.json', () => {
     expect([...manifest.routes].sort(byPath)).toEqual(declaredRoutes().sort(byPath));
   });
 
-  it('leaves only the health check public', () => {
-    expect(manifest.routes.filter(route => route.access === 'public').map(route => route.path)).toEqual(['/api/v1/ever-connect/health']);
+  it('leaves only the health check and the hand-off of a provisioning intent public', () => {
+    // The two provisioning routes answer 404 unless TR_EVER_CONNECT_PROVISION_ENABLED=true; the intent and the sealed
+    // confirmation they take are the proof (the confirmation itself needs the signed-in person)
+    expect(
+      manifest.routes
+        .filter(route => route.access === 'public')
+        .map(route => route.path)
+        .sort(),
+    ).toEqual(['/api/v1/ever-connect/health', '/api/v1/ever-connect/provision/intent', '/api/v1/ever-connect/provision/intents/:jti/reject']);
   });
 });
