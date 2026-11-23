@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- The label filter of the terms page shows each term with all of its labels. Before, a term with the labels A and B showed only A when the list was filtered by A, and the label picker of that term offered B again. The filtered list now follows what is done on the page: a term leaves it when the picked label is removed from it or when it is deleted, and joins it when it gets that label. Before, the card stayed as it was, and deleting it again failed with "not found". The label filter still applies after something is typed in the search box. The API `GET /api/v1/projects/:projectId/terms/filter-by-label` also returns each term with all of its labels, not only the one filtered by
+
 - The term, context and translation fields show Save and Revert when you reach them with Tab, not only when you click
   them. Before, a keyboard user who typed in a field saw no button, and only the undocumented Ctrl+Enter saved, so text
   typed before tabbing away was never saved. After a save or a revert (Ctrl+Enter, Escape or a click on Save or Revert),
