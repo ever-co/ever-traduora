@@ -9,7 +9,7 @@
     [value]="current"
     (input)="onInput($event.target.value)"
     autocomplete="off"
-    (focus)="!readOnly && enterEdit()"
+    (focus)="onFocus()"
     (click)="!readOnly && enterEdit()"
     [placeholder]="placeholder"
     (keyup.control.enter)="onSave()"

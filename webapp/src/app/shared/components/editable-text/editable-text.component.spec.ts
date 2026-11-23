@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed, fakeAsync, flush } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
 import { EditableTextComponent } from './editable-text.component';
 
 describe('EditableTextComponent', () => {
@@ -50,7 +50,56 @@ describe('EditableTextComponent', () => {
     fixture.detectChanges();
     flush();
 
+    expect(component.isEditing).toBeFalse();
     expect(saveButton()).toBeNull();
+  }));
+
+  it('does not pull the focus back to the field when it leaves right after getting it', fakeAsync(() => {
+    const other = document.createElement('button');
+    document.body.appendChild(other);
+    try {
+      textarea.focus();
+      fixture.detectChanges();
+      other.focus();
+      tick(50);
+
+      expect(document.activeElement).toBe(other);
+    } finally {
+      other.remove();
+    }
+  }));
+
+  it('takes a new value from the page when the user only tabbed through the field, e.g. after a switch to another locale', fakeAsync(() => {
+    textarea.focus();
+    fixture.detectChanges();
+    flush();
+    expect(saveButton()).not.toBeNull();
+
+    // The same field now shows the term in another locale
+    fixture.componentRef.setInput('value', 'Hallo');
+    fixture.detectChanges();
+    textarea.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', ctrlKey: true }));
+    fixture.detectChanges();
+    flush();
+
+    expect(saved).toEqual(['Hallo']);
+    expect(textarea.value).toBe('Hallo');
+  }));
+
+  it('keeps the text the user typed when the page gives a new value before Save or Revert', fakeAsync(() => {
+    textarea.focus();
+    fixture.detectChanges();
+    flush();
+    type('Hello world');
+
+    fixture.componentRef.setInput('value', 'Hallo');
+    fixture.detectChanges();
+
+    expect(textarea.value).toBe('Hello world');
+    revertButton().click();
+    fixture.detectChanges();
+    flush();
+    expect(textarea.value).toBe('Hallo');
   }));
 
   it('keeps the focus in the field after a save with Ctrl+Enter', fakeAsync(() => {
@@ -116,12 +165,11 @@ describe('EditableTextComponent', () => {
     fixture.detectChanges();
     flush();
 
+    // Typing alone, with no click, starts the new edit
     type('Hello world!');
-    textarea.click();
-    fixture.detectChanges();
-    flush();
 
     expect(saveButton()).not.toBeNull();
+    expect(revertButton()).not.toBeNull();
     expect(textarea.value).toBe('Hello world!');
     saveButton().click();
     expect(saved).toEqual(['Hello world', 'Hello world!']);

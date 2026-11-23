@@ -32,10 +32,23 @@ export class EditableTextComponent implements OnChanges {
 
   current = '';
 
+  /** The user typed in the field since the edit started: a new bound value must not replace that text. */
+  private dirty = false;
+
   ngOnChanges() {
-    if (!this.isEditing) {
+    // A field that was only focused (Tab or a click, nothing typed) takes a new bound value, e.g. once the page
+    // shows another locale; a text the user typed is kept until Save or Revert
+    if (!this.isEditing || !this.dirty) {
       // A term created without a context has a null value
       this.current = this.value ?? '';
+    }
+  }
+
+  /** The field got the focus (Tab or a click): show Save and Revert. It already has the focus, so none is scheduled. */
+  onFocus() {
+    if (!this.readOnly && !this.isEditing) {
+      this.current = this.value ?? '';
+      this.isEditing = true;
     }
   }
 
@@ -49,6 +62,7 @@ export class EditableTextComponent implements OnChanges {
 
   onInput(text: string) {
     this.current = text;
+    this.dirty = true;
     // The field keeps the focus after a save or a revert: typing in it again starts a new edit, with the typed text
     if (!this.readOnly && !this.isEditing) {
       this.isEditing = true;
@@ -61,10 +75,11 @@ export class EditableTextComponent implements OnChanges {
     // field while still editing, so that this focus does not start a new edit.
     this.focusTarget.nativeElement.focus();
     this.isEditing = false;
+    this.dirty = false;
   }
 
   revert() {
-    this.current = this.value;
+    this.current = this.value ?? '';
     this.exitEdit();
   }
 
