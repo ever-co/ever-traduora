@@ -111,6 +111,9 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // A label error already in the store is not about this page: a term label that failed on the Terms page leaves one
+    this.store.dispatch(new ClearLabelMessages());
+
     this.subs.push(
       this.project$
         .pipe(

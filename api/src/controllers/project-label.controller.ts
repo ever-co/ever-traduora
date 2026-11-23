@@ -11,6 +11,7 @@ import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
 import { isUniqueViolation } from '../services/ever-id-session.service';
+import { translationEditLockKey, withEditLock } from '../utils/database-locks';
 
 @Controller('api/v1/projects/:projectId/labels')
 @UseGuards(AuthGuard())
@@ -197,19 +198,31 @@ export default class ProjectLabelController {
 
     // An import adds translations to the imported locale only, so a term it added has none in the other locales yet.
     // The translation is inserted, never saved over: one that another request added meanwhile keeps its value and labels.
+    // It is inserted under the edit lock of the translation, as a first save of its value adds it: the two never
+    // interleave, so such a save neither fails on the row added here nor drops the label from it.
     if (!translation) {
-      try {
-        await this.translationsRepo.manager.transaction(async entityManager => {
-          await entityManager.insert(Translation, { ...where, value: '' });
-          // Copy term labels on creation
-          const labelIds = [...term.labels.map(l => l.id).filter(id => id !== label.id), label.id];
-          await entityManager.createQueryBuilder().relation(Translation, 'labels').of(where).add(labelIds);
-        });
-        return;
-      } catch (error) {
-        if (!isUniqueViolation(error)) {
-          throw error;
+      const added = await withEditLock(translationEditLockKey(projectLocale.id, term.id), async () => {
+        if (await this.translationsRepo.findOne({ where })) {
+          return false;
         }
+        try {
+          await this.translationsRepo.manager.transaction(async entityManager => {
+            await entityManager.insert(Translation, { ...where, value: '' });
+            // Copy term labels on creation
+            const labelIds = [...term.labels.map(l => l.id).filter(id => id !== label.id), label.id];
+            await entityManager.createQueryBuilder().relation(Translation, 'labels').of(where).add(labelIds);
+          });
+          return true;
+        } catch (error) {
+          // Another API process added it meanwhile
+          if (!isUniqueViolation(error)) {
+            throw error;
+          }
+          return false;
+        }
+      });
+      if (added) {
+        return;
       }
       translation = await this.translationsRepo.findOneOrFail({ where, relations: ['labels'] });
     }

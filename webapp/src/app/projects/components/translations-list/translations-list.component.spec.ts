@@ -219,9 +219,24 @@ describe('TranslationsListComponent', () => {
     fixture.destroy();
   }));
 
-  it('removes the error of a failed label once a label is added', fakeAsync(() => {
-    render({ translations: {}, terms: {}, projectLabels: { ...noLabelsState, errorMessage: 'Error, resource not found' } });
+  // A label added on this page fails, so its error shows
+  const failLabel = () => {
+    labelService.labelTranslation.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    fixture.componentInstance.labelTranslation('p1', 't1', todo, 'en');
+    fixture.detectChanges();
     expect(errorMessage()).toBe('Error, resource not found');
+  };
+
+  it('does not show a label error that another page left in the store, as a failed term label on the Terms page', fakeAsync(() => {
+    render({ translations: {}, terms: {}, projectLabels: { ...noLabelsState, errorMessage: 'Error, resource not found' } });
+
+    expect(errorMessage()).toBeUndefined();
+    fixture.destroy();
+  }));
+
+  it('removes the error of a failed label once a label is added', fakeAsync(() => {
+    render({ translations: {}, terms: {} });
+    failLabel();
     labelService.labelTranslation.and.returnValue(of(undefined));
 
     fixture.componentInstance.labelTranslation('p1', 't1', todo, 'en');
@@ -232,8 +247,8 @@ describe('TranslationsListComponent', () => {
   }));
 
   it('drops the label error of the previous locale when another locale is picked, and when the page is left', fakeAsync(() => {
-    render({ translations: {}, terms: {}, projectLabels: { ...noLabelsState, errorMessage: 'Error, resource not found' } });
-    expect(errorMessage()).toBe('Error, resource not found');
+    render({ translations: {}, terms: {} });
+    failLabel();
 
     pickLocale('fr');
     expect(errorMessage()).toBeUndefined();

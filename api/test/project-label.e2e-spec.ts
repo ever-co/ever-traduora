@@ -680,6 +680,67 @@ describe('ProjectLabelController (e2e)', () => {
       });
   });
 
+  it('should keep both the value and the label when a first save and a first label of a translation run at once', async () => {
+    let labelId: string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/labels`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ value: 'todo', color: '#202020' })
+      .expect(201)
+      .expect(res => (labelId = res.body.data.id));
+
+    for (const code of ['en', 'de']) {
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/translations`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ code })
+        .expect(201);
+    }
+
+    // The imported terms have no translation in de: the save and the label both add it
+    const keys = Array.from({ length: 10 }, (_, i) => `k${i}`);
+    const fileToImport = (await jsonFlatExporter({ translations: keys.map(term => ({ term, translation: 'Hello' })) })) as string;
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=en&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(fileToImport), 'file')
+      .expect(200);
+
+    const terms = (
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/terms`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200)
+    ).body.data;
+
+    for (const term of terms) {
+      const [saved, labelled] = await Promise.all([
+        request(app.getHttpServer())
+          .patch(`/api/v1/projects/${testProject.id}/translations/de`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .send({ termId: term.id, value: 'Hallo' }),
+        request(app.getHttpServer())
+          .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${term.id}/translations/de`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`),
+      ]);
+      expect([saved.status, labelled.status]).toEqual([200, 201]);
+    }
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/translations/de`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.data).toHaveLength(keys.length);
+        for (const translation of res.body.data) {
+          expect(translation.value).toEqual('Hallo');
+          expect(translation.labels.map(l => l.value)).toEqual(['todo']);
+        }
+      });
+  });
+
   it('should not label the translation of a term of another project', async () => {
     let labelId: string;
     let otherTermId: string;
