@@ -129,6 +129,19 @@ return [
 ];
 ```
 
+## Importing without overwriting
+
+An import replaces the stored value of every translation that is in the file. To fill only what is still empty and
+keep the work already done, add `overwrite=false` to the import request:
+
+```text
+POST /api/v1/projects/:projectId/imports?locale=de&format=jsonflat&overwrite=false
+```
+
+Terms that are new are still added. A translation that has a value in the locale is left as it is, and one that is
+empty or missing takes the value from the file. The `translations.upserted` count in the response counts only the
+translations written. Without the parameter (or with `overwrite=true`) nothing changes: the file's values win.
+
 ## New formats on the way
 
 The roadmap includes: Microsoft Resources.

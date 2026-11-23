@@ -772,6 +772,17 @@ export class ImportQuery {
   @IsEnum(ImportExportFormat)
   @ApiProperty({ enum: ImportExportFormat })
   format: ImportExportFormat;
+
+  @IsBoolean()
+  @Transform(({ value }) => (value === 'false' || value === false ? false : value === 'true' || value === true ? true : value))
+  @ApiPropertyOptional({
+    type: Boolean,
+    default: true,
+    description:
+      'When false, translations that already have a value in this locale are kept, and only empty or missing ones are filled from the file; terms are still added. Absent or true replaces the stored values.',
+  })
+  @IsOptional()
+  overwrite?: boolean;
 }
 
 export class ProviderSignInRequest {

@@ -8,6 +8,9 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Import API: `overwrite=false` on `POST /projects/:projectId/imports` keeps the translations that already have a
+  value in the locale and fills only the empty or missing ones (new terms are still added); without it an import
+  replaces values as before. See [Formats](concepts/formats.md#importing-without-overwriting)
 - Ever ID sign-in that finds an account with the same email (sign in the usual way, then connect): the usual sign-in
   now returns where the Ever ID sign-in was started, e.g. the confirmation of a project from app.ever.co
 - A database migration adds two indexes to `ever_connect_provision` (the answers to provisioning intents), for the
