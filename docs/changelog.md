@@ -8,6 +8,8 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Export with "not translated keys" and a fallback locale holds only the terms that have no translation in the exported locale, each with the value of the fallback locale. Before, it held every term of the project, the translated ones with the fallback locale's value, so translating the file and importing it back overwrote the existing translations with the fallback text. An export with a fallback locale that is not a locale of the project (possible through the API) keeps the terms without a translation, with an empty value: before, it left them out, and with "not translated keys" the file was empty
+
 - Ever ID sign-in that finds an account with the same email (sign in the usual way, then connect): the usual sign-in
   now returns where the Ever ID sign-in was started, e.g. the confirmation of a project from app.ever.co
 - A database migration adds two indexes to `ever_connect_provision` (the answers to provisioning intents), for the
