@@ -1,4 +1,4 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Req, Res } from '@nestjs/common';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'path';
 import { config } from '../config';
@@ -36,11 +36,22 @@ export const redirectDemoIndexFile = (req: { method: string; path: string }, res
   next();
 };
 
+/** Whether a path is under the API (`/api` or `/api/...`): never a page of the web app. */
+export const isApiPath = (path: unknown): boolean => typeof path === 'string' && /^\/api(\/|$)/i.test(path);
+
 @Controller()
 export default class IndexController {
+  /**
+   * The web app's page for every other GET, so that its own routes load on a refresh. A path under `/api` that no route
+   * answers is a 404, as for any other method: a client asking for an API route that does not exist (or a module that is
+   * not loaded) never gets the web app's page instead.
+   */
   @Get('{*splat}')
   @ApiExcludeEndpoint()
-  async index(@Res() res) {
+  async index(@Res() res, @Req() req?) {
+    if (req && isApiPath(req.path)) {
+      throw new NotFoundException();
+    }
     const file = resolve(config.publicDir, 'index.html');
     if (config.demo) {
       const html = await readFile(file, 'utf8').catch(() => undefined);

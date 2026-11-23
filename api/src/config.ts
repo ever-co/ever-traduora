@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'crypto';
 import { join } from 'path';
 import * as process from 'process';
 import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
+import { readEverPlatformConfig } from './ever-platform/env';
 
 const env = process.env;
 const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? value === 'true' : defaultValue);
@@ -168,4 +169,9 @@ export const config = {
     adminPassword: process.env.TR_ADMIN_PASSWORD || '',
     adminName: process.env.TR_ADMIN_NAME || 'Admin',
   },
+
+  // Optional Ever Platform modules. The anonymous usage statistics are on unless TR_EVER_STATS_ENABLED is exactly
+  // 'false'; the connection is off unless TR_EVER_CONNECT_ENABLED is exactly 'true'. A module that is off is not loaded
+  // and sends nothing. See docs/ever-platform/.
+  everPlatform: readEverPlatformConfig(env),
 };

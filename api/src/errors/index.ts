@@ -52,3 +52,17 @@ export class PaymentRequiredException extends HttpException {
     super(HttpException.createBody(message, error, HttpStatus.PAYMENT_REQUIRED), HttpStatus.PAYMENT_REQUIRED);
   }
 }
+
+/**
+ * An answer of the optional Ever Platform routes (anonymous usage statistics) that the webapp acts on: its own status
+ * and a stable `code`, such as `stats_disabled` or `cloud_managed`. Carries no value of a report and no key.
+ */
+export class EverPlatformException extends HttpException {
+  constructor(
+    status: HttpStatus,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message, status);
+  }
+}

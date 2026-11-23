@@ -1,0 +1,55 @@
+<div class="h-100 overflow-scroll">
+  <div class="d-flex flex-1 flex-column justify-content-start align-items-center py-5 mb-5">
+    <div class="card w-100" style="max-width: 520px">
+      <div class="card-body">
+        <h4 class="card-title font-serif">Create your project</h4>
+
+        <p *ngIf="step === 'loading'" class="text-muted">Checking the link from app.ever.co...</p>
+        <p *ngIf="step === 'missing'">Open this page from the link app.ever.co gave you.</p>
+        <div *ngIf="errorMessage" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+
+        <ng-container *ngIf="step === 'confirm' && intent">
+          <p>
+            Create the project <strong>{{ intent.displayName }}</strong> linked to <strong>ever.co/{{ intent.handle }}</strong> in Traduora?
+          </p>
+          <p class="small text-muted">
+            You become its admin. Nothing is created until you press Create; Decline tells app.ever.co that you do not want it.
+          </p>
+
+          <ng-container *ngIf="signedIn; else signIn">
+            <button type="button" class="btn btn-primary mr-2" [disabled]="busy" (click)="create()">Create</button>
+            <button type="button" class="btn btn-outline-secondary" [disabled]="busy" (click)="decline()">Decline</button>
+            <div *ngIf="wrongAccount" class="mt-3">
+              <button type="button" class="btn btn-outline-dark" [disabled]="busy" (click)="signOut()">Sign out to use another account</button>
+            </div>
+          </ng-container>
+
+          <ng-template #signIn>
+            <p>Sign in with the Ever ID you used on app.ever.co to continue.</p>
+            <p *ngIf="cannotKeep" class="small text-warning">
+              This browser does not let the page keep the link while you sign in: sign in first, then open the link from app.ever.co again.
+            </p>
+            <button *ngIf="everId" type="button" class="btn btn-primary mr-2" [disabled]="busy" (click)="continueWithEverId()">
+              Continue with Ever ID
+            </button>
+            <p *ngIf="!everId" class="small text-muted">Sign-in with Ever ID is not available on this Traduora installation.</p>
+            <button type="button" class="btn btn-outline-secondary" [disabled]="busy" (click)="decline()">Decline</button>
+          </ng-template>
+        </ng-container>
+
+        <ng-container *ngIf="(step === 'created' || step === 'exists') && result">
+          <div class="alert alert-success">
+            {{ step === 'created' ? 'The project was created, and you are its admin.' : 'This project was already created.' }}
+          </div>
+          <a class="btn btn-primary mr-2" [routerLink]="['/projects', result.projectId]">Open the project</a>
+          <a *ngIf="result.returnTo" class="btn btn-link" [href]="result.returnTo">Back to app.ever.co</a>
+        </ng-container>
+
+        <ng-container *ngIf="step === 'refused' && result">
+          <div class="alert alert-secondary">Nothing was created, and app.ever.co was told.</div>
+          <a *ngIf="result.returnTo" class="btn btn-link px-0" [href]="result.returnTo">Back to app.ever.co</a>
+        </ng-container>
+      </div>
+    </div>
+  </div>
+</div>

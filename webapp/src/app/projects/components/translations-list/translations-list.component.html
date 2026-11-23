@@ -53,6 +53,7 @@
                     class="flex-1"
                     showLength="true"
                     [value]="translationView.value"
+                    [saveTarget]="currentLocale.code"
                     placeholder="Not translated yet"
                     (save)="updateTranslation(project.id, currentLocale.code, translationView.term.id, $event)"
                   >
@@ -97,6 +98,7 @@
                     class="flex-1"
                     showLength="true"
                     [value]="translationView.valueRef"
+                    [saveTarget]="referenceLocale.code"
                     placeholder="Not translated yet"
                     (save)="updateTranslation(project.id, referenceLocale.code, translationView.term.id, $event)"
                   >

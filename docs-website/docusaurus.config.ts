@@ -99,8 +99,13 @@ const config: Config = {
     {
       image: 'img/traduora-preview.png',
 
+      // Follow the visitor's OS theme until they pick one (footer selector or navbar toggle).
+      // Light when the OS theme can't be read, and without JavaScript: :root in
+      // src/css/custom.css is the light palette, dark sits under [data-theme='dark'].
       colorMode: {
-        defaultMode: 'dark',
+        defaultMode: 'light',
+        disableSwitch: false,
+        respectPrefersColorScheme: true,
       },
       navbar: {
         style: 'dark',
