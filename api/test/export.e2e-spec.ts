@@ -202,6 +202,13 @@ describe('ExportController (e2e)', () => {
       .attach('file', Buffer.from(JSON.stringify({ greeting: 'Hello' })), 'file')
       .expect(200);
 
+    // Importing into fr creates "farewell" with no value in de_DE nor in en: it is exported, empty
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(JSON.stringify({ farewell: 'Au revoir' })), 'file')
+      .expect(200);
+
     await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=true&fallbackLocale=en`)
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
@@ -209,7 +216,7 @@ describe('ExportController (e2e)', () => {
       .expect(res => {
         const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
         // term.one is translated in de_DE, so it stays out: imported back, the file would overwrite "eins"
-        expect(parsed).toEqual({ greeting: 'Hello', 'term.two': 'two' });
+        expect(parsed).toEqual({ farewell: '', greeting: 'Hello', 'term.two': 'two' });
       });
   });
 

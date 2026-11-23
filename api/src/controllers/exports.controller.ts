@@ -101,7 +101,8 @@ export class ExportsController {
       translations: termsWithTranslationsMapped,
     };
 
-    let serialized = await this.dump(query.format, data);
+    // Serialized once, at the end: with a fallback locale of the project, the merged list is what the file holds
+    let exported = data;
 
     if (query.fallbackLocale) {
       const fallbackProjectLocale = await this.projectLocaleRepo.findOne({
@@ -141,14 +142,14 @@ export class ExportsController {
         // An empty translation of the locale must not hide the fallback's value
         const translated = data.translations.filter(t => t.translation !== '');
 
-        const dataWithFallback: IntermediateTranslationFormat = {
+        exported = {
           iso: query.locale,
           translations: mergeWithFallback(fallbackTermsWithTranslationsMapped, translated),
         };
-
-        serialized = await this.dump(query.format, dataWithFallback);
       }
     }
+
+    const serialized = await this.dump(query.format, exported);
 
     res.status(HttpStatus.OK);
     res.contentType('application/octet-stream');
