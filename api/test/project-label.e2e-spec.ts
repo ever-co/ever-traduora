@@ -715,6 +715,14 @@ describe('ProjectLabelController (e2e)', () => {
         .expect(200)
     ).body.data;
 
+    // supertest starts and closes a server per request on a server that is not listening, so two
+    // concurrent requests can close it under each other (ECONNRESET). Listen once for the whole loop;
+    // app.close() in afterEach closes it.
+    const server = app.getHttpServer();
+    if (!server.listening) {
+      await new Promise<void>(resolve => server.listen(0, () => resolve()));
+    }
+
     for (const term of terms) {
       const [saved, labelled] = await Promise.all([
         request(app.getHttpServer())
