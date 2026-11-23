@@ -10,6 +10,8 @@ import { Label } from '../entity/label.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
+import { isUniqueViolation } from '../services/ever-id-session.service';
+import { translationEditLockKey, withEditLock } from '../utils/database-locks';
 
 @Controller('api/v1/projects/:projectId/labels')
 @UseGuards(AuthGuard())
@@ -159,7 +161,10 @@ export default class ProjectLabelController {
 
   @Post(':labelId/terms/:termId/translations/:localeCode')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Label a project term translation' })
+  @ApiOperation({
+    summary: 'Label a project term translation',
+    description: 'Adds the translation, empty and with the labels of the term, when the term has none in this locale yet',
+  })
   @ApiResponse({ status: HttpStatus.CREATED, description: 'Created' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project, term or label not found' })
@@ -175,6 +180,7 @@ export default class ProjectLabelController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
     const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
+    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
 
     const projectLocale = await this.projectLocaleRepo.findOneOrFail({
       where: {
@@ -187,14 +193,51 @@ export default class ProjectLabelController {
       },
     });
 
-    const translation = await this.translationsRepo.findOneOrFail({
-      where: { termId: termId, projectLocale: { id: projectLocale.id } },
-      relations: ['labels'],
-    });
+    const where = { termId: term.id, projectLocaleId: projectLocale.id };
+    let translation = await this.translationsRepo.findOne({ where, relations: ['labels'] });
 
-    translation.labels.push(label);
+    // An import adds translations to the imported locale only, so a term it added has none in the other locales yet.
+    // The translation is inserted, never saved over: one that another request added meanwhile keeps its value and labels.
+    // It is inserted under the edit lock of the translation, as a first save of its value adds it: the two never
+    // interleave, so such a save neither fails on the row added here nor drops the label from it.
+    if (!translation) {
+      const added = await withEditLock(translationEditLockKey(projectLocale.id, term.id), async () => {
+        if (await this.translationsRepo.findOne({ where })) {
+          return false;
+        }
+        try {
+          await this.translationsRepo.manager.transaction(async entityManager => {
+            await entityManager.insert(Translation, { ...where, value: '' });
+            // Copy term labels on creation
+            const labelIds = [...term.labels.map(l => l.id).filter(id => id !== label.id), label.id];
+            await entityManager.createQueryBuilder().relation(Translation, 'labels').of(where).add(labelIds);
+          });
+          return true;
+        } catch (error) {
+          // Another API process added it meanwhile
+          if (!isUniqueViolation(error)) {
+            throw error;
+          }
+          return false;
+        }
+      });
+      if (added) {
+        return;
+      }
+      translation = await this.translationsRepo.findOneOrFail({ where, relations: ['labels'] });
+    }
 
-    await this.translationsRepo.save(translation);
+    if (!translation.labels.some(l => l.id === label.id)) {
+      // Adds this label alone: a label that another request added meanwhile stays
+      try {
+        await this.translationsRepo.createQueryBuilder().relation(Translation, 'labels').of(where).add(label.id);
+      } catch (error) {
+        // Another request added the same label meanwhile
+        if (!isUniqueViolation(error)) {
+          throw error;
+        }
+      }
+    }
   }
 
   @Delete(':labelId/terms/:termId/translations/:localeCode')

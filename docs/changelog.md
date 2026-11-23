@@ -8,6 +8,16 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- A label can be added to the translation of a term that has no translation in
+  that locale yet, as a term that an import added in another locale. Before, the
+  API answered 404, so on the translations page of the other locale no label was
+  added and no error was shown. Now the API adds the translation, empty and with
+  the labels of the term, and the label. A label that the translation already
+  has is not added twice. The translations page also shows the error of a label
+  that could not be added or removed: before, it went only to the label dialog,
+  which was already closed. The page then loads the locale again, so such a
+  label no longer looks added (or removed) and can be picked again
+
 - The label filter of the terms page shows each term with all of its labels. Before, a term with the labels A and B showed only A when the list was filtered by A, and the label picker of that term offered B again. The filtered list now follows what is done on the page: a term leaves it when the picked label is removed from it or when it is deleted, and joins it when it gets that label. Before, the card stayed as it was, and deleting it again failed with "not found". The label filter still applies after something is typed in the search box. The API `GET /api/v1/projects/:projectId/terms/filter-by-label` also returns each term with all of its labels, not only the one filtered by
 
 - The term, context and translation fields show Save and Revert when you reach them with Tab, not only when you click

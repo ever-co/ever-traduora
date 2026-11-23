@@ -9,11 +9,14 @@ import { EditableTextComponent } from '../../../shared/components/editable-text/
 import { ErrorMessageComponent } from '../../../shared/components/error-message/error-message.component';
 import { SearchComponent } from '../../../shared/components/search/search.component';
 import { ClipboardService } from '../../../shared/services/clipboard.service';
+import { Label } from '../../models/label';
 import { Locale } from '../../models/locale';
+import { ProjectLabelService } from '../../services/project-label.service';
 import { ProjectTermsService } from '../../services/terms.service';
 import { ProjectTranslationsService } from '../../services/translations.service';
+import { ProjectLabelState } from '../../stores/project-label.state';
 import { TermsState } from '../../stores/terms.state';
-import { TranslationsState } from '../../stores/translations.state';
+import { GetTranslations, TranslationsState } from '../../stores/translations.state';
 import { TranslationsListComponent } from './translations-list.component';
 
 @Pipe({ name: 'can' })
@@ -27,6 +30,8 @@ describe('TranslationsListComponent', () => {
   const en: Locale = { code: 'en', language: 'English', region: '' };
   const de: Locale = { code: 'de', language: 'German', region: '' };
   const fr: Locale = { code: 'fr', language: 'French', region: '' };
+  const todo: Label = { id: 'l1', value: 'todo', color: '#202020' };
+  const noLabelsState = { labels: [], isLoading: false, errorMessage: undefined };
   const mainButton = 'button[aria-label="Copy translation to clipboard"]';
   const refButton = 'button[aria-label="Copy reference translation to clipboard"]';
 
@@ -35,10 +40,11 @@ describe('TranslationsListComponent', () => {
   let referenceLocale: BehaviorSubject<Locale | undefined>;
   let params: BehaviorSubject<ParamMap>;
   let translationsService: jasmine.SpyObj<ProjectTranslationsService>;
+  let labelService: jasmine.SpyObj<ProjectLabelService>;
 
   // The store selections are replaced with fixed data, so the real template renders one card.
   // With a store state given, the error message is read from the store instead.
-  // The translations and terms stores run for real, against services that answer without a server.
+  // The translations, terms and labels stores run for real, against services that answer without a server.
   const render = (storeState?: object) => {
     copy = jasmine.createSpy('copy').and.returnValue(Promise.resolve(true));
     params = new BehaviorSubject(convertToParamMap({ localeCode: 'en' }));
@@ -49,8 +55,14 @@ describe('TranslationsListComponent', () => {
       // A test that saves sets the answer
       updateTranslation: undefined,
     });
+    labelService = jasmine.createSpyObj<ProjectLabelService>('ProjectLabelService', {
+      find: of([]),
+      // A test that labels a translation sets the answer
+      labelTranslation: undefined,
+      unlabelTranslation: undefined,
+    });
     TestBed.configureTestingModule({
-      imports: [NgxsModule.forRoot([TranslationsState, TermsState]), NgbPaginationModule, AllowAllPipe],
+      imports: [NgxsModule.forRoot([TranslationsState, TermsState, ProjectLabelState]), NgbPaginationModule, AllowAllPipe],
       declarations: [TranslationsListComponent, SearchComponent, EditableTextComponent, ErrorMessageComponent],
       schemas: [NO_ERRORS_SCHEMA],
       providers: [
@@ -60,10 +72,11 @@ describe('TranslationsListComponent', () => {
         { provide: ClipboardService, useValue: { copy } },
         { provide: ProjectTranslationsService, useValue: translationsService },
         { provide: ProjectTermsService, useValue: { find: () => of([]) } },
+        { provide: ProjectLabelService, useValue: labelService },
       ],
     });
     if (storeState) {
-      TestBed.inject(Store).reset(storeState);
+      TestBed.inject(Store).reset({ projectLabels: noLabelsState, ...storeState });
     }
     fixture = TestBed.createComponent(TranslationsListComponent);
     const component = fixture.componentInstance;
@@ -173,6 +186,89 @@ describe('TranslationsListComponent', () => {
 
     expect(errorMessage()).toBe('Error, resource not found');
     fixture.destroy();
+  }));
+
+  it('shows the error of a label the API refused to add to a translation', fakeAsync(() => {
+    // LabelTranslation writes its error to the labels store; the dialog that picked the label is already closed
+    render({ translations: {}, terms: {} });
+    labelService.labelTranslation.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+
+    fixture.componentInstance.labelTranslation('p1', 't1', todo, 'en');
+    fixture.detectChanges();
+
+    expect(labelService.labelTranslation).toHaveBeenCalledWith('p1', 'l1', 't1', 'en');
+    expect(errorMessage()).toBe('Error, resource not found');
+    fixture.destroy();
+  }));
+
+  it('loads the locale again when a label fails, so the label that was not added does not show', fakeAsync(() => {
+    render({ translations: {}, terms: {} });
+    labelService.labelTranslation.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    translationsService.findProjectTranslation.calls.reset();
+
+    // t1 has no translation in en yet: the list adds it with the label before the API answers
+    fixture.componentInstance.labelTranslation('p1', 't1', todo, 'en');
+
+    expect(translationsService.findProjectTranslation).toHaveBeenCalledOnceWith('p1', 'en');
+    expect(TestBed.inject(Store).selectSnapshot(state => state.translations.translations.en)).toEqual([]);
+    fixture.destroy();
+  }));
+
+  it('loads the locale again when removing a label fails, so the label shows again', fakeAsync(() => {
+    const labelled = [{ termId: 't1', value: 'Hello', labels: [todo] }];
+    render({ translations: {}, terms: {} });
+    const store = TestBed.inject(Store);
+    translationsService.findProjectTranslation.and.returnValue(of(labelled));
+    store.dispatch(new GetTranslations('p1', 'en'));
+    translationsService.findProjectTranslation.calls.reset();
+    labelService.unlabelTranslation.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+
+    // The list removes the label before the API answers
+    fixture.componentInstance.unlabelTranslation('p1', 't1', todo, 'en');
+
+    expect(translationsService.findProjectTranslation).toHaveBeenCalledOnceWith('p1', 'en');
+    expect(store.selectSnapshot(state => state.translations.translations.en)).toEqual(labelled);
+    fixture.destroy();
+  }));
+
+  // A label added on this page fails, so its error shows
+  const failLabel = () => {
+    labelService.labelTranslation.and.returnValue(throwError(() => new HttpErrorResponse({ status: 404 })));
+    fixture.componentInstance.labelTranslation('p1', 't1', todo, 'en');
+    fixture.detectChanges();
+    expect(errorMessage()).toBe('Error, resource not found');
+  };
+
+  it('does not show a label error that another page left in the store, as a failed term label on the Terms page', fakeAsync(() => {
+    render({ translations: {}, terms: {}, projectLabels: { ...noLabelsState, errorMessage: 'Error, resource not found' } });
+
+    expect(errorMessage()).toBeUndefined();
+    fixture.destroy();
+  }));
+
+  it('removes the error of a failed label once a label is added', fakeAsync(() => {
+    render({ translations: {}, terms: {} });
+    failLabel();
+    labelService.labelTranslation.and.returnValue(of(undefined));
+
+    fixture.componentInstance.labelTranslation('p1', 't1', todo, 'en');
+    fixture.detectChanges();
+
+    expect(errorMessage()).toBeUndefined();
+    fixture.destroy();
+  }));
+
+  it('drops the label error of the previous locale when another locale is picked, and when the page is left', fakeAsync(() => {
+    render({ translations: {}, terms: {} });
+    failLabel();
+
+    pickLocale('fr');
+    expect(errorMessage()).toBeUndefined();
+
+    const store = TestBed.inject(Store);
+    store.reset({ ...store.snapshot(), projectLabels: { ...noLabelsState, errorMessage: 'Error, resource not found' } });
+    fixture.destroy();
+    expect(store.selectSnapshot(state => state.projectLabels.errorMessage)).toBeUndefined();
   }));
 
   it('does not save a text typed in one locale to the locale picked after it', fakeAsync(() => {

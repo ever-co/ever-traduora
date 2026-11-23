@@ -1,5 +1,5 @@
 import { Navigate } from '@ngxs/router-plugin';
-import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
+import { Action, NgxsOnInit, Selector, State, StateContext, Store } from '@ngxs/store';
 import { throwError } from 'rxjs';
 import { catchError, finalize, tap } from 'rxjs/operators';
 import { Logout } from '../../auth/stores/auth.state';
@@ -10,6 +10,7 @@ import { Translation } from '../models/translation';
 import { ProjectTranslationsService } from '../services/translations.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
 import { LabelTranslation, UnlabelTranslation } from './project-label.state';
+import { TermsState } from './terms.state';
 import { Injectable } from '@angular/core';
 import { sortBy } from 'lodash';
 
@@ -82,7 +83,10 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class TranslationsState implements NgxsOnInit {
-  constructor(private translationService: ProjectTranslationsService) {}
+  constructor(
+    private translationService: ProjectTranslationsService,
+    private store: Store,
+  ) {}
 
   ngxsOnInit(_ctx: StateContext<TranslationsStateModel>) {
     // Intentionally left empty
@@ -241,12 +245,21 @@ export class TranslationsState implements NgxsOnInit {
     const translations = ctx.getState().translations;
     const forLocale = translations[action.localeCode];
     if (forLocale) {
+      let found = false;
       const updated = forLocale.map(v => {
         if (v.termId === action.termId) {
+          found = true;
           return { ...v, labels: [...v.labels, action.label] };
         }
         return v;
       });
+      // A term added by an import into another locale has no translation in this one yet: the API adds it, empty and
+      // with the labels of the term and this label
+      if (!found) {
+        const term = (this.store.selectSnapshot(TermsState.terms) || []).find(t => t.id === action.termId);
+        const termLabels = (term?.labels || []).filter(l => l.id !== action.label.id);
+        updated.push({ termId: action.termId, value: '', labels: [...termLabels, action.label] });
+      }
       ctx.patchState({ translations: { ...translations, [action.localeCode]: updated } });
     }
   }
