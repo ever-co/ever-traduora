@@ -8,7 +8,7 @@ import { EverIdSession } from '../src/entity/ever-id-session.entity';
 import { Invite, InviteStatus } from '../src/entity/invite.entity';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { UserIdentity } from '../src/entity/user-identity.entity';
-import { issuerScopedKey } from '../src/services/ever-id-session.service';
+import { EverIdSessionService, issuerScopedKey } from '../src/services/ever-id-session.service';
 import { User } from '../src/entity/user.entity';
 import MailService from '../src/services/mail.service';
 import { MockOidcIssuer, newAuthorizationRequest } from './mock-oidc/mock-oidc-issuer';
@@ -433,6 +433,23 @@ describe('Ever ID sign-in (e2e)', () => {
       await backchannelLogout(await issuer.logoutToken({ sub: 'bob' })).expect(200);
       await me(bob.accessToken).expect(401);
       await me(passwordUser.accessToken).expect(200);
+    });
+
+    it('ends a sign-in to an existing account when a logout naming only the subject lands while it is under way', async () => {
+      await signUpWithEverId({ sub: 'carol', email: 'carol@example.test', sid: 'sid-carol-1' });
+      const sessions = app.get(EverIdSessionService);
+      const findIdentity = sessions.findIdentity.bind(sessions);
+      // The logout lands after the code exchange, while the account is looked up
+      jest.spyOn(sessions, 'findIdentity').mockImplementationOnce(async (iss, sub) => {
+        await sessions.revokeIdentity(iss, sub);
+        return findIdentity(iss, sub);
+      });
+      expectAnswer(await signInWithEverId({ sub: 'carol', email: 'carol@example.test', sid: 'sid-carol-2' }), 400, 'session_ended');
+      expect(await repo(EverIdSession).findOneBy({ sid: issuerScopedKey(issuer.issuer, 'sid-carol-2') })).toBeNull();
+
+      // A sign-in that starts after the logout opens its session
+      const res = expectAnswer(await signInWithEverId({ sub: 'carol', email: 'carol@example.test', sid: 'sid-carol-3' }), 201);
+      await me(res.body.data.accessToken).expect(200);
     });
 
     it('back-channel logout can be turned off on its own', async () => {

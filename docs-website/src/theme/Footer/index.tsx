@@ -4,7 +4,7 @@ import { useThemeConfig } from '@docusaurus/theme-common';
 
 import { SocialLinks } from './SocialLinks';
 import { SystemStatus } from './SystemStatus';
-import { ThemeToggle } from './ThemeToggle';
+import { ThemeSelector } from './ThemeSelector';
 import { FooterLinks, type FooterLinkColumn } from './FooterLinks';
 import EverLogo from './EverLogo';
 import LocaleDropdown from '../Navbar/LocaleDropdown';
@@ -94,10 +94,10 @@ function Footer(): ReactNode {
 						</div>
 					)}
 
-					{/* Theme Toggle and Locale Dropdown */}
+					{/* Theme Selector (System / Light / Dark) and Locale Dropdown */}
 					<div className="flex col-span-1 col-start-2 gap-1 items-end md:gap-4 sm:items-center sm:justify-center md:col-start-4 md:row-start-1">
 						<LocaleDropdown />
-						<ThemeToggle />
+						<ThemeSelector />
 					</div>
 				</div>
 			</div>

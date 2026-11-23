@@ -1,0 +1,33 @@
+{
+  "schema": "ever.stats.v1",
+  "report_id": "c87a798d-24b4-47d2-9071-2ce737b31beb",
+  "instance_id": "0572c446-d926-40de-b433-b331dac9a11a",
+  "sent_at": "2026-11-02",
+  "module_version": "1.0.0",
+  "product": "traduora",
+  "instance_kind": "backend",
+  "serves": [
+    "traduora"
+  ],
+  "version": "1.4.2",
+  "channel": "stable",
+  "install_source": "self-hosted",
+  "country": "ZZ",
+  "period": "2026-11",
+  "final": false,
+  "counts": {
+    "users": 150,
+    "projects": 187,
+    "terms": 224,
+    "translations": 261,
+    "locales": 298,
+    "project_clients": 335
+  },
+  "features": {
+    "google_login": true,
+    "signups_enabled": true
+  },
+  "aggregates": {
+    "translations_changed": 376
+  }
+}

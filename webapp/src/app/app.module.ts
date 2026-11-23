@@ -50,6 +50,17 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
           canActivate: [AuthGuard],
         },
         {
+          // Ever Platform pages, for the operator of the installation (the API answers nobody else)
+          path: 'ever-platform',
+          loadChildren: () => import('./ever-platform/ever-platform.module').then(m => m.EverPlatformModule),
+          canActivate: [AuthGuard],
+        },
+        {
+          // The hand-off from app.ever.co to create an organization's project: the page asks to sign in with Ever ID itself
+          path: 'ever-connect/provision',
+          loadChildren: () => import('./ever-connect-provision/ever-connect-provision.module').then(m => m.EverConnectProvisionModule),
+        },
+        {
           path: '',
           loadChildren: () => import('./auth/auth.module').then(m => m.AuthModule),
         },
