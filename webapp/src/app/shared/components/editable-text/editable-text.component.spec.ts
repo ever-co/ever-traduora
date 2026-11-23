@@ -102,6 +102,46 @@ describe('EditableTextComponent', () => {
     expect(textarea.value).toBe('Hallo');
   }));
 
+  it('drops the text typed for one locale and leaves the edit when the field now saves to another locale', fakeAsync(() => {
+    fixture.componentRef.setInput('saveTarget', 'fr');
+    fixture.detectChanges();
+    textarea.focus();
+    fixture.detectChanges();
+    flush();
+    type('Bonjour le monde');
+
+    // The page keeps this field and shows the term in another locale
+    fixture.componentRef.setInput('saveTarget', 'de');
+    fixture.componentRef.setInput('value', 'Hallo');
+    fixture.detectChanges();
+
+    expect(component.isEditing).toBeFalse();
+    expect(saveButton()).toBeNull();
+    expect(textarea.value).toBe('Hallo');
+    expect(saved).toEqual([]);
+  }));
+
+  it('drops the typed text even when the other locale has the same text, e.g. not translated in either', fakeAsync(() => {
+    fixture.componentRef.setInput('value', '');
+    fixture.componentRef.setInput('saveTarget', 'fr');
+    fixture.detectChanges();
+    textarea.focus();
+    fixture.detectChanges();
+    flush();
+    type('Bonjour');
+
+    // Only the locale changes: the bound value stays ''
+    fixture.componentRef.setInput('saveTarget', 'de');
+    fixture.detectChanges();
+
+    expect(saveButton()).toBeNull();
+    expect(textarea.value).toBe('');
+    // Typing again starts an edit for the new locale
+    type('Hallo');
+    saveButton().click();
+    expect(saved).toEqual(['Hallo']);
+  }));
+
   it('keeps the focus in the field after a save with Ctrl+Enter', fakeAsync(() => {
     textarea.focus();
     textarea.click();

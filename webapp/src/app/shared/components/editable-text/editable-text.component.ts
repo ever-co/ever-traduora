@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
 
 @Component({
   standalone: false,
@@ -22,6 +22,13 @@ export class EditableTextComponent implements OnChanges {
   @Input()
   allowEmpty = true;
 
+  /**
+   * Where Save writes the text, e.g. the locale of a translation. The page can keep this field and show another
+   * locale in it: an edit started for the previous one is then dropped, so its text is never saved to the new one.
+   */
+  @Input()
+  saveTarget: string | undefined;
+
   @Output()
   save = new EventEmitter<string>();
 
@@ -35,9 +42,16 @@ export class EditableTextComponent implements OnChanges {
   /** The user typed in the field since the edit started: a new bound value must not replace that text. */
   private dirty = false;
 
-  ngOnChanges() {
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes.saveTarget && !changes.saveTarget.firstChange && this.isEditing) {
+      // The field now saves to another locale: drop the text typed for the previous one and leave the edit. Not with
+      // exitEdit(), which would pull the focus back from wherever the new locale was picked.
+      this.isEditing = false;
+      this.dirty = false;
+    }
     // A field that was only focused (Tab or a click, nothing typed) takes a new bound value, e.g. once the page
-    // shows another locale; a text the user typed is kept until Save or Revert
+    // shows another locale; a text the user typed is kept until Save or Revert, as long as Save still writes it to the
+    // same place
     if (!this.isEditing || !this.dirty) {
       // A term created without a context has a null value
       this.current = this.value ?? '';
