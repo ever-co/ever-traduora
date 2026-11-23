@@ -134,7 +134,8 @@ describe('TermController (e2e)', () => {
         expect(res.body.data).toHaveLength(1);
         expect(res.body.data[0]).toHaveExactProperties(['id', 'value', 'context', 'labels', 'date']);
         expect(res.body.data[0].id).toEqual(both);
-        expect(res.body.data[0].labels.map(l => l.id).sort()).toEqual([labelA, labelB].sort());
+        expect(res.body.data[0].labels).toHaveLength(2);
+        expect(res.body.data[0].labels.map(l => l.id)).toEqual(expect.arrayContaining([labelA, labelB]));
       });
 
     await request(app.getHttpServer())
@@ -145,6 +146,7 @@ describe('TermController (e2e)', () => {
       .expect(res => {
         expect(res.body.data.map(t => t.value)).toEqual(['term.both', 'term.only-b']);
         expect(res.body.data[0].labels).toHaveLength(2);
+        expect(res.body.data[0].labels.map(l => l.id)).toEqual(expect.arrayContaining([labelA, labelB]));
         expect(res.body.data[1].labels.map(l => l.id)).toEqual([labelB]);
       });
   });

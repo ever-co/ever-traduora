@@ -103,6 +103,7 @@ describe('TermsListComponent label filter', () => {
     expect(shownIds()).toEqual(['t1']);
 
     fixture.componentInstance.unlabelTerm('p1', 't1', labelA);
+    http.expectOne({ method: 'DELETE', url: `${projectUrl}/labels/${labelA.id}/terms/t1` }).flush(null);
     settle();
 
     expect(shownIds()).toEqual([]);
@@ -114,6 +115,7 @@ describe('TermsListComponent label filter', () => {
     expect(shownIds()).toEqual(['t1', 't2']);
 
     fixture.componentInstance.deleteTerm('p1', 't1');
+    http.expectOne({ method: 'DELETE', url: `${projectUrl}/terms/t1` }).flush(null);
     settle();
 
     expect(shownIds()).toEqual(['t2']);
@@ -135,6 +137,7 @@ describe('TermsListComponent label filter', () => {
     expect(shownIds()).toEqual(['t1']);
 
     fixture.componentInstance.labelTerm('p1', 't3', labelA);
+    http.expectOne({ method: 'POST', url: `${projectUrl}/labels/${labelA.id}/terms/t3` }).flush(null);
     settle();
 
     expect(shownIds()).toEqual(['t1', 't3']);
