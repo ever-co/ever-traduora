@@ -104,6 +104,18 @@ describe('TranslationsListComponent', () => {
 
   const statuses = (): string[] => Array.from(fixture.nativeElement.querySelectorAll('[role="status"]')).map((s: Element) => s.textContent.trim());
 
+  const fields = (): string[] => Array.from(fixture.nativeElement.querySelectorAll('textarea')).map((t: HTMLTextAreaElement) => t.value);
+  const saveButtons = (): HTMLButtonElement[] => Array.from(fixture.nativeElement.querySelectorAll('button[aria-label="Save"]'));
+
+  // Types in the main (0) or the reference (1) field, as a keyboard user who tabbed to it
+  const typeIn = (index: number, text: string) => {
+    const field: HTMLTextAreaElement = fixture.nativeElement.querySelectorAll('textarea')[index];
+    field.dispatchEvent(new Event('focus'));
+    field.value = text;
+    field.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  };
+
   it('shows the error of a translation the API refused to save', fakeAsync(() => {
     // UpdateTranslation writes its error to the translations store, not to the terms one
     render({ translations: { errorMessage: 'Bad request' }, terms: {} });
@@ -160,6 +172,39 @@ describe('TranslationsListComponent', () => {
     pickLocale('fr');
 
     expect(errorMessage()).toBe('Error, resource not found');
+    fixture.destroy();
+  }));
+
+  it('does not save a text typed in one locale to the locale picked after it', fakeAsync(() => {
+    render();
+    const component = fixture.componentInstance;
+    const update = spyOn(component, 'updateTranslation');
+    typeIn(0, 'Hello world');
+    expect(saveButtons().length).toBe(1);
+
+    // The same card now shows the term in French, here with the same text as in English
+    component.currentLocale$ = of(fr);
+    fixture.detectChanges();
+
+    expect(fields()).toEqual(['Hello', 'Hallo']);
+    expect(saveButtons().length).toBe(0);
+    typeIn(0, 'Bonjour');
+    saveButtons()[0].click();
+    expect(update).toHaveBeenCalledOnceWith('p1', 'fr', 't1', 'Bonjour');
+    fixture.destroy();
+  }));
+
+  it('does not save a text typed in the reference locale to the reference locale picked after it', fakeAsync(() => {
+    render();
+    const update = spyOn(fixture.componentInstance, 'updateTranslation');
+    typeIn(1, 'Hallo Welt');
+
+    referenceLocale.next(fr);
+    fixture.detectChanges();
+
+    expect(fields()).toEqual(['Hello', 'Hallo']);
+    expect(saveButtons().length).toBe(0);
+    expect(update).not.toHaveBeenCalled();
     fixture.destroy();
   }));
 

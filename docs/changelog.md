@@ -8,6 +8,16 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- The term, context and translation fields show Save and Revert when you reach them with Tab, not only when you click
+  them. Before, a keyboard user who typed in a field saw no button, and only the undocumented Ctrl+Enter saved, so text
+  typed before tabbing away was never saved. After a save or a revert (Ctrl+Enter, Escape or a click on Save or Revert),
+  the focus stays in the field instead of going back to the top of the page, so keyboard and screen reader users keep
+  their place in a long list; typing in it again shows Save and Revert again. A field you only tabbed through or
+  clicked, without typing, shows the new text when the page changes it, e.g. after a switch to another locale, so its
+  Save no longer writes the text of the previous locale. A text you typed and did not save is dropped when you pick
+  another locale or reference locale, instead of being saved to the newly picked one. Clicking the context of a term
+  created without one no longer throws an error in the browser console, and the length shows 0
+
 - Export with "not translated keys" and a fallback locale holds only the terms that have no translation in the exported locale, each with the value of the fallback locale. Before, it held every term of the project, the translated ones with the fallback locale's value, so translating the file and importing it back overwrote the existing translations with the fallback text. An export with a fallback locale that is not a locale of the project (possible through the API) keeps the terms without a translation, with an empty value: before, it left them out, and with "not translated keys" the file was empty
 
 - Ever ID sign-in that finds an account with the same email (sign in the usual way, then connect): the usual sign-in
