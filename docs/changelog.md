@@ -18,6 +18,104 @@ To download the source code for each release, check out [GitHub](https://github.
   another locale or reference locale, instead of being saved to the newly picked one. Clicking the context of a term
   created without one no longer throws an error in the browser console, and the length shows 0
 
+- Export with "not translated keys" and a fallback locale holds only the terms that have no translation in the exported locale, each with the value of the fallback locale. Before, it held every term of the project, the translated ones with the fallback locale's value, so translating the file and importing it back overwrote the existing translations with the fallback text. An export with a fallback locale that is not a locale of the project (possible through the API) keeps the terms without a translation, with an empty value: before, it left them out, and with "not translated keys" the file was empty
+
+- Ever ID sign-in that finds an account with the same email (sign in the usual way, then connect): the usual sign-in
+  now returns where the Ever ID sign-in was started, e.g. the confirmation of a project from app.ever.co
+- A database migration adds two indexes to `ever_connect_provision` (the answers to provisioning intents), for the
+  background round's lookups of unfinished answers; no data changes. It runs automatically at start unless
+  `TR_DB_AUTOMIGRATE=false`
+
+## 0.24.2
+
+Released 2026-11-22.
+
+- Projects can be created from app.ever.co (hand-off provisioning), behind `TR_EVER_CONNECT_PROVISION_ENABLED=true`
+  (off by default; needs the Ever Platform connection): the person lands on `/ever-connect/provision`, signs in with
+  the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See
+  [Ever Platform connection](ever-platform/connection.md#provisioning-from-appeverco)
+- Every pull request runs an egress audit of the Ever Platform modules (`tools/egress-audit/`): with the modules off,
+  or loaded but switched off, the API looks up no Ever host and opens no connection out; with them on, it makes only
+  the calls listed in [Outbound calls](ever-platform/outbound-calls.md)
+- A path under `/api` that no route answers is now a 404 (JSON), never the web app's page: a client asking for a route
+  that does not exist, or of a module that is not loaded, gets a clear answer
+- Ever Platform connection with several API processes: a running background round also renews its lease on a timer, so
+  one long step (a backup or a restore check longer than the 2-minute lease) never lets another process start its own
+  maintenance work alongside it
+- docs.traduora.co never caches a "not found" answer (`Cache-Control: no-store` on every 404), so a docs deploy can no
+  longer leave pages without their scripts for hours
+- One database migration: a new, empty table `ever_connect_provision` (provisioning from app.ever.co); no existing
+  table changes. It runs automatically at start unless `TR_DB_AUTOMIGRATE=false`
+
+## 0.24.1
+
+- The _Ever Platform_ page has a **Maintenance operations** section for the operator: opt in or out, choose the kinds
+  allowed and the weekly windows (UTC), set, replace or remove the backup directory (SQLite), and see the recent
+  operations and why one did not run. See
+  [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
+- The account settings have a **My data exports** section while the Ever Platform connection is on: each user sees the
+  exports made of their own account for a request they sent from app.ever.co, and downloads one as a JSON file within
+  7 days. See [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
+- Ever ID sign-in: a person deletion from Ever Platform now locks the account as a sign-in does, so a sign-in that
+  read the identity just before cannot open a session after it is removed; a logout that names only the subject also
+  ends a sign-up that is still waiting for its confirmation
+- Ever Platform connection: a refresh of the integrations never undoes an integration the operator switched off
+  while the refresh was reading Ever Platform; with several API processes, a long background round renews its lease
+  and stops once another process holds it
+- Ever ID sign-in to an existing account: a logout that names only the subject and lands while the sign-in is under
+  way now ends it too (before, only a sign-up waiting for its confirmation was ended); a sign-in started after the
+  logout works as before
+- Ever Platform connection: saved maintenance-operation results that are sent again also renew the lease before each
+  send, and the person-link round stops once the connection is no longer the active one
+- No database migrations in this release
+
+## 0.24.0
+
+### Upgrade notes
+
+- **Anonymous usage statistics are on by default.** Once a day the API sends Ever Platform one small signed report
+  about the installation as a whole (counts only; no name, e-mail address, project, term, translation or key). Set
+  `TR_EVER_STATS_ENABLED=false` (or use the switch on the _Ever Platform_ page) to turn them off; the API needs a
+  restart for the variable to apply.
+- **The Ever Platform connection is off by default** and needs `TR_EVER_CONNECT_ENABLED=true`; no connection data
+  is sent before the operator connects (the anonymous statistics above are separate).
+- **API client tokens issued before this upgrade stop working once.** Clients get a new one with their id and secret
+  (grant type `client_credentials`), as they do when a token expires.
+- Database migrations add Ever ID sign-in, the translation change history, the instance identity and the Ever Platform
+  connection. They run automatically unless `TR_DB_AUTOMIGRATE=false`.
+
+### Changes
+
+- With the Ever Platform connection on, an owner or admin of the organization can ask from app.ever.co for a health
+  report, a backup (SQLite) or a backup check. Each runs only with the organization's consent **and** the operator's
+  opt-in for that kind, inside the operator's windows; Ever Platform receives the status, the version and, for a
+  backup, an opaque reference and its size only (never a path or a file name). Updates are
+  never run from inside the container. See
+  [Ever Platform connection](ever-platform/connection.md#maintenance-operations)
+
+- With the Ever Platform connection on, Traduora answers a person's export and deletion requests sent from app.ever.co
+  for the accounts their Ever ID is linked to: an export (profile, Ever ID, projects and roles) that only that account
+  can download for 7 days, or the removal of the Ever ID from the account (the account, its password and its projects
+  stay). While an organization consented to `ever_id_login`, the Ever IDs users signed in with are reported as person
+  links (ids only), so these requests reach the installation. See
+  [Ever Platform connection](ever-platform/connection.md#a-persons-ever-id)
+
+- Optional Ever Platform connection, off by default. With `TR_EVER_CONNECT_ENABLED=true` the operator can connect the
+  installation to an organization with a code from app.ever.co (*Ever Platform* in the account menu). While connected,
+  Traduora sends a daily heartbeat, reads its verified plan and the integrations an owner or admin consented to in
+  app.ever.co (the installation address, linking the anonymous statistics), lets the operator switch each one off, and
+  keeps an audit trail of every change. No connection data is sent before the operator connects, and *Disconnect* ends it. See
+  [Ever Platform connection](ever-platform/connection.md)
+
+- Anonymous usage statistics, on by default and turned off with `TR_EVER_STATS_ENABLED=false` (or the switch on the
+  _Ever Platform_ page). The API sends Ever Platform one small signed report a day about the installation as a whole: how many users, projects, terms, translations, project
+  locales and API clients it has, how many translations changed this month, and whether Google sign-in and sign-ups are
+  on. No name, e-mail address, project, term, translation or key is ever sent. The operator (`TR_EVER_ADMIN_EMAILS`,
+  default `TR_ADMIN_EMAIL`) finds an _Ever Platform_ page in the account menu that shows what is sent, the last report,
+  _Send now_, a switch and _Reset instance identity_. With `TR_EVER_STATS_ENABLED=false` nothing is loaded and nothing is
+  sent. See
+  [Anonymous usage statistics](ever-platform/anonymous-usage-statistics.md)
+
 - XLIFF 1.2 import reads the units inside a `<group>` without an `id`, which XLIFF 1.2 allows. Before, a `<group>` with no attributes got the whole file refused as malformed, and of several groups with attributes but no `id` (`<group resname="g1">`, `<group resname="g2">`) only the units of the last one were imported, though the import reported success. Of several `<file>` elements with the same `original`, all units are imported now, not only those of the last one. A space between two placeholders or two `<mrk>` (`<x id="1" equiv-text="{a}"/> <x id="2" equiv-text="{b}"/>`) is kept: before, the stored translation was `{a}{b}`. A `<trans-unit>` without an `id` gets the file refused as malformed instead of being imported as a term named `undefined`
 
 - The translations page no longer keeps the error of a failed save when you

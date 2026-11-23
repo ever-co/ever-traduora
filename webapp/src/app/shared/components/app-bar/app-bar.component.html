@@ -13,6 +13,7 @@
       </button>
       <div ngbDropdownMenu>
         <button class="dropdown-item" routerLink="/user-settings">Account Settings</button>
+        <button *ngIf="everPlatform$ | async" class="dropdown-item" routerLink="/ever-platform">Ever Platform</button>
         <button class="dropdown-item" (click)="logout()">Logout</button>
       </div>
     </div>

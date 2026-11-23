@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { config } from '../config';
-import IndexController, { DEMO_META_TAG, redirectDemoIndexFile, withDemoMarker } from './index.controller';
+import { NotFoundException } from '@nestjs/common';
+import IndexController, { DEMO_META_TAG, isApiPath, redirectDemoIndexFile, withDemoMarker } from './index.controller';
 
 const INDEX_HTML =
   '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Traduora</title></head><body><app-root></app-root></body></html>';
@@ -143,5 +144,25 @@ describe('redirectDemoIndexFile', () => {
     config.demo = false;
 
     expect(run('GET', '/index.html')).toEqual({ redirectedTo: undefined, passed: true });
+  });
+});
+
+describe('IndexController under /api', () => {
+  it('answers 404 for a path under /api that no route answers, never the web app page', async () => {
+    const { res, sent } = fakeResponse();
+    await expect(new IndexController().index(res, { path: '/api/v1/ever-stats/status' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(new IndexController().index(res, { path: '/api' })).rejects.toBeInstanceOf(NotFoundException);
+    expect(sent.file).toBeUndefined();
+    expect(sent.body).toBeUndefined();
+  });
+
+  it('tells API paths from pages of the web app', () => {
+    expect(isApiPath('/api/v1/projects')).toBe(true);
+    expect(isApiPath('/API/v1/projects')).toBe(true);
+    expect(isApiPath('/api')).toBe(true);
+    expect(isApiPath('/apidocs')).toBe(false);
+    expect(isApiPath('/projects/api')).toBe(false);
+    expect(isApiPath('/ever-platform')).toBe(false);
+    expect(isApiPath(undefined)).toBe(false);
   });
 });

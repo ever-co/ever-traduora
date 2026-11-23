@@ -1,0 +1,2 @@
+# Vendored byte for byte from the public Ever Platform SDK: keep LF on every checkout (the drift test hashes the bytes).
+* text eol=lf
