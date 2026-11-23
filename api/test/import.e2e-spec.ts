@@ -318,6 +318,128 @@ describe('ImportController (e2e)', () => {
       });
   });
 
+  describe('overwrite option', () => {
+    let termEmptyId: string;
+    let termMissingId: string;
+    let mixedFile: string;
+
+    const importMixed = (query: string) =>
+      request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/imports?locale=de_DE&format=jsonflat${query}`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .attach('file', Buffer.from(mixedFile), 'file');
+
+    const germanValues = async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200);
+      return new Map<string, string>(res.body.data.map(t => [t.termId, t.value]));
+    };
+
+    const historyOf = async (termId: string) => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/translations/de_DE/history?termId=${termId}`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200);
+      return res.body.data.map(entry => [entry.revision, entry.previousValue, entry.value]);
+    };
+
+    beforeEach(async () => {
+      // term.empty has an empty translation in de_DE, term.missing none; term.one and term.two are filled
+      termEmptyId = (
+        await request(app.getHttpServer())
+          .post(`/api/v1/projects/${testProject.id}/terms`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .send({ value: 'term.empty' })
+          .expect(201)
+      ).body.data.id;
+      await request(app.getHttpServer())
+        .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ termId: termEmptyId, value: '' })
+        .expect(200);
+      termMissingId = (
+        await request(app.getHttpServer())
+          .post(`/api/v1/projects/${testProject.id}/terms`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .send({ value: 'term.missing' })
+          .expect(201)
+      ).body.data.id;
+
+      mixedFile = (await jsonFlatExporter({
+        translations: [
+          { term: 'term.one', translation: 'EINS' },
+          { term: 'term.two', translation: 'ZWEI' },
+          { term: 'term.empty', translation: 'leer' },
+          { term: 'term.missing', translation: 'fehlt' },
+          { term: 'term.new', translation: 'neu' },
+        ],
+      })) as string;
+    });
+
+    it('keeps filled translations and fills the empty, missing and new ones when overwrite is false', async () => {
+      await importMixed('&overwrite=false')
+        .expect(200)
+        .expect({
+          data: {
+            terms: { added: 1, skipped: 4 },
+            translations: { upserted: 3 },
+          },
+        });
+
+      const values = await germanValues();
+      expect(values.get(termOneId)).toBe('eins');
+      expect(values.get(termTwoId)).toBe('zwei');
+      expect(values.get(termEmptyId)).toBe('leer');
+      expect(values.get(termMissingId)).toBe('fehlt');
+      expect([...values.values()]).toContain('neu');
+      expect(values.size).toBe(5);
+
+      // The kept translations got no history entry; the filled ones got their first
+      expect(await historyOf(termOneId)).toEqual([[1, '', 'eins']]);
+      expect(await historyOf(termTwoId)).toEqual([[1, '', 'zwei']]);
+      expect(await historyOf(termMissingId)).toEqual([[1, '', 'fehlt']]);
+    });
+
+    it('replaces filled translations when overwrite is absent or true', async () => {
+      await importMixed('')
+        .expect(200)
+        .expect({
+          data: {
+            terms: { added: 1, skipped: 4 },
+            translations: { upserted: 5 },
+          },
+        });
+
+      let values = await germanValues();
+      expect(values.get(termOneId)).toBe('EINS');
+      expect(values.get(termTwoId)).toBe('ZWEI');
+      expect(values.get(termEmptyId)).toBe('leer');
+      expect(values.get(termMissingId)).toBe('fehlt');
+      expect(await historyOf(termOneId)).toHaveLength(2);
+
+      // Back to the stored values, then the same file with an explicit true
+      await request(app.getHttpServer())
+        .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ termId: termOneId, value: 'eins' })
+        .expect(200);
+
+      await importMixed('&overwrite=true').expect(200);
+      values = await germanValues();
+      expect(values.get(termOneId)).toBe('EINS');
+    });
+
+    it('refuses an overwrite value that is not true or false, and imports nothing', async () => {
+      await importMixed('&overwrite=maybe').expect(400);
+
+      const values = await germanValues();
+      expect(values.get(termOneId)).toBe('eins');
+      expect(values.size).toBe(4);
+    });
+  });
+
   it('/api/v1/projects/:projectId/imports (POST) should fail import if would exceed plan limits', async () => {
     await request(app.getHttpServer())
       .post(`/api/v1/projects/${testProject.id}/imports?locale=es_MX&format=jsonflat`)
