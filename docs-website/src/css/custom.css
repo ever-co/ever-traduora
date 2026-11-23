@@ -28,8 +28,8 @@
 	--ifm-container-width: 1140px;
 	--search-local-modal-width: 480px;
 	--search-local-highlight-color: #5468ff;
-	--ifm-background-surface-color: #2a2c39;
-	--ifm-font-color-base: #fff;
+	/* No dark surface or white base text here: :root is the light palette, the one shown without
+	   JavaScript and whenever the OS theme can't be read. Dark values live under [data-theme='dark']. */
 	--title-color: rgb(30, 25, 24);
 
 	/* Navbar */
@@ -151,6 +151,7 @@ body {
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
+	--ifm-font-color-base: #fff;
 	--ifm-heading-color: #fff;
 	--ifm-color-primary: #eeeeee;
 	--ifm-color-primary-dark: #d6d6d6;

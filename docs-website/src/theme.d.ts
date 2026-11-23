@@ -58,6 +58,19 @@ declare module '@theme/Footer/Copyright' {
   export default function FooterCopyright(props: Props): JSX.Element;
 }
 
+// The classic theme's color-mode icons, used by the footer theme selector.
+declare module '@theme/Icon/SystemColorMode' {
+  export default function IconSystemColorMode(props: import('react').ComponentProps<'svg'>): JSX.Element;
+}
+
+declare module '@theme/Icon/LightMode' {
+  export default function IconLightMode(props: import('react').ComponentProps<'svg'>): JSX.Element;
+}
+
+declare module '@theme/Icon/DarkMode' {
+  export default function IconDarkMode(props: import('react').ComponentProps<'svg'>): JSX.Element;
+}
+
 declare module '@theme/SearchBar' {
   export default function SearchBar(): JSX.Element;
 }

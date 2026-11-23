@@ -28,6 +28,10 @@ export class ErrorInterceptor implements HttpInterceptor {
     if (request.url.endsWith('/auth/signup')) {
       return true;
     }
+    // The public provisioning routes: a 401 there means the link from app.ever.co does not verify
+    if (/\/ever-connect\/provision\/(intent|intents\/[^/]+\/reject)$/.test(request.url)) {
+      return true;
+    }
     return false;
   }
 }
