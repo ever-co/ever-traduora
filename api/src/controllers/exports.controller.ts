@@ -28,6 +28,7 @@ import { FormatCannotHoldTermsException } from '../errors';
 import { resolveColumnName } from '../utils/alias-helper';
 import { mergeWithFallback } from '../utils/fallback-merge';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
+import { computeEtag, ifNoneMatchMatches } from '../utils/conditional-get';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -44,7 +45,8 @@ export class ExportsController {
   @ApiOAuth2([])
   @ApiOperation({ summary: `Export all translated terms for a project's locale` })
   @ApiProduces('application/octet-stream')
-  @ApiResponse({ status: HttpStatus.OK, description: 'File exported' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'File exported; the ETag header identifies this content' })
+  @ApiResponse({ status: HttpStatus.NOT_MODIFIED, description: 'The If-None-Match header matches the current export, so no body is sent' })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Bad request, or the format cannot hold some terms of the project: the error message then names them',
@@ -150,6 +152,20 @@ export class ExportsController {
     }
 
     const serialized = await this.dump(query.format, exported);
+
+    // The export is the file that apps and CI jobs poll for. A validator lets them skip the download
+    // when nothing changed. The request was authorized above, so a 304 only goes to a permitted caller.
+    const etag = computeEtag(serialized);
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'private, no-cache');
+    // With TR_CORS_ENABLED, a script on another origin can read the tag only when it is exposed
+    res.setHeader('Access-Control-Expose-Headers', 'ETag');
+
+    if (ifNoneMatchMatches(req.headers['if-none-match'], etag)) {
+      res.status(HttpStatus.NOT_MODIFIED);
+      res.end();
+      return;
+    }
 
     res.status(HttpStatus.OK);
     res.contentType('application/octet-stream');

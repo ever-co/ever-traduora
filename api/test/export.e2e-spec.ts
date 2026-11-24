@@ -429,6 +429,79 @@ describe('ExportController (e2e)', () => {
       .expect(404);
   });
 
+  it('/api/v1/projects/:projectId/exports (GET) should send an ETag and answer a matching If-None-Match with an empty 304', async () => {
+    const url = `/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`;
+    const get = (ifNoneMatch?: string) => {
+      const req = request(app.getHttpServer()).get(url).set('Authorization', `Bearer ${testingUser.accessToken}`);
+      return ifNoneMatch === undefined ? req : req.set('If-None-Match', ifNoneMatch);
+    };
+
+    const first = await get().expect(200);
+    const etag = first.header.etag;
+    expect(etag).toMatch(/^"[A-Za-z0-9_-]+"$/);
+    expect(first.header['cache-control']).toEqual('private, no-cache');
+    expect(first.header['access-control-expose-headers']).toEqual('ETag');
+
+    // The same content gives the same tag
+    await get().expect(200).expect('ETag', etag);
+
+    for (const ifNoneMatch of [etag, `W/${etag}`, `"old", ${etag}`, '*']) {
+      await get(ifNoneMatch)
+        .expect(304)
+        .expect(res => {
+          expect(res.header.etag).toEqual(etag);
+          expect(res.header['cache-control']).toEqual('private, no-cache');
+          expect(res.header['content-length']).toBeUndefined();
+          expect(res.text ?? '').toEqual('');
+        });
+    }
+
+    await request(app.getHttpServer()).head(url).set('Authorization', `Bearer ${testingUser.accessToken}`).set('If-None-Match', etag).expect(304);
+
+    // A tag that is not the current one, even one holding ",*," inside its quotes, gets the whole file
+    for (const ifNoneMatch of ['"other"', '"old,*,tag"', etag.slice(1, -1)]) {
+      await get(ifNoneMatch)
+        .expect(200)
+        .expect(res => expect(JSON.parse(Buffer.from(res.body).toString('utf-8'))['term.one']).toEqual('eins'));
+    }
+
+    // Another format is another file, with another tag
+    const csv = await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=csv&untranslated=false`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .set('If-None-Match', etag)
+      .expect(200);
+    expect(csv.header.etag).not.toEqual(etag);
+
+    // A changed translation changes the tag: the old tag gets the new file
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termOneId, value: 'eins!' })
+      .expect(200);
+
+    const changed = await get(etag).expect(200);
+    expect(changed.header.etag).not.toEqual(etag);
+    expect(JSON.parse(Buffer.from(changed.body).toString('utf-8'))['term.one']).toEqual('eins!');
+    await get(changed.header.etag).expect(304);
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should not answer 304 to a caller without access, even with the current ETag', async () => {
+    const url = `/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false`;
+    const res = await request(app.getHttpServer()).get(url).set('Authorization', `Bearer ${testingUser.accessToken}`).expect(200);
+    const etag = res.header.etag;
+    expect(etag).toBeDefined();
+
+    await request(app.getHttpServer())
+      .get(url)
+      .set('Authorization', `Bearer ${anotherUser.accessToken}`)
+      .set('If-None-Match', etag)
+      .expect(404)
+      .expect(denied => expect(denied.header.etag).toBeUndefined());
+    await request(app.getHttpServer()).get(url).set('If-None-Match', etag).expect(401);
+    await request(app.getHttpServer()).get(url).set('If-None-Match', '*').expect(401);
+  });
+
   it('/api/v1/projects/:projectId/exports should not access exports resource if not authenticated', async () => {
     await request(app.getHttpServer()).get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat`).expect(401);
   });
