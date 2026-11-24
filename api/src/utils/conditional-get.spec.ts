@@ -41,5 +41,20 @@ describe('ifNoneMatchMatches', () => {
 
   it('matches the wildcard', () => {
     expect(ifNoneMatchMatches('*', etag)).toBe(true);
+    expect(ifNoneMatchMatches(' * ', etag)).toBe(true);
+  });
+
+  it('finds a weak tag inside a list', () => {
+    expect(ifNoneMatchMatches(`W/"old", W/${etag}`, etag)).toBe(true);
+  });
+
+  it('reads a quoted tag whole, so a comma or a * inside it is not a list or a wildcard', () => {
+    expect(ifNoneMatchMatches('"old,*,tag"', etag)).toBe(false);
+    expect(ifNoneMatchMatches('"a,b"', '"a,b"')).toBe(true);
+    expect(ifNoneMatchMatches('"a,b"', '"a"')).toBe(false);
+  });
+
+  it('does not match a tag sent without its quotes', () => {
+    expect(ifNoneMatchMatches(etag.slice(1, -1), etag)).toBe(false);
   });
 });

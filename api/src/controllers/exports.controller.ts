@@ -152,6 +152,8 @@ export class ExportsController {
     const etag = computeEtag(serialized);
     res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', 'private, no-cache');
+    // With TR_CORS_ENABLED, a script on another origin can read the tag only when it is exposed
+    res.setHeader('Access-Control-Expose-Headers', 'ETag');
 
     if (ifNoneMatchMatches(req.headers['if-none-match'], etag)) {
       res.status(HttpStatus.NOT_MODIFIED);
