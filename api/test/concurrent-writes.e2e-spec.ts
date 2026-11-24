@@ -151,13 +151,16 @@ describe('Concurrent writes to one project (e2e)', () => {
       await labelRequest('post', labelId, termOneId).expect(201);
 
       const find = EntityManager.prototype.find;
-      const statuses: number[] = [];
+      let statuses: number[] = [];
+      let paused = false;
       jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, target: any, options: any) {
         const found = await find.call(this, target, options);
         // The import's read of the locale's translations with the ids of their labels
-        if (target === Translation && options?.select?.labels && statuses.length === 0) {
-          statuses.push((await labelRequest('delete', labelId, termOneId)).status);
-          statuses.push((await labelRequest('post', labelId, termTwoId)).status);
+        if (target === Translation && options?.select?.labels && !paused) {
+          paused = true;
+          const unlabeled = await labelRequest('delete', labelId, termOneId);
+          const labeled = await labelRequest('post', labelId, termTwoId);
+          statuses = [unlabeled.status, labeled.status];
         }
         return found;
       } as any);
