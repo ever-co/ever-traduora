@@ -63,6 +63,7 @@ describe('ImportController term/translation resolution', () => {
           { term: 'term.one', translation: 'uno' },
         ],
         projectLocale,
+        [],
       );
 
       expect(result).toHaveLength(1);
@@ -71,16 +72,44 @@ describe('ImportController term/translation resolution', () => {
 
     it('resolves terms named like object prototype members', () => {
       const terms = [{ id: 't1', value: 'constructor', labels: [] }];
-      const result = controller.determineTranslationsToAdd(terms, [{ term: 'constructor', translation: 'x' }], projectLocale);
+      const result = controller.determineTranslationsToAdd(terms, [{ term: 'constructor', translation: 'x' }], projectLocale, []);
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({ termId: 't1', value: 'x' });
     });
 
     it('throws when a translation has no matching term', () => {
-      expect(() => controller.determineTranslationsToAdd([], [{ term: 'missing', translation: 'x' }], projectLocale)).toThrow(
+      expect(() => controller.determineTranslationsToAdd([], [{ term: 'missing', translation: 'x' }], projectLocale, [])).toThrow(
         'missing term for translation',
       );
+    });
+
+    it('keeps the labels of a stored translation that its term does not have, and adds those of the term once', () => {
+      const terms = [
+        { id: 't1', value: 'term.one', labels: [{ id: 'l-term' }] },
+        { id: 't2', value: 'term.two', labels: [{ id: 'l-term' }] },
+        { id: 't3', value: 'term.three', labels: [{ id: 'l-term' }] },
+      ];
+      const stored = [
+        { termId: 't1', value: 'eins', labels: [{ id: 'l-own' }, { id: 'l-term' }] },
+        { termId: 't2', value: '', labels: [] },
+      ];
+      const result = controller.determineTranslationsToAdd(
+        terms,
+        [
+          { term: 'term.one', translation: 'EINS' },
+          { term: 'term.two', translation: 'ZWEI' },
+          { term: 'term.three', translation: 'DREI' },
+        ],
+        projectLocale,
+        stored,
+      );
+
+      const labelIds = (termId: string) => result.find(t => t.termId === termId).labels.map(label => label.id);
+      // t1 keeps its own label, t2 (stored without labels) and t3 (new) get the labels of their term
+      expect(labelIds('t1')).toEqual(['l-own', 'l-term']);
+      expect(labelIds('t2')).toEqual(['l-term']);
+      expect(labelIds('t3')).toEqual(['l-term']);
     });
   });
 
@@ -132,7 +161,8 @@ describe('ImportController term/translation resolution', () => {
     const projectLocale: any = { id: 'locale-1' };
     const user: any = { id: 'user-1' };
 
-    function entityManager(stored: { termId: string; value: string }[], latest: { termId: string; revision: number | string }[]) {
+    // No `find`: the stored translations are the ones the import read once, passed in
+    function entityManager(latest: { termId: string; revision: number | string }[]) {
       const queryBuilder: any = {
         select: jest.fn(() => queryBuilder),
         addSelect: jest.fn(() => queryBuilder),
@@ -140,17 +170,11 @@ describe('ImportController term/translation resolution', () => {
         groupBy: jest.fn(() => queryBuilder),
         getRawMany: jest.fn().mockResolvedValue(latest),
       };
-      return { find: jest.fn().mockResolvedValue(stored), createQueryBuilder: jest.fn(() => queryBuilder), queryBuilder };
+      return { createQueryBuilder: jest.fn(() => queryBuilder), queryBuilder };
     }
 
     it('records each changed value after its latest change, and new translations from an empty value', async () => {
-      const em = entityManager(
-        [
-          { termId: 't1', value: 'eins' },
-          { termId: 't2', value: 'zwei' },
-        ],
-        [{ termId: 't1', revision: '3' }],
-      );
+      const em = entityManager([{ termId: 't1', revision: '3' }]);
 
       const result = await controller.determineHistoryToAdd(
         em,
@@ -159,6 +183,10 @@ describe('ImportController term/translation resolution', () => {
           { termId: 't1', value: 'EINS' },
           { termId: 't2', value: 'zwei' },
           { termId: 't3', value: 'drei' },
+        ],
+        [
+          { termId: 't1', value: 'eins' },
+          { termId: 't2', value: 'zwei' },
         ],
         user,
       );
@@ -171,9 +199,15 @@ describe('ImportController term/translation resolution', () => {
     });
 
     it('records nothing, and reads no history, when the import changes no value', async () => {
-      const em = entityManager([{ termId: 't1', value: 'eins' }], []);
+      const em = entityManager([]);
 
-      const result = await controller.determineHistoryToAdd(em, projectLocale, [{ termId: 't1', value: 'eins' }], null);
+      const result = await controller.determineHistoryToAdd(
+        em,
+        projectLocale,
+        [{ termId: 't1', value: 'eins' }],
+        [{ termId: 't1', value: 'eins' }],
+        null,
+      );
 
       expect(result).toEqual([]);
       expect(em.createQueryBuilder).not.toHaveBeenCalled();

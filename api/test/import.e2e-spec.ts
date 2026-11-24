@@ -438,6 +438,72 @@ describe('ImportController (e2e)', () => {
       expect(values.get(termOneId)).toBe('eins');
       expect(values.size).toBe(4);
     });
+
+    describe('labels set on a single translation', () => {
+      const germanLabels = async () => {
+        const res = await request(app.getHttpServer())
+          .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .expect(200);
+        return new Map<string, string[]>(res.body.data.map(t => [t.termId, t.labels.map(label => label.value).sort()]));
+      };
+
+      beforeEach(async () => {
+        const createLabel = async (value: string): Promise<string> =>
+          (
+            await request(app.getHttpServer())
+              .post(`/api/v1/projects/${testProject.id}/labels`)
+              .set('Authorization', `Bearer ${testingUser.accessToken}`)
+              .send({ value, color: '#202020' })
+              .expect(201)
+          ).body.data.id;
+        const todoId = await createLabel('todo');
+        const needsReviewId = await createLabel('needs-review');
+
+        // todo is a label of the term term.one, and so of its translations; needs-review is a label of the German
+        // translations of term.one (filled) and term.empty (empty) only, not of their terms
+        await request(app.getHttpServer())
+          .post(`/api/v1/projects/${testProject.id}/labels/${todoId}/terms/${termOneId}`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .expect(201);
+        for (const termId of [termOneId, termEmptyId]) {
+          await request(app.getHttpServer())
+            .post(`/api/v1/projects/${testProject.id}/labels/${needsReviewId}/terms/${termId}/translations/de_DE`)
+            .set('Authorization', `Bearer ${testingUser.accessToken}`)
+            .expect(201);
+        }
+
+        const labels = await germanLabels();
+        expect(labels.get(termOneId)).toEqual(['needs-review', 'todo']);
+        expect(labels.get(termEmptyId)).toEqual(['needs-review']);
+      });
+
+      it('keeps them when an import replaces the translations', async () => {
+        await importMixed('').expect(200);
+
+        const values = await germanValues();
+        expect(values.get(termOneId)).toBe('EINS');
+        expect(values.get(termEmptyId)).toBe('leer');
+
+        const labels = await germanLabels();
+        expect(labels.get(termOneId)).toEqual(['needs-review', 'todo']);
+        expect(labels.get(termEmptyId)).toEqual(['needs-review']);
+        expect(labels.get(termTwoId)).toEqual([]);
+        expect(labels.get(termMissingId)).toEqual([]);
+      });
+
+      it('keeps them when an import with overwrite=false fills an empty translation', async () => {
+        await importMixed('&overwrite=false').expect(200);
+
+        const values = await germanValues();
+        expect(values.get(termOneId)).toBe('eins');
+        expect(values.get(termEmptyId)).toBe('leer');
+
+        const labels = await germanLabels();
+        expect(labels.get(termEmptyId)).toEqual(['needs-review']);
+        expect(labels.get(termOneId)).toEqual(['needs-review', 'todo']);
+      });
+    });
   });
 
   it('/api/v1/projects/:projectId/imports (POST) should fail import if would exceed plan limits', async () => {

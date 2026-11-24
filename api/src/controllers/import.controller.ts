@@ -20,6 +20,7 @@ import { EntityManager, Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import { IntermediateTranslation, IntermediateTranslationFormat } from '../domain/formatters';
 import { ImportExportFormat, ImportQuery, ImportResponse } from '../domain/http';
+import { Label } from '../entity/label.entity';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
@@ -135,18 +136,29 @@ export class ImportController {
         const addedTerms = await entityManager.save(Term, termsToAdd);
         const allTerms = [...addedTerms, ...existingTerms];
 
-        let translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale);
+        // The locale's translations as stored, read once before the values are replaced: their values for the overwrite
+        // option and the history, the ids of their labels so the import keeps them
+        const stored = await entityManager.find(Translation, {
+          select: { termId: true, value: true, labels: { id: true } },
+          relations: { labels: true },
+          where: { projectLocaleId: projectLocale.id },
+        });
+
+        let translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale, stored);
 
         if (query.overwrite === false) {
-          const where = { projectLocaleId: projectLocale.id };
-          const stored = await entityManager.find(Translation, { select: { termId: true, value: true }, where });
           translationsToAdd = this.withoutStoredTranslations(translationsToAdd, stored);
         }
 
         await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', termsToAdd.length);
 
-        // Read before the values are replaced
-        const historyToAdd = await this.determineHistoryToAdd(entityManager, projectLocale, translationsToAdd, user instanceof User ? user : null);
+        const historyToAdd = await this.determineHistoryToAdd(
+          entityManager,
+          projectLocale,
+          translationsToAdd,
+          stored,
+          user instanceof User ? user : null,
+        );
 
         await entityManager.save(Translation, translationsToAdd);
 
@@ -203,8 +215,14 @@ export class ImportController {
     return termsToAdd;
   }
 
-  private determineTranslationsToAdd(allTerms: Term[], incomingItems: IntermediateTranslation[], projectLocale: ProjectLocale): Translation[] {
+  private determineTranslationsToAdd(
+    allTerms: Term[],
+    incomingItems: IntermediateTranslation[],
+    projectLocale: ProjectLocale,
+    stored: Pick<Translation, 'termId' | 'labels'>[],
+  ): Translation[] {
     const termsByValue = new Map<string, Term>(allTerms.map(term => [term.value, term]));
+    const storedLabels = new Map<string, Label[]>(stored.map(translation => [translation.termId, translation.labels ?? []]));
 
     // One translation per term; if a term is repeated in the file the last value wins
     const translationsByTermId = new Map<string, Translation>();
@@ -216,13 +234,18 @@ export class ImportController {
         throw new Error('missing term for translation');
       }
 
+      // A new translation gets the labels of its term. A stored one keeps its own labels and gets those of its term: the
+      // labels are saved as the whole set, so a label left out here would be removed from the translation
+      const ownLabels = storedLabels.get(term.id);
+      const labels = ownLabels ? _.uniqBy([...ownLabels, ...(term.labels ?? [])], label => label.id) : term.labels;
+
       translationsByTermId.set(
         term.id,
         this.translationRepo.create({
           termId: term.id,
           projectLocaleId: projectLocale.id,
           value: translation.translation,
-          labels: term.labels,
+          labels,
         }),
       );
     }
@@ -241,19 +264,20 @@ export class ImportController {
 
   /**
    * The history of the translations an import changes: one entry per translation whose value differs from the stored
-   * one, numbered after that translation's latest change. Two queries for the whole import, whatever its size.
+   * one (`stored`, as read before the import), numbered after that translation's latest change. One query for the whole
+   * import, whatever its size.
    */
   private async determineHistoryToAdd(
     entityManager: EntityManager,
     projectLocale: ProjectLocale,
     translations: Translation[],
+    stored: { termId: string; value: string }[],
     user: User | null,
   ): Promise<Partial<TranslationHistory>[]> {
     if (translations.length === 0) {
       return [];
     }
 
-    const stored = await entityManager.find(Translation, { select: { termId: true, value: true }, where: { projectLocaleId: projectLocale.id } });
     const previousValues = new Map<string, string>(stored.map(translation => [translation.termId, translation.value]));
     const changed = translations.filter(translation => (previousValues.get(translation.termId) ?? '') !== translation.value);
     if (changed.length === 0) {
