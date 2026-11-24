@@ -269,6 +269,7 @@ export class ImportController {
     translations: Translation[],
     stored: Pick<Translation, 'termId' | 'labels'>[],
   ): Promise<void> {
+    // By term: the locale has one translation per term
     const storedLabelIds = new Map<string, Set<string>>(
       stored.map(translation => [translation.termId, new Set((translation.labels ?? []).map(label => label.id))]),
     );
