@@ -37,25 +37,8 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import { lockProject } from '../utils/database-locks';
+import { lockProject, translationEditLockKey, withEditLock } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
-
-const editLocks = new Map<string, Promise<unknown>>();
-
-/** Runs the work after every earlier work with the same key, one at a time, whether or not the earlier work failed */
-async function withEditLock<T>(key: string, work: () => Promise<T>): Promise<T> {
-  const previous = editLocks.get(key) ?? Promise.resolve();
-  const run = previous.then(work);
-  const tail = run.catch(() => undefined);
-  editLocks.set(key, tail);
-  try {
-    return await run;
-  } finally {
-    if (editLocks.get(key) === tail) {
-      editLocks.delete(key);
-    }
-  }
-}
 
 export const DEFAULT_HISTORY_LIMIT = 50;
 export const MAX_HISTORY_LIMIT = 100;
@@ -272,7 +255,7 @@ export default class TranslationController {
   private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
     const where = { termId: term.id, projectLocaleId: projectLocale.id };
     const useRowLock = !isDbType(DbType.BETTER_SQLITE3);
-    const key = useRowLock ? `${projectLocale.id}:${term.id}` : 'sqlite';
+    const key = translationEditLockKey(projectLocale.id, term.id);
 
     return withEditLock(key, () =>
       this.translationRepo.manager.transaction(async (em: EntityManager) => {

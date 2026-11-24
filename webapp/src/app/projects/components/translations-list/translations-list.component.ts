@@ -13,7 +13,13 @@ import { Term } from '../../models/term';
 import { Translation } from '../../models/translation';
 import { ClipboardService } from '../../../shared/services/clipboard.service';
 import { PreferencesService } from '../../services/preferences.service';
-import { GetProjectLabels, LabelTranslation, ProjectLabelState, UnlabelTranslation } from '../../stores/project-label.state';
+import {
+  ClearMessages as ClearLabelMessages,
+  GetProjectLabels,
+  LabelTranslation,
+  ProjectLabelState,
+  UnlabelTranslation,
+} from '../../stores/project-label.state';
 import { ProjectsState } from '../../stores/projects.state';
 import { GetTerms, TermsState } from '../../stores/terms.state';
 import {
@@ -59,8 +65,9 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   @Select(state => state.terms.isLoading)
   isLoading$: Observable<boolean>;
 
-  // A failed save writes its error to the translations store, a failed load of the terms to the terms store
-  @Select(state => state.translations.errorMessage || state.terms.errorMessage)
+  // A failed save writes its error to the translations store, a failed load of the terms to the terms store,
+  // and a failed label of a translation to the labels store (the dialog that picked the label is closed by then)
+  @Select(state => state.translations.errorMessage || state.terms.errorMessage || state.projectLabels.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   @Select(ProjectLabelState.labels)
@@ -104,6 +111,9 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // A label error already in the store is not about this page: a term label that failed on the Terms page leaves one
+    this.store.dispatch(new ClearLabelMessages());
+
     this.subs.push(
       this.project$
         .pipe(
@@ -115,10 +125,11 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
           mergeMap(project => {
             return this.localeCode$.pipe(
               map((localeCode, index) => {
-                // Angular keeps this page when another locale is picked: drop the error of the previous locale first,
-                // so an error of loading or saving the new one still shows. The terms store error is the same for every locale.
+                // Angular keeps this page when another locale is picked: drop the error of the previous locale first (of a
+                // save or a label), so an error of loading or saving the new one still shows. The terms store error is the
+                // same for every locale.
                 if (index > 0) {
-                  this.store.dispatch(new ClearMessages());
+                  this.store.dispatch([new ClearMessages(), new ClearLabelMessages()]);
                 }
                 return this.store.dispatch(new GetTranslations(project.id, localeCode));
               }),
@@ -147,7 +158,7 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     this.destroyed = true;
     clearTimeout(this.copiedTimer);
     this.subs.forEach(s => s.unsubscribe());
-    this.store.dispatch(new ClearMessages());
+    this.store.dispatch([new ClearMessages(), new ClearLabelMessages()]);
   }
 
   onFiltersChanged(filterTranslated) {
@@ -189,12 +200,18 @@ export class TranslationsListComponent implements OnInit, OnDestroy {
     }
   }
 
+  // The list shows a label change before the API answers: when it fails, the locale is loaded again,
+  // so a label that was not added (or removed) does not look saved and can be picked again
   labelTranslation(projectId, termId, label, localeCode) {
-    this.store.dispatch(new LabelTranslation(projectId, label, termId, localeCode));
+    this.store
+      .dispatch(new LabelTranslation(projectId, label, termId, localeCode))
+      .subscribe({ error: () => this.store.dispatch(new GetTranslations(projectId, localeCode)) });
   }
 
   unlabelTranslation(projectId, termId, label, localeCode) {
-    this.store.dispatch(new UnlabelTranslation(projectId, label, termId, localeCode));
+    this.store
+      .dispatch(new UnlabelTranslation(projectId, label, termId, localeCode))
+      .subscribe({ error: () => this.store.dispatch(new GetTranslations(projectId, localeCode)) });
   }
 
   concatLabels(view: TranslationView) {

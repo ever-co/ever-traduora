@@ -11,6 +11,31 @@ To download the source code for each release, check out [GitHub](https://github.
 - Import API: `overwrite=false` on `POST /projects/:projectId/imports` keeps the translations that already have a
   value in the locale and fills only the empty or missing ones (new terms are still added); without it an import
   replaces values as before. See [Formats](concepts/formats.md#importing-without-overwriting)
+
+- A label can be added to the translation of a term that has no translation in
+  that locale yet, as a term that an import added in another locale. Before, the
+  API answered 404, so on the translations page of the other locale no label was
+  added and no error was shown. Now the API adds the translation, empty and with
+  the labels of the term, and the label. A label that the translation already
+  has is not added twice. The translations page also shows the error of a label
+  that could not be added or removed: before, it went only to the label dialog,
+  which was already closed. The page then loads the locale again, so such a
+  label no longer looks added (or removed) and can be picked again
+
+- The label filter of the terms page shows each term with all of its labels. Before, a term with the labels A and B showed only A when the list was filtered by A, and the label picker of that term offered B again. The filtered list now follows what is done on the page: a term leaves it when the picked label is removed from it or when it is deleted, and joins it when it gets that label. Before, the card stayed as it was, and deleting it again failed with "not found". The label filter still applies after something is typed in the search box. The API `GET /api/v1/projects/:projectId/terms/filter-by-label` also returns each term with all of its labels, not only the one filtered by
+
+- The term, context and translation fields show Save and Revert when you reach them with Tab, not only when you click
+  them. Before, a keyboard user who typed in a field saw no button, and only the undocumented Ctrl+Enter saved, so text
+  typed before tabbing away was never saved. After a save or a revert (Ctrl+Enter, Escape or a click on Save or Revert),
+  the focus stays in the field instead of going back to the top of the page, so keyboard and screen reader users keep
+  their place in a long list; typing in it again shows Save and Revert again. A field you only tabbed through or
+  clicked, without typing, shows the new text when the page changes it, e.g. after a switch to another locale, so its
+  Save no longer writes the text of the previous locale. A text you typed and did not save is dropped when you pick
+  another locale or reference locale, instead of being saved to the newly picked one. Clicking the context of a term
+  created without one no longer throws an error in the browser console, and the length shows 0
+
+- Export with "not translated keys" and a fallback locale holds only the terms that have no translation in the exported locale, each with the value of the fallback locale. Before, it held every term of the project, the translated ones with the fallback locale's value, so translating the file and importing it back overwrote the existing translations with the fallback text. An export with a fallback locale that is not a locale of the project (possible through the API) keeps the terms without a translation, with an empty value: before, it left them out, and with "not translated keys" the file was empty
+
 - Ever ID sign-in that finds an account with the same email (sign in the usual way, then connect): the usual sign-in
   now returns where the Ever ID sign-in was started, e.g. the confirmation of a project from app.ever.co
 - A database migration adds two indexes to `ever_connect_provision` (the answers to provisioning intents), for the

@@ -2,9 +2,15 @@
   <!-- Search -->
   <div class="flex-1 mr-3 input-group input-group-sm">
     <div class="input-group-prepend">
-      <span class="input-group-text"><i class="material-icons search-icon">search</i></span>
+      <span class="input-group-text"><i class="material-icons search-icon" aria-hidden="true">search</i></span>
     </div>
-    <input type="text" class="form-control" [placeholder]="placeholder" (input)="searchText.next($event.target.value)" />
+    <input
+      type="text"
+      class="form-control"
+      [placeholder]="placeholder"
+      [attr.aria-label]="placeholder"
+      (input)="searchText.next($event.target.value)"
+    />
   </div>
   <!-- Pagination -->
   <ngb-pagination
@@ -25,9 +31,11 @@
   <ng-container *ngTemplateOutlet="searchResultsItem; context: { result: result }"> </ng-container>
 </ng-container>
 
-<div *ngIf="((searchResultsSize$ | async) || 0) === 0 && searchText | async">
-  <div class="alert alert-secondary p-5 d-flex flex-row">
-    <i class="material-icons mr-3">info</i>
+<!-- A polite live region (what role="status" means), always in the page: screen readers announce the notice when it is
+     added into it. A status region that appears with its text already in it is often not announced. -->
+<div aria-live="polite" aria-atomic="true">
+  <div *ngIf="((searchResultsSize$ | async) || 0) === 0 && searchText | async" class="alert alert-secondary p-5 d-flex flex-row">
+    <i class="material-icons mr-3" aria-hidden="true">info</i>
     <p class="font-serif m-0">Your search yielded no results...</p>
   </div>
 </div>

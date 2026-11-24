@@ -91,21 +91,18 @@ export class ExportsController {
 
     const termsWithTranslations = await queryBuilder.getMany();
 
-    let termsWithTranslationsMapped = termsWithTranslations.map(t => ({
+    const termsWithTranslationsMapped = termsWithTranslations.map(t => ({
       term: t.value,
       translation: t.translations.length === 1 ? t.translations[0].value : '',
     }));
-
-    if (query.fallbackLocale) {
-      termsWithTranslationsMapped = termsWithTranslationsMapped.filter(t => t.translation !== '');
-    }
 
     const data: IntermediateTranslationFormat = {
       iso: query.locale,
       translations: termsWithTranslationsMapped,
     };
 
-    let serialized = await this.dump(query.format, data);
+    // Serialized once, at the end: with a fallback locale of the project, the merged list is what the file holds
+    let exported = data;
 
     if (query.fallbackLocale) {
       const fallbackProjectLocale = await this.projectLocaleRepo.findOne({
@@ -131,19 +128,28 @@ export class ExportsController {
 
         const fallbackTermsWithTranslations = await fallbackQueryBuilder.getMany();
 
-        const fallbackTermsWithTranslationsMapped = fallbackTermsWithTranslations.map(t => ({
+        let fallbackTermsWithTranslationsMapped = fallbackTermsWithTranslations.map(t => ({
           term: t.value,
           translation: t.translations.length === 1 ? t.translations[0].value : '',
         }));
 
-        const dataWithFallback: IntermediateTranslationFormat = {
-          iso: query.locale,
-          translations: mergeWithFallback(fallbackTermsWithTranslationsMapped, data.translations),
-        };
+        if (query.untranslated) {
+          // The fallback query loads every term of the project: keep only those the locale has not translated
+          const untranslatedTerms = new Set(data.translations.map(t => t.term));
+          fallbackTermsWithTranslationsMapped = fallbackTermsWithTranslationsMapped.filter(t => untranslatedTerms.has(t.term));
+        }
 
-        serialized = await this.dump(query.format, dataWithFallback);
+        // An empty translation of the locale must not hide the fallback's value
+        const translated = data.translations.filter(t => t.translation !== '');
+
+        exported = {
+          iso: query.locale,
+          translations: mergeWithFallback(fallbackTermsWithTranslationsMapped, translated),
+        };
       }
     }
+
+    const serialized = await this.dump(query.format, exported);
 
     res.status(HttpStatus.OK);
     res.contentType('application/octet-stream');

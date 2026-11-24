@@ -170,6 +170,83 @@ describe('ExportController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/exports (GET) should export only the untranslated terms when filled from the fallback locale', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/translations`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ code: 'en' })
+      .expect(201);
+
+    for (const [termId, value] of [
+      [termOneId, 'one'],
+      [termTwoId, 'two'],
+    ]) {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/projects/${testProject.id}/translations/en`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ termId, value })
+        .expect(200);
+    }
+
+    // term.one keeps its de_DE value "eins", term.two is untranslated in de_DE
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termTwoId, value: '' })
+      .expect(200);
+
+    // Importing into en creates the term and its en translation only, so "greeting" has no row for de_DE
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=en&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(JSON.stringify({ greeting: 'Hello' })), 'file')
+      .expect(200);
+
+    // Importing into fr creates "farewell" with no value in de_DE nor in en: it is exported, empty
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(JSON.stringify({ farewell: 'Au revoir' })), 'file')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=true&fallbackLocale=en`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        // term.one is translated in de_DE, so it stays out: imported back, the file would overwrite "eins"
+        expect(parsed).toEqual({ farewell: '', greeting: 'Hello', 'term.two': 'two' });
+      });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should keep untranslated terms when the fallback locale is not in the project', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termTwoId, value: '' })
+      .expect(200);
+
+    // "it" is a known locale code, but the project has no it locale, so there is nothing to fill from
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=false&fallbackLocale=it`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        expect(parsed).toEqual({ 'term.one': 'eins', 'term.two': '' });
+      });
+
+    await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=jsonflat&untranslated=true&fallbackLocale=it`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200)
+      .expect(res => {
+        const parsed = JSON.parse(Buffer.from(res.body).toString('utf-8'));
+        expect(parsed).toEqual({ 'term.two': '' });
+      });
+  });
+
   it('/api/v1/projects/:projectId/exports (GET) should export terms in lexical order', async () => {
     const input = ['app.login', 'should be before base terms', '1 goes first', 'app.logout', 'app.exit', 'menu.start', 'a term', '2 goes second'];
 
