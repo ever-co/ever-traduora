@@ -621,6 +621,10 @@ export class EverConnectService {
     if (changedMeanwhile && attempt < 2) {
       return this.refreshIntegrations(attempt + 1);
     }
+    if (changedMeanwhile) {
+      // The local decisions stand; the next refresh (feed event or scheduler) reads the remote states again
+      this.logger.warn('ever_connect.integrations refresh=incomplete reason=changed_meanwhile attempts=3');
+    }
     return this.integrations();
   }
 

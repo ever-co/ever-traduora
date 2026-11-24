@@ -8,7 +8,60 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
-- TODO
+- Import API: `overwrite=false` on `POST /projects/:projectId/imports` keeps the translations that already have a
+  value in the locale and fills only the empty or missing ones (new terms are still added); without it an import
+  replaces values as before. See [Formats](concepts/formats.md#importing-without-overwriting)
+
+- A label can be added to the translation of a term that has no translation in
+  that locale yet, as a term that an import added in another locale. Before, the
+  API answered 404, so on the translations page of the other locale no label was
+  added and no error was shown. Now the API adds the translation, empty and with
+  the labels of the term, and the label. A label that the translation already
+  has is not added twice. The translations page also shows the error of a label
+  that could not be added or removed: before, it went only to the label dialog,
+  which was already closed. The page then loads the locale again, so such a
+  label no longer looks added (or removed) and can be picked again
+
+- The label filter of the terms page shows each term with all of its labels. Before, a term with the labels A and B showed only A when the list was filtered by A, and the label picker of that term offered B again. The filtered list now follows what is done on the page: a term leaves it when the picked label is removed from it or when it is deleted, and joins it when it gets that label. Before, the card stayed as it was, and deleting it again failed with "not found". The label filter still applies after something is typed in the search box. The API `GET /api/v1/projects/:projectId/terms/filter-by-label` also returns each term with all of its labels, not only the one filtered by
+
+- The term, context and translation fields show Save and Revert when you reach them with Tab, not only when you click
+  them. Before, a keyboard user who typed in a field saw no button, and only the undocumented Ctrl+Enter saved, so text
+  typed before tabbing away was never saved. After a save or a revert (Ctrl+Enter, Escape or a click on Save or Revert),
+  the focus stays in the field instead of going back to the top of the page, so keyboard and screen reader users keep
+  their place in a long list; typing in it again shows Save and Revert again. A field you only tabbed through or
+  clicked, without typing, shows the new text when the page changes it, e.g. after a switch to another locale, so its
+  Save no longer writes the text of the previous locale. A text you typed and did not save is dropped when you pick
+  another locale or reference locale, instead of being saved to the newly picked one. Clicking the context of a term
+  created without one no longer throws an error in the browser console, and the length shows 0
+
+- Export with "not translated keys" and a fallback locale holds only the terms that have no translation in the exported locale, each with the value of the fallback locale. Before, it held every term of the project, the translated ones with the fallback locale's value, so translating the file and importing it back overwrote the existing translations with the fallback text. An export with a fallback locale that is not a locale of the project (possible through the API) keeps the terms without a translation, with an empty value: before, it left them out, and with "not translated keys" the file was empty
+
+- Ever ID sign-in that finds an account with the same email (sign in the usual way, then connect): the usual sign-in
+  now returns where the Ever ID sign-in was started, e.g. the confirmation of a project from app.ever.co
+- A database migration adds two indexes to `ever_connect_provision` (the answers to provisioning intents), for the
+  background round's lookups of unfinished answers; no data changes. It runs automatically at start unless
+  `TR_DB_AUTOMIGRATE=false`
+
+## 0.24.2
+
+Released 2026-11-22.
+
+- Projects can be created from app.ever.co (hand-off provisioning), behind `TR_EVER_CONNECT_PROVISION_ENABLED=true`
+  (off by default; needs the Ever Platform connection): the person lands on `/ever-connect/provision`, signs in with
+  the same Ever ID and confirms, and one project is created with them as its admin; declining creates nothing. See
+  [Ever Platform connection](ever-platform/connection.md#provisioning-from-appeverco)
+- Every pull request runs an egress audit of the Ever Platform modules (`tools/egress-audit/`): with the modules off,
+  or loaded but switched off, the API looks up no Ever host and opens no connection out; with them on, it makes only
+  the calls listed in [Outbound calls](ever-platform/outbound-calls.md)
+- A path under `/api` that no route answers is now a 404 (JSON), never the web app's page: a client asking for a route
+  that does not exist, or of a module that is not loaded, gets a clear answer
+- Ever Platform connection with several API processes: a running background round also renews its lease on a timer, so
+  one long step (a backup or a restore check longer than the 2-minute lease) never lets another process start its own
+  maintenance work alongside it
+- docs.traduora.co never caches a "not found" answer (`Cache-Control: no-store` on every 404), so a docs deploy can no
+  longer leave pages without their scripts for hours
+- One database migration: a new, empty table `ever_connect_provision` (provisioning from app.ever.co); no existing
+  table changes. It runs automatically at start unless `TR_DB_AUTOMIGRATE=false`
 
 ## 0.24.1
 
@@ -25,6 +78,12 @@ To download the source code for each release, check out [GitHub](https://github.
 - Ever Platform connection: a refresh of the integrations never undoes an integration the operator switched off
   while the refresh was reading Ever Platform; with several API processes, a long background round renews its lease
   and stops once another process holds it
+- Ever ID sign-in to an existing account: a logout that names only the subject and lands while the sign-in is under
+  way now ends it too (before, only a sign-up waiting for its confirmation was ended); a sign-in started after the
+  logout works as before
+- Ever Platform connection: saved maintenance-operation results that are sent again also renew the lease before each
+  send, and the person-link round stops once the connection is no longer the active one
+- No database migrations in this release
 
 ## 0.24.0
 

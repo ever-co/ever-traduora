@@ -135,7 +135,13 @@ export class ImportController {
         const addedTerms = await entityManager.save(Term, termsToAdd);
         const allTerms = [...addedTerms, ...existingTerms];
 
-        const translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale);
+        let translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale);
+
+        if (query.overwrite === false) {
+          const where = { projectLocaleId: projectLocale.id };
+          const stored = await entityManager.find(Translation, { select: { termId: true, value: true }, where });
+          translationsToAdd = this.withoutStoredTranslations(translationsToAdd, stored);
+        }
 
         await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', termsToAdd.length);
 
@@ -222,6 +228,15 @@ export class ImportController {
     }
 
     return Array.from(translationsByTermId.values());
+  }
+
+  /**
+   * Drops the translations of terms that already have a non-empty value in the locale, so an import that must not
+   * overwrite only fills what is empty or missing.
+   */
+  private withoutStoredTranslations(translations: Translation[], stored: { termId: string; value: string }[]): Translation[] {
+    const filled = new Set<string>(stored.filter(translation => translation.value !== '').map(translation => translation.termId));
+    return translations.filter(translation => !filled.has(translation.termId));
   }
 
   /**

@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Select, Store } from '@ngxs/store';
-import { BehaviorSubject, Observable, of, Subscription } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, map, startWith, switchMap, tap } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, defer, Observable, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, startWith, switchMap, tap } from 'rxjs/operators';
 import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
@@ -9,7 +9,6 @@ import { ClearMessages, CreateTerm, DeleteTerm, GetTerms, TermsState, UpdateTerm
 import { LabelTerm, UnlabelTerm, ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
 import { Label } from '../../models/label';
 import { FormControl } from '@angular/forms';
-import { ProjectTermsService } from '../../services/terms.service';
 
 @Component({
   standalone: false,
@@ -37,7 +36,11 @@ export class TermsListComponent implements OnInit, OnDestroy {
 
   labelFilterControl = new FormControl('');
 
-  filteredTerms$: Observable<Term[]>;
+  // Filters the terms of the store, so the list follows every change to them: a label added or removed, a term deleted.
+  // Each subscriber starts from the label picked at that time, as the search box subscribes again for each search.
+  filteredTerms$: Observable<Term[]> = defer(() =>
+    combineLatest([this.projectTerms$, this.labelFilterControl.valueChanges.pipe(startWith(this.labelFilterControl.value))]),
+  ).pipe(map(([terms, labelId]) => (labelId ? terms.filter(term => term.labels.some(label => label.id === labelId)) : terms)));
 
   page = 0;
   pageSize = 10;
@@ -84,30 +87,13 @@ export class TermsListComponent implements OnInit, OnDestroy {
     return [item.value, ...item.labels.map(v => v.value)].join('').toLowerCase();
   };
 
-  constructor(
-    private store: Store,
-    private projectTermsService: ProjectTermsService,
-  ) {}
+  constructor(private store: Store) {}
 
   ngOnInit() {
     this.sub = this.project$
       .pipe(
         tap(project => {
           if (project) {
-            this.filteredTerms$ = this.labelFilterControl.valueChanges.pipe(
-              startWith(''),
-              debounceTime(300),
-              switchMap((selectedLabel: string) =>
-                selectedLabel
-                  ? this.projectTermsService.fetchFilteredTerms(project.id, selectedLabel).pipe(
-                      catchError(error => {
-                        console.error('Error fetching filtered terms:', error);
-                        return of([]);
-                      }),
-                    )
-                  : this.projectTerms$,
-              ),
-            );
             this.store.dispatch(new GetTerms(project.id));
             this.store.dispatch(new GetProjectLabels(project.id));
           }

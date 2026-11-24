@@ -5,6 +5,7 @@ import { IsNull, Repository } from 'typeorm';
 import { EverConnectConnection } from '../entity/ever-connect-connection.entity';
 import { EverConnectManagedService } from './ever-connect-managed.service';
 import { EverConnectPersonService } from './ever-connect-person.service';
+import { EverConnectProvisionService } from './ever-connect-provision.service';
 import { problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
@@ -37,6 +38,12 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
   private feedFailed = false;
   /** This process, as the lease names it (random, nothing else). */
   readonly holderId = randomUUID();
+  /** How often a running round renews its lease: a third of it, so two renewals in a row may fail before it ends. */
+  keepAliveMs = Math.floor(LEASE_MS / 3);
+  /** The renewal the keepalive timer started that has not settled yet (one at a time). */
+  private keepAliveRenewal: Promise<unknown> | null = null;
+  /** Every renewal, in order: each starts once the one before settled (see `renew`). */
+  private renewals: Promise<unknown> = Promise.resolve();
 
   constructor(
     @InjectRepository(EverConnectConnection) private readonly connections: Repository<EverConnectConnection>,
@@ -45,6 +52,7 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     @Optional() @Inject(EVER_CONNECT_AUTOSTART) private readonly autostart?: boolean,
     @Optional() private readonly person?: EverConnectPersonService,
     @Optional() private readonly managed?: EverConnectManagedService,
+    @Optional() private readonly provision?: EverConnectProvisionService,
   ) {}
 
   onModuleInit(): void {
@@ -108,9 +116,15 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     return result.affected === 1;
   }
 
-  /** Extends the lease while this process still holds it; false once another process took it over. */
+  /**
+   * Extends the lease while this process still holds it; false once another process took it over. Renewals (the
+   * keepalive timer's and the round's own) run one after another, each with the time it starts at: with a pool of
+   * database connections an older renewal could otherwise finish last and move the lease's end back.
+   */
   private renew(): Promise<boolean> {
-    return this.acquire(Date.now());
+    const next = this.renewals.then(() => this.acquire(Date.now()));
+    this.renewals = next.catch(() => undefined);
+    return next;
   }
 
   private async release(): Promise<void> {
@@ -151,6 +165,17 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
     if (!(await this.acquire(now))) {
       return;
     }
+    // While the round runs, a timer renews the lease too: one long step (a backup, a restore check, a slow call) never
+    // outlives it, so another process cannot take over in the middle of it. One renewal at a time (a slow one is never
+    // overtaken by the next), and every renewal in flight is awaited before the release, so none takes the lease again
+    const keepAlive = setInterval(() => {
+      this.keepAliveRenewal ??= this.renew()
+        .catch(error => this.logger.warn(`ever_connect.lease_renew error=${error?.name || 'error'}`))
+        .finally(() => {
+          this.keepAliveRenewal = null;
+        });
+    }, this.keepAliveMs);
+    keepAlive.unref();
     try {
       // Read again under the lease: another process may have made the due calls meanwhile
       const connection = await this.connect.read();
@@ -180,14 +205,21 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         await this.connect.syncStatsLink(connection.kid).catch(error => this.connect.handleCallError(error, 'stats_link', connection.kid));
       }
       if (connection.status === 'active' && this.person) {
-        // Long rounds renew the lease before each call and stop once another process holds it
+        // Long rounds renew the lease before each call and stop once another process holds it, or once this connection
+        // is no longer the active one (as the maintenance round below)
         if (!(await this.renew())) return;
         await this.person
-          .syncLinks(Date.now(), false, () => this.renew())
+          .syncLinks(Date.now(), false, async () => (await this.renew()) && (await this.isCurrent(connection.kid)))
           .catch(error => this.connect.handleCallError(error, 'person_link', connection.kid));
       }
+      if (connection.status === 'active' && this.provision) {
+        // Provisioning answers Ever Platform did not receive yet (it was unreachable when the person answered). Like the
+        // other long rounds: not once another process took the lease during the person-link round
+        if (!(await this.renew())) return;
+        await this.provision.retryPendingCompletes().catch(error => this.connect.handleCallError(error, 'provision_complete', connection.kid));
+      }
       if (connection.status === 'active' && this.managed) {
-        // Stop when another process took the lease during the person-link round
+        // Stop when another process took the lease during the person-link or provisioning round
         if (!(await this.renew())) return;
         const live = await this.connect.liveClient();
         // Only for the connection that is still active now (the feed may have ended it)
@@ -201,6 +233,9 @@ export class EverConnectSchedulerService implements OnModuleInit, OnModuleDestro
         }
       }
     } finally {
+      clearInterval(keepAlive);
+      await (this.keepAliveRenewal ?? Promise.resolve());
+      await this.renewals;
       await this.release();
     }
   }

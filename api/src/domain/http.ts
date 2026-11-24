@@ -764,6 +764,17 @@ export class ExportQuery {
   format: ImportExportFormat;
 }
 
+/** A query flag as a boolean: 'true' or 'false' (or the booleans themselves); any other value stays as it is, for validation to refuse */
+function toBooleanFlag({ value }: { value: unknown }): unknown {
+  if (value === 'true' || value === true) {
+    return true;
+  }
+  if (value === 'false' || value === false) {
+    return false;
+  }
+  return value;
+}
+
 export class ImportQuery {
   @Length(2, 16)
   @ApiProperty({ minLength: 2, maxLength: 16 })
@@ -772,6 +783,17 @@ export class ImportQuery {
   @IsEnum(ImportExportFormat)
   @ApiProperty({ enum: ImportExportFormat })
   format: ImportExportFormat;
+
+  @IsBoolean()
+  @Transform(toBooleanFlag)
+  @ApiPropertyOptional({
+    type: Boolean,
+    default: true,
+    description:
+      'When false, translations that already have a value in this locale are kept, and only empty or missing ones are filled from the file; terms are still added. Absent or true replaces the stored values.',
+  })
+  @IsOptional()
+  overwrite?: boolean;
 }
 
 export class ProviderSignInRequest {
