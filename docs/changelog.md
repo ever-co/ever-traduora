@@ -8,6 +8,12 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- A label added to or removed from a translation while an import into its locale runs (also a label added to its term,
+  which goes to all its translations) stays so. Before, on Postgres and MySQL, the import wrote back the labels each
+  translation had when it started, so it removed a label added meanwhile and brought back one removed meanwhile, with
+  nothing recorded. An import now never removes a label: it only adds to each translation the labels of its term it
+  lacks
+
 - An import keeps the labels set on a single translation. Before, every translation it wrote got the labels of its term
   only, so a label added to one translation (and not to its term) was removed, with nothing recorded, also when
   `overwrite=false` filled an empty translation. Now a translation that is already stored keeps its labels and gets

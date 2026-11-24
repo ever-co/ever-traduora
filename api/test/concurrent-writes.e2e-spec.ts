@@ -72,6 +72,63 @@ describe('Concurrent writes to one project (e2e)', () => {
     }
   });
 
+  it('labels and unlabels translations while their locale is imported: the labels stay as the label requests left them', async () => {
+    // A label of single translations, not of their terms: an import neither adds it nor may remove it
+    const labelId = (
+      await request(app.getHttpServer())
+        .post(`/api/v1/projects/${testProject.id}/labels`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .send({ value: 'reviewed', color: '#202020' })
+        .expect(201)
+    ).body.data.id;
+
+    const terms = Array.from({ length: 8 }, (_, index) => `labeled.${index}`);
+    const valuesOfRound = (round: number) => terms.reduce((values, term) => ({ ...values, [term]: `${term} ${round}` }), {});
+    await importTerms(valuesOfRound(-1)).expect(200);
+    const termIds: string[] = (
+      await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/terms`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200)
+    ).body.data
+      .filter(term => terms.includes(term.value))
+      .map(term => term.id);
+    expect(termIds).toHaveLength(terms.length);
+
+    // Each round adds the label to the translations without it and removes it from the others, one request each, spread
+    // over the time the import runs, so that some land between its read of the labels and its save of the translations
+    const labeled = new Set<string>();
+    const toggle = async (termId: string, delayMs: number) => {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      const add = !labeled.has(termId);
+      const path = `/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/de_DE`;
+      const res = await (add ? request(app.getHttpServer()).post(path) : request(app.getHttpServer()).delete(path)).set(
+        'Authorization',
+        `Bearer ${testingUser.accessToken}`,
+      );
+      expect(res.status).toBe(add ? 201 : 204);
+      if (add) {
+        labeled.add(termId);
+      } else {
+        labeled.delete(termId);
+      }
+    };
+
+    for (let round = 0; round < 2 * rounds; round++) {
+      const [imported] = await Promise.all([importTerms(valuesOfRound(round)), ...termIds.map((termId, index) => toggle(termId, 3 * index))]);
+      expect(imported.status).toBe(200);
+
+      const translations = (
+        await request(app.getHttpServer())
+          .get(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .expect(200)
+      ).body.data;
+      const withLabel = translations.filter(translation => translation.labels.some(label => label.id === labelId)).map(t => t.termId);
+      expect({ round, labeled: withLabel.sort() }).toEqual({ round, labeled: [...labeled].sort() });
+    }
+  });
+
   afterEach(async () => {
     await app.get(Connection).close();
     await app.close();
