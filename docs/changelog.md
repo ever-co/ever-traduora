@@ -8,6 +8,11 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- An import keeps the labels set on a single translation. Before, every translation it wrote got the labels of its term
+  only, so a label added to one translation (and not to its term) was removed, with nothing recorded, also when
+  `overwrite=false` filled an empty translation. Now a translation that is already stored keeps its labels and gets
+  those of its term it does not have yet; a new one still gets the labels of its term
+
 - Import API: `overwrite=false` on `POST /projects/:projectId/imports` keeps the translations that already have a
   value in the locale and fills only the empty or missing ones (new terms are still added); without it an import
   replaces values as before. See [Formats](concepts/formats.md#importing-without-overwriting)
