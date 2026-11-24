@@ -31,8 +31,10 @@
   <ng-container *ngTemplateOutlet="searchResultsItem; context: { result: result }"> </ng-container>
 </ng-container>
 
-<div *ngIf="((searchResultsSize$ | async) || 0) === 0 && searchText | async">
-  <div class="alert alert-secondary p-5 d-flex flex-row" role="status">
+<!-- A polite live region (what role="status" means), always in the page: screen readers announce the notice when it is
+     added into it. A status region that appears with its text already in it is often not announced. -->
+<div aria-live="polite" aria-atomic="true">
+  <div *ngIf="((searchResultsSize$ | async) || 0) === 0 && searchText | async" class="alert alert-secondary p-5 d-flex flex-row">
     <i class="material-icons mr-3" aria-hidden="true">info</i>
     <p class="font-serif m-0">Your search yielded no results...</p>
   </div>
