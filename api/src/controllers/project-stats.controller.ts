@@ -13,6 +13,7 @@ import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
 import { resolveColumnName } from '../utils/alias-helper';
+import { progressRatio } from '../utils/progress';
 
 @Controller('api/v1/projects/:projectId/stats')
 @UseGuards(AuthGuard())
@@ -59,7 +60,7 @@ export default class ProjectStatsController {
       const translatedCount = parseInt(s.translated, 10);
       return {
         localeCode: s.localeCode,
-        progress: Math.floor((translatedCount / termCount) * 100) / 100,
+        progress: progressRatio(translatedCount, termCount),
         translated: translatedCount,
         total: termCount,
       };
@@ -87,7 +88,7 @@ export default class ProjectStatsController {
     const totalTranslated = _.sumBy(withDefaults, 'translated');
     const localeCount = locales.length;
     const totalTerms = localeCount > 0 ? termCount * localeCount : termCount;
-    const totalProgress = totalTerms > 0 ? Math.floor((totalTranslated / totalTerms) * 100) / 100 : 0;
+    const totalProgress = progressRatio(totalTranslated, totalTerms);
 
     const projectStats = {
       progress: totalProgress,
