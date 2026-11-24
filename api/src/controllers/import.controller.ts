@@ -138,7 +138,8 @@ export class ImportController {
         let translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale);
 
         if (query.overwrite === false) {
-          const stored = await entityManager.find(Translation, { select: { termId: true, value: true }, where: { projectLocaleId: projectLocale.id } });
+          const where = { projectLocaleId: projectLocale.id };
+          const stored = await entityManager.find(Translation, { select: { termId: true, value: true }, where });
           translationsToAdd = this.withoutStoredTranslations(translationsToAdd, stored);
         }
 
