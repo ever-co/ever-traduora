@@ -8,6 +8,10 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Import API: `overwrite=false` on `POST /projects/:projectId/imports` keeps the translations that already have a
+  value in the locale and fills only the empty or missing ones (new terms are still added); without it an import
+  replaces values as before. See [Formats](concepts/formats.md#importing-without-overwriting)
+
 - A label can be added to the translation of a term that has no translation in
   that locale yet, as a term that an import added in another locale. Before, the
   API answered 404, so on the translations page of the other locale no label was

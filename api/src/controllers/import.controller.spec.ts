@@ -1,3 +1,6 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { ImportQuery } from '../domain/http';
 import { ImportController } from './import.controller';
 
 describe('ImportController term/translation resolution', () => {
@@ -78,6 +81,50 @@ describe('ImportController term/translation resolution', () => {
       expect(() => controller.determineTranslationsToAdd([], [{ term: 'missing', translation: 'x' }], projectLocale)).toThrow(
         'missing term for translation',
       );
+    });
+  });
+
+  describe('withoutStoredTranslations', () => {
+    const incoming = [
+      { termId: 't1', value: 'EINS' },
+      { termId: 't2', value: 'ZWEI' },
+      { termId: 't3', value: 'DREI' },
+    ];
+
+    it('drops the terms that already have a value, and keeps the empty and the missing ones', () => {
+      const result = controller.withoutStoredTranslations(incoming, [
+        { termId: 't1', value: 'eins' },
+        { termId: 't2', value: '' },
+      ]);
+
+      expect(result.map(t => t.termId)).toEqual(['t2', 't3']);
+    });
+
+    it('keeps everything when nothing is stored yet', () => {
+      expect(controller.withoutStoredTranslations(incoming, [])).toEqual(incoming);
+    });
+
+    it('treats a whitespace-only stored value as a value', () => {
+      expect(controller.withoutStoredTranslations(incoming, [{ termId: 't1', value: ' ' }]).map(t => t.termId)).toEqual(['t2', 't3']);
+    });
+  });
+
+  describe('ImportQuery overwrite', () => {
+    const toQuery = (plain: object) => plainToInstance(ImportQuery, { locale: 'de', format: 'jsonflat', ...plain });
+
+    it('is off only for false', async () => {
+      expect(toQuery({ overwrite: 'false' }).overwrite).toBe(false);
+      expect(await validate(toQuery({ overwrite: 'false' }))).toHaveLength(0);
+    });
+
+    it('stays on for true and when absent', async () => {
+      expect(toQuery({ overwrite: 'true' }).overwrite).toBe(true);
+      expect(toQuery({}).overwrite).toBeUndefined();
+      expect(await validate(toQuery({}))).toHaveLength(0);
+    });
+
+    it('rejects any other value', async () => {
+      expect(await validate(toQuery({ overwrite: 'maybe' }))).toHaveLength(1);
     });
   });
 
