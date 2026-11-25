@@ -1,5 +1,6 @@
 import { EntityManager } from 'typeorm';
 import { Project } from '../entity/project.entity';
+import { Term } from '../entity/term.entity';
 import { DbType, isDbType } from './database-type-helper';
 
 /**
@@ -33,7 +34,37 @@ export async function lockProjectForShare(entityManager: EntityManager, projectI
   await entityManager.findOne(Project, { where: { id: projectId }, lock: { mode: 'pessimistic_read' } });
 }
 
+/**
+ * Locks the term's row for the rest of the transaction, for a change of its labels that its translations get too. Every
+ * write that may add a translation of the term (a first save of its value, a label that adds it) locks the term for share
+ * and then reads its labels: this waits for such a write to commit and then sees its translation, and one that starts
+ * later waits for this and reads the label. Taken after the project's lock and before the translations'. On Postgres the
+ * lock is FOR NO KEY UPDATE, so the foreign-key checks of rows that reference the term (an import adding its
+ * translations) are not held up. SQLite takes no row locks: see {@link withTermLabelEditLock}.
+ */
+export async function lockTerm(entityManager: EntityManager, termId: string): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3)) {
+    return;
+  }
+  await entityManager.findOne(Term, {
+    where: { id: termId },
+    lock: { mode: isDbType(DbType.POSTGRES) ? 'for_no_key_update' : 'pessimistic_write' },
+  });
+}
+
+/**
+ * Runs the work in a transaction whose reads see every row committed before them, as Postgres does by default. MySQL's
+ * default (REPEATABLE READ) reads as of the transaction's first read, so a read after a lock wait could miss what the
+ * transaction it waited for committed. SQLite takes no isolation level, and runs one transaction at a time.
+ */
+export function readCommittedTransaction<T>(manager: EntityManager, work: (entityManager: EntityManager) => Promise<T>): Promise<T> {
+  return isDbType(DbType.BETTER_SQLITE3) ? manager.transaction(work) : manager.transaction('READ COMMITTED', work);
+}
+
 const editLocks = new Map<string, Promise<unknown>>();
+
+/** The one key of the edit locks on SQLite: see {@link translationEditLockKey} */
+const SQLITE_EDIT_LOCK_KEY = 'sqlite';
 
 /** Runs the work after every earlier work with the same key, one at a time, whether or not the earlier work failed */
 export async function withEditLock<T>(key: string, work: () => Promise<T>): Promise<T> {
@@ -56,7 +87,18 @@ export async function withEditLock<T>(key: string, work: () => Promise<T>): Prom
  * every such write shares one key.
  */
 export function translationEditLockKey(projectLocaleId: string, termId: string): string {
-  return isDbType(DbType.BETTER_SQLITE3) ? 'sqlite' : `${projectLocaleId}:${termId}`;
+  return isDbType(DbType.BETTER_SQLITE3) ? SQLITE_EDIT_LOCK_KEY : `${projectLocaleId}:${termId}`;
+}
+
+/**
+ * Runs a change of a term's labels that its translations get too after the writes that hold the edit lock of a
+ * translation, and before those that ask for it later. Only on SQLite, which takes no row locks: there every such write
+ * shares one key, so the change never runs between a write's read of the term's labels and its commit. Elsewhere the
+ * change locks the term's row ({@link lockTerm}) and the work runs at once. Taken outside the work's transaction, as the
+ * writes take it.
+ */
+export function withTermLabelEditLock<T>(work: () => Promise<T>): Promise<T> {
+  return isDbType(DbType.BETTER_SQLITE3) ? withEditLock(SQLITE_EDIT_LOCK_KEY, work) : work();
 }
 
 /** A conflict the database resolved by failing the statement (deadlock, lock wait timeout, busy): a retry can succeed */

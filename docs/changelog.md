@@ -12,9 +12,12 @@ To download the source code for each release, check out [GitHub](https://github.
   one from a term or a translation, wrote back the whole set of labels it had read, so a label that another request
   added meanwhile was removed, with nothing recorded (e.g. two labels added to one term at once kept only one). Now each
   of these requests adds or removes its own label only. A label added to a term while an import or a new locale adds
-  translations of the term now goes to those translations too: before, on Postgres and MySQL, they could miss it. A
-  translation that is created at that moment in another way, by the first save of its value or by a label added to it,
-  can still miss the label
+  translations of the term now goes to those translations too: before, on Postgres and MySQL, they could miss it. It
+  also goes to a translation that is created at that moment in another way, by the first save of its value or by a
+  label added to it: before, such a translation got the labels its term had when the request started, so it could miss
+  the label, on every database. With several API instances, a first save of a translation's value at the same time as
+  a label that adds that translation on another instance keeps the label too: before, on Postgres, the save could
+  remove it, with nothing recorded
 
 - A label added to or removed from a translation while an import into its locale runs (also a label added to its term,
   which goes to all its translations) stays so. Before, on Postgres and MySQL, the import wrote back the labels each
