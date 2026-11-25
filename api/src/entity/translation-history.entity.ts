@@ -1,4 +1,5 @@
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import { AccessTimestamps } from './base';
 import { User } from './user.entity';
 
@@ -36,4 +37,18 @@ export class TranslationHistory {
 
   @Column(type => AccessTimestamps)
   date: AccessTimestamps;
+}
+
+/**
+ * The time of a change, to spread into the history row that records it. On SQLite the column's default keeps whole
+ * seconds, so changes to different translations made in one second tied and the project activity listed them out of
+ * order: there the app's clock sets it, in milliseconds (a whole-second time stored before still sorts right next to
+ * these). Postgres and MySQL keep microseconds by their own clock, so nothing is set there.
+ */
+export function changeTime(): { date?: AccessTimestamps } {
+  if (!isDbType(DbType.BETTER_SQLITE3)) {
+    return {};
+  }
+  const now = new Date();
+  return { date: { created: now, modified: now } };
 }

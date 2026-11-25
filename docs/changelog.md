@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Project activity on SQLite (the default database) lists the changes made within one second in the order they were
+  made. Before, a change was recorded there with a time in whole seconds, so changes to different translations made in
+  the same second were ordered by their change numbers, which count per translation: an older change could be listed
+  above a newer one, and `limit` could leave out the newest (e.g. three edits of one translation, then one of another).
+  The time is now recorded in milliseconds, and the changes recorded before keep their place. Postgres and MySQL are
+  unchanged
+
 - Project activity API: `GET /api/v1/projects/:projectId/activity` lists the latest changes made to the translations
   of a project, newest first, with the term, the locale code, the previous and the new value and the user who made the
   change (none for API clients). `locale=<code>` narrows it to one locale and `limit` (1 to 100, 50 by default) sets how
