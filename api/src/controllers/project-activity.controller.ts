@@ -1,4 +1,4 @@
-import { Controller, Get, HttpStatus, NotFoundException, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, HttpStatus, NotFoundException, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -33,11 +33,17 @@ export default class ProjectActivityController {
   @ApiQuery({ name: 'locale', required: false, description: 'Only the changes made in the locale with this code' })
   @ApiQuery({ name: 'limit', required: false, description: `Between 1 and ${MAX_HISTORY_LIMIT}, ${DEFAULT_HISTORY_LIMIT} by default` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectActivityResponse })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Project or locale not found' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async find(@Req() req, @Param('projectId') projectId: string, @Query('limit') limit?: string, @Query('locale') locale?: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTranslation);
+
+    // The query parser gives ?locale=fr&locale=de and ?locale[]=fr as an array, ?locale[x]=fr as an object
+    if (locale !== undefined && typeof locale !== 'string') {
+      throw new BadRequestException('locale must be one locale code');
+    }
 
     const projectLocales = await this.projectLocaleRepo.find({
       where: { project: { id: membership.project.id } },
