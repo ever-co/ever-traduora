@@ -84,6 +84,20 @@ describe('Project activity (e2e)', () => {
     expect(summary((await activity('?limit=abc').expect(200)).body)).toHaveLength(4);
   });
 
+  it('refuses a locale given more than once or as a list, instead of listing every locale', async () => {
+    await edit('term.one', 'de_DE', 'eins').expect(200);
+    await edit('term.two', 'fr', 'deux').expect(200);
+
+    // The query parser makes an array of the first two and an object of the last
+    for (const query of ['?locale=fr&locale=de_DE', '?locale[]=fr', '?locale[x]=fr']) {
+      const res = await activity(query).expect(400);
+      expect(res.body.error.code).toBe('BadRequest');
+    }
+    // An empty locale still lists every locale, and one locale code narrows to it
+    expect(summary((await activity('?locale=').expect(200)).body)).toHaveLength(2);
+    expect(summary((await activity('?locale=fr').expect(200)).body)).toEqual([['term.two', 'fr', 1, '', 'deux']]);
+  });
+
   it('lists changes made within one second in the order they were made, across translations', async () => {
     await startOfSecond();
     await edit('term.one', 'de_DE', 'eins').expect(200);

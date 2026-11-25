@@ -8,6 +8,10 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Project activity API: a `locale` given more than once (`?locale=fr&locale=de_DE`) or in brackets (`?locale[]=fr`,
+  `?locale[x]=fr`) is refused with 400 Bad Request. Before, the filter was dropped and the changes of every locale were
+  listed, with no error. A missing or empty `locale` still lists every locale
+
 - Project activity on SQLite (the default database) lists the changes made within one second in the order they were
   made. Before, a change was recorded there with a time in whole seconds, so changes to different translations made in
   the same second were ordered by their change numbers, which count per translation: an older change could be listed

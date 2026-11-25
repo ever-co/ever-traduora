@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProjectAction } from '../domain/actions';
 import { User } from '../entity/user.entity';
 import ProjectActivityController from './project-activity.controller';
@@ -103,6 +103,32 @@ describe('ProjectActivityController', () => {
 
     await expect(controller.find({ user }, 'project-1', undefined, 'xx')).rejects.toBeInstanceOf(NotFoundException);
     expect(historyRepo.find).not.toHaveBeenCalled();
+  });
+
+  // The extended query parser gives ?locale=fr&locale=de and ?locale[]=fr as an array, ?locale[x]=fr as an object
+  it('answers bad request for a locale given as an array, without reading history', async () => {
+    const { controller, projectLocaleRepo, historyRepo } = setup([entry()]);
+
+    await expect(controller.find({ user }, 'project-1', undefined, ['fr', 'de'] as any)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.find({ user }, 'project-1', undefined, ['fr'] as any)).rejects.toBeInstanceOf(BadRequestException);
+    expect(projectLocaleRepo.find).not.toHaveBeenCalled();
+    expect(historyRepo.find).not.toHaveBeenCalled();
+  });
+
+  it('answers bad request for a locale given as an object, without reading history', async () => {
+    const { controller, projectLocaleRepo, historyRepo } = setup([entry()]);
+
+    await expect(controller.find({ user }, 'project-1', undefined, { x: 'fr' } as any)).rejects.toBeInstanceOf(BadRequestException);
+    expect(projectLocaleRepo.find).not.toHaveBeenCalled();
+    expect(historyRepo.find).not.toHaveBeenCalled();
+  });
+
+  it('lists every locale for an empty locale', async () => {
+    const { controller, historyRepo } = setup([entry()]);
+
+    await controller.find({ user }, 'project-1', undefined, '');
+
+    expect(historyRepo.find.mock.calls[0][0].where.projectLocaleId.value).toEqual(['pl-de', 'pl-fr']);
   });
 
   it('bounds the limit', async () => {
