@@ -15,7 +15,9 @@ To download the source code for each release, check out [GitHub](https://github.
   translations of the term now goes to those translations too: before, on Postgres and MySQL, they could miss it. It
   also goes to a translation that is created at that moment in another way, by the first save of its value or by a
   label added to it: before, such a translation got the labels its term had when the request started, so it could miss
-  the label, on every database
+  the label, on every database. With several API instances, a first save of a translation's value at the same time as
+  a label that adds that translation on another instance keeps the label too: before, on Postgres, the save could
+  remove it, with nothing recorded
 
 - A label added to or removed from a translation while an import into its locale runs (also a label added to its term,
   which goes to all its translations) stays so. Before, on Postgres and MySQL, the import wrote back the labels each

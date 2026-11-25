@@ -1,9 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection, EntityManager } from 'typeorm';
+import { ProjectLocale } from '../src/entity/project-locale.entity';
 import { Project } from '../src/entity/project.entity';
 import { Term } from '../src/entity/term.entity';
 import { Translation } from '../src/entity/translation.entity';
+import { isUniqueViolation } from '../src/services/ever-id-session.service';
 import { DbType, isDbType } from '../src/utils/database-type-helper';
 import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
@@ -454,8 +456,13 @@ describe('Concurrent writes to one project (e2e)', () => {
       const labelTermRightAfterLabelsRead = (labelId: string): (() => Promise<number>) => {
         let lockRequested: () => void;
         const waitsForLock = new Promise<void>(resolve => (lockRequested = resolve));
+        // Whether the paused request locked the term for share before its read of the labels
+        let termLockedForShare = false;
         const findOne = EntityManager.prototype.findOne;
         jest.spyOn(EntityManager.prototype, 'findOne').mockImplementation(function (this: EntityManager, target: any, options: any) {
+          if (target === Term && options?.lock?.mode === 'pessimistic_read') {
+            termLockedForShare = true;
+          }
           if (target === Term && ['for_no_key_update', 'pessimistic_write'].includes(options?.lock?.mode)) {
             lockRequested();
           }
@@ -467,9 +474,10 @@ describe('Concurrent writes to one project (e2e)', () => {
         jest.spyOn(EntityManager.prototype, 'findOneOrFail').mockImplementation(async function (this: EntityManager, target: any, options: any) {
           const found = await findOneOrFail.call(this, target, options);
           if (target === Term && options?.relations?.includes?.('labels') && !labeled) {
-            // Not awaited: the label request may wait for the paused request to commit
+            // Not awaited: the label request may wait for the paused request to commit. Without the paused request's share
+            // lock on the term it cannot, so it runs to its end first and the new translation lacks the label for sure
             labeled = termLabelRequest('post', labelId).then(res => res.status);
-            await Promise.race([labeled, waitsForLock]);
+            await (termLockedForShare ? Promise.race([labeled, waitsForLock]) : labeled);
           }
           return found;
         } as any);
@@ -511,6 +519,62 @@ describe('Concurrent writes to one project (e2e)', () => {
           expect(await labeled()).toBe(201);
           expect(await labelIdsOfTerm()).toEqual([termLabelId]);
           expect(await labelIdsOfTranslation('fr_FR')).toEqual([termLabelId, translationLabelId].sort(byValue));
+        },
+      );
+
+      // Another API instance adds the translation with a label of it right after the first save found no translation: the
+      // edit locks are per process, so only the database orders the two. That instance is the insert transaction of its
+      // label request, on a connection of its own. Not on SQLite, which has a single connection
+      (isDbType(DbType.BETTER_SQLITE3) ? it.skip : it)(
+        'saves a first value while another API instance adds the translation with a label: the translation keeps the label',
+        async () => {
+          const labelId = await createLabel('of the other instance');
+          const connection = app.get(Connection);
+          const { id: projectLocaleId } = await connection
+            .getRepository(ProjectLocale)
+            .findOneOrFail({ where: { project: { id: testProject.id }, locale: { code: 'fr_FR' } } });
+          const where = { termId, projectLocaleId };
+          const addLabel = (entityManager: EntityManager) =>
+            entityManager.createQueryBuilder().relation(Translation, 'labels').of(where).add(labelId);
+
+          let otherInstance: Promise<void>;
+          const findOne = EntityManager.prototype.findOne;
+          jest.spyOn(EntityManager.prototype, 'findOne').mockImplementation(async function (this: EntityManager, target: any, options: any) {
+            const found = await findOne.call(this, target, options);
+            // The first save's locked read of the translation, which finds none
+            if (target === Translation && options?.lock?.mode === 'pessimistic_write' && !otherInstance) {
+              otherInstance = connection
+                .transaction('READ COMMITTED', async entityManager => {
+                  await entityManager.insert(Translation, { ...where, value: '' });
+                  await addLabel(entityManager);
+                })
+                .catch(async error => {
+                  // The first save added the translation before: the label request then adds its label to it
+                  if (!isUniqueViolation(error)) {
+                    throw error;
+                  }
+                  await addLabel(connection.manager);
+                });
+              // The other instance's insert waits for the first save when the database orders the two by a lock
+              await Promise.race([otherInstance, new Promise(resolve => setTimeout(resolve, 2000))]);
+            }
+            return found;
+          } as any);
+          try {
+            await saveFirstValue().expect(200);
+          } finally {
+            jest.restoreAllMocks();
+          }
+          await otherInstance;
+
+          const translations = (
+            await request(app.getHttpServer())
+              .get(`/api/v1/projects/${testProject.id}/translations/fr_FR`)
+              .set('Authorization', `Bearer ${testingUser.accessToken}`)
+              .expect(200)
+          ).body.data;
+          expect(translations.find(translation => translation.termId === termId).value).toBe('un');
+          expect(await labelIdsOfTranslation('fr_FR')).toEqual([labelId]);
         },
       );
     });

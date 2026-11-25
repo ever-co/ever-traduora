@@ -35,7 +35,13 @@ describe('TranslationController translation history', () => {
   const yieldToOthers = () => new Promise(resolve => setImmediate(resolve));
 
   function setup(initial: string | null) {
-    const state = { stored: initial === null ? null : { value: initial }, history: [] as any[], deleted: [] as any[], termLabels: [] as any[] };
+    const state = {
+      stored: initial === null ? null : { value: initial },
+      history: [] as any[],
+      deleted: [] as any[],
+      termLabels: [] as any[],
+      addedLabelIds: [] as string[],
+    };
 
     const manager: any = {
       transaction: jest.fn(async (work: (em: any) => Promise<any>) => work(manager)),
@@ -73,6 +79,22 @@ describe('TranslationController translation history', () => {
         await yieldToOthers();
         state.stored = { value: changes.value };
       }),
+      // A new translation is inserted, then its labels are added
+      insert: jest.fn(async (entity: any, data: any) => {
+        await yieldToOthers();
+        expect(entity).toBe(Translation);
+        state.stored = { value: data.value };
+      }),
+      createQueryBuilder: jest.fn(() => ({
+        relation: (entity: any, property: string) => ({
+          of: () => ({
+            add: async (ids: string[]) => {
+              expect([entity, property]).toEqual([Translation, 'labels']);
+              state.addedLabelIds.push(...ids);
+            },
+          }),
+        }),
+      })),
     };
 
     const translationRepo = { manager };
@@ -146,11 +168,26 @@ describe('TranslationController translation history', () => {
 
       await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'Hallo' });
 
-      const added = manager.save.mock.calls.map(([record]) => record).find(record => record.__entity === Translation);
-      expect(added.labels).toEqual([{ id: 'label-1' }]);
+      expect(state.addedLabelIds).toEqual(['label-1']);
       const termLocked = manager.findOne.mock.calls.findIndex(([entity]) => entity === Term);
       const labelsRead = manager.findOneOrFail.mock.calls.findIndex(([entity]) => entity === Term);
       expect(manager.findOne.mock.invocationCallOrder[termLocked]).toBeLessThan(manager.findOneOrFail.mock.invocationCallOrder[labelsRead]);
+    });
+
+    it('keeps a translation that another API instance added meanwhile: the value is saved over it, never the row', async () => {
+      const { controller, manager, state } = setup(null);
+      // The other instance (a label that adds the translation) commits once this one found no translation
+      manager.insert.mockImplementationOnce(async () => {
+        state.stored = { value: '' };
+        throw Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+      });
+
+      const result = await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'Hallo' });
+
+      expect(result.data.value).toBe('Hallo');
+      expect(manager.update).toHaveBeenCalledWith(Translation, { termId: 'term-1', projectLocaleId: 'locale-1' }, { value: 'Hallo' });
+      expect(manager.save.mock.calls.filter(([record]) => record.__entity === Translation)).toEqual([]);
+      expect(state.history).toEqual([expect.objectContaining({ revision: 1, previousValue: '', value: 'Hallo' })]);
     });
 
     it('records no user for a change made with an API client', async () => {

@@ -37,6 +37,7 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
+import { isUniqueViolation } from '../services/ever-id-session.service';
 import { lockProject, readCommittedTransaction, translationEditLockKey, withEditLock } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
 
@@ -251,7 +252,8 @@ export default class TranslationController {
    * share, in that order and before the translation: it waits for an import into that locale, for a delete of the term
    * and for a label added to the term to commit, and they wait for it. A locale or term deleted meanwhile is not found.
    * A translation it adds gets the labels of the term as read after that lock (read committed, on MySQL too), so a label
-   * added to the term meanwhile is either among them or labels the translation once this commits (lockTerm).
+   * added to the term meanwhile is either among them or labels the translation once this commits (lockTerm). It is
+   * inserted, never saved over: one that another API instance added meanwhile keeps its labels and gets the value.
    */
   private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
     const where = { termId: term.id, projectLocaleId: projectLocale.id };
@@ -267,13 +269,37 @@ export default class TranslationController {
         if (!(await em.findOne(Term, { where: { id: term.id }, ...share }))) {
           throw new NotFoundException('project term not found');
         }
-        const locked = await em.findOne(Translation, { where, ...(useRowLock ? { lock: { mode: 'pessimistic_write' as const } } : {}) });
-        const previousValue = locked?.value ?? '';
+        const writeLock = useRowLock ? { lock: { mode: 'pessimistic_write' as const } } : {};
+        const locked = await em.findOne(Translation, { where, ...writeLock });
+        let previousValue = locked?.value ?? '';
 
         if (!locked) {
           // Copy term labels on creation, as they are now that the term is locked
           const { labels } = await em.findOneOrFail(Term, { where: { id: term.id }, relations: ['labels'] });
-          await em.save(em.create(Translation, { value, projectLocale, term, labels }));
+          try {
+            // Inserted, never saved over, in a savepoint of its own (on Postgres a failed statement ends the transaction).
+            // A missing row takes no lock (read committed), so another API instance can add the translation meanwhile, by a
+            // first save or a label that adds it: saving over that row would drop the labels it has
+            await em.transaction(async savepoint => {
+              await savepoint.insert(Translation, { ...where, value });
+              if (labels.length > 0) {
+                await savepoint
+                  .createQueryBuilder()
+                  .relation(Translation, 'labels')
+                  .of(where)
+                  .add(labels.map(l => l.id));
+              }
+            });
+          } catch (error) {
+            if (!isUniqueViolation(error)) {
+              throw error;
+            }
+            // The translation the other instance added: its labels stay, and the value is saved over its own
+            previousValue = (await em.findOneOrFail(Translation, { where, ...writeLock })).value;
+            if (previousValue !== value) {
+              await em.update(Translation, where, { value });
+            }
+          }
         } else if (previousValue !== value) {
           await em.update(Translation, where, { value });
         }
