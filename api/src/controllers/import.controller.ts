@@ -25,7 +25,7 @@ import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
-import { TranslationHistory } from '../entity/translation-history.entity';
+import { changeTime, TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import { csvParser } from '../formatters/csv';
@@ -170,9 +170,14 @@ export class ImportController {
         );
         await this.addMissingLabels(entityManager, translationsToAdd, stored);
 
-        // Many rows per statement, in chunks that stay within every database's limit on query parameters
+        // Many rows per statement, in chunks that stay within every database's limit on query parameters, with one time
+        // for the whole import: its changes are made at once
+        const time = changeTime();
         for (const chunk of _.chunk(historyToAdd, 500)) {
-          await entityManager.insert(TranslationHistory, chunk);
+          await entityManager.insert(
+            TranslationHistory,
+            chunk.map(row => ({ ...row, ...time })),
+          );
         }
 
         return {

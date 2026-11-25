@@ -4,6 +4,7 @@ import { Connection } from 'typeorm';
 import { ProjectLocale } from '../src/entity/project-locale.entity';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { TranslationHistory } from '../src/entity/translation-history.entity';
+import { DbType, isDbType } from '../src/utils/database-type-helper';
 import './util';
 import { createAndMigrateApp, createTestProject, createTestProjectClient, signupTestUser, TestingProject, TestingUser } from './util';
 
@@ -13,8 +14,10 @@ describe('Project activity (e2e)', () => {
   let testProject: TestingProject;
   const termIds: { [value: string]: string } = {};
 
-  // SQLite keeps whole seconds: changes made in different seconds have a known order on every database
+  // More than a second apart: the order of these changes is known from their times alone
   const nextSecond = () => new Promise(resolve => setTimeout(resolve, 1100));
+  // Just after the clock turns to a new second, so that the changes made next fall within one second
+  const startOfSecond = () => new Promise(resolve => setTimeout(resolve, 1000 - (Date.now() % 1000) + 20));
 
   beforeEach(async () => {
     app = await createAndMigrateApp();
@@ -79,6 +82,46 @@ describe('Project activity (e2e)', () => {
     expect(summary((await activity('?limit=0').expect(200)).body)).toHaveLength(1);
     expect(summary((await activity('?limit=-5').expect(200)).body)).toHaveLength(4);
     expect(summary((await activity('?limit=abc').expect(200)).body)).toHaveLength(4);
+  });
+
+  it('lists changes made within one second in the order they were made, across translations', async () => {
+    await startOfSecond();
+    await edit('term.one', 'de_DE', 'eins').expect(200);
+    await edit('term.one', 'de_DE', 'Eins').expect(200);
+    await edit('term.one', 'de_DE', 'EINS').expect(200);
+    await edit('term.two', 'fr', 'deux').expect(200);
+
+    expect(summary((await activity().expect(200)).body)).toEqual([
+      ['term.two', 'fr', 1, '', 'deux'],
+      ['term.one', 'de_DE', 3, 'Eins', 'EINS'],
+      ['term.one', 'de_DE', 2, 'eins', 'Eins'],
+      ['term.one', 'de_DE', 1, '', 'eins'],
+    ]);
+    // A short list keeps the newest change
+    expect(summary((await activity('?limit=1').expect(200)).body)).toEqual([['term.two', 'fr', 1, '', 'deux']]);
+  });
+
+  // Changes recorded on SQLite before the times had milliseconds keep whole seconds ('2026-11-25 10:00:00')
+  (isDbType(DbType.BETTER_SQLITE3) ? it : it.skip)('lists a change stored in whole seconds before a newer one of the same second', async () => {
+    await startOfSecond();
+    // Two changes, so that a tie with the newer change, broken by the change number, would list an older one first
+    await edit('term.one', 'de_DE', 'eins').expect(200);
+    await edit('term.one', 'de_DE', 'Eins').expect(200);
+    await app
+      .get(Connection)
+      .query(`UPDATE "translation_history" SET "date_created" = datetime("date_created"), "date_modified" = datetime("date_modified")`);
+    // The newer change made by an import, the other way changes are recorded
+    await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/imports?locale=fr&format=jsonflat`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .attach('file', Buffer.from(JSON.stringify({ 'term.two': 'deux' })), 'file')
+      .expect(200);
+
+    expect(summary((await activity().expect(200)).body)).toEqual([
+      ['term.two', 'fr', 1, '', 'deux'],
+      ['term.one', 'de_DE', 2, 'eins', 'Eins'],
+      ['term.one', 'de_DE', 1, '', 'eins'],
+    ]);
   });
 
   it('returns at most 100 changes, and nothing for a project without changes', async () => {

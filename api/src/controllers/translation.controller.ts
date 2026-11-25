@@ -33,7 +33,7 @@ import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
-import { TranslationHistory } from '../entity/translation-history.entity';
+import { changeTime, TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
@@ -306,7 +306,9 @@ export default class TranslationController {
 
         if (previousValue !== value) {
           const latest = await em.findOne(TranslationHistory, { where, order: { revision: 'DESC' } });
-          await em.save(em.create(TranslationHistory, { ...where, revision: (latest?.revision ?? 0) + 1, previousValue, value, user }));
+          await em.save(
+            em.create(TranslationHistory, { ...where, revision: (latest?.revision ?? 0) + 1, previousValue, value, user, ...changeTime() }),
+          );
         }
 
         return em.findOneOrFail(Translation, { where, relations: ['labels'] });

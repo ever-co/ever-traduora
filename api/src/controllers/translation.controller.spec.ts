@@ -5,6 +5,7 @@ import { Term } from '../entity/term.entity';
 import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import TranslationController, { DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, parseHistoryLimit } from './translation.controller';
 
 describe('parseHistoryLimit', () => {
@@ -136,6 +137,8 @@ describe('TranslationController translation history', () => {
           previousValue: 'Hallo',
           value: 'Hallo Welt',
           user,
+          // On SQLite the app's clock gives the time, in milliseconds: the column's default keeps whole seconds
+          ...(isDbType(DbType.BETTER_SQLITE3) ? { date: { created: expect.any(Date), modified: expect.any(Date) } } : {}),
         },
       ]);
     });
