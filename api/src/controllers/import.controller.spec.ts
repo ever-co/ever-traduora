@@ -324,4 +324,45 @@ describe('ImportController labels of the imported translations', () => {
     const labelStatements = statements.filter(statement => statement.includes('label_translations_translation'));
     expect(labelStatements.filter(statement => /^\s*(DELETE|UPDATE)\b/i.test(statement))).toEqual([]);
   });
+
+  it('keeps a label removed from a term and then from its translation after the import read the first labels', async () => {
+    const manager = dataSource.manager;
+    const project = await manager.save(Project, { name: 'Project', termsCount: 1, localesCount: 1, plan: { code: 'open-source' } });
+    const locale = await manager.findOneByOrFail(Locale, { code: 'de' });
+    const projectLocale = await manager.save(ProjectLocale, { project, locale });
+    const ofTerm = await manager.save(Label, { value: 'term', color: '#202020', project });
+    const term = await manager.save(Term, { value: 'term.one', project, labels: [ofTerm] });
+    const where = { termId: term.id, projectLocaleId: projectLocale.id };
+    await manager.save(Translation, { ...where, value: 'eins', labels: [ofTerm] });
+
+    // Right after the import's first read of labels (those of the terms or those of the translations), the label is
+    // removed from the term and then from its translation
+    const find = EntityManager.prototype.find;
+    let labelRequestsDone = false;
+    jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, target: any, options: any) {
+      const found = await find.call(this, target, options);
+      if ((target === Term || target === Translation) && !labelRequestsDone) {
+        labelRequestsDone = true;
+        await this.createQueryBuilder().relation(Term, 'labels').of(term.id).remove(ofTerm.id);
+        await this.createQueryBuilder().relation(Translation, 'labels').of(where).remove(ofTerm.id);
+      }
+      return found;
+    } as any);
+
+    const auth: any = { getRequestUserOrClient: () => ({}), authorizeProjectAction: async () => ({ project }) };
+    const controller = new ImportController(
+      auth,
+      dataSource.getRepository(Translation),
+      dataSource.getRepository(Term),
+      dataSource.getRepository(ProjectLocale),
+      dataSource.getRepository(Locale),
+    );
+    const file = { buffer: Buffer.from(JSON.stringify({ 'term.one': 'EINS' })) };
+    await controller.import({}, project.id, plainToInstance(ImportQuery, { locale: 'de', format: 'jsonflat' }), file);
+
+    expect(labelRequestsDone).toBe(true);
+    const translation = await manager.findOneOrFail(Translation, { where, relations: ['labels'] });
+    expect(translation.value).toBe('EINS');
+    expect(translation.labels).toEqual([]);
+  });
 });

@@ -117,6 +117,16 @@ export class ImportController {
           await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);
         }
 
+        // The locale's translations as stored, read once before the values are replaced: their values for the overwrite
+        // option and the history, the ids of their labels so the import adds only the labels of their terms they lack.
+        // Read before the labels of the terms: a label removed from a term and then from a translation after this read is
+        // not one the import adds back
+        const stored = await entityManager.find(Translation, {
+          select: { termId: true, value: true, labels: { id: true } },
+          relations: { labels: true },
+          where: { projectLocaleId: projectLocale.id },
+        });
+
         // Find existing terms and determine which terms to create
         const existingTerms = await entityManager.find(Term, {
           where: { project: { id: membership.project.id } },
@@ -135,14 +145,6 @@ export class ImportController {
 
         const addedTerms = await entityManager.save(Term, termsToAdd);
         const allTerms = [...addedTerms, ...existingTerms];
-
-        // The locale's translations as stored, read once before the values are replaced: their values for the overwrite
-        // option and the history, the ids of their labels so the import adds only the labels of their terms they lack
-        const stored = await entityManager.find(Translation, {
-          select: { termId: true, value: true, labels: { id: true } },
-          relations: { labels: true },
-          where: { projectLocaleId: projectLocale.id },
-        });
 
         let translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale, stored);
 

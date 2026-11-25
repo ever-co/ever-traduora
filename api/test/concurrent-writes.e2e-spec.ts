@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection, EntityManager } from 'typeorm';
+import { Term } from '../src/entity/term.entity';
 import { Translation } from '../src/entity/translation.entity';
 import { DbType, isDbType } from '../src/utils/database-type-helper';
 import './util';
@@ -173,6 +174,46 @@ describe('Concurrent writes to one project (e2e)', () => {
       expect(statuses).toEqual([204, 201]);
       expect(await termIdsWithLabel(labelId)).toEqual([termTwoId]);
     });
+
+    // A label of the term this time: it is removed from the term and then from the translation while the import waits right
+    // after its first read of labels (those of the terms or those of the translations). Not on SQLite, as above
+    (isDbType(DbType.BETTER_SQLITE3) ? it.skip : it)(
+      'keeps a label removed from a term and then from its translation during the import',
+      async () => {
+        const labelId = await createLabel();
+        await importTerms({ 'term.one': 'eins' }).expect(200);
+        const [termOneId] = await termIdsOf(['term.one']);
+        const termLabelRequest = (method: 'post' | 'delete') =>
+          request(app.getHttpServer())
+            [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termOneId}`)
+            .set('Authorization', `Bearer ${testingUser.accessToken}`);
+        await termLabelRequest('post').expect(201);
+        expect(await termIdsWithLabel(labelId)).toEqual([termOneId]);
+
+        const find = EntityManager.prototype.find;
+        let statuses: number[] = [];
+        let paused = false;
+        jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, target: any, options: any) {
+          const found = await find.call(this, target, options);
+          const readsLabels = (target === Term && options?.relations?.includes?.('labels')) || (target === Translation && options?.select?.labels);
+          if (readsLabels && !paused) {
+            paused = true;
+            const unlabeledTerm = await termLabelRequest('delete');
+            const unlabeledTranslation = await labelRequest('delete', labelId, termOneId);
+            statuses = [unlabeledTerm.status, unlabeledTranslation.status];
+          }
+          return found;
+        } as any);
+        try {
+          await importTerms({ 'term.one': 'EINS' }).expect(200);
+        } finally {
+          jest.restoreAllMocks();
+        }
+
+        expect(statuses).toEqual([204, 204]);
+        expect(await termIdsWithLabel(labelId)).toEqual([]);
+      },
+    );
   });
 
   afterEach(async () => {
