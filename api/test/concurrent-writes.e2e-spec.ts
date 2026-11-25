@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection, EntityManager } from 'typeorm';
+import { Project } from '../src/entity/project.entity';
 import { Term } from '../src/entity/term.entity';
 import { Translation } from '../src/entity/translation.entity';
 import { DbType, isDbType } from '../src/utils/database-type-helper';
@@ -41,6 +42,13 @@ describe('Concurrent writes to one project (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .attach('file', Buffer.from(JSON.stringify(content)), 'file');
 
+  const labelRequest = (method: 'post' | 'delete', labelId: string, termId: string) =>
+    request(app.getHttpServer())
+      [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`);
+
+  const byValue = (a: string, b: string) => a.localeCompare(b);
+
   it('adds terms and imports at the same time', async () => {
     for (let round = 0; round < rounds; round++) {
       const [imported, added, alsoAdded] = await Promise.all([
@@ -76,8 +84,6 @@ describe('Concurrent writes to one project (e2e)', () => {
   });
 
   describe('labels of the translations of a locale being imported', () => {
-    const byValue = (a: string, b: string) => a.localeCompare(b);
-
     // A label of single translations, not of their terms: an import neither adds it nor may remove it
     const createLabel = async (): Promise<string> =>
       (
@@ -97,11 +103,6 @@ describe('Concurrent writes to one project (e2e)', () => {
       ).body.data;
       return values.map(value => terms.find(term => term.value === value).id);
     };
-
-    const labelRequest = (method: 'post' | 'delete', labelId: string, termId: string) =>
-      request(app.getHttpServer())
-        [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/de_DE`)
-        .set('Authorization', `Bearer ${testingUser.accessToken}`);
 
     const termIdsWithLabel = async (labelId: string): Promise<string[]> =>
       (
@@ -212,6 +213,176 @@ describe('Concurrent writes to one project (e2e)', () => {
 
         expect(statuses).toEqual([204, 204]);
         expect(await termIdsWithLabel(labelId)).toEqual([]);
+      },
+    );
+  });
+
+  describe('labels of one term and its translations changed at the same time', () => {
+    let termId: string;
+
+    beforeEach(async () => {
+      termId = (
+        await request(app.getHttpServer())
+          .get(`/api/v1/projects/${testProject.id}/terms`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .expect(200)
+      ).body.data.find(term => term.value === 'term.one').id;
+    });
+
+    const createLabel = async (value: string): Promise<string> =>
+      (
+        await request(app.getHttpServer())
+          .post(`/api/v1/projects/${testProject.id}/labels`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .send({ value, color: '#202020' })
+          .expect(201)
+      ).body.data.id;
+
+    const termLabelRequest = (method: 'post' | 'delete', labelId: string) =>
+      request(app.getHttpServer())
+        [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`);
+
+    const labelIdsOfTerm = async (): Promise<string[]> =>
+      (
+        await request(app.getHttpServer())
+          .get(`/api/v1/projects/${testProject.id}/terms`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .expect(200)
+      ).body.data
+        .find(term => term.id === termId)
+        .labels.map(label => label.id)
+        .sort(byValue);
+
+    const labelIdsOfTranslation = async (localeCode: string): Promise<string[]> =>
+      (
+        await request(app.getHttpServer())
+          .get(`/api/v1/projects/${testProject.id}/translations/${localeCode}`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .expect(200)
+      ).body.data
+        .find(translation => translation.termId === termId)
+        .labels.map(label => label.id)
+        .sort(byValue);
+
+    // Runs `during` once, right after the first read of a `target` row by `findOneOrFail`, then goes on with what was read
+    const pauseAfterFirstRead = (target: any, during: () => Promise<void>) => {
+      const findOneOrFail = EntityManager.prototype.findOneOrFail;
+      let paused = false;
+      jest.spyOn(EntityManager.prototype, 'findOneOrFail').mockImplementation(async function (this: EntityManager, entity: any, options: any) {
+        const found = await findOneOrFail.call(this, entity, options);
+        if (entity === target && !paused) {
+          paused = true;
+          await during();
+        }
+        return found;
+      } as any);
+    };
+
+    it('labels a term with two labels at once: the term and its translation keep both', async () => {
+      const [firstId, secondId] = [await createLabel('first'), await createLabel('second')];
+
+      // The second label is added while the request of the first one waits right after its read of the term
+      let status: number;
+      pauseAfterFirstRead(Term, async () => {
+        status = (await termLabelRequest('post', secondId)).status;
+      });
+      try {
+        await termLabelRequest('post', firstId).expect(201);
+      } finally {
+        jest.restoreAllMocks();
+      }
+
+      expect(status).toBe(201);
+      expect(await labelIdsOfTerm()).toEqual([firstId, secondId].sort(byValue));
+      expect(await labelIdsOfTranslation('de_DE')).toEqual([firstId, secondId].sort(byValue));
+    });
+
+    it('labels a term with the same label twice at once: both requests are done and the label is there once', async () => {
+      const labelId = await createLabel('twice');
+
+      let status: number;
+      pauseAfterFirstRead(Term, async () => {
+        status = (await termLabelRequest('post', labelId)).status;
+      });
+      try {
+        await termLabelRequest('post', labelId).expect(201);
+      } finally {
+        jest.restoreAllMocks();
+      }
+
+      expect(status).toBe(201);
+      expect(await labelIdsOfTerm()).toEqual([labelId]);
+      expect(await labelIdsOfTranslation('de_DE')).toEqual([labelId]);
+    });
+
+    it('unlabels a translation while another label is added to it: the other label stays', async () => {
+      const [removedId, addedId] = [await createLabel('removed'), await createLabel('added')];
+      await labelRequest('post', removedId, termId).expect(201);
+
+      // The other label is added while the unlabel request waits right after its read of the translation
+      let status: number;
+      pauseAfterFirstRead(Translation, async () => {
+        status = (await labelRequest('post', addedId, termId)).status;
+      });
+      try {
+        await labelRequest('delete', removedId, termId).expect(204);
+      } finally {
+        jest.restoreAllMocks();
+      }
+
+      expect(status).toBe(201);
+      expect(await labelIdsOfTranslation('de_DE')).toEqual([addedId]);
+    });
+
+    // A label added to the term while an import adds the term's translation in a new locale: the import read the labels
+    // of the terms before, so the label request has to label that translation, which it can see only once the import
+    // committed. Not on SQLite, which runs one transaction at a time, so the import and the label request never interleave
+    (isDbType(DbType.BETTER_SQLITE3) ? it.skip : it)(
+      'labels a term while an import adds its translation: the new translation gets the label',
+      async () => {
+        const labelId = await createLabel('labeled');
+
+        // Resolved when the label request asks for its share lock on the project, which the import holds
+        let lockRequested: () => void;
+        const waitsForLock = new Promise<void>(resolve => (lockRequested = resolve));
+        const findOne = EntityManager.prototype.findOne;
+        jest.spyOn(EntityManager.prototype, 'findOne').mockImplementation(function (this: EntityManager, target: any, options: any) {
+          if (target === Project && options?.lock?.mode === 'pessimistic_read') {
+            lockRequested();
+          }
+          return findOne.call(this, target, options);
+        } as any);
+
+        const find = EntityManager.prototype.find;
+        let paused = false;
+        let labeled: Promise<number>;
+        jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, target: any, options: any) {
+          const found = await find.call(this, target, options);
+          // The import's read of the terms with their labels
+          if (target === Term && options?.relations?.includes?.('labels') && !paused) {
+            paused = true;
+            // Not awaited: the label request may wait for the import to commit. The import goes on once the request is done
+            // or waits for the project
+            labeled = termLabelRequest('post', labelId).then(res => res.status);
+            await Promise.race([labeled, waitsForLock]);
+          }
+          return found;
+        } as any);
+        try {
+          await request(app.getHttpServer())
+            .post(`/api/v1/projects/${testProject.id}/imports?locale=fr_FR&format=jsonflat`)
+            .set('Authorization', `Bearer ${testingUser.accessToken}`)
+            .attach('file', Buffer.from(JSON.stringify({ 'term.one': 'un' })), 'file')
+            .expect(200);
+        } finally {
+          jest.restoreAllMocks();
+        }
+
+        expect(await labeled).toBe(201);
+        expect(await labelIdsOfTerm()).toEqual([labelId]);
+        expect(await labelIdsOfTranslation('de_DE')).toEqual([labelId]);
+        expect(await labelIdsOfTranslation('fr_FR')).toEqual([labelId]);
       },
     );
   });

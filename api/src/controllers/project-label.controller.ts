@@ -2,7 +2,8 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import * as _ from 'lodash';
+import { EntityManager, Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
 import { AddLabelRequest, ProjectLabelResponse, UpdateLabelRequest } from '../domain/http';
 import { ProjectLocale } from '../entity/project-locale.entity';
@@ -11,7 +12,7 @@ import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
 import { isUniqueViolation } from '../services/ever-id-session.service';
-import { translationEditLockKey, withEditLock } from '../utils/database-locks';
+import { lockProjectForShare, translationEditLockKey, withEditLock } from '../utils/database-locks';
 
 @Controller('api/v1/projects/:projectId/labels')
 @UseGuards(AuthGuard())
@@ -125,19 +126,36 @@ export default class ProjectLabelController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
     const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
-    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
+    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } } });
 
-    term.labels.push(label);
+    // Only the rows of this label are written, never the whole set of labels: a label that another request adds to or
+    // removes from the term or one of its translations meanwhile stays as that request left it. The project is locked for
+    // share first, so this waits for an import or a new locale that is adding translations of the term to commit, and
+    // labels those too; one that starts later waits for this and reads the term with the label.
+    await this.termsRepo.manager.transaction(async entityManager => {
+      await lockProjectForShare(entityManager, membership.project.id);
 
-    await this.termsRepo.save(term);
+      try {
+        // In a savepoint of its own: on Postgres a failed statement ends the transaction
+        await entityManager.transaction(savepoint => savepoint.createQueryBuilder().relation(Term, 'labels').of(term.id).add(label.id));
+      } catch (error) {
+        // The term has the label already, or another request added it meanwhile
+        if (!isUniqueViolation(error)) {
+          throw error;
+        }
+      }
 
-    const translations = await this.translationsRepo.find({ where: { termId: term.id }, relations: ['labels'] });
-
-    translations.forEach(t => {
-      t.labels.push(label);
+      const translations = await entityManager.find(Translation, {
+        select: { termId: true, projectLocaleId: true, labels: { id: true } },
+        relations: { labels: true },
+        where: { termId: term.id },
+      });
+      await this.addLabelToTranslations(
+        entityManager,
+        label,
+        translations.filter(translation => !translation.labels.some(l => l.id === label.id)),
+      );
     });
-
-    await this.translationsRepo.save(translations);
   }
 
   @Delete(':labelId/terms/:termId')
@@ -152,11 +170,10 @@ export default class ProjectLabelController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
     const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
-    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
+    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } } });
 
-    term.labels = term.labels.filter(t => t.id !== label.id);
-
-    await this.termsRepo.save(term);
+    // Removes this label alone: a label that another request added meanwhile stays
+    await this.termsRepo.createQueryBuilder().relation(Term, 'labels').of(term.id).remove(label.id);
   }
 
   @Post(':labelId/terms/:termId/translations/:localeCode')
@@ -268,13 +285,34 @@ export default class ProjectLabelController {
       },
     });
 
-    const translation = await this.translationsRepo.findOneOrFail({
-      where: { termId: termId, projectLocale: { id: projectLocale.id } },
-      relations: ['labels'],
+    const where = { termId: termId, projectLocaleId: projectLocale.id };
+    await this.translationsRepo.findOneOrFail({ where });
+
+    // Removes this label alone: a label that another request added meanwhile stays
+    await this.translationsRepo.createQueryBuilder().relation(Translation, 'labels').of(where).remove(label.id);
+  }
+
+  /**
+   * Adds the label to the translations with one statement (per 500 of them). The rows are only inserted, and one that
+   * already exists, as another request added it meanwhile, is skipped.
+   */
+  private async addLabelToTranslations(entityManager: EntityManager, label: Label, translations: Translation[]): Promise<void> {
+    // The join table belongs to Label.translations; its columns are named after each database's naming strategy
+    const relation = entityManager.connection.getMetadata(Translation).findRelationWithPropertyPath('labels');
+    const junction = relation.junctionEntityMetadata;
+    const labelColumns = relation.isManyToManyOwner ? junction.inverseColumns : junction.ownerColumns;
+    const translationColumns = relation.isManyToManyOwner ? junction.ownerColumns : junction.inverseColumns;
+
+    const rows = translations.map(translation => {
+      const row: Record<string, unknown> = {};
+      labelColumns.forEach(column => (row[column.databaseName] = column.referencedColumn.getEntityValue(label)));
+      translationColumns.forEach(column => (row[column.databaseName] = column.referencedColumn.getEntityValue(translation)));
+      return row;
     });
 
-    translation.labels = translation.labels.filter(t => t.id !== label.id);
-
-    await this.translationsRepo.save(translation);
+    // Within every database's limit on query parameters
+    for (const chunk of _.chunk(rows, 500)) {
+      await entityManager.createQueryBuilder().insert().into(junction.tableName).values(chunk).orIgnore().execute();
+    }
   }
 }

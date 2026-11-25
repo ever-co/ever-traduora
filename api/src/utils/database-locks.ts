@@ -20,6 +20,19 @@ export async function lockProject(entityManager: EntityManager, projectId: strin
   });
 }
 
+/**
+ * Locks the project's row for share for the rest of the transaction, taken first like {@link lockProject}: the
+ * transaction waits for one that holds the project locked (an import, a new locale) to commit, and such a transaction
+ * waits for it, while transactions that lock it for share do not wait for each other. SQLite runs one transaction at a
+ * time.
+ */
+export async function lockProjectForShare(entityManager: EntityManager, projectId: string): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3)) {
+    return;
+  }
+  await entityManager.findOne(Project, { where: { id: projectId }, lock: { mode: 'pessimistic_read' } });
+}
+
 const editLocks = new Map<string, Promise<unknown>>();
 
 /** Runs the work after every earlier work with the same key, one at a time, whether or not the earlier work failed */
