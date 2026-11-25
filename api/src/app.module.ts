@@ -16,6 +16,7 @@ import HealthController from './controllers/health.controller';
 import { ImportController } from './controllers/import.controller';
 import IndexController, { redirectDemoIndexFile } from './controllers/index.controller';
 import LocaleController from './controllers/locale.controller';
+import ProjectActivityController from './controllers/project-activity.controller';
 import ProjectClientController from './controllers/project-client.controller';
 import ProjectInviteController from './controllers/project-invite.controller';
 import ProjectPlanController from './controllers/project-plan.controller';
@@ -124,6 +125,7 @@ export class IndexModule {}
     ProjectInviteController,
     TermController,
     TranslationController,
+    ProjectActivityController,
     ImportController,
     ProjectClientController,
     ProjectLabelController,

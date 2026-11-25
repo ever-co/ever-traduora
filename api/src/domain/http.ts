@@ -270,6 +270,13 @@ export class TranslationHistoryDTO {
   date: Date;
 }
 
+export class ProjectActivityDTO extends TranslationHistoryDTO {
+  @ApiProperty({ description: 'The term that was translated' })
+  term: string;
+  @ApiProperty({ description: 'The code of the locale the change was made in' })
+  locale: string;
+}
+
 export class ProjectClientDTO {
   @ApiProperty()
   id: string;
@@ -367,6 +374,11 @@ export class ListTermTranslatonsResponse extends ServiceApiResponse<TermTranslat
 export class ListTranslationHistoryResponse extends ServiceApiResponse<TranslationHistoryDTO[]> {
   @ApiProperty({ type: TranslationHistoryDTO, isArray: true })
   data: TranslationHistoryDTO[];
+}
+
+export class ListProjectActivityResponse extends ServiceApiResponse<ProjectActivityDTO[]> {
+  @ApiProperty({ type: ProjectActivityDTO, isArray: true })
+  data: ProjectActivityDTO[];
 }
 
 export class TermTranslatonResponse extends ServiceApiResponse<TermTranslationDTO> {
