@@ -104,7 +104,9 @@ describe('Project activity (e2e)', () => {
   // Changes recorded on SQLite before the times had milliseconds keep whole seconds ('2026-11-25 10:00:00')
   (isDbType(DbType.BETTER_SQLITE3) ? it : it.skip)('lists a change stored in whole seconds before a newer one of the same second', async () => {
     await startOfSecond();
+    // Two changes, so that a tie with the newer change, broken by the change number, would list an older one first
     await edit('term.one', 'de_DE', 'eins').expect(200);
+    await edit('term.one', 'de_DE', 'Eins').expect(200);
     await app
       .get(Connection)
       .query(`UPDATE "translation_history" SET "date_created" = datetime("date_created"), "date_modified" = datetime("date_modified")`);
@@ -117,6 +119,7 @@ describe('Project activity (e2e)', () => {
 
     expect(summary((await activity().expect(200)).body)).toEqual([
       ['term.two', 'fr', 1, '', 'deux'],
+      ['term.one', 'de_DE', 2, 'eins', 'Eins'],
       ['term.one', 'de_DE', 1, '', 'eins'],
     ]);
   });
