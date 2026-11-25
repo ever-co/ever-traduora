@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection, EntityManager } from 'typeorm';
+import { Project } from '../src/entity/project.entity';
 import { Term } from '../src/entity/term.entity';
 import { Translation } from '../src/entity/translation.entity';
 import { DbType, isDbType } from '../src/utils/database-type-helper';
@@ -342,6 +343,17 @@ describe('Concurrent writes to one project (e2e)', () => {
       async () => {
         const labelId = await createLabel('labeled');
 
+        // Resolved when the label request asks for its share lock on the project, which the import holds
+        let lockRequested: () => void;
+        const waitsForLock = new Promise<void>(resolve => (lockRequested = resolve));
+        const findOne = EntityManager.prototype.findOne;
+        jest.spyOn(EntityManager.prototype, 'findOne').mockImplementation(function (this: EntityManager, target: any, options: any) {
+          if (target === Project && options?.lock?.mode === 'pessimistic_read') {
+            lockRequested();
+          }
+          return findOne.call(this, target, options);
+        } as any);
+
         const find = EntityManager.prototype.find;
         let paused = false;
         let labeled: Promise<number>;
@@ -350,10 +362,10 @@ describe('Concurrent writes to one project (e2e)', () => {
           // The import's read of the terms with their labels
           if (target === Term && options?.relations?.includes?.('labels') && !paused) {
             paused = true;
-            // Not awaited: the label request may wait for the import to commit. The import goes on once the request is done,
-            // or after a while if the request waits
+            // Not awaited: the label request may wait for the import to commit. The import goes on once the request is done
+            // or waits for the project
             labeled = termLabelRequest('post', labelId).then(res => res.status);
-            await Promise.race([labeled, new Promise(resolve => setTimeout(resolve, 1000))]);
+            await Promise.race([labeled, waitsForLock]);
           }
           return found;
         } as any);

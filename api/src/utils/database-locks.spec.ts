@@ -32,4 +32,19 @@ describe('lockProjectForShare', () => {
 
     expect(entityManager.findOne).not.toHaveBeenCalled();
   });
+
+  it('locks the project row for share on the other databases', async () => {
+    let lock: typeof lockProjectForShare;
+    let project: unknown;
+    jest.isolateModules(() => {
+      jest.doMock('./database-type-helper', () => ({ ...jest.requireActual('./database-type-helper'), isDbType: () => false }));
+      lock = jest.requireActual('./database-locks').lockProjectForShare;
+      project = jest.requireActual('../entity/project.entity').Project;
+    });
+    const entityManager: any = { findOne: jest.fn() };
+
+    await lock(entityManager, 'project-1');
+
+    expect(entityManager.findOne).toHaveBeenCalledWith(project, { where: { id: 'project-1' }, lock: { mode: 'pessimistic_read' } });
+  });
 });
