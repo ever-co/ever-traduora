@@ -37,7 +37,7 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { Translation } from '../entity/translation.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import { lockProject, translationEditLockKey, withEditLock } from '../utils/database-locks';
+import { lockProject, readCommittedTransaction, translationEditLockKey, withEditLock } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
 
 export const DEFAULT_HISTORY_LIMIT = 50;
@@ -225,7 +225,6 @@ export default class TranslationController {
           project: { id: projectId },
           id: payload.termId,
         },
-        relations: ['labels'],
       });
     } catch (error) {
       throw new NotFoundException('project term not found');
@@ -249,8 +248,10 @@ export default class TranslationController {
    * transaction also holds a row lock, which serializes edits across several API instances too. SQLite has a single
    * connection that TypeORM shares between transactions, so two transactions open at once would nest into each other:
    * there, every edit waits for the one before it. Elsewhere the edit also holds its locale and its term locked for
-   * share, in that order and before the translation: it waits for an import into that locale and for a delete of the
-   * term to commit, and they wait for it. A locale or term deleted meanwhile is not found.
+   * share, in that order and before the translation: it waits for an import into that locale, for a delete of the term
+   * and for a label added to the term to commit, and they wait for it. A locale or term deleted meanwhile is not found.
+   * A translation it adds gets the labels of the term as read after that lock (read committed, on MySQL too), so a label
+   * added to the term meanwhile is either among them or labels the translation once this commits (lockTerm).
    */
   private saveTranslation(projectLocale: ProjectLocale, term: Term, value: string, user: User | null): Promise<Translation> {
     const where = { termId: term.id, projectLocaleId: projectLocale.id };
@@ -258,7 +259,7 @@ export default class TranslationController {
     const key = translationEditLockKey(projectLocale.id, term.id);
 
     return withEditLock(key, () =>
-      this.translationRepo.manager.transaction(async (em: EntityManager) => {
+      readCommittedTransaction(this.translationRepo.manager, async (em: EntityManager) => {
         const share = useRowLock ? { lock: { mode: 'pessimistic_read' as const } } : {};
         if (!(await em.findOne(ProjectLocale, { where: { id: projectLocale.id }, ...share }))) {
           throw new NotFoundException('project locale not found');
@@ -270,14 +271,9 @@ export default class TranslationController {
         const previousValue = locked?.value ?? '';
 
         if (!locked) {
-          await em.save(
-            em.create(Translation, {
-              value,
-              projectLocale,
-              term,
-              labels: term.labels, // Copy term labels on creation
-            }),
-          );
+          // Copy term labels on creation, as they are now that the term is locked
+          const { labels } = await em.findOneOrFail(Term, { where: { id: term.id }, relations: ['labels'] });
+          await em.save(em.create(Translation, { value, projectLocale, term, labels }));
         } else if (previousValue !== value) {
           await em.update(Translation, where, { value });
         }

@@ -35,7 +35,7 @@ describe('TranslationController translation history', () => {
   const yieldToOthers = () => new Promise(resolve => setImmediate(resolve));
 
   function setup(initial: string | null) {
-    const state = { stored: initial === null ? null : { value: initial }, history: [] as any[], deleted: [] as any[] };
+    const state = { stored: initial === null ? null : { value: initial }, history: [] as any[], deleted: [] as any[], termLabels: [] as any[] };
 
     const manager: any = {
       transaction: jest.fn(async (work: (em: any) => Promise<any>) => work(manager)),
@@ -52,8 +52,12 @@ describe('TranslationController translation history', () => {
         expect(options.order).toEqual({ revision: 'DESC' });
         return state.history.length ? { ...state.history[state.history.length - 1] } : null;
       }),
-      findOneOrFail: jest.fn(async () => {
+      findOneOrFail: jest.fn(async (entity: any, options: any) => {
         await yieldToOthers();
+        // The term with its labels, read in the transaction that adds the translation
+        if (entity === Term) {
+          return { id: options.where.id, labels: state.termLabels };
+        }
         return { ...state.stored, labels: [] };
       }),
       create: jest.fn((entity: any, data: any) => ({ __entity: entity, ...data })),
@@ -133,6 +137,20 @@ describe('TranslationController translation history', () => {
 
       expect(state.stored).toEqual({ value: 'Hallo' });
       expect(state.history).toEqual([expect.objectContaining({ revision: 1, previousValue: '', value: 'Hallo' })]);
+    });
+
+    it('copies to a new translation the labels of its term as read in the transaction, after it locked the term', async () => {
+      const { controller, manager, state } = setup(null);
+      // The term had no label when the request read it, and got one before the transaction locked it
+      state.termLabels = [{ id: 'label-1' }];
+
+      await controller.update({ user }, 'project-1', 'de', { termId: 'term-1', value: 'Hallo' });
+
+      const added = manager.save.mock.calls.map(([record]) => record).find(record => record.__entity === Translation);
+      expect(added.labels).toEqual([{ id: 'label-1' }]);
+      const termLocked = manager.findOne.mock.calls.findIndex(([entity]) => entity === Term);
+      const labelsRead = manager.findOneOrFail.mock.calls.findIndex(([entity]) => entity === Term);
+      expect(manager.findOne.mock.invocationCallOrder[termLocked]).toBeLessThan(manager.findOneOrFail.mock.invocationCallOrder[labelsRead]);
     });
 
     it('records no user for a change made with an API client', async () => {

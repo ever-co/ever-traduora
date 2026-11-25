@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,7 +12,15 @@ import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
 import { isUniqueViolation } from '../services/ever-id-session.service';
-import { lockProjectForShare, translationEditLockKey, withEditLock } from '../utils/database-locks';
+import {
+  lockProjectForShare,
+  lockTerm,
+  readCommittedTransaction,
+  translationEditLockKey,
+  withEditLock,
+  withTermLabelEditLock,
+} from '../utils/database-locks';
+import { DbType, isDbType } from '../utils/database-type-helper';
 
 @Controller('api/v1/projects/:projectId/labels')
 @UseGuards(AuthGuard())
@@ -131,31 +139,37 @@ export default class ProjectLabelController {
     // Only the rows of this label are written, never the whole set of labels: a label that another request adds to or
     // removes from the term or one of its translations meanwhile stays as that request left it. The project is locked for
     // share first, so this waits for an import or a new locale that is adding translations of the term to commit, and
-    // labels those too; one that starts later waits for this and reads the term with the label.
-    await this.termsRepo.manager.transaction(async entityManager => {
-      await lockProjectForShare(entityManager, membership.project.id);
+    // labels those too; one that starts later waits for this and reads the term with the label. The term is locked next,
+    // so this also waits for a first save of a translation's value, or a label that adds a translation, to commit (they
+    // lock the term for share, then read its labels) and labels that translation too; one that starts later waits for
+    // this and copies the label. On SQLite, which takes no row locks, this waits for those on their edit lock instead.
+    await withTermLabelEditLock(() =>
+      readCommittedTransaction(this.termsRepo.manager, async entityManager => {
+        await lockProjectForShare(entityManager, membership.project.id);
+        await lockTerm(entityManager, term.id);
 
-      try {
-        // In a savepoint of its own: on Postgres a failed statement ends the transaction
-        await entityManager.transaction(savepoint => savepoint.createQueryBuilder().relation(Term, 'labels').of(term.id).add(label.id));
-      } catch (error) {
-        // The term has the label already, or another request added it meanwhile
-        if (!isUniqueViolation(error)) {
-          throw error;
+        try {
+          // In a savepoint of its own: on Postgres a failed statement ends the transaction
+          await entityManager.transaction(savepoint => savepoint.createQueryBuilder().relation(Term, 'labels').of(term.id).add(label.id));
+        } catch (error) {
+          // The term has the label already, or another request added it meanwhile
+          if (!isUniqueViolation(error)) {
+            throw error;
+          }
         }
-      }
 
-      const translations = await entityManager.find(Translation, {
-        select: { termId: true, projectLocaleId: true, labels: { id: true } },
-        relations: { labels: true },
-        where: { termId: term.id },
-      });
-      await this.addLabelToTranslations(
-        entityManager,
-        label,
-        translations.filter(translation => !translation.labels.some(l => l.id === label.id)),
-      );
-    });
+        const translations = await entityManager.find(Translation, {
+          select: { termId: true, projectLocaleId: true, labels: { id: true } },
+          relations: { labels: true },
+          where: { termId: term.id },
+        });
+        await this.addLabelToTranslations(
+          entityManager,
+          label,
+          translations.filter(translation => !translation.labels.some(l => l.id === label.id)),
+        );
+      }),
+    );
   }
 
   @Delete(':labelId/terms/:termId')
@@ -197,7 +211,7 @@ export default class ProjectLabelController {
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditLabel);
 
     const label = await this.labelRepo.findOneOrFail({ where: { id: labelId, project: { id: membership.project.id } } });
-    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } }, relations: ['labels'] });
+    const term = await this.termsRepo.findOneOrFail({ where: { id: termId, project: { id: membership.project.id } } });
 
     const projectLocale = await this.projectLocaleRepo.findOneOrFail({
       where: {
@@ -223,10 +237,18 @@ export default class ProjectLabelController {
           return false;
         }
         try {
-          await this.translationsRepo.manager.transaction(async entityManager => {
+          await readCommittedTransaction(this.translationsRepo.manager, async entityManager => {
+            // The term is locked for share before its labels are read: a label added to it before is read here, and the
+            // request of one added later waits for this to commit and then labels the translation added here (lockTerm)
+            const share = isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_read' as const } };
+            if (!(await entityManager.findOne(Term, { where: { id: term.id }, ...share }))) {
+              throw new NotFoundException('project term not found');
+            }
+            const { labels } = await entityManager.findOneOrFail(Term, { where: { id: term.id }, relations: ['labels'] });
+
             await entityManager.insert(Translation, { ...where, value: '' });
             // Copy term labels on creation
-            const labelIds = [...term.labels.map(l => l.id).filter(id => id !== label.id), label.id];
+            const labelIds = [...labels.map(l => l.id).filter(id => id !== label.id), label.id];
             await entityManager.createQueryBuilder().relation(Translation, 'labels').of(where).add(labelIds);
           });
           return true;

@@ -385,6 +385,135 @@ describe('Concurrent writes to one project (e2e)', () => {
         expect(await labelIdsOfTranslation('fr_FR')).toEqual([labelId]);
       },
     );
+
+    describe('while a translation of the term is added in another way than an import', () => {
+      // A locale in which the term has no translation yet: an import adds translations to the imported locale only
+      beforeEach(async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/projects/${testProject.id}/imports?locale=fr_FR&format=jsonflat`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .attach('file', Buffer.from(JSON.stringify({ 'term.two': 'deux' })), 'file')
+          .expect(200);
+      });
+
+      // The first save of the term's value in that locale adds its translation
+      const saveFirstValue = () =>
+        request(app.getHttpServer())
+          .patch(`/api/v1/projects/${testProject.id}/translations/fr_FR`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`)
+          .send({ termId, value: 'un' });
+
+      // A label of the term's translation in that locale adds the translation too
+      const labelNewTranslation = (labelId: string) =>
+        request(app.getHttpServer())
+          .post(`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/fr_FR`)
+          .set('Authorization', `Bearer ${testingUser.accessToken}`);
+
+      it('labels a term while the first save of a value adds its translation: the new translation gets the label', async () => {
+        const [firstId, secondId] = [await createLabel('first'), await createLabel('second')];
+        await termLabelRequest('post', firstId).expect(201);
+
+        // The second label is added to the term while the save waits right after its read of the term
+        let status: number;
+        pauseAfterFirstRead(Term, async () => {
+          status = (await termLabelRequest('post', secondId)).status;
+        });
+        try {
+          await saveFirstValue().expect(200);
+        } finally {
+          jest.restoreAllMocks();
+        }
+
+        expect(status).toBe(201);
+        expect(await labelIdsOfTerm()).toEqual([firstId, secondId].sort(byValue));
+        expect(await labelIdsOfTranslation('fr_FR')).toEqual([firstId, secondId].sort(byValue));
+      });
+
+      it('labels a term while a label of its translation adds that translation: the new translation gets both labels', async () => {
+        const [termLabelId, translationLabelId] = [await createLabel('of the term'), await createLabel('of the translation')];
+
+        // The label is added to the term while the request of the other one waits right after its read of the term
+        let status: number;
+        pauseAfterFirstRead(Term, async () => {
+          status = (await termLabelRequest('post', termLabelId)).status;
+        });
+        try {
+          await labelNewTranslation(translationLabelId).expect(201);
+        } finally {
+          jest.restoreAllMocks();
+        }
+
+        expect(status).toBe(201);
+        expect(await labelIdsOfTerm()).toEqual([termLabelId]);
+        expect(await labelIdsOfTranslation('fr_FR')).toEqual([termLabelId, translationLabelId].sort(byValue));
+      });
+
+      // Starts a label of the term right after the first read of the term with its labels by `findOneOrFail`: the read
+      // that copies them into the new translation. The paused request goes on once the label request is done or asks for
+      // its lock on the term, which the paused request may hold until it commits. Resolves with the label request's status
+      const labelTermRightAfterLabelsRead = (labelId: string): (() => Promise<number>) => {
+        let lockRequested: () => void;
+        const waitsForLock = new Promise<void>(resolve => (lockRequested = resolve));
+        const findOne = EntityManager.prototype.findOne;
+        jest.spyOn(EntityManager.prototype, 'findOne').mockImplementation(function (this: EntityManager, target: any, options: any) {
+          if (target === Term && ['for_no_key_update', 'pessimistic_write'].includes(options?.lock?.mode)) {
+            lockRequested();
+          }
+          return findOne.call(this, target, options);
+        } as any);
+
+        const findOneOrFail = EntityManager.prototype.findOneOrFail;
+        let labeled: Promise<number>;
+        jest.spyOn(EntityManager.prototype, 'findOneOrFail').mockImplementation(async function (this: EntityManager, target: any, options: any) {
+          const found = await findOneOrFail.call(this, target, options);
+          if (target === Term && options?.relations?.includes?.('labels') && !labeled) {
+            // Not awaited: the label request may wait for the paused request to commit
+            labeled = termLabelRequest('post', labelId).then(res => res.status);
+            await Promise.race([labeled, waitsForLock]);
+          }
+          return found;
+        } as any);
+        return () => labeled;
+      };
+
+      // The same with the label request done or waiting at that point for sure, after the read of the labels in the
+      // transaction that adds the translation. Not on SQLite, which runs one transaction at a time
+      (isDbType(DbType.BETTER_SQLITE3) ? it.skip : it)(
+        'labels a term right after the first save of a value read its labels: the new translation gets the label',
+        async () => {
+          const labelId = await createLabel('labeled');
+
+          const labeled = labelTermRightAfterLabelsRead(labelId);
+          try {
+            await saveFirstValue().expect(200);
+          } finally {
+            jest.restoreAllMocks();
+          }
+
+          expect(await labeled()).toBe(201);
+          expect(await labelIdsOfTerm()).toEqual([labelId]);
+          expect(await labelIdsOfTranslation('fr_FR')).toEqual([labelId]);
+        },
+      );
+
+      (isDbType(DbType.BETTER_SQLITE3) ? it.skip : it)(
+        'labels a term right after a label of its translation read its labels: the new translation gets both labels',
+        async () => {
+          const [termLabelId, translationLabelId] = [await createLabel('of the term'), await createLabel('of the translation')];
+
+          const labeled = labelTermRightAfterLabelsRead(termLabelId);
+          try {
+            await labelNewTranslation(translationLabelId).expect(201);
+          } finally {
+            jest.restoreAllMocks();
+          }
+
+          expect(await labeled()).toBe(201);
+          expect(await labelIdsOfTerm()).toEqual([termLabelId]);
+          expect(await labelIdsOfTranslation('fr_FR')).toEqual([termLabelId, translationLabelId].sort(byValue));
+        },
+      );
+    });
   });
 
   afterEach(async () => {
