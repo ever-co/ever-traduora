@@ -51,9 +51,7 @@ describe('ProjectActivityController', () => {
     const result = await controller.find({ user }, 'project-1');
 
     expect(auth.authorizeProjectAction).toHaveBeenCalledWith(user, 'project-1', ProjectAction.ViewTranslation);
-    expect(historyRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ order: { date: { created: 'DESC' }, revision: 'DESC' }, take: 50 }),
-    );
+    expect(historyRepo.find).toHaveBeenCalledWith(expect.objectContaining({ order: { date: { created: 'DESC' }, revision: 'DESC' }, take: 50 }));
     expect(result.data).toEqual([
       {
         id: 'h-1',
