@@ -1,6 +1,15 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { join } from 'path';
+import { DataSource, DataSourceOptions, EntityManager, Logger } from 'typeorm';
 import { ImportQuery } from '../domain/http';
+import { Label } from '../entity/label.entity';
+import { Locale } from '../entity/locale.entity';
+import { ProjectLocale } from '../entity/project-locale.entity';
+import { Project } from '../entity/project.entity';
+import { Term } from '../entity/term.entity';
+import { Translation } from '../entity/translation.entity';
+import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
 import { ImportController } from './import.controller';
 
 describe('ImportController term/translation resolution', () => {
@@ -212,5 +221,148 @@ describe('ImportController term/translation resolution', () => {
       expect(result).toEqual([]);
       expect(em.createQueryBuilder).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('ImportController labels of the imported translations', () => {
+  let dataSource: DataSource;
+  // The statements the import runs, without those of the label request it runs alongside
+  const statements: string[] = [];
+  let recording = false;
+
+  beforeEach(async () => {
+    const logger: Logger = {
+      logQuery: query => {
+        if (recording) {
+          statements.push(query);
+        }
+      },
+      logQueryError: () => undefined,
+      logQuerySlow: () => undefined,
+      logSchemaBuild: () => undefined,
+      logMigration: () => undefined,
+      log: () => undefined,
+    };
+    dataSource = new DataSource({
+      type: 'better-sqlite3',
+      database: ':memory:',
+      foreignKeys: true,
+      entities: [join(__dirname, '../entity/*.entity.ts')],
+      migrations: [join(__dirname, '../migrations/*.ts')],
+      namingStrategy: new SnakeNamingStrategy(),
+      logging: ['query'],
+      logger,
+    } as DataSourceOptions);
+    await dataSource.initialize();
+    await dataSource.runMigrations();
+    statements.length = 0;
+  });
+
+  afterEach(async () => {
+    recording = false;
+    jest.restoreAllMocks();
+    await dataSource.destroy();
+  });
+
+  it('never removes a label row: a label added or removed while the import runs stays so', async () => {
+    const manager = dataSource.manager;
+    const project = await manager.save(Project, { name: 'Project', termsCount: 2, localesCount: 1, plan: { code: 'open-source' } });
+    const locale = await manager.findOneByOrFail(Locale, { code: 'de' });
+    const projectLocale = await manager.save(ProjectLocale, { project, locale });
+    const [own, ofTerm, added] = await manager.save(
+      Label,
+      ['own', 'term', 'added'].map(value => ({ value, color: '#202020', project })),
+    );
+    // Both terms have the label `term`; the stored translation of term.one has only its own label `own`, and term.two
+    // has no translation yet
+    const termOne = await manager.save(Term, { value: 'term.one', project, labels: [ofTerm] });
+    const termTwo = await manager.save(Term, { value: 'term.two', project, labels: [ofTerm] });
+    await manager.save(Translation, { termId: termOne.id, projectLocaleId: projectLocale.id, value: 'eins', labels: [own] });
+
+    // A label request that is done after the import has read the labels of the locale, before it writes the translations:
+    // it removes `own` from the translation of term.one and adds `added` to it
+    const find = EntityManager.prototype.find;
+    let labelRequestDone = false;
+    jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, target: any, options: any) {
+      const found = await find.call(this, target, options);
+      if (target === Translation && !labelRequestDone) {
+        labelRequestDone = true;
+        recording = false;
+        const labels = this.createQueryBuilder().relation(Translation, 'labels').of({ termId: termOne.id, projectLocaleId: projectLocale.id });
+        await labels.remove(own.id);
+        await labels.add(added.id);
+        recording = true;
+      }
+      return found;
+    } as any);
+
+    const auth: any = { getRequestUserOrClient: () => ({}), authorizeProjectAction: async () => ({ project }) };
+    const controller = new ImportController(
+      auth,
+      dataSource.getRepository(Translation),
+      dataSource.getRepository(Term),
+      dataSource.getRepository(ProjectLocale),
+      dataSource.getRepository(Locale),
+    );
+    const file = { buffer: Buffer.from(JSON.stringify({ 'term.one': 'EINS', 'term.two': 'ZWEI' })) };
+
+    recording = true;
+    const result = await controller.import({}, project.id, plainToInstance(ImportQuery, { locale: 'de', format: 'jsonflat' }), file);
+    recording = false;
+
+    expect(labelRequestDone).toBe(true);
+    expect(result.data.translations.upserted).toBe(2);
+    const translationOf = (term: Term) =>
+      manager.findOneOrFail(Translation, { where: { termId: term.id, projectLocaleId: projectLocale.id }, relations: ['labels'] });
+    const one = await translationOf(termOne);
+    const two = await translationOf(termTwo);
+    expect([one.value, two.value]).toEqual(['EINS', 'ZWEI']);
+    // The label request's change stays, and each translation gets the label of its term it is missing
+    expect(one.labels.map(label => label.value).sort()).toEqual(['added', 'term']);
+    expect(two.labels.map(label => label.value)).toEqual(['term']);
+    // The import only adds label rows
+    const labelStatements = statements.filter(statement => statement.includes('label_translations_translation'));
+    expect(labelStatements.filter(statement => /^\s*(DELETE|UPDATE)\b/i.test(statement))).toEqual([]);
+  });
+
+  it('keeps a label removed from a term and then from its translation after the import read the first labels', async () => {
+    const manager = dataSource.manager;
+    const project = await manager.save(Project, { name: 'Project', termsCount: 1, localesCount: 1, plan: { code: 'open-source' } });
+    const locale = await manager.findOneByOrFail(Locale, { code: 'de' });
+    const projectLocale = await manager.save(ProjectLocale, { project, locale });
+    const ofTerm = await manager.save(Label, { value: 'term', color: '#202020', project });
+    const term = await manager.save(Term, { value: 'term.one', project, labels: [ofTerm] });
+    const where = { termId: term.id, projectLocaleId: projectLocale.id };
+    await manager.save(Translation, { ...where, value: 'eins', labels: [ofTerm] });
+
+    // Right after the import's first read of labels (those of the terms or those of the translations), the label is
+    // removed from the term and then from its translation
+    const find = EntityManager.prototype.find;
+    let labelRequestsDone = false;
+    jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, target: any, options: any) {
+      const found = await find.call(this, target, options);
+      if ((target === Term || target === Translation) && !labelRequestsDone) {
+        labelRequestsDone = true;
+        await this.createQueryBuilder().relation(Term, 'labels').of(term.id).remove(ofTerm.id);
+        await this.createQueryBuilder().relation(Translation, 'labels').of(where).remove(ofTerm.id);
+      }
+      return found;
+    } as any);
+
+    const auth: any = { getRequestUserOrClient: () => ({}), authorizeProjectAction: async () => ({ project }) };
+    const controller = new ImportController(
+      auth,
+      dataSource.getRepository(Translation),
+      dataSource.getRepository(Term),
+      dataSource.getRepository(ProjectLocale),
+      dataSource.getRepository(Locale),
+    );
+    const file = { buffer: Buffer.from(JSON.stringify({ 'term.one': 'EINS' })) };
+    await controller.import({}, project.id, plainToInstance(ImportQuery, { locale: 'de', format: 'jsonflat' }), file);
+
+    expect(labelRequestsDone).toBe(true);
+    const translation = await manager.findOneOrFail(Translation, { where, relations: ['labels'] });
+    expect(translation.value).toBe('EINS');
+    expect(translation.labels).toEqual([]);
   });
 });

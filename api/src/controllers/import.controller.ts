@@ -117,6 +117,16 @@ export class ImportController {
           await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);
         }
 
+        // The locale's translations as stored, read once before the values are replaced: their values for the overwrite
+        // option and the history, the ids of their labels so the import adds only the labels of their terms they lack.
+        // Read before the labels of the terms: a label removed from a term and then from a translation after this read is
+        // not one the import adds back
+        const stored = await entityManager.find(Translation, {
+          select: { termId: true, value: true, labels: { id: true } },
+          relations: { labels: true },
+          where: { projectLocaleId: projectLocale.id },
+        });
+
         // Find existing terms and determine which terms to create
         const existingTerms = await entityManager.find(Term, {
           where: { project: { id: membership.project.id } },
@@ -136,14 +146,6 @@ export class ImportController {
         const addedTerms = await entityManager.save(Term, termsToAdd);
         const allTerms = [...addedTerms, ...existingTerms];
 
-        // The locale's translations as stored, read once before the values are replaced: their values for the overwrite
-        // option and the history, the ids of their labels so the import keeps them
-        const stored = await entityManager.find(Translation, {
-          select: { termId: true, value: true, labels: { id: true } },
-          relations: { labels: true },
-          where: { projectLocaleId: projectLocale.id },
-        });
-
         let translationsToAdd = this.determineTranslationsToAdd(allTerms, incoming.translations, projectLocale, stored);
 
         if (query.overwrite === false) {
@@ -160,7 +162,13 @@ export class ImportController {
           user instanceof User ? user : null,
         );
 
-        await entityManager.save(Translation, translationsToAdd);
+        // The values without the labels relation: TypeORM saves a relation as the whole set, so the label sets read above
+        // would undo a label that a request added to or removed from one of these translations since
+        await entityManager.save(
+          Translation,
+          translationsToAdd.map(({ labels, ...values }) => values),
+        );
+        await this.addMissingLabels(entityManager, translationsToAdd, stored);
 
         // Many rows per statement, in chunks that stay within every database's limit on query parameters
         for (const chunk of _.chunk(historyToAdd, 500)) {
@@ -234,8 +242,8 @@ export class ImportController {
         throw new Error('missing term for translation');
       }
 
-      // A new translation gets the labels of its term. A stored one keeps its own labels and gets those of its term: the
-      // labels are saved as the whole set, so a label left out here would be removed from the translation
+      // The labels the translation has after the import: a new one gets the labels of its term, a stored one keeps its own
+      // labels and gets those of its term (only the ones it lacks are written, see addMissingLabels)
       const ownLabels = storedLabels.get(term.id);
       const labels = ownLabels ? _.uniqBy([...ownLabels, ...(term.labels ?? [])], label => label.id) : term.labels;
 
@@ -251,6 +259,44 @@ export class ImportController {
     }
 
     return Array.from(translationsByTermId.values());
+  }
+
+  /**
+   * Adds to each imported translation the labels it lacked when the import read it (`stored`): the labels of its term.
+   * The rows are only inserted, and one that already exists is skipped, so a label that a request added to or removed
+   * from the translation while the import runs stays as that request left it.
+   */
+  private async addMissingLabels(
+    entityManager: EntityManager,
+    translations: Translation[],
+    stored: Pick<Translation, 'termId' | 'labels'>[],
+  ): Promise<void> {
+    // By term: the locale has one translation per term
+    const storedLabelIds = new Map<string, Set<string>>(
+      stored.map(translation => [translation.termId, new Set((translation.labels ?? []).map(label => label.id))]),
+    );
+
+    // The join table belongs to Label.translations; its columns are named after each database's naming strategy
+    const relation = entityManager.connection.getMetadata(Translation).findRelationWithPropertyPath('labels');
+    const junction = relation.junctionEntityMetadata;
+    const labelColumns = relation.isManyToManyOwner ? junction.inverseColumns : junction.ownerColumns;
+    const translationColumns = relation.isManyToManyOwner ? junction.ownerColumns : junction.inverseColumns;
+
+    const rows: Record<string, unknown>[] = [];
+    for (const translation of translations) {
+      const lacking = (translation.labels ?? []).filter(label => !storedLabelIds.get(translation.termId)?.has(label.id));
+      for (const label of lacking) {
+        const row: Record<string, unknown> = {};
+        labelColumns.forEach(column => (row[column.databaseName] = column.referencedColumn.getEntityValue(label)));
+        translationColumns.forEach(column => (row[column.databaseName] = column.referencedColumn.getEntityValue(translation)));
+        rows.push(row);
+      }
+    }
+
+    // Many rows per statement, in chunks that stay within every database's limit on query parameters
+    for (const chunk of _.chunk(rows, 500)) {
+      await entityManager.createQueryBuilder().insert().into(junction.tableName).values(chunk).orIgnore().execute();
+    }
   }
 
   /**
