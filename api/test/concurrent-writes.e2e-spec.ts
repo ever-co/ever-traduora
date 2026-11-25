@@ -41,6 +41,13 @@ describe('Concurrent writes to one project (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .attach('file', Buffer.from(JSON.stringify(content)), 'file');
 
+  const labelRequest = (method: 'post' | 'delete', labelId: string, termId: string) =>
+    request(app.getHttpServer())
+      [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`);
+
+  const byValue = (a: string, b: string) => a.localeCompare(b);
+
   it('adds terms and imports at the same time', async () => {
     for (let round = 0; round < rounds; round++) {
       const [imported, added, alsoAdded] = await Promise.all([
@@ -76,8 +83,6 @@ describe('Concurrent writes to one project (e2e)', () => {
   });
 
   describe('labels of the translations of a locale being imported', () => {
-    const byValue = (a: string, b: string) => a.localeCompare(b);
-
     // A label of single translations, not of their terms: an import neither adds it nor may remove it
     const createLabel = async (): Promise<string> =>
       (
@@ -97,11 +102,6 @@ describe('Concurrent writes to one project (e2e)', () => {
       ).body.data;
       return values.map(value => terms.find(term => term.value === value).id);
     };
-
-    const labelRequest = (method: 'post' | 'delete', labelId: string, termId: string) =>
-      request(app.getHttpServer())
-        [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/de_DE`)
-        .set('Authorization', `Bearer ${testingUser.accessToken}`);
 
     const termIdsWithLabel = async (labelId: string): Promise<string[]> =>
       (
@@ -242,11 +242,6 @@ describe('Concurrent writes to one project (e2e)', () => {
         [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}`)
         .set('Authorization', `Bearer ${testingUser.accessToken}`);
 
-    const translationLabelRequest = (method: 'post' | 'delete', labelId: string) =>
-      request(app.getHttpServer())
-        [method](`/api/v1/projects/${testProject.id}/labels/${labelId}/terms/${termId}/translations/de_DE`)
-        .set('Authorization', `Bearer ${testingUser.accessToken}`);
-
     const labelIdsOfTerm = async (): Promise<string[]> =>
       (
         await request(app.getHttpServer())
@@ -256,7 +251,7 @@ describe('Concurrent writes to one project (e2e)', () => {
       ).body.data
         .find(term => term.id === termId)
         .labels.map(label => label.id)
-        .sort();
+        .sort(byValue);
 
     const labelIdsOfTranslation = async (localeCode: string): Promise<string[]> =>
       (
@@ -267,7 +262,7 @@ describe('Concurrent writes to one project (e2e)', () => {
       ).body.data
         .find(translation => translation.termId === termId)
         .labels.map(label => label.id)
-        .sort();
+        .sort(byValue);
 
     // Runs `during` once, right after the first read of a `target` row by `findOneOrFail`, then goes on with what was read
     const pauseAfterFirstRead = (target: any, during: () => Promise<void>) => {
@@ -298,8 +293,8 @@ describe('Concurrent writes to one project (e2e)', () => {
       }
 
       expect(status).toBe(201);
-      expect(await labelIdsOfTerm()).toEqual([firstId, secondId].sort());
-      expect(await labelIdsOfTranslation('de_DE')).toEqual([firstId, secondId].sort());
+      expect(await labelIdsOfTerm()).toEqual([firstId, secondId].sort(byValue));
+      expect(await labelIdsOfTranslation('de_DE')).toEqual([firstId, secondId].sort(byValue));
     });
 
     it('labels a term with the same label twice at once: both requests are done and the label is there once', async () => {
@@ -322,15 +317,15 @@ describe('Concurrent writes to one project (e2e)', () => {
 
     it('unlabels a translation while another label is added to it: the other label stays', async () => {
       const [removedId, addedId] = [await createLabel('removed'), await createLabel('added')];
-      await translationLabelRequest('post', removedId).expect(201);
+      await labelRequest('post', removedId, termId).expect(201);
 
       // The other label is added while the unlabel request waits right after its read of the translation
       let status: number;
       pauseAfterFirstRead(Translation, async () => {
-        status = (await translationLabelRequest('post', addedId)).status;
+        status = (await labelRequest('post', addedId, termId)).status;
       });
       try {
-        await translationLabelRequest('delete', removedId).expect(204);
+        await labelRequest('delete', removedId, termId).expect(204);
       } finally {
         jest.restoreAllMocks();
       }
