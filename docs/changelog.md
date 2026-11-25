@@ -8,6 +8,12 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Project activity API: `GET /api/v1/projects/:projectId/activity` lists the latest changes made to the translations
+  of a project, newest first, with the term, the locale code, the previous and the new value and the user who made the
+  change (none for API clients). `locale=<code>` narrows it to one locale and `limit` (1 to 100, 50 by default) sets how
+  many to return. It needs the same permission as viewing translations. Before, the history could only be read one
+  translation at a time
+
 - Two label changes on the same term or translation at once both stay. Before, adding a label to a term, or removing
   one from a term or a translation, wrote back the whole set of labels it had read, so a label that another request
   added meanwhile was removed, with nothing recorded (e.g. two labels added to one term at once kept only one). Now each
