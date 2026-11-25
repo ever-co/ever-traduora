@@ -8,6 +8,12 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Two label changes on the same term or translation at once both stay. Before, adding a label to a term, or removing
+  one from a term or a translation, wrote back the whole set of labels it had read, so a label that another request
+  added meanwhile was removed, with nothing recorded (e.g. two labels added to one term at once kept only one). Now each
+  of these requests adds or removes its own label only. A label added to a term while an import or a new locale adds
+  translations of the term now goes to those translations too: before, on Postgres and MySQL, they could miss it
+
 - A label added to or removed from a translation while an import into its locale runs (also a label added to its term,
   which goes to all its translations) stays so. Before, on Postgres and MySQL, the import wrote back the labels each
   translation had when it started, so it removed a label added meanwhile and brought back one removed meanwhile, with

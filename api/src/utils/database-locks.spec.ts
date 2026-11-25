@@ -1,4 +1,4 @@
-import { isTransientDatabaseError, lockProject } from './database-locks';
+import { isTransientDatabaseError, lockProject, lockProjectForShare } from './database-locks';
 
 describe('isTransientDatabaseError', () => {
   it('recognizes deadlocks, lock timeouts and busy databases', () => {
@@ -19,6 +19,16 @@ describe('lockProject', () => {
     const entityManager: any = { findOne: jest.fn() };
 
     await lockProject(entityManager, 'project-1');
+
+    expect(entityManager.findOne).not.toHaveBeenCalled();
+  });
+});
+
+describe('lockProjectForShare', () => {
+  it('takes no lock on SQLite, which runs one transaction at a time', async () => {
+    const entityManager: any = { findOne: jest.fn() };
+
+    await lockProjectForShare(entityManager, 'project-1');
 
     expect(entityManager.findOne).not.toHaveBeenCalled();
   });
