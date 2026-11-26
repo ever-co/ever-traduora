@@ -43,9 +43,9 @@
   }
 }
 
-/* The panel: 18 rem, so every name and its line fit on one row each; 8 px from the edges on a phone. */
+/* The panel: 20 rem, so every name and its line fit on one row each in Ubuntu; 8 px from the edges on a phone. */
 .ever-app-panel {
-  width: 18rem;
+  width: 20rem;
   max-width: calc(100vw - 16px);
   padding: 4px;
   border-color: rgba(33, 37, 41, 0.1);
