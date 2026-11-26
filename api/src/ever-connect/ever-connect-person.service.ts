@@ -14,6 +14,7 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { DbType, isDbType } from '../utils/database-type-helper';
+import { normalizeEmail } from '../ever-platform/env';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
 import { EverConnectAuditService } from './ever-connect-audit.service';
@@ -392,7 +393,9 @@ export class EverConnectPersonService {
   async deletionHold(manager: EntityManager, userId: string, deleting: ReadonlyArray<string> = [userId]): Promise<PersonDeletionHold | null> {
     const user = await manager.getRepository(User).findOne({ where: { id: userId } });
     if (!user) return null;
-    if (this.instanceSettings.adminEmails.includes((user.email || '').trim().toLowerCase())) {
+    // Both sides normalized (`TR_EVER_ADMIN_EMAILS` is read that way); an account without an e-mail is no operator
+    const email = normalizeEmail(user.email);
+    if (email && this.instanceSettings.adminEmails.map(normalizeEmail).includes(email)) {
       return 'operator';
     }
     const memberships = manager.getRepository(ProjectUser);
