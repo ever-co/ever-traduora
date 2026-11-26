@@ -164,6 +164,20 @@ describeOnSqlite('EverConnectPersonService', () => {
     expect(subjectHashesOf(null)).toEqual([]);
   });
 
+  /** The installation's address, as the operator reports it for `instance_url` (`null`: none reported). */
+  const reportAddress = (baseUrl: string | null, state = 'enabled') =>
+    dataSource.getRepository(EverConnectIntegration).save(
+      dataSource.getRepository(EverConnectIntegration).create({
+        key: 'instance_url',
+        state,
+        consentId: 'c-url',
+        scopeVersion: 1,
+        pendingRemoteRevoke: false,
+        config: baseUrl ? JSON.stringify({ base_url: baseUrl }) : null,
+        updatedAt: Date.now(),
+      }),
+    );
+
   it('offers an export only at an https address of this installation', () => {
     expect(personExportUrl('https://translate.example.test')).toBe('https://translate.example.test/user-settings');
     expect(personExportUrl('https://example.test/traduora/')).toBe('https://example.test/traduora/user-settings');
@@ -331,7 +345,7 @@ describeOnSqlite('EverConnectPersonService', () => {
   });
 
   describe('export requests', () => {
-    const EXPORTS_ON: Partial<EverConnectSettings> = { personExportEnabled: true, appUrl: 'https://translate.example.test' };
+    const EXPORTS_ON: Partial<EverConnectSettings> = { personExportEnabled: true };
 
     it('switched off (the default): makes no export and answers export_not_available', async () => {
       const { person } = await connected();
@@ -344,6 +358,7 @@ describeOnSqlite('EverConnectPersonService', () => {
 
     it('an exported answer that can no longer name its address is sent as export_not_available', async () => {
       const { person } = await connected(EXPORTS_ON);
+      await reportAddress('https://translate.example.test');
       await linkIdentity(alice, 's1');
       const live = await build().connect.liveClient();
       const event = request(EXPORT, 'job-e3', [subjectHash(ISSUER, 's1')]);
@@ -351,8 +366,9 @@ describeOnSqlite('EverConnectPersonService', () => {
       await expect(person.handleEvents(live.client, [event])).rejects.toThrow();
       platform.unreachable = false;
 
-      // Started again with TR_VIRTUAL_HOST no longer https
-      const restarted = build({ personExportEnabled: true, appUrl: 'http://localhost:8080' }).person;
+      // The address is withdrawn meanwhile
+      await reportAddress(null, 'disabled');
+      const restarted = build(EXPORTS_ON).person;
       await restarted.handleEvents(live.client, [event]);
       expect(platform.answers).toEqual([{ jobId: 'job-e3', result: 'failed', reasonCode: 'export_not_available' }]);
       const receipt = await dataSource.getRepository(EverConnectPersonRequest).findOne({ where: { jobId: 'job-e3' } });
@@ -360,17 +376,24 @@ describeOnSqlite('EverConnectPersonService', () => {
       expect(receipt.answeredAt).not.toBeNull();
     });
 
-    it('switched on without an https address of this installation: makes no export', async () => {
-      const { person } = await connected({ personExportEnabled: true, appUrl: 'http://localhost:8080' });
+    it('switched on without a reported https address of this installation: makes no export', async () => {
+      const { person } = await connected(EXPORTS_ON);
       await linkIdentity(alice, 's1');
       const live = await build().connect.liveClient();
+      // No address reported (instance_url not enabled), then an http one
       await person.handleEvents(live.client, [request(EXPORT, 'job-e2', [subjectHash(ISSUER, 's1')])]);
-      expect(platform.answers).toEqual([{ jobId: 'job-e2', result: 'failed', reasonCode: 'export_not_available' }]);
+      await reportAddress('http://localhost:8080');
+      await person.handleEvents(live.client, [request(EXPORT, 'job-e4', [subjectHash(ISSUER, 's1')])]);
+      expect(platform.answers).toEqual([
+        { jobId: 'job-e2', result: 'failed', reasonCode: 'export_not_available' },
+        { jobId: 'job-e4', result: 'failed', reasonCode: 'export_not_available' },
+      ]);
       expect(await dataSource.getRepository(EverConnectPersonExport).count()).toBe(0);
     });
 
     it('makes one encrypted export per account, readable by that account only, for 7 days', async () => {
       const { person } = await connected(EXPORTS_ON);
+      await reportAddress('https://translate.example.test/');
       await linkIdentity(alice, 's1');
       await linkIdentity(bob, 's2');
       const project = await dataSource.getRepository(Project).save(dataSource.getRepository(Project).create({ name: 'Website', description: '' }));

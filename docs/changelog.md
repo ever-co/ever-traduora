@@ -12,7 +12,8 @@ To download the source code for each release, check out [GitHub](https://github.
   Before, an export was answered `exported` without the address Ever Platform requires (so it was refused), and a
   deletion was answered `anonymised`, a final answer, though only the Ever ID was removed and the account stayed. Now
   each part has its own switch, off by default: `TR_EVER_CONNECT_PERSON_EXPORT_ENABLED=true` makes the export and
-  answers `exported` with the address of **My data exports** (`TR_VIRTUAL_HOST` must be https);
+  answers `exported` with the address of **My data exports** at the installation's reported https address
+  (**Installation address**);
   `TR_EVER_CONNECT_PERSON_DELETION_ENABLED=true` deletes the matched accounts as **Delete account** does, unless the
   account operates this installation or is the last admin of a project, and answers `deleted`. Off, or kept, the answer
   is `failed` (`export_not_available`, `account_deletion_pending`), which keeps the request open on Ever Platform. See

@@ -56,13 +56,14 @@ export const PERSON_EXPORT_PAGE = '/user-settings';
 export type PersonDeletionHold = 'operator' | 'project_last_admin';
 
 /**
- * The address of the page where an account downloads its exports, under `appUrl` (`TR_VIRTUAL_HOST`): https only,
- * without credentials, at most 2048 characters (what Ever Platform accepts); `null` otherwise.
+ * The address of the page where an account downloads its exports, under the installation's address `baseUrl` (the one
+ * the operator reported for `instance_url`): https only, without credentials, at most 2048 characters (what Ever
+ * Platform accepts); `null` otherwise.
  */
-export function personExportUrl(appUrl: string | undefined): string | null {
+export function personExportUrl(baseUrl: string | null | undefined): string | null {
   let url: URL;
   try {
-    url = new URL((appUrl || '').trim());
+    url = new URL((baseUrl || '').trim());
   } catch {
     return null;
   }
@@ -137,11 +138,13 @@ export function subjectHashesOf(data: Record<string, unknown> | null | undefined
  *   deletes them, unless one is held ({@link deletionHold}): answered `deleted`. Otherwise the accounts, their passwords
  *   and other sign-in methods stay and the answer is `failed` (`account_deletion_pending`): Ever Platform keeps the
  *   request open, and the person deletes the account in Traduora. Nothing matched: `no_account`.
- * - export requests: with `TR_EVER_CONNECT_PERSON_EXPORT_ENABLED=true` and an https `TR_VIRTUAL_HOST`, one export per
- *   matched account (its profile, its Ever IDs, its projects with the role, how many translation changes it made),
- *   encrypted and downloadable by that account only, for 7 days, from its account settings: answered `exported` with that
- *   page's address (Ever Platform refuses `exported` without one). Otherwise no export is made and the answer is `failed`
- *   (`export_not_available`). Nothing matched: `no_account`.
+ * - export requests: with `TR_EVER_CONNECT_PERSON_EXPORT_ENABLED=true` and the installation's address reported to Ever
+ *   Platform (`instance_url` enabled and its address set by the operator: the answer names a page at that address, and
+ *   the address is sent only once it may be), one export per matched account (its profile, its Ever IDs, its projects
+ *   with the role, how many translation changes it made), encrypted and downloadable by that account only, for 7 days,
+ *   from its account settings: answered `exported` with that page's address (Ever Platform refuses `exported` without
+ *   one). Otherwise no export is made and the answer is `failed` (`export_not_available`). Nothing matched:
+ *   `no_account`.
  *
  * Nothing is matched by e-mail: only by the hash of an Ever ID (issuer and subject) the request names.
  */
@@ -307,7 +310,7 @@ export class EverConnectPersonService {
           row.result = 'failed';
           row.reasonCode = 'account_deletion_pending';
         }
-      } else if (this.settings.personExportEnabled && personExportUrl(this.settings.appUrl)) {
+      } else if (this.settings.personExportEnabled && (await this.exportUrl(manager))) {
         row.accounts = await this.exportAccounts(manager, row.jobId, matches);
         row.result = row.accounts ? 'exported' : 'no_account';
       } else {
@@ -415,6 +418,23 @@ export class EverConnectPersonService {
     return null;
   }
 
+  /**
+   * The page where an account downloads its exports, at the address the operator reported for `instance_url`, while
+   * that integration is enabled and not denied here; `null` otherwise (no export is offered then).
+   */
+  private async exportUrl(manager: EntityManager = this.integrationRows.manager): Promise<string | null> {
+    if (this.settings.integrationsDeny.includes('instance_url')) return null;
+    const row = await manager.findOne(EverConnectIntegration, { where: { key: 'instance_url' } });
+    if (!row || row.state !== 'enabled' || row.pendingRemoteRevoke || !row.config) return null;
+    let baseUrl: unknown;
+    try {
+      baseUrl = (JSON.parse(row.config) as { base_url?: unknown }).base_url;
+    } catch {
+      return null;
+    }
+    return typeof baseUrl === 'string' ? personExportUrl(baseUrl) : null;
+  }
+
   /** An export request: one encrypted export per matched account, each with that account's own data only. */
   private async exportAccounts(manager: EntityManager, jobId: string, matches: IdentityRow[]): Promise<number> {
     const userIds = Array.from(new Set(matches.map(identity => identity.userId)));
@@ -486,11 +506,11 @@ export class EverConnectPersonService {
    * throws, so it is sent again with the next read of the feed.
    */
   private async answer(client: EverConnectPlatformClient, request: EverConnectPersonRequest): Promise<void> {
-    const exportUrl = request.result === 'exported' ? personExportUrl(this.settings.appUrl) : null;
+    const exportUrl = request.result === 'exported' ? await this.exportUrl() : null;
     if (request.result === 'exported' && !exportUrl) {
-      // Decided while TR_VIRTUAL_HOST was https, and it no longer is: Ever Platform refuses `exported` without the
-      // address, so the answer becomes the one an installation without an address gives (not final: the request stays
-      // open there, and the person can ask again)
+      // Decided while the installation's address was reported, and it no longer is: Ever Platform refuses `exported`
+      // without the address, so the answer becomes the one an installation without an address gives (not final: the
+      // request stays open there, and the person can ask again)
       this.logger.warn('ever_connect.person_request kind=export outcome=export_url_unavailable');
       request.result = 'failed';
       request.reasonCode = 'export_not_available';

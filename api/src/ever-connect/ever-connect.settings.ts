@@ -26,8 +26,6 @@ export interface EverConnectSettings {
   personExportEnabled?: boolean;
   /** Whether a person's deletion request deletes the matched accounts (`TR_EVER_CONNECT_PERSON_DELETION_ENABLED=true`); off when unset. */
   personDeletionEnabled?: boolean;
-  /** Where people open Traduora (`TR_VIRTUAL_HOST`): an export is offered only when it is https. */
-  appUrl?: string;
 }
 
 export const EVER_CONNECT_SETTINGS = Symbol('ever connect settings');
@@ -53,6 +51,5 @@ export function readEverConnectSettings(): EverConnectSettings {
     provisionEnabled: everPlatform.connectProvisionEnabled,
     personExportEnabled: everPlatform.connectPersonExportEnabled,
     personDeletionEnabled: everPlatform.connectPersonDeletionEnabled,
-    appUrl: config.virtualHost,
   };
 }

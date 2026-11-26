@@ -7,6 +7,7 @@ import { subjectHash } from '@ever-co/connect-sdk';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { Connection } from 'typeorm';
+import { EverConnectIntegration } from '../src/entity/ever-connect-integration.entity';
 import { EverConnectPersonExport } from '../src/entity/ever-connect-person-export.entity';
 import { EverIdSession } from '../src/entity/ever-id-session.entity';
 import { IdentityLinkMethod, UserIdentity } from '../src/entity/user-identity.entity';
@@ -39,16 +40,11 @@ describe("A person's Ever ID requests through the Ever Platform connection (e2e)
       { provide: EVER_CONNECT_AUTOSTART, useValue: false },
       { provide: EVER_CONNECT_CLIENT_FACTORY, useValue: platform.factory },
       // The feed is read at every round (the fake answers at once)
-      // Exports switched on, at an https address; deletions left as they are by default (the accounts stay)
+      // Exports switched on (the address is the one reported for instance_url, below); deletions left as they are by
+      // default (the accounts stay)
       {
         provide: EVER_CONNECT_SETTINGS,
-        useValue: {
-          ...readEverConnectSettings(),
-          apiUrl: 'http://127.0.0.1:8080',
-          feedMode: 'longpoll',
-          personExportEnabled: true,
-          appUrl: 'https://translate.example.test',
-        },
+        useValue: { ...readEverConnectSettings(), apiUrl: 'http://127.0.0.1:8080', feedMode: 'longpoll', personExportEnabled: true },
       },
       { provide: EVER_INSTANCE_SETTINGS, useValue: { installSource: 'self-hosted', adminEmails: [OPERATOR_EMAIL], secret: 'e2e-person-secret' } },
     ]);
@@ -112,6 +108,20 @@ describe("A person's Ever ID requests through the Ever Platform connection (e2e)
   });
 
   it("answers Alice's export request with an export only she can download", async () => {
+    // The operator reported the installation's address (instance_url, consented in app.ever.co)
+    platform.integrationStates.instance_url = { state: 'enabled', enabled: true, consentId: 'c-url', scopeVersion: 1 };
+    await app
+      .get(Connection)
+      .getRepository(EverConnectIntegration)
+      .save({
+        key: 'instance_url',
+        state: 'enabled',
+        consentId: 'c-url',
+        scopeVersion: 1,
+        pendingRemoteRevoke: false,
+        config: JSON.stringify({ base_url: 'https://translate.example.test/' }),
+        updatedAt: Date.now(),
+      });
     platform.events = [
       {
         id: 'export-1',
