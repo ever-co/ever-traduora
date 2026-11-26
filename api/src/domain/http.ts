@@ -6,6 +6,7 @@ import {
   IsEmail,
   IsEnum,
   IsHexColor,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -16,6 +17,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { InviteStatus } from '../entity/invite.entity';
+import { OrganizationPlanCode, OrganizationRole, OrganizationStatus } from './organization-actions';
 import { ProjectRole } from '../entity/project-user.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
 import { IsValidLabel } from '../validators/IsValidLabel';
@@ -127,6 +129,8 @@ export class ProjectDTO {
   termsCount: number;
   @ApiProperty({ enum: ProjectRole })
   role: ProjectRole;
+  @ApiProperty({ description: 'The organization the project belongs to' })
+  organizationId: string;
   @ApiProperty()
   date: AccessDatesDTO;
 }
@@ -344,6 +348,8 @@ export class SignupResponse extends ServiceApiResponse<NewUserDTO> {
 export class ListAuthProvidersResponse extends ServiceApiResponse<AuthProviderDTO[]> {
   @ApiProperty({ type: AuthProviderDTO, isArray: true })
   data: AuthProviderDTO[];
+  @ApiProperty({ description: 'Whether the installation runs in SaaS mode (TR_SAAS_ENABLED): organizations are shown' })
+  saas: boolean;
 }
 
 export class ImportResponse extends ServiceApiResponse<ImportFileDTO> {
@@ -470,6 +476,17 @@ export class SignupRequest {
   @IsString()
   @Length(1, 255)
   inviteToken?: string;
+
+  @ApiPropertyOptional({
+    description: "SaaS mode: the name of the person's own organization, made unless an invitation makes them a member of one",
+    minLength: 2,
+    maxLength: 80,
+  })
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  @Validate(IsNotOnlyWhitespace)
+  organizationName?: string;
 }
 
 export class AcceptInviteRequest {
@@ -654,6 +671,16 @@ export class CreateProjectRequest {
   @Length(0, 255)
   @ApiPropertyOptional({ minLength: 0, maxLength: 255 })
   description: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 64)
+  @ApiPropertyOptional({
+    description:
+      'The organization to create the project in. Without it: the default organization (single-tenant mode), or the ' +
+      `caller's own organization (SaaS mode)`,
+  })
+  organizationId?: string;
 }
 
 export class UpdateProjectRequest {
@@ -934,4 +961,153 @@ export class ConnectIdentityDTO {
 export class ConnectIdentityResponse extends ServiceApiResponse<ConnectIdentityDTO> {
   @ApiProperty()
   data: ConnectIdentityDTO;
+}
+
+export class OrganizationDTO {
+  @ApiProperty()
+  id: string;
+  @ApiProperty()
+  name: string;
+  @ApiProperty({ description: 'The organization in the web app addresses, /orgs/<slug>/...' })
+  slug: string;
+  @ApiProperty({ enum: OrganizationStatus })
+  status: OrganizationStatus;
+  @ApiProperty({ enum: OrganizationPlanCode })
+  planCode: OrganizationPlanCode;
+  @ApiProperty({ description: 'The organization of a single-tenant install, made for its existing data' })
+  isDefault: boolean;
+  @ApiProperty({ enum: OrganizationRole, description: "The caller's role" })
+  role: OrganizationRole;
+  @ApiProperty()
+  date: AccessDatesDTO;
+}
+
+export class OrganizationResponse extends ServiceApiResponse<OrganizationDTO> {
+  @ApiProperty()
+  data: OrganizationDTO;
+}
+
+export class ListOrganizationsResponse extends ServiceApiResponse<OrganizationDTO[]> {
+  @ApiProperty({ type: OrganizationDTO, isArray: true })
+  data: OrganizationDTO[];
+}
+
+export class OrganizationMemberDTO {
+  @ApiProperty()
+  userId: string;
+  @ApiProperty()
+  name: string;
+  @ApiProperty()
+  email: string;
+  @ApiProperty({ enum: OrganizationRole })
+  role: OrganizationRole;
+}
+
+export class ListOrganizationMembersResponse extends ServiceApiResponse<OrganizationMemberDTO[]> {
+  @ApiProperty({ type: OrganizationMemberDTO, isArray: true })
+  data: OrganizationMemberDTO[];
+}
+
+export class OrganizationMemberResponse extends ServiceApiResponse<OrganizationMemberDTO> {
+  @ApiProperty()
+  data: OrganizationMemberDTO;
+}
+
+export class OrganizationInviteDTO {
+  @ApiProperty()
+  id: string;
+  @ApiProperty()
+  email: string;
+  @ApiProperty({ enum: [OrganizationRole.Admin, OrganizationRole.Member] })
+  role: OrganizationRole;
+  @ApiProperty({ enum: InviteStatus })
+  status: InviteStatus;
+}
+
+export class OrganizationInviteCreatedDTO extends OrganizationInviteDTO {
+  @ApiProperty({ description: 'Sign-up link for the invitee, also sent by email. Share it only with the invited person.' })
+  inviteUrl: string;
+}
+
+export class ListOrganizationInvitesResponse extends ServiceApiResponse<OrganizationInviteDTO[]> {
+  @ApiProperty({ type: OrganizationInviteDTO, isArray: true })
+  data: OrganizationInviteDTO[];
+}
+
+export class OrganizationInviteCreatedResponse extends ServiceApiResponse<OrganizationInviteCreatedDTO | OrganizationMemberDTO> {
+  @ApiProperty({ description: 'The new member (an account with a verified email joins at once), or the invite with its link' })
+  data: OrganizationInviteCreatedDTO | OrganizationMemberDTO;
+}
+
+export class AcceptedOrganizationInviteDTO {
+  @ApiProperty()
+  organizationId: string;
+  @ApiProperty()
+  slug: string;
+  @ApiProperty({ enum: OrganizationRole })
+  role: OrganizationRole;
+}
+
+export class AcceptOrganizationInviteResponse extends ServiceApiResponse<AcceptedOrganizationInviteDTO> {
+  @ApiProperty()
+  data: AcceptedOrganizationInviteDTO;
+}
+
+export class CreateOrganizationRequest {
+  @ApiProperty({ minLength: 2, maxLength: 80 })
+  @IsString()
+  @Length(2, 80)
+  @Validate(IsNotOnlyWhitespace)
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Derived from the name when left out', minLength: 3, maxLength: 40 })
+  @IsOptional()
+  @IsString()
+  @Length(3, 40)
+  slug?: string;
+}
+
+export class UpdateOrganizationRequest {
+  @ApiPropertyOptional({ minLength: 2, maxLength: 80 })
+  @IsOptional()
+  @IsString()
+  @Length(2, 80)
+  @Validate(IsNotOnlyWhitespace)
+  name?: string;
+
+  @ApiPropertyOptional({ minLength: 3, maxLength: 40 })
+  @IsOptional()
+  @IsString()
+  @Length(3, 40)
+  slug?: string;
+}
+
+export class UpdateOrganizationMemberRequest {
+  @ApiProperty({ enum: [OrganizationRole.Admin, OrganizationRole.Member] })
+  @IsIn([OrganizationRole.Admin, OrganizationRole.Member])
+  role: OrganizationRole;
+}
+
+export class TransferOwnershipRequest {
+  @ApiProperty({ description: 'The member who becomes the owner; the current owner becomes an admin' })
+  @IsString()
+  @Length(1, 64)
+  userId: string;
+}
+
+export class InviteOrganizationMemberRequest {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ enum: [OrganizationRole.Admin, OrganizationRole.Member] })
+  @IsIn([OrganizationRole.Admin, OrganizationRole.Member])
+  role: OrganizationRole;
+}
+
+export class AcceptOrganizationInviteRequest {
+  @ApiProperty({ description: 'Token from the invitation link' })
+  @IsString()
+  @Length(1, 255)
+  inviteToken: string;
 }

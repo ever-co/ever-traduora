@@ -22,6 +22,7 @@ import { isPublishedPassword } from '../utils/published-passwords';
 import { lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { lockAccount } from './ever-id-session.service';
 import { EMAIL_VERIFICATION_VALID_DAYS, generateEmailVerificationToken, hashEmailVerificationToken } from '../utils/email-verification-token';
+import { joinDefaultOrganization, passOwnershipBeforeAccountDeletion } from './organization/organization-membership';
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
 
@@ -88,6 +89,11 @@ export class UserService {
     }
 
     const newUser = await this.userRepo.save(user);
+    // A single-tenant install has one organization that everyone is in. In SaaS mode the sign-up decides: the
+    // inviting organization, or the person's own (AuthController, OrganizationService.setUpNewAccount)
+    if (!config.saasEnabled) {
+      await joinDefaultOrganization(this.userRepo.manager, newUser.id);
+    }
     return { user: newUser, isNewUser: true };
   }
 
@@ -251,6 +257,9 @@ export class UserService {
           throw new UnprocessableEntityException('cant delete account if last project admin and other users use project');
         }
       }
+
+      // An organization the user owns passes to another member, or the deletion waits for a transfer (SaaS mode)
+      await passOwnershipBeforeAccountDeletion(manager, user.id);
 
       await manager.getRepository(User).remove(user);
     });

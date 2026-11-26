@@ -12,6 +12,7 @@ import { Project } from '../entity/project.entity';
 import { UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { EverPlatformException } from '../errors';
+import { homeOrganizationId } from '../services/organization/organization-membership';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { EverInstanceKeyError, KeyPurpose, unwrapKey, verifyBytes, wrapKey } from '../ever-instance/key-wrap';
 import { isLocalHost } from '../ever-platform/env';
@@ -386,8 +387,10 @@ export class EverConnectProvisionService {
         if (!counted.affected) {
           throw refuse(HttpStatus.CONFLICT, 'project_limit', 'This account cannot create more projects');
         }
-        // As the projects route creates one: the person is its admin, it has the default plan
-        const project = await tx.save(tx.create(Project, { name: txn.org.displayName.slice(0, PROJECT_NAME_MAX) }));
+        // As the projects route creates one: in the person's organization (the default one of a single-tenant install,
+        // otherwise the one they own), with the person as its admin and the default plan
+        const organizationId = await homeOrganizationId(tx, user);
+        const project = await tx.save(tx.create(Project, { name: txn.org.displayName.slice(0, PROJECT_NAME_MAX), organizationId }));
         await tx.save(tx.create(ProjectUser, { user, project, role: ProjectRole.Admin }));
         project.plan = await tx.findOneOrFail(Plan, { where: { code: config.defaultProjectPlan } });
         await tx.save(project);

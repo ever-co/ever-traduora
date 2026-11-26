@@ -24,7 +24,7 @@ describe('ProjectController (e2e)', () => {
       })
       .expect(201)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'name', 'role', 'description', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'name', 'role', 'description', 'termsCount', 'localesCount', 'organizationId', 'date']);
         expect(res.body.data.name).toEqual('My first project');
         expect(res.body.data.description).toBeNull();
         expect(res.body.data.role).toEqual('admin');
@@ -43,7 +43,7 @@ describe('ProjectController (e2e)', () => {
       })
       .expect(201)
       .expect(async res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'name', 'role', 'description', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'name', 'role', 'description', 'termsCount', 'localesCount', 'organizationId', 'date']);
         expect(res.body.data.role).toEqual('admin');
         expect(res.body.data.termsCount).toEqual(0);
         expect(res.body.data.localesCount).toEqual(0);
@@ -83,7 +83,7 @@ describe('ProjectController (e2e)', () => {
       .expect(res => {
         expect(res.body.data).toBeDefined();
         expect(res.body.data).toHaveLength(1);
-        expect(res.body.data[0]).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data[0]).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'organizationId', 'date']);
         expect(res.body.data[0].id).toBe(projectId);
       });
   });
@@ -150,7 +150,7 @@ describe('ProjectController (e2e)', () => {
       .set('Authorization', `Bearer ${testingUser.accessToken}`)
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'organizationId', 'date']);
       });
   });
 
@@ -246,7 +246,7 @@ describe('ProjectController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'organizationId', 'date']);
       });
     await request(app.getHttpServer())
       .patch(`/api/v1/projects/${projectId}`)
@@ -256,7 +256,7 @@ describe('ProjectController (e2e)', () => {
       })
       .expect(200)
       .expect(res => {
-        expect(res.body.data).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'date']);
+        expect(res.body.data).toHaveExactProperties(['id', 'name', 'description', 'role', 'termsCount', 'localesCount', 'organizationId', 'date']);
       });
 
     await request(app.getHttpServer())

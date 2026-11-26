@@ -1,0 +1,7 @@
+Hi {{user.name}},
+
+You've been added to the organization '{{organization.name}}' on Traduora with the role '{{role}}'.
+
+To get started, go to {{virtualHost}}/orgs/{{organization.slug}}/projects and sign in.
+
+Traduora's Team

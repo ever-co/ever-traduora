@@ -27,6 +27,8 @@ import { config } from '../config';
 import {
   AcceptInviteRequest,
   AcceptInviteResponse,
+  AcceptOrganizationInviteRequest,
+  AcceptOrganizationInviteResponse,
   AccessTokenDTO,
   AuthenticateRequest,
   ChangePasswordRequest,
@@ -69,6 +71,9 @@ import { clientSecretHash } from '../utils/client-secret-hash';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
+import { ensureMember } from '../services/organization/organization-membership';
+import { assertSaasEnabled, OrganizationService } from '../services/organization/organization.service';
+import { OrganizationInvite } from '../entity/organization-invite.entity';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
 const EVERID = 'everid';
@@ -92,14 +97,17 @@ export class AuthController {
     private authService: AuthService,
     private oidcProviders: OidcProviderService,
     private everIdSessions: EverIdSessionService,
+    private organizations: OrganizationService,
   ) {}
 
   @Get('providers')
   @ApiOperation({ summary: 'List available external auth providers' })
   @ApiResponse({ status: HttpStatus.OK, type: ListAuthProvidersResponse, description: 'Success' })
   @HttpCode(HttpStatus.OK)
-  async getProviders(): Promise<ServiceApiResponse<AuthProviderDTO[]>> {
+  async getProviders(): Promise<ServiceApiResponse<AuthProviderDTO[]> & { saas: boolean }> {
     return {
+      // The web app shows organizations only in SaaS mode
+      saas: config.saasEnabled,
       data: Object.keys(config.providers).reduce((acc, provider) => {
         // An OpenID Connect provider (e.g. Ever ID) is listed once it is on and its discovery succeeded
         if (this.oidcProviders.handles(provider)) {
@@ -121,7 +129,7 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'The email has a pending invitation and the invite token is missing or invalid' })
   async signup(@Body() payload: SignupRequest) {
     const normalizedEmail = normalizeEmail(payload.email);
-    const { inviteToken, ...signup } = payload;
+    const { inviteToken, organizationName, ...signup } = payload;
 
     // check for invite
     const invites = await this.inviteRepo.find({
@@ -133,18 +141,27 @@ export class AuthController {
     // that one invitation, by email or from the admin who sent it, so it accepts that invitation and no other.
     const tokenHash = inviteToken ? hashInviteToken(inviteToken) : undefined;
     const acceptedInvites = invites.filter(invite => invite.tokenHash && invite.tokenHash === tokenHash);
-    if (invites.length > 0 && acceptedInvites.length === 0) {
+    // Invitations to an organization (SaaS mode) work the same way
+    const organizationInvites = await this.organizations.pendingInvites(normalizedEmail);
+    const acceptedOrganizationInvites = organizationInvites.filter(invite => invite.tokenHash && invite.tokenHash === tokenHash);
+    const pendingCount = invites.length + organizationInvites.length;
+    if (pendingCount > 0 && acceptedInvites.length + acceptedOrganizationInvites.length === 0) {
       throw new UnauthorizedException('A valid invite token is required to sign up with this email.');
     }
 
     // Early exit if the user has no invitation and sign up is disabled.
-    if (invites.length === 0 && !config.signupsEnabled) {
+    if (pendingCount === 0 && !config.signupsEnabled) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
     const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...signup });
 
     await this.acceptInvites(acceptedInvites, user);
+    await this.organizations.acceptInvites(acceptedOrganizationInvites, user);
+    if (isNewUser) {
+      // SaaS mode: the person's own organization, unless an invitation made them a member of one
+      await this.organizations.setUpNewAccount(user, organizationName);
+    }
 
     const token = this.signUserToken(user);
 
@@ -197,9 +214,11 @@ export class AuthController {
       relations: ['project'],
     });
 
+    const organizationInvites = await this.organizations.pendingInvites(normalizedEmail);
+
     // The provider vouches for the email only when it reports it as verified
     const emailVerified = decodedToken.email_verified === true;
-    if (invites.length > 0 && !emailVerified) {
+    if (invites.length + organizationInvites.length > 0 && !emailVerified) {
       throw new UnauthorizedException('The email must be verified with the provider to accept an invitation.');
     }
 
@@ -213,7 +232,7 @@ export class AuthController {
     // This endpoint can be used for signing in too in the case of providers.
     // Ensure that we forbid a new account if we have disabled signups.
     // But still allow logging in in case the account had already been created.
-    if (!config.signupsEnabled && invites.length === 0 && !accountExists) {
+    if (!config.signupsEnabled && invites.length === 0 && organizationInvites.length === 0 && !accountExists) {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
@@ -235,10 +254,12 @@ export class AuthController {
     }
 
     await this.acceptInvites(invites, account);
+    await this.organizations.acceptInvites(organizationInvites, account);
 
     const token = this.signUserToken(account);
 
     if (isNewUser) {
+      await this.organizations.setUpNewAccount(account);
       await this.welcomeNewUser(user, emailVerified);
     }
 
@@ -416,6 +437,7 @@ export class AuthController {
       relations: ['project'],
     });
     await this.acceptInvites(invites, user);
+    await this.organizations.acceptInvites(await this.organizations.pendingInvites(user.email), user);
   }
 
   @Throttle({
@@ -472,6 +494,27 @@ export class AuthController {
     return { data: { projectId: invite.project.id, role: invite.role } };
   }
 
+  @Post('accept-organization-invite')
+  @UseGuards(AuthGuard())
+  @ApiOAuth2([])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept a pending organization invite with the token from its invitation link (SaaS mode)' })
+  @ApiResponse({ status: HttpStatus.OK, type: AcceptOrganizationInviteResponse, description: 'Invite accepted' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No pending invite for this token and the signed-in email, or not in SaaS mode' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async acceptOrganizationInvite(@Req() req, @Body() payload: AcceptOrganizationInviteRequest) {
+    assertSaasEnabled();
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+    // The token proves that the caller received this invitation, and the link only works for the email it was sent to
+    const invite = await this.organizations.inviteForToken(payload.inviteToken, requestingUser.email);
+    const accepted = invite ? await this.organizations.acceptInvites([invite], requestingUser) : [];
+    if (accepted.length === 0) {
+      throw new NotFoundException('invite not found');
+    }
+    const role = await this.organizations.roleOf(invite.organizationId, requestingUser.id);
+    return { data: { organizationId: invite.organizationId, slug: invite.organization.slug, role } };
+  }
+
   /**
    * Turns pending invites into project memberships. An invite is accepted only if it is still exactly as the caller
    * checked it, since an admin may have sent a new link, changed the role or deleted it in the meantime.
@@ -501,6 +544,9 @@ export class AuthController {
         if (!affected) {
           continue;
         }
+        // The organization membership first, then the project's (DESIGN §4.3): a project membership alone gives no
+        // access outside the project's organization
+        await ensureMember(entityManager, invite.project.organizationId, user.id);
         const membership = await entityManager.findOne(ProjectUser, {
           where: { project: { id: invite.project.id }, user: { id: user.id } },
         });
@@ -561,7 +607,8 @@ export class AuthController {
     }
 
     const invites = await this.pendingInvites(identity.email);
-    if (!config.signupsEnabled && invites.length === 0) {
+    const organizationInvites = await this.organizations.pendingInvites(identity.email);
+    if (!config.signupsEnabled && invites.length === 0 && organizationInvites.length === 0) {
       throw new AuthProviderException(HttpStatus.FORBIDDEN, 'signup_disabled', 'Signups are invitation based only.');
     }
 
@@ -573,7 +620,10 @@ export class AuthController {
       pending,
       name: identity.name,
       email: normalizeEmail(identity.email),
-      invites: invites.map(invite => ({ id: invite.id, projectName: invite.project?.name })),
+      invites: [
+        ...invites.map(invite => ({ id: invite.id, projectName: invite.project?.name })),
+        ...organizationInvites.map(invite => ({ id: invite.id, organizationName: invite.organization?.name })),
+      ],
     });
   }
 
@@ -608,7 +658,8 @@ export class AuthController {
       );
     }
     const invites = await this.pendingInvites(pending.email);
-    if (!config.signupsEnabled && invites.length === 0) {
+    const organizationInvites: OrganizationInvite[] = await this.organizations.pendingInvites(pending.email);
+    if (!config.signupsEnabled && invites.length === 0 && organizationInvites.length === 0) {
       throw new AuthProviderException(HttpStatus.FORBIDDEN, 'signup_disabled', 'Signups are invitation based only.');
     }
 
@@ -638,6 +689,11 @@ export class AuthController {
       invites.filter(invite => accept.has(invite.id)),
       account,
     );
+    await this.organizations.acceptInvites(
+      organizationInvites.filter(invite => accept.has(invite.id)),
+      account,
+    );
+    await this.organizations.setUpNewAccount(account);
 
     await this.welcomeNewUser(account, true);
     const accessToken = await this.signOidcUserToken(
