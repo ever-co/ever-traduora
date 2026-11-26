@@ -181,7 +181,7 @@ describeOnSqlite('EverConnectPersonService', () => {
   };
 
   describe('deletion requests', () => {
-    it("switched off (the default): removes the person's Ever ID and ends its sessions, keeps the account, answers account_deletion_pending", async () => {
+    it('switched off (the default): removes the Ever ID, ends its sessions, keeps the account, answers account_deletion_pending', async () => {
       const { person } = await connected();
       await linkIdentity(alice, 's1');
       await linkIdentity(bob, 's2');
