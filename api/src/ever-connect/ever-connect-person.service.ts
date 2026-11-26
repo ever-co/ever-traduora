@@ -512,11 +512,12 @@ export class EverConnectPersonService {
       // without the address, so the answer becomes the one an installation without an address gives (not final: the
       // request stays open there, and the person can ask again)
       this.logger.warn('ever_connect.person_request kind=export outcome=export_url_unavailable');
+      // The audit trail says what Ever Platform is told, not only what was decided first. Written before the receipt
+      // changes: if the change then fails, the next read writes it again rather than never
+      await this.audit.record('person.export', 'platform', `result=failed accounts=${request.accounts}`);
       request.result = 'failed';
       request.reasonCode = 'export_not_available';
       await this.requests.update({ jobId: request.jobId }, { result: request.result, reasonCode: request.reasonCode });
-      // The audit trail says what Ever Platform is told, not only what was decided first
-      await this.audit.record('person.export', 'platform', `result=failed accounts=${request.accounts}`);
     }
     const answer: PersonRequestAnswer = {
       jobId: request.jobId,
