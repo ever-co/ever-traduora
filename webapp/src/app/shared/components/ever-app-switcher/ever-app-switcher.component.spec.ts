@@ -166,7 +166,7 @@ describe('EverAppSwitcherComponent', () => {
     const panel = open(fixture);
 
     const room = window.innerHeight - trigger(fixture).getBoundingClientRect().bottom - 10;
-    expect(panel.style.maxHeight).toBe(`${Math.max(160, Math.floor(room))}px`);
+    expect(panel.style.maxHeight).toBe(`${Math.max(1, Math.floor(room))}px`);
     expect(getComputedStyle(panel).overflowY).toBe('auto');
     fixture.nativeElement.remove();
   });

@@ -11,8 +11,8 @@ const MARK_PATH =
 /** The gap between the mark and the panel (Bootstrap's dropdown offset), and what the panel keeps from the bottom edge. */
 const PANEL_OFFSET = 2;
 const SCREEN_MARGIN = 8;
-/** Below this the panel would show too little to be useful: the page scrolls instead. */
-const MIN_PANEL_HEIGHT = 160;
+/** The app shell never scrolls, so the panel is never taller than the room it has, however small. */
+const MIN_PANEL_HEIGHT = 1;
 
 /**
  * The rotating Ever mark in front of "traduora" in the app bar is the Ever app switcher: it opens the list of every
