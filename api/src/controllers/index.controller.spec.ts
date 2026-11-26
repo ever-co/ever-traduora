@@ -160,6 +160,7 @@ describe('IndexController Ever app links', () => {
     writeFileSync(join(dir, 'index.html'), INDEX_HTML);
     config.publicDir = dir;
     config.demo = false;
+    config.everAppLinks = new Map();
   });
 
   afterEach(() => {
@@ -169,9 +170,15 @@ describe('IndexController Ever app links', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it('is off unless EVER_APP_LINKS is set', () => {
-    expect(originalLinks.size).toBe(0);
-    expect(everAppLinksMetaTag(originalLinks)).toBe('');
+  it('adds nothing when no link is set', async () => {
+    expect(parseEverAppLinks(undefined).size).toBe(0);
+    expect(everAppLinksMetaTag(new Map())).toBe('');
+    const { res, sent } = fakeResponse();
+
+    await new IndexController().index(res);
+
+    expect(sent.file).toBe(join(dir, 'index.html'));
+    expect(sent.body).toBeUndefined();
   });
 
   it('adds the normalized links as a tag to index.html', async () => {

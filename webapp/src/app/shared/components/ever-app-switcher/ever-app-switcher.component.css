@@ -47,6 +47,8 @@
 .ever-app-panel {
   width: 20rem;
   max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px;
   border-color: rgba(33, 37, 41, 0.1);
   border-radius: 8px;

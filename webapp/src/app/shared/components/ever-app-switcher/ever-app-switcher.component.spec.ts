@@ -159,6 +159,18 @@ describe('EverAppSwitcherComponent', () => {
     expect(open(render()).querySelector('[data-testid="ever-app-add"]')).toBeNull();
   });
 
+  it('keeps the panel inside the screen height, scrolling when the rows do not fit', () => {
+    setLinks(ALL_LINKS);
+    const fixture = render();
+    document.body.appendChild(fixture.nativeElement);
+    const panel = open(fixture);
+
+    const room = window.innerHeight - trigger(fixture).getBoundingClientRect().bottom - 10;
+    expect(panel.style.maxHeight).toBe(`${Math.max(160, Math.floor(room))}px`);
+    expect(getComputedStyle(panel).overflowY).toBe('auto');
+    fixture.nativeElement.remove();
+  });
+
   it('closes on Escape and gives the focus back to the mark', () => {
     setLinks(ALL_LINKS);
     const fixture = render();

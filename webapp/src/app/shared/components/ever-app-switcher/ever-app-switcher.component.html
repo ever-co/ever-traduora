@@ -1,10 +1,10 @@
-<div *ngIf="switcher as s" ngbDropdown display="dynamic" placement="bottom-start bottom-end" [popperOptions]="popperOptions" class="d-flex mr-2">
-  <button type="button" class="ever-mark-trigger" ngbDropdownToggle [attr.aria-label]="label" [title]="label" data-testid="ever-app-switcher">
+<div *ngIf="switcher as s" ngbDropdown (openChange)="fitToScreen($event, trigger, panel)" display="dynamic" placement="bottom-start bottom-end" [popperOptions]="popperOptions" class="d-flex mr-2">
+  <button #trigger type="button" class="ever-mark-trigger" ngbDropdownToggle [attr.aria-label]="label" [title]="label" data-testid="ever-app-switcher">
     <svg class="ever-mark" width="28" height="29" viewBox="0 0 40 42" aria-hidden="true" focusable="false">
       <path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" [attr.d]="markPath" />
     </svg>
   </button>
-  <div ngbDropdownMenu class="ever-app-panel" [attr.aria-label]="title" data-testid="ever-app-panel">
+  <div #panel ngbDropdownMenu class="ever-app-panel" [attr.aria-label]="title" data-testid="ever-app-panel">
     <div class="ever-app-title" aria-hidden="true">{{ title }}</div>
     <ng-container *ngFor="let app of s.apps">
       <div *ngIf="app.current" class="ever-app-row ever-app-row-static" aria-current="page" [attr.data-ever-app]="app.id">
