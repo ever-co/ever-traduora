@@ -9,11 +9,11 @@ import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity
 import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.entity';
 import { EverIdSession } from '../entity/ever-id-session.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
-import { Project } from '../entity/project.entity';
 import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { DbType, isDbType } from '../utils/database-type-helper';
+import { lockProject, readCommittedTransaction } from '../utils/database-locks';
 import { normalizeEmail } from '../ever-platform/env';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
@@ -282,7 +282,9 @@ export class EverConnectPersonService {
    */
   private async decide(request: EverConnectPersonRequest, hashes: string[]): Promise<EverConnectPersonRequest> {
     let decidedHere = false;
-    const decided = await this.requests.manager.transaction(async manager => {
+    // READ COMMITTED (MySQL reads as of the first read otherwise): an admin count taken after a project lock wait sees
+    // the deletion the other transaction committed meanwhile
+    const decided = await readCommittedTransaction(this.requests.manager, async manager => {
       const locked = await manager.findOne(EverConnectPersonRequest, {
         where: { jobId: request.jobId },
         ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
@@ -387,8 +389,9 @@ export class EverConnectPersonService {
    *   administers. With other people in it, *Delete account* refuses as well; alone, the project would stay with nobody
    *   to reach it. The person hands the project over, or deletes it, in Traduora first.
    *
-   * The project's row is locked while its admins are counted (PostgreSQL, MySQL; SQLite runs one write transaction at
-   * a time), so another deletion that locks it too waits for this one.
+   * The project's row is locked while its admins are counted ({@link lockProject}; SQLite runs one write transaction at
+   * a time), and the request's transaction reads committed rows: another deletion through this path waits for this one
+   * and then counts what it left.
    */
   async deletionHold(manager: EntityManager, userId: string, deleting: ReadonlyArray<string> = [userId]): Promise<PersonDeletionHold | null> {
     const user = await manager.getRepository(User).findOne({ where: { id: userId } });
@@ -402,9 +405,7 @@ export class EverConnectPersonService {
     const administered = await memberships.find({ where: { user: { id: userId }, role: ProjectRole.Admin }, relations: { project: true } });
     for (const membership of administered) {
       if (!membership.project) continue;
-      if (!isDbType(DbType.BETTER_SQLITE3)) {
-        await manager.findOne(Project, { where: { id: membership.project.id }, lock: { mode: 'pessimistic_write' } });
-      }
+      await lockProject(manager, membership.project.id);
       const admins = await memberships.find({
         where: { project: { id: membership.project.id }, role: ProjectRole.Admin },
         relations: { user: true },
