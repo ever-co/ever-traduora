@@ -1,6 +1,6 @@
 import { NgFor, NgIf } from '@angular/common';
-import { Component } from '@angular/core';
-import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
+import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
+import { NgbDropdown, NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 import { Options } from '@popperjs/core';
 import { buildEverAppSwitcher, EverAppSwitcher, parseEverAppLinks, readEverAppLinks } from './ever-apps';
 
@@ -32,6 +32,10 @@ export class EverAppSwitcherComponent {
   readonly addLabel = 'Add your own apps in Ever Platform';
   readonly markPath = MARK_PATH;
 
+  @ViewChild('dropdown') private dropdown?: NgbDropdown;
+  @ViewChild('trigger') private trigger?: ElementRef<HTMLElement>;
+  @ViewChild('panel') private panel?: ElementRef<HTMLElement>;
+
   /** On a phone the panel keeps 8 px from the screen's edges. */
   readonly popperOptions = (options: Partial<Options>): Partial<Options> => ({
     ...options,
@@ -42,10 +46,20 @@ export class EverAppSwitcherComponent {
    * On a short screen (a phone held sideways) the eight rows are taller than the space under the mark, and the app
    * shell hides what overflows. The panel then scrolls inside the space it has, keeping 8 px from the bottom edge.
    */
-  fitToScreen(open: boolean, trigger: HTMLElement, panel: HTMLElement): void {
-    if (open) {
+  fitToScreen(): void {
+    const trigger = this.trigger?.nativeElement;
+    const panel = this.panel?.nativeElement;
+    if (trigger && panel) {
       const room = window.innerHeight - trigger.getBoundingClientRect().bottom - PANEL_OFFSET - SCREEN_MARGIN;
       panel.style.maxHeight = `${Math.max(MIN_PANEL_HEIGHT, Math.floor(room))}px`;
+    }
+  }
+
+  /** A rotation or a resize while the panel is open fits it again to the new room. */
+  @HostListener('window:resize')
+  onResize(): void {
+    if (this.dropdown?.isOpen()) {
+      this.fitToScreen();
     }
   }
 }

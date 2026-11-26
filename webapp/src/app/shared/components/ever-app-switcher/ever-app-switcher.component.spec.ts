@@ -171,6 +171,18 @@ describe('EverAppSwitcherComponent', () => {
     fixture.nativeElement.remove();
   });
 
+  it('fits the panel again when the window is resized while it is open', () => {
+    setLinks(ALL_LINKS);
+    const fixture = render();
+    const panel = open(fixture);
+    panel.style.maxHeight = '1px';
+
+    window.dispatchEvent(new Event('resize'));
+
+    expect(panel.style.maxHeight).not.toBe('1px');
+    expect(panel.style.maxHeight).toMatch(/^[0-9]+px$/);
+  });
+
   it('closes on Escape and gives the focus back to the mark', () => {
     setLinks(ALL_LINKS);
     const fixture = render();
