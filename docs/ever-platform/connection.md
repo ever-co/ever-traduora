@@ -69,17 +69,26 @@ that hash only, never by an e-mail address, and never creates or changes an acco
   every 5 minutes (and at once after the consent); a report Ever Platform refused or could not take is tried again an
   hour later, and at most 100 links are sent per comparison, so reporting can take longer then. When a user removes
   their Ever ID here, the link is removed there too.
-- **Export.** Traduora makes one export per matched account: its profile (name, e-mail, when it was made and last
-  signed in), its Ever ID, its projects with the user's role, and how many translation changes it made. The export is
-  stored encrypted with a key derived from `TR_SECRET`, and only that account can download it, for 7 days: the user
-  finds it under **My data exports** in the account settings (when it was made, until when it can be downloaded) and
-  downloads it as a JSON file. The page reads `GET /api/v1/ever-connect/me/exports`, which lists them, and
+- **Export** (`TR_EVER_CONNECT_PERSON_EXPORT_ENABLED=true`, and `TR_VIRTUAL_HOST` an https address). Traduora makes
+  one export per matched account: its profile (name, e-mail, when it was made and last signed in), its Ever ID, its
+  projects with the user's role, and how many translation changes it made. The export is stored encrypted with a key
+  derived from `TR_SECRET`, and only that account can download it, for 7 days: the user finds it under **My data
+  exports** in the account settings (when it was made, until when it can be downloaded) and downloads it as a JSON
+  file. The page reads `GET /api/v1/ever-connect/me/exports`, which lists them, and
   `GET /api/v1/ever-connect/me/exports/<id>`, which returns one, as JSON, to the signed-in user. Ever Platform receives
-  the answer `exported` (or `no_account`), never the export.
+  the answer `exported` with the address of that page (`<TR_VIRTUAL_HOST>/user-settings`), never the export. Switched
+  off (the default), or without an https `TR_VIRTUAL_HOST`, no export is made and Ever Platform receives `failed` with
+  `export_not_available`.
 - **Deletion.** Traduora removes the person's Ever ID from the accounts it is linked to and ends the sessions opened with
-  it. The accounts themselves stay, with their projects, passwords and other sign-in methods: the person can still sign
-  in with a password (or reset it) and delete the account in Traduora. Ever Platform receives the answer `anonymised`
-  (or `no_account`), and the person link is removed.
+  it, and the person link is removed. With `TR_EVER_CONNECT_PERSON_DELETION_ENABLED=true`, the accounts are then
+  deleted as **Delete account** deletes them (their project memberships go with them; their translation changes stay,
+  without a name), and Ever Platform receives `deleted`. An account is kept when it operates this installation
+  (`TR_EVER_ADMIN_EMAILS`) or is the last admin of a project, alone or not (hand the project over, or delete it, first).
+  Kept, or switched off (the default), the accounts stay with their projects, passwords and other sign-in methods, and
+  Ever Platform receives `failed` with `account_deletion_pending`: the request stays open there, and the person can sign
+  in with a password (or reset it) and delete the account in Traduora.
+
+An Ever ID this installation does not know gets the answer `no_account`.
 
 Each answer is decided once and kept for 90 days with the request id (no e-mail, no name), so a request read again gets
 the same answer; the audit trail records each one with the number of accounts it matched.
@@ -181,6 +190,8 @@ the newest rows were removed. The page lists the latest changes.
 | `TR_EVER_CONNECT_INTEGRATIONS_DENY` | unset | Integration keys kept off on this installation |
 | `TR_EVER_CONNECT_FEED_MODE` | `longpoll` | `interval` reads the event feed every 15 minutes instead |
 | `TR_EVER_CONNECT_PROVISION_ENABLED` | off | `true` lets app.ever.co hand off project creation (see [Provisioning](#provisioning-from-appeverco)) |
+| `TR_EVER_CONNECT_PERSON_EXPORT_ENABLED` | off | `true` answers a person's export request with an export the account downloads here (needs an https `TR_VIRTUAL_HOST`) |
+| `TR_EVER_CONNECT_PERSON_DELETION_ENABLED` | off | `true` deletes the accounts a person's deletion request matches, unless one is kept |
 | `TR_EVER_PLATFORM_API_URL` | `https://api.ever.co` | The Ever Platform API |
 | `TR_EVER_INSTALL_SOURCE` | `self-hosted` | How this installation was set up, as the operator declares it |
 | `TR_EVER_ADMIN_EMAILS` | `TR_ADMIN_EMAIL` | The operators (comma-separated e-mails) |

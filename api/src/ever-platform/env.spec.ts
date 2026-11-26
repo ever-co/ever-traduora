@@ -80,6 +80,21 @@ describe('Ever Platform settings', () => {
       expect(off.warnings.some(w => w.includes('TR_EVER_CONNECT_PROVISION_ENABLED'))).toBe(false);
     });
 
+    it("answers a person's export or deletion with more than an unlink only for the exact value true, and only with the connection", () => {
+      const on = { TR_EVER_CONNECT_ENABLED: 'true' };
+      for (const [name, field] of [
+        ['TR_EVER_CONNECT_PERSON_EXPORT_ENABLED', 'connectPersonExportEnabled'],
+        ['TR_EVER_CONNECT_PERSON_DELETION_ENABLED', 'connectPersonDeletionEnabled'],
+      ] as const) {
+        expect(read(on).settings[field]).toBe(false);
+        const malformed = read({ ...on, [name]: 'TRUE' });
+        expect(malformed.settings[field]).toBe(false);
+        expect(malformed.warnings.some(w => w.includes(name))).toBe(true);
+        expect(read({ ...on, [name]: 'true' }).settings[field]).toBe(true);
+        expect(read({ [name]: 'true' }).settings[field]).toBe(false);
+      }
+    });
+
     it('reads the feed mode, the deny list and the boot code', () => {
       const { settings, warnings } = read({
         TR_EVER_CONNECT_ENABLED: 'true',

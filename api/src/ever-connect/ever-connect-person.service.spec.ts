@@ -24,6 +24,7 @@ import {
   PERSON_EXPORT_TTL_MS,
   PERSON_LINK_CALLS_PER_SYNC,
   PERSON_LINK_RETRY_MS,
+  personExportUrl,
   subjectHashesOf,
 } from './ever-connect-person.service';
 import { EverConnectSchedulerService } from './ever-connect-scheduler.service';
@@ -58,15 +59,15 @@ describeOnSqlite('EverConnectPersonService', () => {
   let alice: User;
   let bob: User;
 
-  const build = (settings: Partial<EverConnectSettings> = {}) => {
+  const build = (settings: Partial<EverConnectSettings> = {}, instanceSettings: EverInstanceSettings = INSTANCE_SETTINGS) => {
     const all = { ...SETTINGS, ...settings };
-    const instance = new EverInstanceService(dataSource.getRepository(EverInstance), INSTANCE_SETTINGS);
+    const instance = new EverInstanceService(dataSource.getRepository(EverInstance), instanceSettings);
     const audit = new EverConnectAuditService(dataSource.getRepository(EverConnectAudit));
     const connect = new EverConnectService(
       dataSource.getRepository(EverConnectConnection),
       dataSource.getRepository(EverConnectIntegration),
       all,
-      INSTANCE_SETTINGS,
+      instanceSettings,
       platform.factory,
       instance,
       audit,
@@ -78,7 +79,7 @@ describeOnSqlite('EverConnectPersonService', () => {
       dataSource.getRepository(EverConnectIntegration),
       dataSource.getRepository(UserIdentity),
       all,
-      INSTANCE_SETTINGS,
+      instanceSettings,
       connect,
       audit,
     );
@@ -123,8 +124,8 @@ describeOnSqlite('EverConnectPersonService', () => {
     data: { job_id: jobId, person_id: 'p', subject_hashes: hashes },
   });
 
-  const connected = async (settings: Partial<EverConnectSettings> = {}) => {
-    const built = build(settings);
+  const connected = async (settings: Partial<EverConnectSettings> = {}, instanceSettings: EverInstanceSettings = INSTANCE_SETTINGS) => {
+    const built = build(settings, instanceSettings);
     await built.connect.connect('EVC-TEST-0000-0001', 'Our translations', 'user:u1');
     platform.calls.length = 0;
     return built;
@@ -163,8 +164,24 @@ describeOnSqlite('EverConnectPersonService', () => {
     expect(subjectHashesOf(null)).toEqual([]);
   });
 
+  it('offers an export only at an https address of this installation', () => {
+    expect(personExportUrl('https://translate.example.test')).toBe('https://translate.example.test/user-settings');
+    expect(personExportUrl('https://example.test/traduora/')).toBe('https://example.test/traduora/user-settings');
+    expect(personExportUrl('http://localhost:8080')).toBeNull();
+    expect(personExportUrl('https://user:pw@example.test')).toBeNull();
+    expect(personExportUrl(undefined)).toBeNull();
+  });
+
+  const createProject = async (name: string, members: Array<[User, ProjectRole]>) => {
+    const project = await dataSource.getRepository(Project).save(dataSource.getRepository(Project).create({ name, description: '' }));
+    for (const [user, role] of members) {
+      await dataSource.getRepository(ProjectUser).save(dataSource.getRepository(ProjectUser).create({ project, user, role }));
+    }
+    return project;
+  };
+
   describe('deletion requests', () => {
-    it("removes the person's Ever ID and ends its sessions, keeps the account, and answers anonymised", async () => {
+    it("switched off (the default): removes the person's Ever ID and ends its sessions, keeps the account, answers account_deletion_pending", async () => {
       const { person } = await connected();
       await linkIdentity(alice, 's1');
       await linkIdentity(bob, 's2');
@@ -182,13 +199,13 @@ describeOnSqlite('EverConnectPersonService', () => {
       // The account itself and its password stay
       const account = await dataSource.getRepository(User).findOne({ where: { id: alice.id } });
       expect(account.encryptedPassword).toBeTruthy();
-      expect(platform.answers).toEqual([{ jobId: 'job-1', result: 'anonymised', reasonCode: 'identity_unlinked' }]);
+      expect(platform.answers).toEqual([{ jobId: 'job-1', result: 'failed', reasonCode: 'account_deletion_pending' }]);
       const receipt = await dataSource.getRepository(EverConnectPersonRequest).findOne({ where: { jobId: 'job-1' } });
-      expect(receipt).toMatchObject({ kind: 'deletion', result: 'anonymised', accounts: 1 });
+      expect(receipt).toMatchObject({ kind: 'deletion', result: 'failed', reasonCode: 'account_deletion_pending', accounts: 1 });
       expect(receipt.answeredAt).not.toBeNull();
       const audit = await dataSource.getRepository(EverConnectAudit).find({ order: { seq: 'ASC' } });
       const row = audit.find(entry => entry.action === 'person.deletion');
-      expect(row.detail).toBe('result=anonymised accounts=1');
+      expect(row.detail).toBe('result=failed accounts=1');
       expect(JSON.stringify(audit)).not.toContain('alice@example.test');
     });
 
@@ -215,7 +232,7 @@ describeOnSqlite('EverConnectPersonService', () => {
 
       // The identity is gone by now, yet the decided answer is kept
       await person.handleEvents(live.client, [event]);
-      expect(platform.answers).toEqual([{ jobId: 'job-3', result: 'anonymised', reasonCode: 'identity_unlinked' }]);
+      expect(platform.answers).toEqual([{ jobId: 'job-3', result: 'failed', reasonCode: 'account_deletion_pending' }]);
       await person.handleEvents(live.client, [event]);
       expect(platform.answers).toHaveLength(1);
     });
@@ -232,6 +249,64 @@ describeOnSqlite('EverConnectPersonService', () => {
       expect(platform.names()).toEqual([]);
     });
 
+    it('switched on: deletes the account as Delete account does, and answers deleted', async () => {
+      const { person } = await connected({ personDeletionEnabled: true });
+      await linkIdentity(alice, 's1');
+      await openSession(alice, 'sid-a');
+      // A member of Bob's project: the membership goes with the account, the project stays
+      const project = await createProject('Shared', [
+        [bob, ProjectRole.Admin],
+        [alice, ProjectRole.Editor],
+      ]);
+      const live = await build().connect.liveClient();
+
+      await person.handleEvents(live.client, [request(DELETION, 'job-d1', [subjectHash(ISSUER, 's1')])]);
+
+      expect(platform.answers).toEqual([{ jobId: 'job-d1', result: 'deleted' }]);
+      expect(await dataSource.getRepository(User).count({ where: { id: alice.id } })).toBe(0);
+      expect(await dataSource.getRepository(User).count({ where: { id: bob.id } })).toBe(1);
+      const members = await dataSource.getRepository(ProjectUser).find({ where: { project: { id: project.id } }, relations: { user: true } });
+      expect(members.map(member => member.user.id)).toEqual([bob.id]);
+      // Ever Platform is still told to remove her person link
+      expect(await dataSource.getRepository(EverConnectPersonLink).count({ where: { userId: alice.id } })).toBe(1);
+    });
+
+    it('switched on, but the account is the last admin of a project: kept, account_deletion_pending', async () => {
+      const { person } = await connected({ personDeletionEnabled: true });
+      await linkIdentity(alice, 's1');
+      await createProject('Her own', [[alice, ProjectRole.Admin]]);
+      const live = await build().connect.liveClient();
+
+      await person.handleEvents(live.client, [request(DELETION, 'job-d2', [subjectHash(ISSUER, 's1')])]);
+
+      expect(platform.answers).toEqual([{ jobId: 'job-d2', result: 'failed', reasonCode: 'account_deletion_pending' }]);
+      expect(await dataSource.getRepository(User).count({ where: { id: alice.id } })).toBe(1);
+      // Her Ever ID goes all the same
+      expect(await dataSource.getRepository(UserIdentity).count()).toBe(0);
+    });
+
+    it('switched on: an admin of a project with another admin is deleted', async () => {
+      const { person } = await connected({ personDeletionEnabled: true });
+      await linkIdentity(alice, 's1');
+      await createProject('Two admins', [
+        [alice, ProjectRole.Admin],
+        [bob, ProjectRole.Admin],
+      ]);
+      const live = await build().connect.liveClient();
+      await person.handleEvents(live.client, [request(DELETION, 'job-d3', [subjectHash(ISSUER, 's1')])]);
+      expect(platform.answers).toEqual([{ jobId: 'job-d3', result: 'deleted' }]);
+      expect(await dataSource.getRepository(User).count({ where: { id: alice.id } })).toBe(0);
+    });
+
+    it('switched on, but the account operates this installation: kept', async () => {
+      const { person } = await connected({ personDeletionEnabled: true }, { ...INSTANCE_SETTINGS, adminEmails: ['alice@example.test'] });
+      await linkIdentity(alice, 's1');
+      const live = await build().connect.liveClient();
+      await person.handleEvents(live.client, [request(DELETION, 'job-d4', [subjectHash(ISSUER, 's1')])]);
+      expect(platform.answers).toEqual([{ jobId: 'job-d4', result: 'failed', reasonCode: 'account_deletion_pending' }]);
+      expect(await dataSource.getRepository(User).count({ where: { id: alice.id } })).toBe(1);
+    });
+
     it('ignores a request without a usable request id', async () => {
       const { person } = await connected();
       const live = await build().connect.liveClient();
@@ -242,8 +317,28 @@ describeOnSqlite('EverConnectPersonService', () => {
   });
 
   describe('export requests', () => {
-    it('makes one encrypted export per account, readable by that account only, for 7 days', async () => {
+    const EXPORTS_ON: Partial<EverConnectSettings> = { personExportEnabled: true, appUrl: 'https://translate.example.test' };
+
+    it('switched off (the default): makes no export and answers export_not_available', async () => {
       const { person } = await connected();
+      await linkIdentity(alice, 's1');
+      const live = await build().connect.liveClient();
+      await person.handleEvents(live.client, [request(EXPORT, 'job-e1', [subjectHash(ISSUER, 's1')])]);
+      expect(platform.answers).toEqual([{ jobId: 'job-e1', result: 'failed', reasonCode: 'export_not_available' }]);
+      expect(await dataSource.getRepository(EverConnectPersonExport).count()).toBe(0);
+    });
+
+    it('switched on without an https address of this installation: makes no export', async () => {
+      const { person } = await connected({ personExportEnabled: true, appUrl: 'http://localhost:8080' });
+      await linkIdentity(alice, 's1');
+      const live = await build().connect.liveClient();
+      await person.handleEvents(live.client, [request(EXPORT, 'job-e2', [subjectHash(ISSUER, 's1')])]);
+      expect(platform.answers).toEqual([{ jobId: 'job-e2', result: 'failed', reasonCode: 'export_not_available' }]);
+      expect(await dataSource.getRepository(EverConnectPersonExport).count()).toBe(0);
+    });
+
+    it('makes one encrypted export per account, readable by that account only, for 7 days', async () => {
+      const { person } = await connected(EXPORTS_ON);
       await linkIdentity(alice, 's1');
       await linkIdentity(bob, 's2');
       const project = await dataSource.getRepository(Project).save(dataSource.getRepository(Project).create({ name: 'Website', description: '' }));
@@ -254,7 +349,7 @@ describeOnSqlite('EverConnectPersonService', () => {
 
       await person.handleEvents(live.client, [request(EXPORT, 'job-5', [subjectHash(ISSUER, 's1')])]);
 
-      expect(platform.answers).toEqual([{ jobId: 'job-5', result: 'exported' }]);
+      expect(platform.answers).toEqual([{ jobId: 'job-5', result: 'exported', exportUrl: 'https://translate.example.test/user-settings' }]);
       const stored = await dataSource.getRepository(EverConnectPersonExport).find();
       expect(stored).toHaveLength(1);
       // Stored encrypted: no e-mail, name or project in clear
@@ -283,7 +378,7 @@ describeOnSqlite('EverConnectPersonService', () => {
     });
 
     it('answers no_account when nothing matches', async () => {
-      const { person } = await connected();
+      const { person } = await connected(EXPORTS_ON);
       const live = await build().connect.liveClient();
       await person.handleEvents(live.client, [request(EXPORT, 'job-6', [subjectHash(ISSUER, 'nobody')])]);
       expect(platform.answers).toEqual([{ jobId: 'job-6', result: 'no_account' }]);

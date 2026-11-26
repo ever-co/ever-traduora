@@ -39,7 +39,17 @@ describe("A person's Ever ID requests through the Ever Platform connection (e2e)
       { provide: EVER_CONNECT_AUTOSTART, useValue: false },
       { provide: EVER_CONNECT_CLIENT_FACTORY, useValue: platform.factory },
       // The feed is read at every round (the fake answers at once)
-      { provide: EVER_CONNECT_SETTINGS, useValue: { ...readEverConnectSettings(), apiUrl: 'http://127.0.0.1:8080', feedMode: 'longpoll' } },
+      // Exports switched on, at an https address; deletions left as they are by default (the accounts stay)
+      {
+        provide: EVER_CONNECT_SETTINGS,
+        useValue: {
+          ...readEverConnectSettings(),
+          apiUrl: 'http://127.0.0.1:8080',
+          feedMode: 'longpoll',
+          personExportEnabled: true,
+          appUrl: 'https://translate.example.test',
+        },
+      },
       { provide: EVER_INSTANCE_SETTINGS, useValue: { installSource: 'self-hosted', adminEmails: [OPERATOR_EMAIL], secret: 'e2e-person-secret' } },
     ]);
     operator = await signupTestUser(app, OPERATOR_EMAIL);
@@ -110,7 +120,9 @@ describe("A person's Ever ID requests through the Ever Platform connection (e2e)
       },
     ];
     await tick();
-    expect(platform.answers).toEqual([{ jobId: '01JEXPORTJOB0000000000000A', result: 'exported' }]);
+    expect(platform.answers).toEqual([
+      { jobId: '01JEXPORTJOB0000000000000A', result: 'exported', exportUrl: 'https://translate.example.test/user-settings' },
+    ]);
 
     const list = await as(alice, request(server()).get('/api/v1/ever-connect/me/exports')).expect(200);
     expect(list.headers['cache-control']).toBe('no-store');
@@ -136,7 +148,7 @@ describe("A person's Ever ID requests through the Ever Platform connection (e2e)
     expect(stored[0].bundleEnc).not.toContain(alice.email);
   });
 
-  it("answers Alice's deletion request: her Ever ID goes, her account stays, and the link is removed", async () => {
+  it("answers Alice's deletion request while deletions are off: her Ever ID goes, her account stays, the request stays open", async () => {
     platform.events = [
       {
         id: 'deletion-1',
@@ -145,7 +157,7 @@ describe("A person's Ever ID requests through the Ever Platform connection (e2e)
       },
     ];
     await tick();
-    expect(platform.answers[1]).toEqual({ jobId: '01JDELETIONJOB00000000000A', result: 'anonymised', reasonCode: 'identity_unlinked' });
+    expect(platform.answers[1]).toEqual({ jobId: '01JDELETIONJOB00000000000A', result: 'failed', reasonCode: 'account_deletion_pending' });
     const connection = app.get(Connection);
     expect(await connection.getRepository(UserIdentity).count()).toBe(0);
     expect((await connection.getRepository(EverIdSession).findOne({ where: { sid: 'alice-session' } })).revokedAt).not.toBeNull();
