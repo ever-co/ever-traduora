@@ -14,7 +14,7 @@ import { AuthController } from './controllers/auth.controller';
 import { ExportsController } from './controllers/exports.controller';
 import HealthController from './controllers/health.controller';
 import { ImportController } from './controllers/import.controller';
-import IndexController, { redirectDemoIndexFile } from './controllers/index.controller';
+import IndexController, { redirectTaggedIndexFile } from './controllers/index.controller';
 import LocaleController from './controllers/locale.controller';
 import ProjectActivityController from './controllers/project-activity.controller';
 import ProjectClientController from './controllers/project-client.controller';
@@ -196,8 +196,8 @@ export const addPipesAndFilters = (app: NestExpressApplication): void => {
     }),
   );
 
-  // Before the static files: a demo install's index.html must go through IndexController, which adds the demo tag
-  app.use(redirectDemoIndexFile);
+  // Before the static files: a tagged index.html (demo install, Ever app links) must go through IndexController
+  app.use(redirectTaggedIndexFile);
 
   app.useStaticAssets(config.publicDir, { index: false, redirect: false });
 

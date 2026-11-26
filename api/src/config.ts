@@ -5,6 +5,7 @@ import { join } from 'path';
 import * as process from 'process';
 import { SnakeNamingStrategy } from './utils/snake-naming-strategy';
 import { readEverPlatformConfig } from './ever-platform/env';
+import { parseEverAppLinks } from './utils/ever-app-links';
 
 const env = process.env;
 const getBoolOrDefault = (value: string, defaultValue: boolean) => (value ? value === 'true' : defaultValue);
@@ -76,6 +77,8 @@ export const config = {
   signupsEnabled: getBoolOrDefault(env.TR_SIGNUPS_ENABLED, true),
   // A public demo install (demo.traduora.co): the web app then shows a "you are using a demo account" banner
   demo: getBoolOrDefault(env.TR_DEMO, false),
+  // The Ever app switcher in front of the logo (EVER_APP_LINKS, `id=url` pairs): hidden when no link is set
+  everAppLinks: parseEverAppLinks(env.EVER_APP_LINKS),
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
