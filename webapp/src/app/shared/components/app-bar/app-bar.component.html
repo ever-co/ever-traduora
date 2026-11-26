@@ -1,7 +1,10 @@
 <nav class="navbar navbar-dark bg-primary shadow-sm px-4">
-  <a class="navbar-brand" routerLink="/">
-    <app-logo></app-logo>
-  </a>
+  <div class="d-flex align-items-center">
+    <app-ever-app-switcher></app-ever-app-switcher>
+    <a class="navbar-brand" routerLink="/">
+      <app-logo></app-logo>
+    </a>
+  </div>
   <span class="flex-1"></span>
   <div class="d-flex" *ngIf="user$ | async as user">
     <button class="btn btn-primary btn-sm d-flex justify-content-center align-items-center mr-1" routerLink="/projects">

@@ -3,15 +3,34 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'path';
 import { config } from '../config';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
+import { EverAppId, formatEverAppLinks } from '../utils/ever-app-links';
 
 /**
  * The tag a demo install (`TR_DEMO=true`) adds to the web app's index.html. The web app shows its demo banner
- * only when the page carries it, so every other install serves index.html exactly as built.
+ * only when the page carries it.
  */
 export const DEMO_META_TAG = '<meta name="traduora-demo" content="true">';
 
+/** The name of the tag that hands the Ever app switcher its links (`EVER_APP_LINKS`) to the web app. */
+export const EVER_APP_LINKS_META_NAME = 'ever-app-links';
+
+const escapeAttribute = (value: string): string => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** The tag carrying the Ever app links, normalized; empty when the install sets none. */
+export const everAppLinksMetaTag = (links: ReadonlyMap<EverAppId, string>): string =>
+  links.size ? `<meta name="${EVER_APP_LINKS_META_NAME}" content="${escapeAttribute(formatEverAppLinks(links))}">` : '';
+
+/** index.html with the tags first in its <head>; unchanged when there are none or it has no <head>. */
+export const withHeadTags = (html: string, tags: string): string => (tags ? html.replace(/<head(\s[^>]*)?>/i, head => `${head}${tags}`) : html);
+
 /** index.html with the demo tag first in its <head>; unchanged when it has no <head>. */
-export const withDemoMarker = (html: string): string => html.replace(/<head(\s[^>]*)?>/i, head => `${head}${DEMO_META_TAG}`);
+export const withDemoMarker = (html: string): string => withHeadTags(html, DEMO_META_TAG);
+
+/**
+ * The tags this install adds to index.html: the demo tag on a demo install, the Ever app links when the install sets
+ * them. Empty on every other install, which then serves index.html exactly as built.
+ */
+export const pageHeadTags = (): string => `${config.demo ? DEMO_META_TAG : ''}${everAppLinksMetaTag(config.everAppLinks)}`;
 
 /** The path percent-decoded; undefined when it is malformed (the static handler then answers 400 itself). */
 const decodedPath = (path: string): string | undefined => {
@@ -23,13 +42,14 @@ const decodedPath = (path: string): string | undefined => {
 };
 
 /**
- * Express middleware, mounted before the static files: on a demo install a direct request for /index.html would be
- * answered by the static handler with the file as built (no demo tag), so it is sent to / instead, which the
- * IndexController answers with the tagged page. The path is compared decoded, as the static handler decodes it
- * (`/%69ndex.html` is the same file). Every other request, and every request on other installs, passes on.
+ * Express middleware, mounted before the static files: when the install adds tags to index.html (a demo install, or
+ * Ever app links), a direct request for /index.html would be answered by the static handler with the file as built
+ * (no tags), so it is sent to / instead, which the IndexController answers with the tagged page. The path is compared
+ * decoded, as the static handler decodes it (`/%69ndex.html` is the same file). Every other request, and every request
+ * on other installs, passes on.
  */
-export const redirectDemoIndexFile = (req: { method: string; path: string }, res: { redirect: (url: string) => void }, next: () => void): void => {
-  if (config.demo && (req.method === 'GET' || req.method === 'HEAD') && decodedPath(req.path) === '/index.html') {
+export const redirectTaggedIndexFile = (req: { method: string; path: string }, res: { redirect: (url: string) => void }, next: () => void): void => {
+  if ((req.method === 'GET' || req.method === 'HEAD') && decodedPath(req.path) === '/index.html' && pageHeadTags() !== '') {
     res.redirect('/');
     return;
   }
@@ -53,10 +73,11 @@ export default class IndexController {
       throw new NotFoundException();
     }
     const file = resolve(config.publicDir, 'index.html');
-    if (config.demo) {
+    const tags = pageHeadTags();
+    if (tags) {
       const html = await readFile(file, 'utf8').catch(() => undefined);
       if (html !== undefined) {
-        res.type('html').set('Cache-Control', 'no-cache').send(withDemoMarker(html));
+        res.type('html').set('Cache-Control', 'no-cache').send(withHeadTags(html, tags));
         return;
       }
     }

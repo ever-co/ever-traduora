@@ -6,6 +6,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { config } from '../src/config';
 import { DEMO_META_TAG } from '../src/controllers/index.controller';
+import { parseEverAppLinks } from '../src/utils/ever-app-links';
 import { createAndMigrateApp } from './util';
 
 const INDEX_HTML = '<!doctype html><html><head><title>Traduora</title></head><body><app-root></app-root></body></html>';
@@ -15,6 +16,7 @@ describe('Demo install index.html (e2e)', () => {
   let dir: string;
   const originalDemo = config.demo;
   const originalPublicDir = config.publicDir;
+  const originalLinks = config.everAppLinks;
 
   beforeAll(async () => {
     // The static handler is mounted with config.publicDir at boot, so the folder is set before the app is created
@@ -26,6 +28,7 @@ describe('Demo install index.html (e2e)', () => {
 
   afterEach(() => {
     config.demo = originalDemo;
+    config.everAppLinks = originalLinks;
   });
 
   it('serves the page with the demo tag on a demo install', async () => {
@@ -42,6 +45,17 @@ describe('Demo install index.html (e2e)', () => {
 
     await request(app.getHttpServer()).get('/index.html').expect(302).expect('Location', '/');
     await request(app.getHttpServer()).get('/%69ndex.html').expect(302).expect('Location', '/');
+  });
+
+  it('serves the page with the Ever app links on an install that sets them', async () => {
+    config.demo = false;
+    config.everAppLinks = parseEverAppLinks('platform=https://app.example,works=https://works.example');
+
+    const res = await request(app.getHttpServer()).get('/projects').expect(200);
+
+    expect(res.text).toContain('<meta name="ever-app-links" content="platform=https://app.example/,works=https://works.example/">');
+    expect(res.text).not.toContain(DEMO_META_TAG);
+    await request(app.getHttpServer()).get('/index.html').expect(302).expect('Location', '/');
   });
 
   it('serves index.html as built on any other install', async () => {

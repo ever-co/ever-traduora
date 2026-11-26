@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { config } from '../config';
 import { NotFoundException } from '@nestjs/common';
-import IndexController, { DEMO_META_TAG, isApiPath, redirectDemoIndexFile, withDemoMarker } from './index.controller';
+import { parseEverAppLinks } from '../utils/ever-app-links';
+import IndexController, { DEMO_META_TAG, everAppLinksMetaTag, isApiPath, redirectTaggedIndexFile, withDemoMarker } from './index.controller';
 
 const INDEX_HTML =
   '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Traduora</title></head><body><app-root></app-root></body></html>';
@@ -92,13 +93,13 @@ describe('IndexController demo marker', () => {
   });
 });
 
-describe('redirectDemoIndexFile', () => {
+describe('redirectTaggedIndexFile', () => {
   const originalDemo = config.demo;
 
   const run = (method: string, path: string) => {
     let redirectedTo: string | undefined;
     let passed = false;
-    redirectDemoIndexFile(
+    redirectTaggedIndexFile(
       { method, path },
       {
         redirect: (url: string) => {
@@ -144,6 +145,82 @@ describe('redirectDemoIndexFile', () => {
     config.demo = false;
 
     expect(run('GET', '/index.html')).toEqual({ redirectedTo: undefined, passed: true });
+  });
+});
+
+describe('IndexController Ever app links', () => {
+  const originalDemo = config.demo;
+  const originalLinks = config.everAppLinks;
+  const originalPublicDir = config.publicDir;
+  const LINKS = 'platform=https://app-dev.ever.example,works=https://app-dev.works.example/';
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'tr-index-links-'));
+    writeFileSync(join(dir, 'index.html'), INDEX_HTML);
+    config.publicDir = dir;
+    config.demo = false;
+  });
+
+  afterEach(() => {
+    config.demo = originalDemo;
+    config.everAppLinks = originalLinks;
+    config.publicDir = originalPublicDir;
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('is off unless EVER_APP_LINKS is set', () => {
+    expect(originalLinks.size).toBe(0);
+    expect(everAppLinksMetaTag(originalLinks)).toBe('');
+  });
+
+  it('adds the normalized links as a tag to index.html', async () => {
+    config.everAppLinks = parseEverAppLinks(LINKS);
+    const { res, sent } = fakeResponse();
+
+    await new IndexController().index(res);
+
+    const tag = '<meta name="ever-app-links" content="platform=https://app-dev.ever.example/,works=https://app-dev.works.example/">';
+    expect(sent.file).toBeUndefined();
+    expect(sent.headers['Cache-Control']).toBe('no-cache');
+    expect(sent.body).toBe(INDEX_HTML.replace('<head>', `<head>${tag}`));
+  });
+
+  it('adds both tags on a demo install with links', async () => {
+    config.demo = true;
+    config.everAppLinks = parseEverAppLinks(LINKS);
+    const { res, sent } = fakeResponse();
+
+    await new IndexController().index(res);
+
+    expect(sent.body).toContain(`<head>${DEMO_META_TAG}<meta name="ever-app-links"`);
+  });
+
+  it('escapes what could break out of the attribute', () => {
+    const tag = everAppLinksMetaTag(parseEverAppLinks('platform=https://app.example/apps?a=1&b="x"<y>'));
+
+    expect(tag).toBe('<meta name="ever-app-links" content="platform=https://app.example/apps?a=1&amp;b=%22x%22%3Cy%3E">');
+    expect(tag.match(/"/g)).toHaveLength(4);
+  });
+
+  it('sends a direct /index.html request to the tagged page when links are set', () => {
+    config.everAppLinks = parseEverAppLinks(LINKS);
+    let redirectedTo: string | undefined;
+    let passed = false;
+
+    redirectTaggedIndexFile(
+      { method: 'GET', path: '/index.html' },
+      {
+        redirect: (url: string) => {
+          redirectedTo = url;
+        },
+      },
+      () => {
+        passed = true;
+      },
+    );
+
+    expect({ redirectedTo, passed }).toEqual({ redirectedTo: '/', passed: false });
   });
 });
 

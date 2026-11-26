@@ -1,0 +1,44 @@
+<div *ngIf="switcher as s" ngbDropdown display="dynamic" placement="bottom-start bottom-end" [popperOptions]="popperOptions" class="d-flex mr-2">
+  <button type="button" class="ever-mark-trigger" ngbDropdownToggle [attr.aria-label]="label" [title]="label" data-testid="ever-app-switcher">
+    <svg class="ever-mark" width="28" height="29" viewBox="0 0 40 42" aria-hidden="true" focusable="false">
+      <path fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" [attr.d]="markPath" />
+    </svg>
+  </button>
+  <div ngbDropdownMenu class="ever-app-panel" [attr.aria-label]="title" data-testid="ever-app-panel">
+    <div class="ever-app-title" aria-hidden="true">{{ title }}</div>
+    <ng-container *ngFor="let app of s.apps">
+      <div *ngIf="app.current" class="ever-app-row ever-app-row-static" aria-current="page" [attr.data-ever-app]="app.id">
+        <img class="ever-app-logo" [src]="app.logo" alt="" width="24" height="24" />
+        <span class="ever-app-text">
+          <span class="ever-app-name">{{ app.name }}</span>
+          <span class="ever-app-line">{{ app.line }}</span>
+        </span>
+        <i class="material-icons ever-app-mark" aria-hidden="true">check</i>
+      </div>
+      <a *ngIf="!app.current && app.url" ngbDropdownItem class="ever-app-row" [href]="app.url" [attr.data-ever-app]="app.id">
+        <img class="ever-app-logo" [src]="app.logo" alt="" width="24" height="24" />
+        <span class="ever-app-text">
+          <span class="ever-app-name">{{ app.name }}</span>
+          <span class="ever-app-line">{{ app.line }}</span>
+        </span>
+      </a>
+      <div *ngIf="!app.current && !app.url" class="ever-app-row ever-app-row-static" [attr.data-ever-app]="app.id">
+        <img class="ever-app-logo is-soon" [src]="app.logo" alt="" width="24" height="24" />
+        <span class="ever-app-text">
+          <span class="ever-app-name">{{ app.name }}</span>
+          <span class="ever-app-line">{{ app.line }}</span>
+        </span>
+        <span class="ever-app-soon">Soon</span>
+      </div>
+    </ng-container>
+    <ng-container *ngIf="s.addUrl">
+      <div class="dropdown-divider"></div>
+      <a ngbDropdownItem class="ever-app-row" [href]="s.addUrl" [title]="addLabel" [attr.aria-label]="addLabel" data-testid="ever-app-add">
+        <span class="ever-app-logo ever-app-add-glyph" aria-hidden="true"><i class="material-icons">add</i></span>
+        <span class="ever-app-text">
+          <span class="ever-app-name">Add</span>
+        </span>
+      </a>
+    </ng-container>
+  </div>
+</div>

@@ -1,0 +1,155 @@
+/* The trigger: the Ever mark in white on the app bar, turning slowly, still under reduced motion. */
+.ever-mark-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.ever-mark-trigger.dropdown-toggle::after {
+  display: none;
+}
+
+.ever-mark-trigger:focus {
+  outline: none;
+}
+
+.ever-mark-trigger:focus-visible {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.ever-mark {
+  display: block;
+  animation: ever-mark-turn 9s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes ever-mark-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ever-mark {
+    animation: none;
+  }
+}
+
+/* The panel: 18 rem, so every name and its line fit on one row each; 8 px from the edges on a phone. */
+.ever-app-panel {
+  width: 18rem;
+  max-width: calc(100vw - 16px);
+  padding: 4px;
+  border-color: rgba(33, 37, 41, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(33, 37, 41, 0.08);
+}
+
+.ever-app-title {
+  padding: 8px 12px 4px;
+  font-size: 0.75rem;
+  line-height: 16px;
+  color: #6c757d;
+}
+
+.ever-app-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  color: #212529;
+  white-space: normal;
+}
+
+a.ever-app-row:hover,
+a.ever-app-row:focus {
+  background-color: #f1f3f5;
+  color: #212529;
+  text-decoration: none;
+}
+
+a.ever-app-row:active {
+  background-color: #e9ecef;
+  color: #212529;
+}
+
+a.ever-app-row:focus-visible {
+  outline: 2px solid rgba(59, 132, 248, 0.6);
+  outline-offset: -2px;
+}
+
+/* A white tile behind every logo: the Platform and Demand marks are dark on a transparent background. */
+.ever-app-logo {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 1px;
+  border-radius: 6px;
+  background-color: #fff;
+  box-shadow: 0 0 0 1px rgba(33, 37, 41, 0.1);
+  object-fit: contain;
+}
+
+.ever-app-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.ever-app-name,
+.ever-app-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ever-app-name {
+  font-size: 0.875rem;
+  line-height: 20px;
+}
+
+.ever-app-line {
+  font-size: 0.75rem;
+  line-height: 16px;
+  color: #6c757d;
+}
+
+.ever-app-mark {
+  flex: none;
+  font-size: 16px;
+  color: #6c757d;
+}
+
+.ever-app-soon {
+  flex: none;
+  font-size: 0.75rem;
+  line-height: 16px;
+  color: #6c757d;
+}
+
+.ever-app-add-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+}
+
+.ever-app-add-glyph .material-icons {
+  font-size: 16px;
+}
+
+.dropdown-divider {
+  margin: 4px 0;
+  border-top-color: rgba(33, 37, 41, 0.1);
+}

@@ -21,9 +21,10 @@ import { LabelComponent } from './components/label/label.component';
 import { AutowidthDirective } from './directives/autowidth.directive';
 import { SelectLabelComponent } from './components/select-label/select-label.component';
 import { DemoBannerComponent } from './components/demo-banner/demo-banner.component';
+import { EverAppSwitcherComponent } from './components/ever-app-switcher/ever-app-switcher.component';
 
 @NgModule({
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, NgbModule, RouterModule.forChild([])],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, NgbModule, RouterModule.forChild([]), EverAppSwitcherComponent],
   declarations: [
     DropzoneDirective,
     EditableTextComponent,
@@ -66,6 +67,7 @@ import { DemoBannerComponent } from './components/demo-banner/demo-banner.compon
     SearchComponent,
     AppBarComponent,
     DemoBannerComponent,
+    EverAppSwitcherComponent,
   ],
 })
 export class SharedModule {}
