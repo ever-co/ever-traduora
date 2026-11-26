@@ -425,7 +425,7 @@ export class EverConnectPersonService {
   private async exportUrl(manager: EntityManager = this.integrationRows.manager): Promise<string | null> {
     if (this.settings.integrationsDeny.includes('instance_url')) return null;
     const row = await manager.findOne(EverConnectIntegration, { where: { key: 'instance_url' } });
-    if (!row || row.state !== 'enabled' || row.pendingRemoteRevoke || !row.config) return null;
+    if (row?.state !== 'enabled' || row.pendingRemoteRevoke || !row.config) return null;
     let baseUrl: unknown;
     try {
       baseUrl = (JSON.parse(row.config) as { base_url?: unknown }).base_url;
@@ -515,6 +515,8 @@ export class EverConnectPersonService {
       request.result = 'failed';
       request.reasonCode = 'export_not_available';
       await this.requests.update({ jobId: request.jobId }, { result: request.result, reasonCode: request.reasonCode });
+      // The audit trail says what Ever Platform is told, not only what was decided first
+      await this.audit.record('person.export', 'platform', `result=failed accounts=${request.accounts}`);
     }
     const answer: PersonRequestAnswer = {
       jobId: request.jobId,

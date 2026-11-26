@@ -124,7 +124,10 @@ describeOnSqlite('EverConnectPersonService', () => {
     data: { job_id: jobId, person_id: 'p', subject_hashes: hashes },
   });
 
-  const connected = async (settings: Partial<EverConnectSettings> = {}, instanceSettings: EverInstanceSettings = INSTANCE_SETTINGS) => {
+  const connected = async (
+    settings: Partial<EverConnectSettings> = {},
+    instanceSettings: EverInstanceSettings = INSTANCE_SETTINGS,
+  ) => {
     const built = build(settings, instanceSettings);
     await built.connect.connect('EVC-TEST-0000-0001', 'Our translations', 'user:u1');
     platform.calls.length = 0;
@@ -281,7 +284,8 @@ describeOnSqlite('EverConnectPersonService', () => {
       expect(await dataSource.getRepository(User).count({ where: { id: bob.id } })).toBe(1);
       const members = await dataSource.getRepository(ProjectUser).find({ where: { project: { id: project.id } }, relations: { user: true } });
       expect(members.map(member => member.user.id)).toEqual([bob.id]);
-      // Ever Platform is still told to remove her person link
+      // Ever Platform is still told to remove her person link: the row has no foreign key on purpose (it is the removal
+      // still to tell), so it outlives the account
       expect(await dataSource.getRepository(EverConnectPersonLink).count({ where: { userId: alice.id } })).toBe(1);
     });
 
