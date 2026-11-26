@@ -59,8 +59,11 @@ export interface PersonLinkReport {
 /** This installation's answer to a person's deletion or export request (the receipt). */
 export interface PersonRequestAnswer {
   jobId: string;
-  result: 'anonymised' | 'exported' | 'no_account';
+  result: 'deleted' | 'exported' | 'no_account' | 'failed';
+  /** For `failed`: why (`account_deletion_pending`, `export_not_available`). */
   reasonCode?: string;
+  /** For `exported`: the https page where the account downloads its export (Ever Platform refuses `exported` without). */
+  exportUrl?: string;
 }
 
 /** What a key generation answers: the private key is only ever stored wrapped. */
@@ -367,6 +370,7 @@ export const sdkPlatformClient: EverConnectClientFactory = options => {
         job_id: answer.jobId,
         result: answer.result,
         ...(answer.reasonCode ? { detail: { reason_code: answer.reasonCode } } : {}),
+        ...(answer.exportUrl ? { export_url: answer.exportUrl } : {}),
       });
     },
   };

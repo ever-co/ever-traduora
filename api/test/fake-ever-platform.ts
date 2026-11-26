@@ -215,6 +215,10 @@ export class FakeEverPlatform {
       },
       answerPersonRequest: async answer => {
         this.record('answerPersonRequest', { ...answer });
+        // As Ever Platform: an `exported` receipt names the https address of the product's export
+        if (answer.result === 'exported' && !/^https:\/\/[^/@\s]+/.test(answer.exportUrl || '')) {
+          throw new ProblemError(422, 'validation_failed');
+        }
         if (this.answerProblem) {
           const problem = this.answerProblem;
           this.answerProblem = null;

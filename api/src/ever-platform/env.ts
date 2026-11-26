@@ -69,6 +69,16 @@ export interface EverPlatformConfig {
    */
   connectProvisionEnabled: boolean;
   /**
+   * Whether a person's export request from Ever Platform is answered with an export the account downloads in Traduora
+   * (`TR_EVER_CONNECT_PERSON_EXPORT_ENABLED`): only the exact string `'true'`, and only with the connection module loaded.
+   */
+  connectPersonExportEnabled: boolean;
+  /**
+   * Whether a person's deletion request from Ever Platform deletes the matched accounts
+   * (`TR_EVER_CONNECT_PERSON_DELETION_ENABLED`): only the exact string `'true'`, and only with the connection module loaded.
+   */
+  connectPersonDeletionEnabled: boolean;
+  /**
    * For a local test platform only (the SDK ignores them for any other address): the issuer its documents name
    * (`TR_EVER_PLATFORM_ISSUER`) and a file of extra root keys (`TR_EVER_PLATFORM_ROOT_KEYS_FILE`).
    */
@@ -279,6 +289,8 @@ export function readEverPlatformConfig(env: Env = process.env, warn: Warn = cons
     connectIntegrationsDeny: parseKeyList(env.TR_EVER_CONNECT_INTEGRATIONS_DENY),
     connectFeedMode: readFeedMode(env, connectWarn),
     connectProvisionEnabled: connectEnabled && readStrictBool('TR_EVER_CONNECT_PROVISION_ENABLED', false, env, connectWarn),
+    connectPersonExportEnabled: connectEnabled && readStrictBool('TR_EVER_CONNECT_PERSON_EXPORT_ENABLED', false, env, connectWarn),
+    connectPersonDeletionEnabled: connectEnabled && readStrictBool('TR_EVER_CONNECT_PERSON_DELETION_ENABLED', false, env, connectWarn),
     platformIssuer: (env.TR_EVER_PLATFORM_ISSUER || '').trim() || null,
     platformRootKeysFile: (env.TR_EVER_PLATFORM_ROOT_KEYS_FILE || '').trim() || null,
   };

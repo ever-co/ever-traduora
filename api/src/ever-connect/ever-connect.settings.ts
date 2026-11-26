@@ -22,6 +22,10 @@ export interface EverConnectSettings {
   statsLoaded: boolean;
   /** Whether the hand-off provisioning routes answer (`TR_EVER_CONNECT_PROVISION_ENABLED=true`); off when unset. */
   provisionEnabled?: boolean;
+  /** Whether a person's export request is answered with an export (`TR_EVER_CONNECT_PERSON_EXPORT_ENABLED=true`); off when unset. */
+  personExportEnabled?: boolean;
+  /** Whether a person's deletion request deletes the matched accounts (`TR_EVER_CONNECT_PERSON_DELETION_ENABLED=true`); off when unset. */
+  personDeletionEnabled?: boolean;
 }
 
 export const EVER_CONNECT_SETTINGS = Symbol('ever connect settings');
@@ -45,5 +49,7 @@ export function readEverConnectSettings(): EverConnectSettings {
     rootKeysFile: everPlatform.platformRootKeysFile,
     statsLoaded: everPlatform.statsEnabled,
     provisionEnabled: everPlatform.connectProvisionEnabled,
+    personExportEnabled: everPlatform.connectPersonExportEnabled,
+    personDeletionEnabled: everPlatform.connectPersonDeletionEnabled,
   };
 }

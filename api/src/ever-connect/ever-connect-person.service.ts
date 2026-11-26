@@ -8,11 +8,13 @@ import { EverConnectPersonExport } from '../entity/ever-connect-person-export.en
 import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity';
 import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.entity';
 import { EverIdSession } from '../entity/ever-id-session.entity';
-import { ProjectUser } from '../entity/project-user.entity';
+import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { DbType, isDbType } from '../utils/database-type-helper';
+import { lockProject, readCommittedTransaction } from '../utils/database-locks';
+import { normalizeEmail } from '../ever-platform/env';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
 import { EverConnectAuditService } from './ever-connect-audit.service';
@@ -46,6 +48,33 @@ const SWEEP_MS = 60 * 60 * 1000;
 
 /** An export is encrypted for its own purpose: no other blob opens as one, and no export opens as another. */
 export const PERSON_EXPORT_PURPOSE: KeyPurpose = { info: 'ever-connect/person-export', aad: 'ever_connect:person_export' };
+
+/** The page of the webapp where a signed-in account finds its exports (*My data exports*). */
+export const PERSON_EXPORT_PAGE = '/user-settings';
+
+/** Why an account is kept rather than deleted for Ever Platform (logged by code only). */
+export type PersonDeletionHold = 'operator' | 'project_last_admin';
+
+/**
+ * The address of the page where an account downloads its exports, under the installation's address `baseUrl` (the one
+ * the operator reported for `instance_url`): https only, without credentials, at most 2048 characters (what Ever
+ * Platform accepts); `null` otherwise.
+ */
+export function personExportUrl(baseUrl: string | null | undefined): string | null {
+  let url: URL;
+  try {
+    url = new URL((baseUrl || '').trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
+    return null;
+  }
+  let path = url.pathname;
+  while (path.endsWith('/')) path = path.slice(0, -1);
+  const address = `${url.origin}${path}${PERSON_EXPORT_PAGE}`;
+  return address.length <= 2048 ? address : null;
+}
 
 const JOB_ID = /^[0-9A-Za-z_-]{1,64}$/;
 const SUBJECT_HASH = /^[0-9a-f]{64}$/;
@@ -105,10 +134,16 @@ export function subjectHashesOf(data: Record<string, unknown> | null | undefined
  *   this installation does not deny it; a link whose identity was removed here is removed there. No account is ever
  *   created or changed for a link.
  * - deletion requests: the person's Ever IDs are removed from the accounts they are linked to and the sessions opened
- *   with them end; the accounts themselves, their passwords and other sign-in methods stay. Answered `anonymised`
- *   (`identity_unlinked`), or `no_account`.
- * - export requests: one export per matched account (its profile, its Ever IDs, its projects with the role, how many
- *   translation changes it made), encrypted and downloadable by that account only, for 7 days. Answered `exported`, or
+ *   with them end. With `TR_EVER_CONNECT_PERSON_DELETION_ENABLED=true`, the accounts are then deleted as *Delete account*
+ *   deletes them, unless one is held ({@link deletionHold}): answered `deleted`. Otherwise the accounts, their passwords
+ *   and other sign-in methods stay and the answer is `failed` (`account_deletion_pending`): Ever Platform keeps the
+ *   request open, and the person deletes the account in Traduora. Nothing matched: `no_account`.
+ * - export requests: with `TR_EVER_CONNECT_PERSON_EXPORT_ENABLED=true` and the installation's address reported to Ever
+ *   Platform (`instance_url` enabled and its address set by the operator: the answer names a page at that address, and
+ *   the address is sent only once it may be), one export per matched account (its profile, its Ever IDs, its projects
+ *   with the role, how many translation changes it made), encrypted and downloadable by that account only, for 7 days,
+ *   from its account settings: answered `exported` with that page's address (Ever Platform refuses `exported` without
+ *   one). Otherwise no export is made and the answer is `failed` (`export_not_available`). Nothing matched:
  *   `no_account`.
  *
  * Nothing is matched by e-mail: only by the hash of an Ever ID (issuer and subject) the request names.
@@ -250,7 +285,9 @@ export class EverConnectPersonService {
    */
   private async decide(request: EverConnectPersonRequest, hashes: string[]): Promise<EverConnectPersonRequest> {
     let decidedHere = false;
-    const decided = await this.requests.manager.transaction(async manager => {
+    // READ COMMITTED (MySQL reads as of the first read otherwise): an admin count taken after a project lock wait sees
+    // the deletion the other transaction committed meanwhile
+    const decided = await readCommittedTransaction(this.requests.manager, async manager => {
       const locked = await manager.findOne(EverConnectPersonRequest, {
         where: { jobId: request.jobId },
         ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
@@ -260,15 +297,25 @@ export class EverConnectPersonService {
       }
       const row = locked || request;
       const matches = await this.matching(manager, hashes);
-      if (row.kind === 'deletion') {
+      const userIds = Array.from(new Set(matches.map(identity => identity.userId)));
+      row.accounts = userIds.length;
+      row.reasonCode = null;
+      if (!matches.length) {
+        row.result = 'no_account';
+      } else if (row.kind === 'deletion') {
         await this.deleteIdentities(manager, matches);
-        row.result = matches.length ? 'anonymised' : 'no_account';
-        row.reasonCode = matches.length ? 'identity_unlinked' : null;
-        row.accounts = new Set(matches.map(identity => identity.userId)).size;
-      } else {
+        if (await this.deleteAccounts(manager, userIds)) {
+          row.result = 'deleted';
+        } else {
+          row.result = 'failed';
+          row.reasonCode = 'account_deletion_pending';
+        }
+      } else if (this.settings.personExportEnabled && (await this.exportUrl(manager))) {
         row.accounts = await this.exportAccounts(manager, row.jobId, matches);
         row.result = row.accounts ? 'exported' : 'no_account';
-        row.reasonCode = null;
+      } else {
+        row.result = 'failed';
+        row.reasonCode = 'export_not_available';
       }
       await manager.update(
         EverConnectPersonRequest,
@@ -312,6 +359,80 @@ export class EverConnectPersonService {
         });
       }
     }
+  }
+
+  /**
+   * With `TR_EVER_CONNECT_PERSON_DELETION_ENABLED`, deletes the accounts, all or none, in the request's transaction: as
+   * *Delete account* does (the account row; its project memberships, Ever IDs and other rows that belong to it go with it,
+   * its translation history stays without a name), once no account is held. `false` when nothing was deleted: switched
+   * off, or an account is held.
+   */
+  private async deleteAccounts(manager: EntityManager, userIds: string[]): Promise<boolean> {
+    if (!this.settings.personDeletionEnabled) return false;
+    for (const userId of userIds) {
+      const hold = await this.deletionHold(manager, userId, userIds);
+      if (hold) {
+        this.logger.warn(`ever_connect.person_request kind=deletion held=${hold}`);
+        return false;
+      }
+    }
+    const users = manager.getRepository(User);
+    for (const userId of userIds) {
+      const user = await users.findOne({ where: { id: userId } });
+      if (user) await users.remove(user);
+    }
+    return true;
+  }
+
+  /**
+   * Why an account must not be deleted for Ever Platform, `null` when it may be. Reads only.
+   *
+   * - `operator`: the account operates this installation (`TR_EVER_ADMIN_EMAILS`).
+   * - `project_last_admin`: no admin outside the accounts being deleted (`deleting`) is left in a project the account
+   *   administers. With other people in it, *Delete account* refuses as well; alone, the project would stay with nobody
+   *   to reach it. The person hands the project over, or deletes it, in Traduora first.
+   *
+   * The project's row is locked while its admins are counted ({@link lockProject}; SQLite runs one write transaction at
+   * a time), and the request's transaction reads committed rows: another deletion through this path waits for this one
+   * and then counts what it left.
+   */
+  async deletionHold(manager: EntityManager, userId: string, deleting: ReadonlyArray<string> = [userId]): Promise<PersonDeletionHold | null> {
+    const user = await manager.getRepository(User).findOne({ where: { id: userId } });
+    if (!user) return null;
+    // Both sides normalized (`TR_EVER_ADMIN_EMAILS` is read that way); an account without an e-mail is no operator
+    const email = normalizeEmail(user.email);
+    if (email && this.instanceSettings.adminEmails.map(normalizeEmail).includes(email)) {
+      return 'operator';
+    }
+    const memberships = manager.getRepository(ProjectUser);
+    const administered = await memberships.find({ where: { user: { id: userId }, role: ProjectRole.Admin }, relations: { project: true } });
+    for (const membership of administered) {
+      if (!membership.project) continue;
+      await lockProject(manager, membership.project.id);
+      const admins = await memberships.find({
+        where: { project: { id: membership.project.id }, role: ProjectRole.Admin },
+        relations: { user: true },
+      });
+      if (!admins.some(admin => admin.user && !deleting.includes(admin.user.id))) return 'project_last_admin';
+    }
+    return null;
+  }
+
+  /**
+   * The page where an account downloads its exports, at the address the operator reported for `instance_url`, while
+   * that integration is enabled and not denied here; `null` otherwise (no export is offered then).
+   */
+  private async exportUrl(manager: EntityManager = this.integrationRows.manager): Promise<string | null> {
+    if (this.settings.integrationsDeny.includes('instance_url')) return null;
+    const row = await manager.findOne(EverConnectIntegration, { where: { key: 'instance_url' } });
+    if (row?.state !== 'enabled' || row.pendingRemoteRevoke || !row.config) return null;
+    let baseUrl: unknown;
+    try {
+      baseUrl = (JSON.parse(row.config) as { base_url?: unknown }).base_url;
+    } catch {
+      return null;
+    }
+    return typeof baseUrl === 'string' ? personExportUrl(baseUrl) : null;
   }
 
   /** An export request: one encrypted export per matched account, each with that account's own data only. */
@@ -385,10 +506,24 @@ export class EverConnectPersonService {
    * throws, so it is sent again with the next read of the feed.
    */
   private async answer(client: EverConnectPlatformClient, request: EverConnectPersonRequest): Promise<void> {
+    const exportUrl = request.result === 'exported' ? await this.exportUrl() : null;
+    if (request.result === 'exported' && !exportUrl) {
+      // Decided while the installation's address was reported, and it no longer is: Ever Platform refuses `exported`
+      // without the address, so the answer becomes the one an installation without an address gives (not final: the
+      // request stays open there, and the person can ask again)
+      this.logger.warn('ever_connect.person_request kind=export outcome=export_url_unavailable');
+      // The audit trail says what Ever Platform is told, not only what was decided first. Written before the receipt
+      // changes: if the change then fails, the next read writes it again rather than never
+      await this.audit.record('person.export', 'platform', `result=failed accounts=${request.accounts}`);
+      request.result = 'failed';
+      request.reasonCode = 'export_not_available';
+      await this.requests.update({ jobId: request.jobId }, { result: request.result, reasonCode: request.reasonCode });
+    }
     const answer: PersonRequestAnswer = {
       jobId: request.jobId,
       result: request.result as PersonRequestAnswer['result'],
       ...(request.reasonCode ? { reasonCode: request.reasonCode } : {}),
+      ...(exportUrl ? { exportUrl } : {}),
     };
     let outcome = 'answered';
     try {

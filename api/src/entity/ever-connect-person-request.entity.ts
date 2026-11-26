@@ -16,11 +16,14 @@ export class EverConnectPersonRequest {
   @Column({ type: 'varchar', length: 16, name: 'kind' })
   kind: string;
 
-  /** The answer: `anonymised`, `exported` or `no_account`; `null` until it is decided. */
+  /**
+   * The answer: `deleted`, `exported`, `no_account` or `failed` (`anonymised` from an earlier version); `null` until it
+   * is decided.
+   */
   @Column({ type: 'varchar', length: 24, name: 'result', nullable: true })
   result: string | null;
 
-  /** A machine reason code sent with the answer (`identity_unlinked`), or `null`. */
+  /** A machine reason code sent with a `failed` answer (`account_deletion_pending`, `export_not_available`), or `null`. */
   @Column({ type: 'varchar', length: 64, name: 'reason_code', nullable: true })
   reasonCode: string | null;
 
