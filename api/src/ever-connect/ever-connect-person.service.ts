@@ -9,6 +9,7 @@ import { EverConnectPersonLink } from '../entity/ever-connect-person-link.entity
 import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.entity';
 import { EverIdSession } from '../entity/ever-id-session.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
+import { Project } from '../entity/project.entity';
 import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
@@ -363,7 +364,7 @@ export class EverConnectPersonService {
   private async deleteAccounts(manager: EntityManager, userIds: string[]): Promise<boolean> {
     if (!this.settings.personDeletionEnabled) return false;
     for (const userId of userIds) {
-      const hold = await this.deletionHold(manager, userId);
+      const hold = await this.deletionHold(manager, userId, userIds);
       if (hold) {
         this.logger.warn(`ever_connect.person_request kind=deletion held=${hold}`);
         return false;
@@ -381,11 +382,14 @@ export class EverConnectPersonService {
    * Why an account must not be deleted for Ever Platform, `null` when it may be. Reads only.
    *
    * - `operator`: the account operates this installation (`TR_EVER_ADMIN_EMAILS`).
-   * - `project_last_admin`: no other admin is left in a project the account administers. With other people in it,
-   *   *Delete account* refuses as well; alone, the project would stay with nobody to reach it. The person hands the
-   *   project over, or deletes it, in Traduora first.
+   * - `project_last_admin`: no admin outside the accounts being deleted (`deleting`) is left in a project the account
+   *   administers. With other people in it, *Delete account* refuses as well; alone, the project would stay with nobody
+   *   to reach it. The person hands the project over, or deletes it, in Traduora first.
+   *
+   * The project's row is locked while its admins are counted (PostgreSQL, MySQL; SQLite runs one write transaction at
+   * a time), so another deletion that locks it too waits for this one.
    */
-  async deletionHold(manager: EntityManager, userId: string): Promise<PersonDeletionHold | null> {
+  async deletionHold(manager: EntityManager, userId: string, deleting: ReadonlyArray<string> = [userId]): Promise<PersonDeletionHold | null> {
     const user = await manager.getRepository(User).findOne({ where: { id: userId } });
     if (!user) return null;
     if (this.instanceSettings.adminEmails.includes((user.email || '').trim().toLowerCase())) {
@@ -395,8 +399,14 @@ export class EverConnectPersonService {
     const administered = await memberships.find({ where: { user: { id: userId }, role: ProjectRole.Admin }, relations: { project: true } });
     for (const membership of administered) {
       if (!membership.project) continue;
-      const admins = await memberships.count({ where: { project: { id: membership.project.id }, role: ProjectRole.Admin } });
-      if (admins <= 1) return 'project_last_admin';
+      if (!isDbType(DbType.BETTER_SQLITE3)) {
+        await manager.findOne(Project, { where: { id: membership.project.id }, lock: { mode: 'pessimistic_write' } });
+      }
+      const admins = await memberships.find({
+        where: { project: { id: membership.project.id }, role: ProjectRole.Admin },
+        relations: { user: true },
+      });
+      if (!admins.some(admin => admin.user && !deleting.includes(admin.user.id))) return 'project_last_admin';
     }
     return null;
   }
@@ -473,6 +483,15 @@ export class EverConnectPersonService {
    */
   private async answer(client: EverConnectPlatformClient, request: EverConnectPersonRequest): Promise<void> {
     const exportUrl = request.result === 'exported' ? personExportUrl(this.settings.appUrl) : null;
+    if (request.result === 'exported' && !exportUrl) {
+      // Decided while TR_VIRTUAL_HOST was https, and it no longer is: Ever Platform refuses `exported` without the
+      // address, so the answer becomes the one an installation without an address gives (not final: the request stays
+      // open there, and the person can ask again)
+      this.logger.warn('ever_connect.person_request kind=export outcome=export_url_unavailable');
+      request.result = 'failed';
+      request.reasonCode = 'export_not_available';
+      await this.requests.update({ jobId: request.jobId }, { result: request.result, reasonCode: request.reasonCode });
+    }
     const answer: PersonRequestAnswer = {
       jobId: request.jobId,
       result: request.result as PersonRequestAnswer['result'],

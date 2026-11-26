@@ -298,6 +298,20 @@ describeOnSqlite('EverConnectPersonService', () => {
       expect(await dataSource.getRepository(User).count({ where: { id: alice.id } })).toBe(0);
     });
 
+    it('switched on: two matched accounts that are the only admins of a project are both kept', async () => {
+      const { person } = await connected({ personDeletionEnabled: true });
+      await linkIdentity(alice, 's1');
+      await linkIdentity(bob, 's2');
+      await createProject('Theirs', [
+        [alice, ProjectRole.Admin],
+        [bob, ProjectRole.Admin],
+      ]);
+      const live = await build().connect.liveClient();
+      await person.handleEvents(live.client, [request(DELETION, 'job-d5', [subjectHash(ISSUER, 's1'), subjectHash(ISSUER, 's2')])]);
+      expect(platform.answers).toEqual([{ jobId: 'job-d5', result: 'failed', reasonCode: 'account_deletion_pending' }]);
+      expect(await dataSource.getRepository(User).count()).toBe(2);
+    });
+
     it('switched on, but the account operates this installation: kept', async () => {
       const { person } = await connected({ personDeletionEnabled: true }, { ...INSTANCE_SETTINGS, adminEmails: ['alice@example.test'] });
       await linkIdentity(alice, 's1');
@@ -326,6 +340,24 @@ describeOnSqlite('EverConnectPersonService', () => {
       await person.handleEvents(live.client, [request(EXPORT, 'job-e1', [subjectHash(ISSUER, 's1')])]);
       expect(platform.answers).toEqual([{ jobId: 'job-e1', result: 'failed', reasonCode: 'export_not_available' }]);
       expect(await dataSource.getRepository(EverConnectPersonExport).count()).toBe(0);
+    });
+
+    it('an exported answer that can no longer name its address is sent as export_not_available', async () => {
+      const { person } = await connected(EXPORTS_ON);
+      await linkIdentity(alice, 's1');
+      const live = await build().connect.liveClient();
+      const event = request(EXPORT, 'job-e3', [subjectHash(ISSUER, 's1')]);
+      platform.unreachable = true;
+      await expect(person.handleEvents(live.client, [event])).rejects.toThrow();
+      platform.unreachable = false;
+
+      // Started again with TR_VIRTUAL_HOST no longer https
+      const restarted = build({ personExportEnabled: true, appUrl: 'http://localhost:8080' }).person;
+      await restarted.handleEvents(live.client, [event]);
+      expect(platform.answers).toEqual([{ jobId: 'job-e3', result: 'failed', reasonCode: 'export_not_available' }]);
+      const receipt = await dataSource.getRepository(EverConnectPersonRequest).findOne({ where: { jobId: 'job-e3' } });
+      expect(receipt).toMatchObject({ result: 'failed', reasonCode: 'export_not_available' });
+      expect(receipt.answeredAt).not.toBeNull();
     });
 
     it('switched on without an https address of this installation: makes no export', async () => {
