@@ -48,10 +48,11 @@
 
 | Organization role | Can |
 |---|---|
-| `owner` (exactly one) | Everything an admin can do. Also billing, deleting the organization, and transferring ownership. |
-| `admin` | Rename the organization; invite, change and remove members (but not the owner); create projects. **Implicit project `admin` on every project of the organization** (OD-T9), so a company can always reach its own data even when the person who made a project leaves. |
+| `owner` (exactly one) | Everything an admin can do. Also billing changes (Checkout, portal), deleting the organization, and transferring ownership. |
+| `admin` | Rename the organization; invite, change and remove members (but not the owner); create projects; view billing. **Implicit project `admin` on every project of the organization when the organization has `admins_see_all_projects`** (OD-T9), so a company can always reach its own data even when the person who made a project leaves. |
 | `member` | Create projects (becoming their project admin). See and work in the projects they are a project member of, with their project role. |
 
+- **Implicit access never comes from an upgrade.** Organizations created in SaaS mode (sign-up, `POST /organizations`) have `admins_see_all_projects = true`. The default organization that the migration creates for an existing install has it **false**. So on an upgraded self-hosted install, nobody, the owner included, sees a project they could not see before. An owner can turn it on later in the organization settings, which says plainly what it grants.
 - The project role check (`domain/actions.ts`) is unchanged.
 - The organization role check is a second, small table: `domain/organization-actions.ts`. It is default-deny, like `actions.ts`.
 
@@ -153,6 +154,10 @@ OD-T1 default: Traduora bills its own organizations.
   - `automatic_tax: { enabled: true }` and `billing_address_collection: 'required'`.
 
   A new Checkout is refused while a live subscription exists; the customer portal is offered instead.
+- **One Checkout at a time.** Two clicks or two tabs must not end in two subscriptions:
+  - Creating a session locks the organization row. If the organization already holds an open session that has not expired (`checkout_session_id`, `checkout_expires_at`), its URL is returned again; otherwise the new session's id and expiry are stored in the same transaction.
+  - The Stripe call carries an idempotency key built from the organization id, the price and the stored attempt counter.
+  - Backstop in the webhook: a second subscription for an organization that already has a live one is cancelled at once (no proration, still in its trial, so nothing is charged) and written to the billing log.
 - **Customer portal:** opened on the organization's `stripeCustomerId`, which is server-only, never sent by the client. It covers plan changes, seats, invoices and cancellation.
 - **Webhook:** `POST /api/v1/billing/webhook`.
   - Raw body, verified with `stripe.webhooks.constructEvent` and `TR_STRIPE_WEBHOOK_SECRET`.
@@ -164,7 +169,7 @@ OD-T1 default: Traduora bills its own organizations.
     - `invoice.payment_failed`
   - The plan and the seat count are read from the subscription's price lookup keys, never from metadata the client could shape. A subscription whose customer is not the organization's is ignored.
 - **Keys:** `TR_STRIPE_SECRET_KEY`, `TR_STRIPE_WEBHOOK_SECRET` and `TR_STRIPE_PUBLISHABLE_KEY` (not needed with hosted Checkout). They come from OpenBao `kv/ever-traduora/<env>`, **test mode** until P8. Live keys and the live webhook endpoint are a claimed change.
-- **Billing page** (owner and admin): plan, seats used / included / bought, trial end, next invoice, buttons for Upgrade (Checkout) and Manage billing (portal).
+- **Billing page:** plan, seats used / included / bought, trial end, next invoice. Admins see it read-only; only the owner gets the Upgrade (Checkout) and Manage billing (portal) buttons, matching the role table of §3.2.
 
 ### 3.8 Accounts and hardening (T3, T7, P5)
 
@@ -214,6 +219,7 @@ All ids are uuid strings, like the existing entities.
 | `status` | varchar(16) | `active` / `suspended` / `deleted` |
 | `plan_code` | varchar(32) | `starter` / `small_business` / `enterprise`. The default organization of a single-tenant install gets `enterprise` (no limits). |
 | `is_default` | boolean | true only for the organization the migration creates |
+| `admins_see_all_projects` | boolean | owner/admin are implicit project admins (§3.2). `true` for organizations made in SaaS mode, `false` for the default organization |
 | `seats_used`, `strings_used` | int | cached counters (§3.6) |
 | `date_created`, `date_modified` | timestamp | |
 
@@ -226,6 +232,7 @@ P4 adds:
 | `billing_interval` | varchar | `monthly` / `annual` |
 | `extra_seats` | int | |
 | `trial_ends_at`, `current_period_end`, `past_due_since` | timestamp | |
+| `checkout_session_id`, `checkout_expires_at` | varchar, timestamp | the open Checkout session, reused until it expires (§3.7) |
 
 ### 4.2 `organization_user` (P1)
 
@@ -259,15 +266,14 @@ One migration file per change, covering all three engines, written with the `Tab
 **`<ts>-add-organizations.ts`** (idempotent, re-runnable):
 
 1. Create `organization`, `organization_user` and `organization_invite`. Add `project.organization_id` (nullable) with its index.
-2. If projects or users exist and no default organization does, create the **default organization**:
+2. If no default organization exists, create it, **also on an empty database** (a fresh install: single-tenant sign-ups and the boot seed need it):
    - `slug: default`;
    - `name: TR_DEFAULT_ORGANIZATION_NAME`, default "My organization";
-   - `plan_code: enterprise`, `is_default: true`.
+   - `plan_code: enterprise`, `is_default: true`, `admins_see_all_projects: false`.
 3. `UPDATE project SET organization_id = <default> WHERE organization_id IS NULL`.
 4. Insert an `organization_user` for **every** user:
    - The **owner** is the user with `TR_ADMIN_EMAIL` if they exist. Otherwise it is the earliest-created user who is a project admin, and otherwise the earliest user.
-   - Users who are a project `admin` anywhere become organization `admin`.
-   - Everyone else becomes `member`.
+   - Everyone else becomes `member`. Nobody becomes organization `admin` because they administer a project: the upgrade never widens what anyone can see (§3.2).
 5. Postgres and MySQL: set `project.organization_id NOT NULL` and add the FK.
 6. Compute `seats_used` and `strings_used`.
 
@@ -288,7 +294,8 @@ New, all under `/api/v1`:
 | `GET/POST /organizations/:id/invites`, `DELETE …/invites/:inviteId` | organization:EditMembers |
 | `POST /auth/accept-organization-invite` | user (token) |
 | `GET /organizations/:id/usage` | organization:View: plan, seats, strings, limits |
-| `POST /organizations/:id/billing/checkout`, `POST …/billing/portal`, `GET …/billing` | owner/admin (P4) |
+| `GET /organizations/:id/billing` | owner/admin, read-only (P4) |
+| `POST /organizations/:id/billing/checkout`, `POST …/billing/portal` | owner only (P4) |
 | `POST /billing/webhook` | webhook (P4) |
 | `GET /organizations/:id/export` | owner/admin (P6) |
 | `GET /operator/organizations`, `GET/POST …/:id`, `POST …/:id/suspend`, `POST …/:id/restore` | operator (P6) |
@@ -463,7 +470,7 @@ The shared file `app.module.ts` gets one module import per lane and is merged in
 | OD-T6 | Card on Starter | No card on Starter; a card at the start of a paid trial |
 | OD-T7 | Demo data | The demo stays a separate single-tenant SQLite install |
 | OD-T8 | Bot check | Cloudflare Turnstile |
-| OD-T9 | Organization admins see every project of their organization | Yes (implicit project admin) |
+| OD-T9 | Organization admins see every project of their organization | Yes in organizations made in SaaS mode (`admins_see_all_projects`); no in the default organization of an upgraded install, so an upgrade never widens access |
 | OD-T10 | A project invite to a non-member takes a seat | Yes, as an organization `member` invite |
 | OD-T11 | Extra-seat price on Stripe (`ever_seat_traduora_cloud_small_business_*`) | Created in test mode at $5/month if missing; the live price needs the owner |
 | OD-T12 | Existing per-user project limit (`TR_MAX_PROJECTS_PER_USER`) in SaaS mode | Kept (100); plans limit seats and strings, not projects |

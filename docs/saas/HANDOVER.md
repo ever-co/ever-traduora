@@ -31,5 +31,5 @@ The build goes on with the defaults of `DESIGN.md` §12 (OD-T1 … OD-T14). Noth
 
 - Node 26 first on `PATH` (CI uses 26.12.1).
 - `yarn install --frozen-lockfile` at the root.
-- API: `yarn --cwd api lint`, `yarn --cwd api test`, then e2e with `yarn --cwd api jest --config ./test/jest-e2e.json --runInBand`.
+- API: `yarn --cwd api lint`, `yarn --cwd api test`, then e2e with `yarn --cwd api test:e2e` (it sets `NODE_ENV=e2e`, the 100-string default plan, stats off and its own SQLite file). On Windows, run jest with `--runInBand` if the formatter specs fail with EPERM on cache renames.
 - Web app: `yarn --cwd webapp test --watch=false --browsers=ChromeHeadlessCI`, `yarn --cwd webapp build:prod`.
