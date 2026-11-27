@@ -7,7 +7,6 @@ import { ProjectAction } from '../domain/actions';
 import { ProjectStatsResponse } from '../domain/http';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
-import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
