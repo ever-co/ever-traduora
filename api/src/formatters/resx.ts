@@ -2,6 +2,7 @@
 
 import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
+import { escapeXmlAttribute } from './xml-attribute';
 
 export const resXParser: Parser = async (data: string) => {
   // Keep spaces-only text: Traduora writes xml:space="preserve", and .NET keeps such a value as it is
@@ -39,7 +40,7 @@ export const resXParser: Parser = async (data: string) => {
 
 export const resXExporter: Exporter = async (data: IntermediateTranslationFormat) => {
   const strings = data.translations.map(translation => ({
-    _attributes: { name: translation.term, 'xml:space': 'preserve' },
+    _attributes: { name: escapeXmlAttribute(translation.term), 'xml:space': 'preserve' },
     value: translation.translation,
   }));
   const xml = xmlJs.js2xml(

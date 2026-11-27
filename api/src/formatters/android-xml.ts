@@ -1,5 +1,6 @@
 import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
+import { escapeXmlAttribute } from './xml-attribute';
 
 export const androidXmlParser: Parser = async (data: string) => {
   // A space between two inline tags (<b>a</b> <i>b</i>) is part of the value, so whitespace-only text is read too
@@ -34,7 +35,7 @@ export const androidXmlParser: Parser = async (data: string) => {
 
 export const androidXmlExporter: Exporter = async (data: IntermediateTranslationFormat) => {
   const strings = data.translations.map(translation => ({
-    _attributes: { name: translation.term },
+    _attributes: { name: escapeXmlAttribute(translation.term) },
     _text: escape(translation.translation),
   }));
   return xmlJs.js2xml(

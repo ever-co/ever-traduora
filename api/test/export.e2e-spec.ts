@@ -5,6 +5,8 @@ import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 import { propertiesParser } from '../src/formatters/properties';
 import { csvParser } from '../src/formatters/csv';
+import { androidXmlParser } from '../src/formatters/android-xml';
+import { resXParser } from '../src/formatters/resx';
 
 describe('ExportController (e2e)', () => {
   let app: INestApplication;
@@ -420,6 +422,33 @@ describe('ExportController (e2e)', () => {
         expect(res.body.error.code).toEqual('BadRequest');
         expect(res.body.error.message).toContain('rename these terms before exporting: @x');
       });
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should export a term with & and < as well-formed Android XML and RESX', async () => {
+    const term = 'Terms & <Conditions> "q"';
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/terms`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ value: term })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: res.body.data.id, value: 'AGB' })
+      .expect(200);
+
+    for (const [format, parser] of [
+      ['androidxml', androidXmlParser],
+      ['resx', resXParser],
+    ] as const) {
+      const exported = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=${format}&untranslated=false`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200);
+      const parsed = await parser(Buffer.from(exported.body).toString('utf-8'));
+      expect(parsed.translations.find(t => t.term === term)).toEqual({ term, translation: 'AGB' });
+    }
   });
 
   it('/api/v1/projects/:projectId/exports?format=jsonflat (GET) should not export if locale does not exist for project', async () => {
