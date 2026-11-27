@@ -10,6 +10,7 @@ import {
   Req,
   UploadedFile,
   UseInterceptors,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -201,6 +202,9 @@ export class ImportController {
         throw new PaymentRequiredException('request would exceed plan limit');
       } else if (error instanceof OrganizationException) {
         // A suspended organization answers as on every other route (organization_suspended)
+        throw error;
+      } else if (error instanceof ForbiddenException) {
+        // The access re-check under the lock refused (a role or membership lost during the upload): still a 403
         throw error;
       } else if (isTransientDatabaseError(error)) {
         // Answered as such (try again), not as a missing resource
