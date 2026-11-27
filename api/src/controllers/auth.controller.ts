@@ -349,6 +349,12 @@ export class AuthController {
     return this.signUserToken(user);
   }
 
+  @Throttle({
+    default: {
+      limit: config.throttle.auth.limit,
+      ttl: config.throttle.auth.ttl,
+    },
+  })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request reset password email' })
@@ -359,6 +365,12 @@ export class AuthController {
     this.mailService.passwordResetToken(user, token);
   }
 
+  @Throttle({
+    default: {
+      limit: config.throttle.auth.limit,
+      ttl: config.throttle.auth.ttl,
+    },
+  })
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password from token' })
