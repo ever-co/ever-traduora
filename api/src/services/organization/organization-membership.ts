@@ -106,7 +106,7 @@ export async function recountSeats(manager: EntityManager, organizationId: strin
 
 /**
  * Makes the user a member of the organization with `role`, unless they are one already (their role then stays).
- * Returns the membership.
+ * Returns the membership. Needs a transaction (the organization row is locked).
  */
 export async function ensureMember(
   manager: EntityManager,
@@ -261,42 +261,72 @@ export async function isOpenForMembers(manager: EntityManager, organizationId: s
 }
 
 /**
- * Before an account is deleted, for each organization of the user:
- * - the only member: the organization is closed (`closeIfEmpty`), except the default one;
- * - the owner, with other members: the default organization (single-tenant mode, where nobody can transfer by hand)
- *   passes to its earliest admin, else its earliest member; another organization (SaaS mode) refuses, its owner
- *   transfers the ownership first.
+ * Why deleting these accounts would leave an organization without its owner, `null` when it would not: an account owns
+ * an organization other than the default one where someone not being deleted remains. Reads only; the deletion itself
+ * (`deleteAccountsWithOrganizations`) checks again under the organization locks.
  */
-export async function prepareOrganizationsForAccountDeletion(manager: EntityManager, userId: string): Promise<void> {
-  const memberships = await manager.find(OrganizationUser, { where: { userId }, relations: ['organization'] });
-  for (const membership of memberships) {
-    await inTransaction(manager, async tx => {
-      await lockOrganization(tx, membership.organizationId);
-      const members = await tx.find(OrganizationUser, {
-        where: { organizationId: membership.organizationId },
-        order: { date: { created: 'ASC' }, id: 'ASC' },
-      });
-      const candidates = members.filter(member => member.userId !== userId);
-      if (candidates.length === 0) {
-        // The account's membership goes with the account: the organization has nobody left
-        await tx.delete(OrganizationUser, { id: membership.id });
-        await closeIfEmpty(tx, membership.organizationId);
-        return;
+export async function organizationDeletionHold(manager: EntityManager, userIds: ReadonlyArray<string>): Promise<string | null> {
+  const deleting = new Set(userIds);
+  const owned = await manager.find(OrganizationUser, {
+    where: { userId: In([...deleting]), role: OrganizationRole.Owner },
+    relations: ['organization'],
+  });
+  for (const ownership of owned) {
+    if (ownership.organization?.isDefault) {
+      continue;
+    }
+    const members = await manager.find(OrganizationUser, { where: { organizationId: ownership.organizationId } });
+    if (members.some(member => !deleting.has(member.userId))) {
+      return ownership.organization?.name ?? ownership.organizationId;
+    }
+  }
+  return null;
+}
+
+/**
+ * Deletes accounts (`remove`, given the transaction) together with what their organizations need, in one transaction
+ * that holds each organization's lock until the accounts are gone (memberships take the same lock, see `ensureMember`):
+ * - an owner of an organization where someone not being deleted remains: the default organization (single-tenant
+ *   mode, where nobody can transfer by hand) passes to its earliest admin, else its earliest member; another
+ *   organization refuses with 422 `owner_required`, its owner transfers the ownership first;
+ * - after the deletion each organization's seats are recounted, and one with nobody left is closed (`closeIfEmpty`;
+ *   never the default one).
+ * Memberships are read after the locks, so a transfer that committed meanwhile is seen.
+ */
+export async function deleteAccountsWithOrganizations(
+  manager: EntityManager,
+  userIds: ReadonlyArray<string>,
+  remove: (tx: EntityManager) => Promise<void>,
+): Promise<void> {
+  const deleting = new Set(userIds);
+  await inTransaction(manager, async tx => {
+    const touched = await tx.find(OrganizationUser, { where: { userId: In([...deleting]) }, select: ['id', 'organizationId'] });
+    // One order for the locks, so two deletions never wait on each other in a cycle
+    const organizationIds = [...new Set(touched.map(membership => membership.organizationId))].sort((a, b) => a.localeCompare(b));
+    for (const organizationId of organizationIds) {
+      const organization = await lockOrganization(tx, organizationId);
+      const members = await tx.find(OrganizationUser, { where: { organizationId }, order: { date: { created: 'ASC' }, id: 'ASC' } });
+      const leavingOwner = members.find(member => deleting.has(member.userId) && member.role === OrganizationRole.Owner);
+      const remaining = members.filter(member => !deleting.has(member.userId));
+      if (!leavingOwner || remaining.length === 0) {
+        continue;
       }
-      if (membership.role !== OrganizationRole.Owner) {
-        return;
-      }
-      const ownership = membership;
-      if (!ownership.organization?.isDefault) {
+      if (!organization?.isDefault) {
         throw new OrganizationException(
           HttpStatus.UNPROCESSABLE_ENTITY,
           'owner_required',
-          `Transfer the ownership of '${ownership.organization?.name}' before deleting your account`,
+          `Transfer the ownership of '${organization?.name}' before deleting your account`,
         );
       }
-      const next = candidates.find(member => member.role === OrganizationRole.Admin) ?? candidates[0];
+      const next = remaining.find(member => member.role === OrganizationRole.Admin) ?? remaining[0];
       await tx.update(OrganizationUser, { id: next.id }, { role: OrganizationRole.Owner });
-      await tx.update(OrganizationUser, { id: ownership.id }, { role: OrganizationRole.Admin });
-    });
-  }
+      await tx.update(OrganizationUser, { id: leavingOwner.id }, { role: OrganizationRole.Admin });
+    }
+    await remove(tx);
+    for (const organizationId of organizationIds) {
+      if (!(await closeIfEmpty(tx, organizationId))) {
+        await recountSeats(tx, organizationId);
+      }
+    }
+  });
 }

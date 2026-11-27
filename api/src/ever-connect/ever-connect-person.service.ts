@@ -22,6 +22,7 @@ import { EverConnectPlatformClient, PersonRequestAnswer, PlatformEvent, problemO
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
 import { lockAccount } from '../services/ever-id-session.service';
+import { deleteAccountsWithOrganizations, organizationDeletionHold } from '../services/organization/organization-membership';
 
 /** The feed events of a person's requests, by the kind of request. */
 export const PERSON_REQUEST_TYPES: Readonly<Record<string, 'deletion' | 'export'>> = Object.freeze({
@@ -53,7 +54,7 @@ export const PERSON_EXPORT_PURPOSE: KeyPurpose = { info: 'ever-connect/person-ex
 export const PERSON_EXPORT_PAGE = '/user-settings';
 
 /** Why an account is kept rather than deleted for Ever Platform (logged by code only). */
-export type PersonDeletionHold = 'operator' | 'project_last_admin';
+export type PersonDeletionHold = 'operator' | 'project_last_admin' | 'organization_owner';
 
 /**
  * The address of the page where an account downloads its exports, under the installation's address `baseUrl` (the one
@@ -379,11 +380,15 @@ export class EverConnectPersonService {
         return false;
       }
     }
-    const users = manager.getRepository(User);
-    for (const userId of userIds) {
-      const user = await users.findOne({ where: { id: userId } });
-      if (user) await users.remove(user);
-    }
+    // As Delete account does: under the organization locks, with the ownership handed over in the default organization
+    // and the seats recounted (deletionHold held back an owner whose organization keeps other members)
+    await deleteAccountsWithOrganizations(manager, userIds, async tx => {
+      const users = tx.getRepository(User);
+      for (const userId of userIds) {
+        const user = await users.findOne({ where: { id: userId } });
+        if (user) await users.remove(user);
+      }
+    });
     return true;
   }
 
@@ -407,6 +412,10 @@ export class EverConnectPersonService {
     const email = normalizeEmail(user.email);
     if (email && this.instanceSettings.adminEmails.map(normalizeEmail).includes(email)) {
       return 'operator';
+    }
+    // The owner of an organization that keeps other members: the person transfers the ownership in Traduora first
+    if (await organizationDeletionHold(manager, deleting)) {
+      return 'organization_owner';
     }
     const memberships = manager.getRepository(ProjectUser);
     const administered = await memberships.find({ where: { user: { id: userId }, role: ProjectRole.Admin }, relations: { project: true } });

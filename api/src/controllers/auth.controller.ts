@@ -154,7 +154,13 @@ export class AuthController {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
-    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Password, ...signup });
+    // SaaS mode: without an invitation to accept, the person's own organization is made with the account
+    const accepting = acceptedInvites.length + acceptedOrganizationInvites.length > 0;
+    const { user, isNewUser } = await this.userService.create({
+      grantType: GrantType.Password,
+      ...signup,
+      ownOrganization: config.saasEnabled && !accepting ? { name: organizationName } : undefined,
+    });
 
     await this.acceptInvites(acceptedInvites, user);
     await this.organizations.acceptInvites(acceptedOrganizationInvites, user);
@@ -236,7 +242,13 @@ export class AuthController {
       throw new ForbiddenException('Signups are invitation based only.');
     }
 
-    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: decodedToken.name, email: decodedToken.email });
+    const { user, isNewUser } = await this.userService.create({
+      grantType: GrantType.Provider,
+      name: decodedToken.name,
+      email: decodedToken.email,
+      // SaaS mode: the invitations of a verified email are accepted below; without any, the person's own organization
+      ownOrganization: config.saasEnabled && invites.length + organizationInvites.length === 0 ? {} : undefined,
+    });
 
     if (emailVerified) {
       await this.userService.verifyEmailWithProvider(user.id, normalizedEmail);
@@ -432,6 +444,16 @@ export class AuthController {
    * verified it: the invitations were sent to that mailbox.
    */
   private async acceptPendingInvites(user: User) {
+    try {
+      await this.acceptPendingInvitesOf(user);
+    } catch (error) {
+      // The proof (verification, reset) stands and is answered as such; the invitations stay pending, and the links
+      // emailed with them accept them later
+      this.logger.warn(`invites=pending reason=${error?.name ?? 'error'}`);
+    }
+  }
+
+  private async acceptPendingInvitesOf(user: User) {
     const invites = await this.inviteRepo.find({
       where: { email: user.email, status: InviteStatus.Sent },
       relations: ['project'],
@@ -667,7 +689,17 @@ export class AuthController {
       throw new AuthProviderException(HttpStatus.FORBIDDEN, 'signup_disabled', 'Signups are invitation based only.');
     }
 
-    const { user, isNewUser } = await this.userService.create({ grantType: GrantType.Provider, name: pending.name, email: pending.email });
+    // Only the invitations the person ticked on the confirmation screen; without any, the person's own organization
+    // (SaaS mode) is made with the account
+    const accept = new Set(payload.acceptInvites ?? []);
+    const tickedInvites = invites.filter(invite => accept.has(invite.id));
+    const tickedOrganizationInvites = organizationInvites.filter(invite => accept.has(invite.id));
+    const { user, isNewUser } = await this.userService.create({
+      grantType: GrantType.Provider,
+      name: pending.name,
+      email: pending.email,
+      ownOrganization: config.saasEnabled && tickedInvites.length + tickedOrganizationInvites.length === 0 ? {} : undefined,
+    });
     if (!isNewUser) {
       // Created by someone else since the check above: never signed in to
       throw new AuthProviderException(
@@ -687,16 +719,9 @@ export class AuthController {
     await this.userService.verifyEmailWithProvider(user.id, pending.email);
     const account = await this.userService.findById(user.id);
 
-    // Only the invitations the person ticked on the confirmation screen
-    const accept = new Set(payload.acceptInvites ?? []);
-    await this.acceptInvites(
-      invites.filter(invite => accept.has(invite.id)),
-      account,
-    );
-    await this.organizations.acceptInvites(
-      organizationInvites.filter(invite => accept.has(invite.id)),
-      account,
-    );
+    await this.acceptInvites(tickedInvites, account);
+    await this.organizations.acceptInvites(tickedOrganizationInvites, account);
+    // When none of the ticked invitations could be accepted (sent again or revoked meanwhile), still an organization
     await this.organizations.setUpNewAccount(account);
 
     await this.welcomeNewUser(account, true);
