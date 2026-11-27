@@ -59,6 +59,15 @@ export function lockOrganization(tx: EntityManager, organizationId: string): Pro
   });
 }
 
+/**
+ * Options for a read that decides something under the organization lock. Inside a transaction on PostgreSQL and MySQL
+ * it is a locking read, which sees the latest committed rows: MySQL's REPEATABLE READ would otherwise answer from the
+ * snapshot taken at the transaction's first read, before another writer committed (SQLite has one writer at a time).
+ */
+export function latestRows(manager: EntityManager): { lock?: { mode: 'pessimistic_read' } } {
+  return manager.queryRunner?.isTransactionActive && !isDbType(DbType.BETTER_SQLITE3) ? { lock: { mode: 'pessimistic_read' } } : {};
+}
+
 export function findDefaultOrganization(manager: EntityManager): Promise<Organization | null> {
   return manager.findOne(Organization, { where: { isDefault: true } });
 }
@@ -90,7 +99,10 @@ export async function ensureDefaultOrganization(manager: EntityManager): Promise
     })
     .orIgnore()
     .execute();
-  const made = await findDefaultOrganization(manager);
+  // When a sign-up at the same moment made it first, the insert did nothing. Inside a transaction, MySQL's REPEATABLE
+  // READ would then still show the snapshot of the first read above (no default organization), so the row is read
+  // again with a locking read, which sees the latest committed version (SQLite has no row locks and one writer).
+  const made = await manager.findOne(Organization, { where: { isDefault: true }, ...latestRows(manager) });
   if (!made) {
     throw new Error('the default organization could not be made');
   }
@@ -117,7 +129,7 @@ export async function ensureMember(
   // The organization's lock first: two invitations of the same person wait for each other instead of colliding on the
   // unique key, seats are counted one change at a time, and an account deletion holding the lock sees every member
   await lockOrganization(manager, organizationId);
-  const existing = await manager.findOne(OrganizationUser, { where: { organizationId, userId } });
+  const existing = await manager.findOne(OrganizationUser, { where: { organizationId, userId }, ...latestRows(manager) });
   if (existing) {
     return existing;
   }
@@ -134,11 +146,15 @@ export async function joinDefaultOrganization(manager: EntityManager, userId: st
   const organization = await ensureDefaultOrganization(manager);
   return inTransaction(manager, async tx => {
     await lockOrganization(tx, organization.id);
-    const existing = await tx.findOne(OrganizationUser, { where: { organizationId: organization.id, userId } });
+    const existing = await tx.findOne(OrganizationUser, { where: { organizationId: organization.id, userId }, ...latestRows(tx) });
     if (existing) {
       return existing;
     }
-    const hasOwner = await tx.exists(OrganizationUser, { where: { organizationId: organization.id, role: OrganizationRole.Owner } });
+    const owner = await tx.findOne(OrganizationUser, {
+      where: { organizationId: organization.id, role: OrganizationRole.Owner },
+      ...latestRows(tx),
+    });
+    const hasOwner = !!owner;
     return ensureMember(tx, organization.id, userId, hasOwner ? OrganizationRole.Member : OrganizationRole.Owner);
   });
 }
