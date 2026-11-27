@@ -92,7 +92,7 @@ const stateDefaults: OrganizationsStateModel = {
 })
 @Injectable({ providedIn: 'root' })
 export class OrganizationsState {
-  constructor(private organizationsService: OrganizationsService) {}
+  constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Selector()
   static organizations(state: OrganizationsStateModel) {

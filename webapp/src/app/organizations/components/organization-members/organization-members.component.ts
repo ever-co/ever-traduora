@@ -7,7 +7,7 @@ import { Store } from '@ngxs/store';
 import { forkJoin, Observable, of } from 'rxjs';
 import { distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
 import { AuthState } from '../../../auth/stores/auth.state';
-import { canManage, Organization, OrganizationInvite, OrganizationMember, OrganizationRole } from '../../models/organization';
+import { canManage, countOf, Organization, OrganizationInvite, OrganizationMember, OrganizationRole } from '../../models/organization';
 import { organizationErrorMessage } from '../../models/organization-errors';
 import { OrganizationsService } from '../../services/organizations.service';
 import { GetOrganizations, OrganizationsState } from '../../stores/organizations.state';
@@ -51,8 +51,11 @@ export class OrganizationMembersComponent implements OnInit {
   get seatsLine(): string {
     const members = this.members?.length ?? 0;
     const pending = this.invites.length;
-    const membersText = `${members} ${members === 1 ? 'member' : 'members'}`;
-    return pending > 0 ? `${membersText} · ${pending} pending ${pending === 1 ? 'invite' : 'invites'}` : membersText;
+    const membersText = countOf(members, 'member', 'members');
+    if (pending === 0) {
+      return membersText;
+    }
+    return `${membersText} · ${countOf(pending, 'pending invite', 'pending invites')}`;
   }
 
   ngOnInit(): void {

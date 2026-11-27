@@ -11,6 +11,9 @@ import { OrganizationInvite } from '../src/entity/organization-invite.entity';
 import { User } from '../src/entity/user.entity';
 import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
 
+/** Sorts strings, or pairs of strings, by their text. */
+const byText = (left: unknown, right: unknown) => String(left).localeCompare(String(right));
+
 interface Org {
   id: string;
   name: string;
@@ -51,7 +54,7 @@ describe('Organizations in SaaS mode (e2e)', () => {
         .expect(200)
     ).body.data
       .map(project => project.id)
-      .sort();
+      .sort(byText);
   const addToProject = (admin: TestingUser, projectId: string, user: TestingUser, role: string) =>
     request(server()).post(`/api/v1/projects/${projectId}/invites`).set(auth(admin)).send({ email: user.email, role }).expect(201);
   const inviteToOrganization = (admin: TestingUser, organizationId: string, email: string, role = 'member') =>
@@ -265,8 +268,8 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const memberships = async () =>
         (await dataSource.getRepository(ProjectUser).find({ where: { user: { id: member.id } }, relations: ['project'] }))
           .map(row => row.project.id)
-          .sort((a, b) => a.localeCompare(b));
-      expect(await memberships()).toEqual([project.id, secondProject.id, elsewhere.id].sort((a, b) => a.localeCompare(b)));
+          .sort(byText);
+      expect(await memberships()).toEqual([project.id, secondProject.id, elsewhere.id].sort(byText));
       await request(server()).get(`/api/v1/projects/${project.id}`).set(auth(member)).expect(200);
       await request(server()).delete(`/api/v1/organizations/${organization.id}/members/${member.id}`).set(auth(admin)).expect(204);
       await request(server()).get(`/api/v1/projects/${project.id}`).set(auth(member)).expect(404);
@@ -420,7 +423,7 @@ describe('Organizations in SaaS mode (e2e)', () => {
       expect(await projectIds(erin, a.id)).toEqual([inA.id]);
       expect(await projectIds(erin, f.id)).toEqual([inF.id]);
       expect(await projectIds(erin, e.id)).toEqual([]);
-      expect(await projectIds(erin)).toEqual([inA.id, inF.id].sort());
+      expect(await projectIds(erin)).toEqual([inA.id, inF.id].sort(byText));
       await request(server()).get(`/api/v1/projects/${alsoInA.id}`).set(auth(erin)).expect(404);
       // Not a member: the list of another organization is not found
       await request(server()).get('/api/v1/projects').query({ organizationId: a.id }).set(auth(frank)).expect(404);

@@ -33,6 +33,12 @@ export const PLAN_NAMES: Record<Organization['planCode'], string> = {
   enterprise: 'Enterprise',
 };
 
+/** "1 member", "3 members". */
+export function countOf(count: number, one: string, many: string): string {
+  const noun = count === 1 ? one : many;
+  return `${count} ${noun}`;
+}
+
 /** Whether the role may rename the organization and manage its members and invites. */
 export function canManage(role: OrganizationRole | undefined): boolean {
   return role === 'owner' || role === 'admin';
@@ -64,16 +70,30 @@ export const RESERVED_SLUGS = new Set([
   'docs',
 ]);
 
-/** A slug suggested from a name, as the API derives it: "Acme GmbH & Co." → `acme-gmbh-co`. */
+/**
+ * A slug suggested from a name, as the API derives it: "Acme GmbH & Co." → `acme-gmbh-co`. One pass over the
+ * characters, without a regular expression, so its time is linear on any input.
+ */
 export function slugFromName(name: string): string {
-  return (name || '')
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/g, '');
+  const out: string[] = [];
+  for (const char of (name || '').normalize('NFKD').toLowerCase()) {
+    const code = char.charCodeAt(0);
+    if (code >= 0x300 && code <= 0x36f) {
+      // A combining accent (é is e + U+0301): dropped
+      continue;
+    }
+    if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+      out.push(char);
+    } else if (out.length > 0 && out[out.length - 1] !== '-') {
+      out.push('-');
+    }
+  }
+  const slug = out.join('').slice(0, 40);
+  let end = slug.length;
+  while (end > 0 && slug[end - 1] === '-') {
+    end--;
+  }
+  return slug.slice(0, end);
 }
 
 export function isAllowedSlug(slug: string): boolean {

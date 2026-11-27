@@ -40,28 +40,51 @@ export function isAllowedSlug(slug: string): boolean {
   return isWellFormedSlug(slug) && !RESERVED_SLUGS.has(slug);
 }
 
+/** `text` without the hyphens at its end. */
+function trimTrailingHyphens(text: string): string {
+  let end = text.length;
+  while (end > 0 && text[end - 1] === '-') {
+    end--;
+  }
+  return text.slice(0, end);
+}
+
+/**
+ * The letters and digits of a name in lowercase, every other run as one hyphen, no hyphen at either end. One pass over
+ * the characters, without a regular expression, so its time is linear on any input.
+ */
+function slugBase(name: string): string {
+  const out: string[] = [];
+  for (const char of (name || '').normalize('NFKD').toLowerCase()) {
+    const code = char.charCodeAt(0);
+    if (code >= 0x300 && code <= 0x36f) {
+      // A combining accent (é is e + U+0301): dropped
+      continue;
+    }
+    if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+      out.push(char);
+    } else if (out.length > 0 && out[out.length - 1] !== '-') {
+      out.push('-');
+    }
+  }
+  return trimTrailingHyphens(out.join('').slice(0, SLUG_MAX_LENGTH));
+}
+
 /**
  * A slug derived from an organization name: "Acme GmbH & Co." → `acme-gmbh-co`. Accents are dropped, anything else
  * becomes a hyphen. A result that is too short or reserved gets a random suffix, so it is always allowed.
  */
 export function slugFromName(name: string, suffix: () => string = randomSuffix): string {
-  let slug = (name || '')
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, SLUG_MAX_LENGTH)
-    .replace(/-+$/g, '');
+  const slug = slugBase(name);
   if (slug.length < SLUG_MIN_LENGTH || RESERVED_SLUGS.has(slug)) {
-    slug = withSuffix(slug || 'org', suffix());
+    return withSuffix(slug || 'org', suffix());
   }
   return slug;
 }
 
 /** `slug` with `-<suffix>`, shortened to stay within the maximum length. */
 export function withSuffix(slug: string, suffix: string): string {
-  const head = slug.slice(0, SLUG_MAX_LENGTH - suffix.length - 1).replace(/-+$/g, '');
+  const head = trimTrailingHyphens(slug.slice(0, SLUG_MAX_LENGTH - suffix.length - 1));
   return `${head}-${suffix}`;
 }
 

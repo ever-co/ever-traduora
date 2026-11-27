@@ -83,6 +83,13 @@ const INDEXES: IndexSpec[] = [
 
 const PROJECT_FK = 'FK_project_organization';
 
+/** `project.organization_id` as each engine adds it, nullable until every project has one (step 3). */
+const ADD_PROJECT_COLUMN: Record<string, string> = {
+  [DbType.POSTGRES]: 'ALTER TABLE "project" ADD COLUMN "organization_id" uuid NULL',
+  [DbType.MYSQL]: 'ALTER TABLE `project` ADD `organizationId` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL',
+  [DbType.BETTER_SQLITE3]: 'ALTER TABLE "project" ADD COLUMN "organization_id" varchar(255) NULL',
+};
+
 /** SQLite keeps `project.organization_id` without a REFERENCES clause (see below); these triggers stand in for it. */
 const SQLITE_TRIGGERS = ['fk_project_organization_insert', 'fk_project_organization_update', 'fk_project_organization_delete'];
 
@@ -112,9 +119,7 @@ export class addOrganizations1795478400000 implements MigrationInterface {
     // 1. The tables, the column and the indexes
     await createTables(queryRunner, TABLES);
     if (!(await sql.columnExists('project', 'organization_id'))) {
-      const type =
-        sql.db === DbType.POSTGRES ? 'uuid' : sql.db === DbType.MYSQL ? 'varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin' : 'varchar(255)';
-      await sql.run(`ALTER TABLE ${sql.t('project')} ADD ${sql.db === DbType.MYSQL ? '' : 'COLUMN '}${sql.c('organization_id')} ${type} NULL`);
+      await sql.run(ADD_PROJECT_COLUMN[sql.db]);
     }
     for (const index of INDEXES) {
       await sql.createIndex(index);
@@ -124,30 +129,46 @@ export class addOrganizations1795478400000 implements MigrationInterface {
     }
 
     // 2. The default organization, also on an empty database (a fresh install)
-    let defaultId = await sql.value(
-      `SELECT ${sql.c('id')} AS ${sql.q('id')} FROM ${sql.t('organization')} WHERE ${sql.c('is_default')} = ${sql.true}`,
-    );
-    if (!defaultId) {
-      defaultId = randomUUID();
-      const name = (config.defaultOrganizationName || 'My organization').slice(0, 255);
-      const columns = ['id', 'name', 'slug', 'status', 'plan_code', 'is_default', 'admins_see_all_projects'];
-      await sql.run(
-        `INSERT INTO ${sql.t('organization')} (${columns.map(c => sql.c(c)).join(', ')}) ` +
-          `VALUES (?, ?, 'default', 'active', 'enterprise', ${sql.true}, ${sql.false})`,
-        [defaultId, name],
-      );
-    }
+    const defaultId = await this.defaultOrganization(sql);
 
     // 3. Every project without an organization
     await sql.run(`UPDATE ${sql.t('project')} SET ${sql.c('organization_id')} = ? WHERE ${sql.c('organization_id')} IS NULL`, [defaultId]);
 
     // 4. Every user, with the owner first
-    await this.addMembers(sql, String(defaultId));
+    await this.addMembers(sql, defaultId);
 
     // 5. NOT NULL and the foreign key (PostgreSQL, MySQL)
+    await this.requireProjectOrganization(sql);
+
+    // 6. The cached counters
+    await this.recount(sql);
+  }
+
+  /** The id of the default organization, made when there is none. */
+  private async defaultOrganization(sql: Sql): Promise<string> {
+    const existing = await sql.value(
+      `SELECT ${sql.c('id')} AS ${sql.q('id')} FROM ${sql.t('organization')} WHERE ${sql.c('is_default')} = ${sql.true}`,
+    );
+    if (existing) {
+      return String(existing);
+    }
+    const id = randomUUID();
+    const name = (config.defaultOrganizationName || 'My organization').slice(0, 255);
+    const columns = ['id', 'name', 'slug', 'status', 'plan_code', 'is_default', 'admins_see_all_projects'];
+    await sql.run(
+      `INSERT INTO ${sql.t('organization')} (${columns.map(c => sql.c(c)).join(', ')}) ` +
+        `VALUES (?, ?, 'default', 'active', 'enterprise', ${sql.true}, ${sql.false})`,
+      [id, name],
+    );
+    return id;
+  }
+
+  /** PostgreSQL and MySQL: `project.organization_id` NOT NULL, with its foreign key (CASCADE). SQLite: see the triggers. */
+  private async requireProjectOrganization(sql: Sql): Promise<void> {
     if (sql.db === DbType.POSTGRES) {
       await sql.run(`ALTER TABLE "project" ALTER COLUMN "organization_id" SET NOT NULL`);
-      if (!(await sql.value(`SELECT COUNT(*) AS "n" FROM pg_constraint WHERE conname = ?`, [PROJECT_FK]).then(Number))) {
+      const constraints = Number(await sql.value(`SELECT COUNT(*) AS "n" FROM pg_constraint WHERE conname = ?`, [PROJECT_FK]));
+      if (constraints === 0) {
         await sql.run(
           `ALTER TABLE "project" ADD CONSTRAINT "${PROJECT_FK}" FOREIGN KEY ("organization_id") REFERENCES "organization" ("id") ON DELETE CASCADE`,
         );
@@ -162,9 +183,6 @@ export class addOrganizations1795478400000 implements MigrationInterface {
         );
       }
     }
-
-    // 6. The cached counters
-    await this.recount(sql);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

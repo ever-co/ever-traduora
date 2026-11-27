@@ -106,7 +106,8 @@ export function createTableSql(dbType: string, table: TableSpec): string {
     column => `${name(column.name)} ${columnType(dbType, column)} ${column.nullable ? 'NULL' : 'NOT NULL'}${defaultClause(dbType, column)}`,
   );
   const key = table.primary.map(name).join(', ');
-  const constraints = [`CONSTRAINT ${quoteName(dbType, `PK_${table.name}`)} PRIMARY KEY (${key})`];
+  const primaryKeyName = quoteName(dbType, 'PK_' + table.name);
+  const constraints = [`CONSTRAINT ${primaryKeyName} PRIMARY KEY (${key})`];
   for (const unique of table.uniques ?? []) {
     constraints.push(`CONSTRAINT ${quoteName(dbType, unique.name)} UNIQUE (${unique.columns.map(name).join(', ')})`);
   }

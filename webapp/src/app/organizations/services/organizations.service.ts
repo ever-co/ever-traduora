@@ -8,9 +8,9 @@ import { Organization, OrganizationInvite, OrganizationMember, OrganizationRole 
 
 @Injectable({ providedIn: 'root' })
 export class OrganizationsService {
-  private endpoint = environment.apiEndpoint;
+  private readonly endpoint = environment.apiEndpoint;
 
-  constructor(private http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {}
 
   find(): Observable<Organization[]> {
     return this.http.get<Payload<Organization[]>>(`${this.endpoint}/organizations`).pipe(map(res => res.data));

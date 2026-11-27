@@ -11,6 +11,9 @@ import { addOrganizations1795478400000 } from '../src/migrations/1795478400000-a
 import { engineColumnName, quoteName } from '../src/utils/ever-platform-tables';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 
+/** Sorts strings, or pairs of strings, by their text. */
+const byText = (left: unknown, right: unknown) => String(left).localeCompare(String(right));
+
 /** The tables that exist before organizations: the upgrade must leave every one of their rows in place. */
 const EXISTING_TABLES = [
   'user',
@@ -170,20 +173,20 @@ describe('Upgrade to organizations (e2e)', () => {
 
   it('leaves everyone exactly the projects they had', async () => {
     const list = async (user: TestingUser) =>
-      (await request(server()).get('/api/v1/projects').set(auth(user)).expect(200)).body.data.map(p => [p.id, p.role]).sort();
+      (await request(server()).get('/api/v1/projects').set(auth(user)).expect(200)).body.data.map(p => [p.id, p.role]).sort(byText);
     // Bob owns the organization but does not see Cyd's project (the default organization has no implicit admin)
     expect(await list(bob)).toEqual(
       [
         [shared.id, 'admin'],
         [second.id, 'admin'],
-      ].sort(),
+      ].sort(byText),
     );
     expect(await list(ada)).toEqual([[shared.id, 'viewer']]);
     expect(await list(cyd)).toEqual(
       [
         [second.id, 'editor'],
         [cydsOwn.id, 'admin'],
-      ].sort(),
+      ].sort(byText),
     );
     expect(await list(dan)).toEqual([]);
     await request(server()).get(`/api/v1/projects/${cydsOwn.id}`).set(auth(bob)).expect(404);
@@ -203,7 +206,7 @@ describe('Upgrade to organizations (e2e)', () => {
 
   it('changes nothing when it runs again', async () => {
     const before = await countRows();
-    const membershipsBefore = (await memberships()).map(m => [m.userId, m.role]).sort();
+    const membershipsBefore = (await memberships()).map(m => [m.userId, m.role]).sort(byText);
     const queryRunner = dataSource.createQueryRunner();
     try {
       await new addOrganizations1795478400000().up(queryRunner);
@@ -211,7 +214,7 @@ describe('Upgrade to organizations (e2e)', () => {
       await queryRunner.release();
     }
     expect(await countRows()).toEqual(before);
-    expect((await memberships()).map(m => [m.userId, m.role]).sort()).toEqual(membershipsBefore);
+    expect((await memberships()).map(m => [m.userId, m.role]).sort(byText)).toEqual(membershipsBefore);
     expect(await dataSource.getRepository(Organization).count()).toBe(1);
   });
 
@@ -222,7 +225,7 @@ describe('Upgrade to organizations (e2e)', () => {
     const [one, two] = await Promise.all([signupTestUser(app, 'race-one@test.com'), signupTestUser(app, 'race-two@test.com')]);
     const organizations = await dataSource.getRepository(Organization).find();
     expect(organizations.map(o => [o.slug, o.isDefault])).toEqual([['default', true]]);
-    expect([...(await roleOf(one)), ...(await roleOf(two))].sort((a, b) => a.localeCompare(b))).toEqual(['member', 'owner']);
+    expect([...(await roleOf(one)), ...(await roleOf(two))].sort(byText)).toEqual(['member', 'owner']);
   });
 
   it('gives an empty database its default organization, which the first account owns', async () => {

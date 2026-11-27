@@ -9,7 +9,7 @@ import { BehaviorSubject } from 'rxjs';
 import { distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
 import { Project } from '../../../projects/models/project';
 import { ProjectsService } from '../../../projects/services/projects.service';
-import { Organization } from '../../models/organization';
+import { countOf, Organization } from '../../models/organization';
 import { organizationErrorMessage } from '../../models/organization-errors';
 import { OrganizationsState } from '../../stores/organizations.state';
 
@@ -64,7 +64,10 @@ export class OrganizationProjectsComponent implements OnInit {
 
   /** "2 projects", or nothing while the list loads. */
   countLine(count: number | undefined): string {
-    return count === undefined ? '' : `${count} ${count === 1 ? 'project' : 'projects'}`;
+    if (count === undefined) {
+      return '';
+    }
+    return countOf(count, 'project', 'projects');
   }
 
   /** The strings of a project: what Traduora counts, its terms in each of its locales. */

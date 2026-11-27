@@ -18,8 +18,10 @@
     <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || busy">Invite</button>
   </form>
 
-  <div *ngIf="lastInvite?.inviteUrl" class="alert alert-light org-link" role="status">
-    <p class="mb-2">We emailed an invitation to {{ lastInvite?.email }}. You can also send them this link, it works only for that email:</p>
+  <div *ngIf="lastInvite?.inviteUrl" class="alert alert-light org-link">
+    <output class="d-block mb-2"
+      >We emailed an invitation to {{ lastInvite?.email }}. You can also send them this link, it works only for that email:</output
+    >
     <input class="form-control form-control-sm font-mono" type="text" readonly [value]="lastInvite?.inviteUrl" aria-label="Invitation link" />
   </div>
 
