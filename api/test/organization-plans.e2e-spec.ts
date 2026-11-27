@@ -430,7 +430,9 @@ describe('Organization plans in single-tenant mode (e2e)', () => {
     const refused = await request(server()).post(`/api/v1/projects/${projectId}/terms`).set(auth(user)).send({ value: 'past' }).expect(402);
     expect(refused.body.error).toEqual({ code: 'PaymentRequired', message: 'You seem to have reached your plan limit' });
 
-    // No seats: more people than Starter's seats are invited
+    // No seats: more people than Starter's seats are invited, and no counter of the default organization is kept
+    const defaultOrganization = () => dataSource.getRepository(Organization).findOneByOrFail({ isDefault: true });
+    const countersBefore = await defaultOrganization();
     for (let i = 0; i < 17; i++) {
       await request(server())
         .post(`/api/v1/projects/${projectId}/invites`)
@@ -438,6 +440,9 @@ describe('Organization plans in single-tenant mode (e2e)', () => {
         .send({ email: `single-${i}@test.com`, role: 'viewer' })
         .expect(201);
     }
+
+    const countersAfter = await defaultOrganization();
+    expect([countersAfter.seatsUsed, countersAfter.stringsUsed]).toEqual([countersBefore.seatsUsed, countersBefore.stringsUsed]);
 
     const organizations = (await request(server()).get('/api/v1/organizations').set(auth(user)).expect(200)).body.data;
     const usage = await request(server()).get(`/api/v1/organizations/${organizations[0].id}/usage`).set(auth(user)).expect(404);

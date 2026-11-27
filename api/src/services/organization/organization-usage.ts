@@ -31,49 +31,106 @@ export function limitsOf(organization: Organization): EffectivePlan {
   return effectivePlan(organization, config.billingPastDueGraceDays);
 }
 
-/** Who takes the organization's seats: members by account, and the pending invitations of everyone else by email */
-interface SeatHolders {
-  memberIds: Set<string>;
-  memberEmails: Set<string>;
-  pendingEmails: Set<string>;
+const SENT = InviteStatus.Sent;
+
+/** The e-mails of the organization's members (`:organizationId`), as a subquery */
+function memberEmails(manager: EntityManager): string {
+  return manager
+    .createQueryBuilder()
+    .subQuery()
+    .select('member_user.email')
+    .from(OrganizationUser, 'member')
+    .innerJoin('member.user', 'member_user')
+    .where('member.organizationId = :organizationId')
+    .getQuery();
 }
 
-async function seatHolders(manager: EntityManager, organizationId: string): Promise<SeatHolders> {
-  const members = await manager.find(OrganizationUser, { where: { organizationId }, relations: { user: true } });
-  const memberIds = new Set(members.map(member => member.userId));
-  const memberEmails = new Set(members.filter(member => member.user?.email).map(member => normalizeEmail(member.user.email)));
-  const organizationInvites = await manager.find(OrganizationInvite, {
-    where: { organizationId, status: InviteStatus.Sent },
-    select: { id: true, email: true },
-  });
-  const projectInvites = await manager.find(Invite, {
-    where: { status: InviteStatus.Sent, project: { organizationId } },
-    select: { id: true, email: true },
-  });
-  const pendingEmails = new Set(
-    [...organizationInvites, ...projectInvites].map(invite => normalizeEmail(invite.email)).filter(email => !memberEmails.has(email)),
-  );
-  return { memberIds, memberEmails, pendingEmails };
+/** The e-mails of the organization's pending invitations (`:organizationId`, `:sent`), as a subquery */
+function invitedEmails(manager: EntityManager): string {
+  return manager
+    .createQueryBuilder()
+    .subQuery()
+    .select('pending_invite.email')
+    .from(OrganizationInvite, 'pending_invite')
+    .where('pending_invite.organizationId = :organizationId')
+    .andWhere('pending_invite.status = :sent')
+    .getQuery();
 }
 
-function seatsOf(holders: SeatHolders): number {
-  return holders.memberIds.size + holders.pendingEmails.size;
-}
-
+/**
+ * The seats, counted in the database: the members, plus the distinct e-mails of the pending invitations of people who
+ * are not members, the organization's own and then those to its projects that are not among them.
+ */
 export async function countSeats(manager: EntityManager, organizationId: string): Promise<number> {
-  return seatsOf(await seatHolders(manager, organizationId));
+  const parameters = { organizationId, sent: SENT };
+  const members = await manager.count(OrganizationUser, { where: { organizationId } });
+  const invited = await manager
+    .createQueryBuilder(OrganizationInvite, 'invite')
+    .select('COUNT(DISTINCT invite.email)', 'count')
+    .where('invite.organizationId = :organizationId')
+    .andWhere('invite.status = :sent')
+    .andWhere(`invite.email NOT IN ${memberEmails(manager)}`)
+    .setParameters(parameters)
+    .getRawOne();
+  const invitedToProjects = await manager
+    .createQueryBuilder(Invite, 'invite')
+    .innerJoin('invite.project', 'invite_project')
+    .select('COUNT(DISTINCT invite.email)', 'count')
+    .where('invite_project.organizationId = :organizationId')
+    .andWhere('invite.status = :sent')
+    .andWhere(`invite.email NOT IN ${memberEmails(manager)}`)
+    .andWhere(`invite.email NOT IN ${invitedEmails(manager)}`)
+    .setParameters(parameters)
+    .getRawOne();
+  return members + Number(invited?.count ?? 0) + Number(invitedToProjects?.count ?? 0);
 }
 
-function projectsOf(manager: EntityManager, organizationId: string): Promise<Project[]> {
-  return manager.find(Project, { where: { organizationId }, select: { id: true, localesCount: true, termsCount: true } });
+/** The strings, summed in the database over the organization's projects, but `excludingProjectId` when given */
+export async function countStrings(manager: EntityManager, organizationId: string, excludingProjectId?: string): Promise<number> {
+  const query = manager
+    .createQueryBuilder(Project, 'project')
+    .select('COALESCE(SUM(project.localesCount * project.termsCount), 0)', 'total')
+    .where('project.organizationId = :organizationId', { organizationId });
+  if (excludingProjectId) {
+    query.andWhere('project.id != :excludingProjectId', { excludingProjectId });
+  }
+  return Number((await query.getRawOne())?.total ?? 0);
 }
 
-function sumOfStrings(projects: Project[]): number {
-  return projects.reduce((sum, project) => sum + (project.localesCount || 0) * (project.termsCount || 0), 0);
+/** Whether the person is a member of the organization, by account or by e-mail */
+async function isMember(manager: EntityManager, organizationId: string, userId: string | null, email: string | null): Promise<boolean> {
+  if (userId && (await manager.exists(OrganizationUser, { where: { organizationId, userId } }))) {
+    return true;
+  }
+  return !!email && manager.exists(OrganizationUser, { where: { organizationId, user: { email } } });
 }
 
-export async function countStrings(manager: EntityManager, organizationId: string): Promise<number> {
-  return sumOfStrings(await projectsOf(manager, organizationId));
+/** Whether the e-mail has a pending invitation of the organization or of one of its projects */
+async function isInvited(manager: EntityManager, organizationId: string, email: string | null): Promise<boolean> {
+  if (!email) {
+    return false;
+  }
+  return (
+    (await manager.exists(OrganizationInvite, { where: { organizationId, email, status: SENT } })) ||
+    manager.exists(Invite, { where: { email, status: SENT, project: { organizationId } } })
+  );
+}
+
+/**
+ * Whether a person may take a seat, from what is known of them: none needed by a member, nor by someone with a pending
+ * invitation who gets a new one; joining (`member`) needs the organization within its seats, counting their pending
+ * one already; anyone new needs one free seat.
+ */
+export function seatAvailable(
+  seats: number | null,
+  used: number,
+  person: { member: boolean; invited: boolean },
+  becomes: 'member' | 'invite',
+): boolean {
+  if (person.member || (person.invited && becomes === 'invite')) {
+    return true;
+  }
+  return withinLimit(seats, used, person.invited ? 0 : 1);
 }
 
 /**
@@ -109,17 +166,14 @@ export async function seatRefusal(
   if (seats === null) {
     return null;
   }
-  const holders = await seatHolders(tx, organization.id);
   const email = person.email ? normalizeEmail(person.email) : null;
-  if ((person.userId && holders.memberIds.has(person.userId)) || (email && holders.memberEmails.has(email))) {
+  const member = await isMember(tx, organization.id, person.userId ?? null, email);
+  const invited = !member && (await isInvited(tx, organization.id, email));
+  if (member || (invited && becomes === 'invite')) {
     return null;
   }
-  const pending = !!email && holders.pendingEmails.has(email);
-  if (pending && becomes === 'invite') {
-    return null;
-  }
-  const used = seatsOf(holders);
-  return withinLimit(seats, used, pending ? 0 : 1) ? null : new PlanLimitException('seats', seats, used, plan.code);
+  const used = await countSeats(tx, organization.id);
+  return seatAvailable(seats, used, { member, invited }, becomes) ? null : new PlanLimitException('seats', seats, used, plan.code);
 }
 
 /**
@@ -142,8 +196,7 @@ export async function assertProjectStrings(
   if (strings === null) {
     return;
   }
-  const others = (await projectsOf(tx, organization.id)).filter(project => project.id !== projectId);
-  const used = sumOfStrings(others) + before;
+  const used = (await countStrings(tx, organization.id, projectId)) + before;
   if (!withinLimit(strings, used, after - before)) {
     throw new PlanLimitException('strings', strings, used, plan.code);
   }
@@ -168,14 +221,33 @@ export async function assertStringsAdded(
   await assertProjectStrings(tx, organization, projectId, locales * terms, (locales + (added.locales || 0)) * (terms + (added.terms || 0)));
 }
 
-/** Recomputes the cached seat counter of the organization (`seatsUsed`) */
-export async function recountSeats(manager: EntityManager, organizationId: string): Promise<void> {
-  await manager.update(Organization, { id: organizationId }, { seatsUsed: await countSeats(manager, organizationId) });
+/**
+ * Whether the organization has its own plan, read without a lock (`isDefault` never changes). False at once on a
+ * single-tenant install, which keeps no organization counters.
+ */
+async function hasOwnPlan(manager: EntityManager, organizationId: string): Promise<boolean> {
+  if (!config.saasEnabled) {
+    return false;
+  }
+  return usesOrganizationPlan(await manager.findOne(Organization, { where: { id: organizationId }, select: { id: true, isDefault: true } }));
 }
 
-/** Recomputes the cached strings counter of the organization (`stringsUsed`) */
+/**
+ * Recomputes the cached seat counter of the organization (`seatsUsed`), in the database, under the caller's
+ * organization lock. Only for an organization with its own plan: the default organization and a single-tenant install
+ * keep none, so a sign-up there does not count every account.
+ */
+export async function recountSeats(manager: EntityManager, organizationId: string): Promise<void> {
+  if (await hasOwnPlan(manager, organizationId)) {
+    await manager.update(Organization, { id: organizationId }, { seatsUsed: await countSeats(manager, organizationId) });
+  }
+}
+
+/** Recomputes the cached strings counter of the organization (`stringsUsed`), as {@link recountSeats} does */
 export async function recountStrings(manager: EntityManager, organizationId: string): Promise<void> {
-  await manager.update(Organization, { id: organizationId }, { stringsUsed: await countStrings(manager, organizationId) });
+  if (await hasOwnPlan(manager, organizationId)) {
+    await manager.update(Organization, { id: organizationId }, { stringsUsed: await countStrings(manager, organizationId) });
+  }
 }
 
 export interface OrganizationUsage {
