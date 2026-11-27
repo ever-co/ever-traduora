@@ -7,6 +7,7 @@ import { OrganizationUser } from '../../entity/organization-user.entity';
 import { Organization } from '../../entity/organization.entity';
 import { Project } from '../../entity/project.entity';
 import { PlanLimitException } from '../../errors';
+import { isOrganizationActionAllowed, OrganizationAction } from '../../domain/organization-actions';
 import { normalizeEmail } from '../../domain/validators';
 
 /**
@@ -117,6 +118,24 @@ async function isInvited(manager: EntityManager, organizationId: string, email: 
 }
 
 /**
+ * A refusal of the plan. What is used and the plan come only for a `viewer` (the caller's account) who may read the
+ * organization's usage (`ViewUsage`: owner, admin): the totals cover projects and people others cannot see.
+ */
+async function refusal(
+  manager: EntityManager,
+  organizationId: string,
+  viewerId: string | null | undefined,
+  resource: 'seats' | 'strings',
+  limit: number,
+  usage: { used: number; plan: string },
+): Promise<PlanLimitException> {
+  const viewer = viewerId
+    ? await manager.findOne(OrganizationUser, { where: { organizationId, userId: viewerId }, select: { id: true, role: true } })
+    : null;
+  return new PlanLimitException(resource, limit, isOrganizationActionAllowed(viewer?.role, OrganizationAction.ViewUsage) ? usage : undefined);
+}
+
+/**
  * Whether a person may take a seat, from what is known of them: none needed by a member, nor by someone with a pending
  * invitation who gets a new one; joining (`member`) needs the organization within its seats, counting their pending
  * one already; anyone new needs one free seat.
@@ -145,10 +164,11 @@ export async function assertSeatAvailable(
   organization: Organization,
   person: { email?: string | null; userId?: string | null },
   becomes: 'member' | 'invite',
+  viewerId: string | null,
 ): Promise<void> {
-  const refusal = await seatRefusal(tx, organization, person, becomes);
-  if (refusal) {
-    throw refusal;
+  const refused = await seatRefusal(tx, organization, person, becomes, viewerId);
+  if (refused) {
+    throw refused;
   }
 }
 
@@ -158,6 +178,7 @@ export async function seatRefusal(
   organization: Organization,
   person: { email?: string | null; userId?: string | null },
   becomes: 'member' | 'invite',
+  viewerId: string | null,
 ): Promise<PlanLimitException | null> {
   if (!usesOrganizationPlan(organization)) {
     return null;
@@ -173,7 +194,9 @@ export async function seatRefusal(
     return null;
   }
   const used = await countSeats(tx, organization.id);
-  return seatAvailable(seats, used, { member, invited }, becomes) ? null : new PlanLimitException('seats', seats, used, plan.code);
+  return seatAvailable(seats, used, { member, invited }, becomes)
+    ? null
+    : refusal(tx, organization.id, viewerId, 'seats', seats, { used, plan: plan.code });
 }
 
 /**
@@ -188,6 +211,7 @@ export async function assertProjectStrings(
   projectId: string,
   before: number,
   after: number,
+  viewerId: string | null,
 ): Promise<void> {
   if (after <= before || !usesOrganizationPlan(organization)) {
     return;
@@ -198,7 +222,7 @@ export async function assertProjectStrings(
   }
   const used = (await countStrings(tx, organization.id, projectId)) + before;
   if (!withinLimit(strings, used, after - before)) {
-    throw new PlanLimitException('strings', strings, used, plan.code);
+    throw await refusal(tx, organization.id, viewerId, 'strings', strings, { used, plan: plan.code });
   }
 }
 
@@ -211,6 +235,7 @@ export async function assertStringsAdded(
   organization: Organization,
   projectId: string,
   added: { terms?: number; locales?: number },
+  viewerId: string | null,
 ): Promise<void> {
   if (!usesOrganizationPlan(organization)) {
     return;
@@ -218,7 +243,7 @@ export async function assertStringsAdded(
   const project = await tx.findOne(Project, { where: { id: projectId }, select: { id: true, localesCount: true, termsCount: true } });
   const locales = project?.localesCount || 0;
   const terms = project?.termsCount || 0;
-  await assertProjectStrings(tx, organization, projectId, locales * terms, (locales + (added.locales || 0)) * (terms + (added.terms || 0)));
+  await assertProjectStrings(tx, organization, projectId, locales * terms, (locales + (added.locales || 0)) * (terms + (added.terms || 0)), viewerId);
 }
 
 /**

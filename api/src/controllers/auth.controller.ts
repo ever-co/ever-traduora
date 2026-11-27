@@ -594,7 +594,7 @@ export class AuthController {
         if (!organization || !(await isOpenForMembers(entityManager, invite.project.organizationId))) {
           continue;
         }
-        const refusal = await seatRefusal(entityManager, organization, { email: invite.email, userId: user.id }, 'member');
+        const refusal = await seatRefusal(entityManager, organization, { email: invite.email, userId: user.id }, 'member', user.id);
         if (refusal) {
           if (options.onLimit === 'refuse') {
             throw refusal;

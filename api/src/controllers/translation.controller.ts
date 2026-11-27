@@ -119,7 +119,7 @@ export default class TranslationController {
       await lockProject(entityManager, membership.project.id);
       const organization = await lockOrganizationForStrings(entityManager, membership.project);
       if (organization) {
-        await assertStringsAdded(entityManager, organization, membership.project.id, { locales: 1 });
+        await assertStringsAdded(entityManager, organization, membership.project.id, { locales: 1 }, user instanceof User ? user.id : null);
       }
       await entityManager.save(projectLocale);
       const terms = await entityManager.find(Term, { where: { project: { id: projectId } }, relations: ['labels'] });

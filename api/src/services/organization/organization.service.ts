@@ -317,7 +317,7 @@ export class OrganizationService {
         }
         const locked = await this.assertStillOpen(tx, organization.id);
         // A seat of the plan (402 plan_limit_reached), counted under the organization lock
-        await assertSeatAvailable(tx, locked, { email, userId: current.id }, 'member');
+        await assertSeatAvailable(tx, locked, { email, userId: current.id }, 'member', invitedBy.id);
         await tx.save(tx.create(OrganizationUser, { organizationId: organization.id, userId: current.id, role: payload.role }));
         // An invitation sent before they had an account is no longer needed
         await tx.delete(OrganizationInvite, { organizationId: organization.id, email });
@@ -334,7 +334,7 @@ export class OrganizationService {
     const saved = await readCommittedTransaction(this.invites.manager, async tx => {
       const locked = await this.assertStillOpen(tx, organization.id);
       // A pending invitation takes a seat too, unless this person holds one already (a new link for the same email)
-      await assertSeatAvailable(tx, locked, { email, userId: account?.id }, 'invite');
+      await assertSeatAvailable(tx, locked, { email, userId: account?.id }, 'invite', invitedBy.id);
       const existing = await tx.findOne(OrganizationInvite, { where: { organizationId: organization.id, email } });
       const record = existing ?? tx.create(OrganizationInvite, { organizationId: organization.id, email });
       record.role = payload.role;
@@ -420,7 +420,7 @@ export class OrganizationService {
         if (!organization || !(await isOpenForMembers(tx, invite.organizationId))) {
           continue;
         }
-        const refusal = await seatRefusal(tx, organization, { email: invite.email, userId: user.id }, 'member');
+        const refusal = await seatRefusal(tx, organization, { email: invite.email, userId: user.id }, 'member', user.id);
         if (refusal) {
           if (options.onLimit === 'refuse') {
             throw refusal;

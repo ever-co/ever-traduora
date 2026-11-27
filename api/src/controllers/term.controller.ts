@@ -8,6 +8,7 @@ import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Translation } from '../entity/translation.entity';
+import { User } from '../entity/user.entity';
 import { lockProject, readCommittedTransaction } from '../utils/database-locks';
 import { lockOrganizationForStrings } from '../services/organization/organization-membership';
 import { assertStringsAdded, recountStrings } from '../services/organization/organization-usage';
@@ -133,7 +134,7 @@ export default class TermController {
       await lockProject(entityManager, membership.project.id);
       const organization = await lockOrganizationForStrings(entityManager, membership.project);
       if (organization) {
-        await assertStringsAdded(entityManager, organization, membership.project.id, { terms: 1 });
+        await assertStringsAdded(entityManager, organization, membership.project.id, { terms: 1 }, user instanceof User ? user.id : null);
       }
       await entityManager.save(term);
 

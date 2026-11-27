@@ -46,8 +46,8 @@ export class CustomExceptionFilter implements ExceptionFilter {
           message: exception.message,
           resource: exception.resource,
           limit: exception.limit,
-          used: exception.used,
-          plan: exception.plan,
+          // Only for a caller who may read the organization's usage (owner, admin)
+          ...(exception.used === undefined ? {} : { used: exception.used, plan: exception.plan }),
         },
       });
     } else if (exception instanceof FormatCannotHoldTermsException) {

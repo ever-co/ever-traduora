@@ -6,7 +6,8 @@ import { OrganizationPlanCode, OrganizationRole } from '../src/domain/organizati
 import { OrganizationUser } from '../src/entity/organization-user.entity';
 import { Organization } from '../src/entity/organization.entity';
 import { Project } from '../src/entity/project.entity';
-import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
+import { ProjectRole } from '../src/entity/project-user.entity';
+import { createAndMigrateApp, createTestProjectClient, signupTestUser, TestingProject, TestingUser } from './util';
 
 /**
  * The plans of DESIGN §3.6 in SaaS mode: seats (members plus pending invitations) and strings (locales × terms over
@@ -63,7 +64,8 @@ describe('Organization plans in SaaS mode (e2e)', () => {
     dataSource.getRepository(Project).update({ id: projectId }, { localesCount, termsCount });
   const setPlan = (organizationId: string, planCode: OrganizationPlanCode) =>
     dataSource.getRepository(Organization).update({ id: organizationId }, { planCode });
-  const expectLimit = (res: request.Response, resource: 'seats' | 'strings', limit: number, used: number, plan = 'starter') => {
+  /** A refusal of the plan; `used` is `null` for a caller who may not read the organization's usage (no used, no plan) */
+  const expectLimit = (res: request.Response, resource: 'seats' | 'strings', limit: number, used: number | null, plan = 'starter') => {
     expect([res.status, res.body.error]).toEqual([
       402,
       {
@@ -71,8 +73,7 @@ describe('Organization plans in SaaS mode (e2e)', () => {
         message: `Your plan allows ${limit} ${resource === 'seats' ? 'members' : 'strings'}. Upgrade to add more.`,
         resource,
         limit,
-        used,
-        plan,
+        ...(used === null ? {} : { used, plan }),
       },
     ]);
   };
@@ -220,13 +221,14 @@ describe('Organization plans in SaaS mode (e2e)', () => {
           await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(late)).send({ inviteToken: lateToken }),
           'seats',
           15,
-          18,
+          // An invitee may not read the organization's usage: what the plan allows, nothing more
+          null,
         );
         expectLimit(
           await request(server()).post('/api/v1/auth/accept-invite').set(auth(projectLate)).send({ inviteToken: projectLateToken }),
           'seats',
           15,
-          18,
+          null,
         );
         expect((await pendingInvites(owner, organization.id)).map(each => each.email)).toContain(late.email);
         await request(server()).get(`/api/v1/organizations/${organization.id}`).set(auth(late)).expect(404);
@@ -288,6 +290,22 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       expect(await counters(projectId)).toMatchObject({ localesCount: 1, termsCount: 10 });
     });
 
+    it('tell an editor and an API key what the plan allows, not what the organization uses', async () => {
+      const editor = await signupTestUser(app, 'strings-editor@test.com');
+      await request(server())
+        .post(`/api/v1/projects/${projectId}/invites`)
+        .set(auth(owner))
+        .send({ email: editor.email, role: 'editor' })
+        .expect(201);
+      expectLimit(await addTerm(editor, projectId, 'term.editor'), 'strings', 10_000, null);
+      const client = await createTestProjectClient(app, owner, { id: projectId } as TestingProject, ProjectRole.Editor);
+      const byKey = await request(server())
+        .post(`/api/v1/projects/${projectId}/terms`)
+        .set('Authorization', `Bearer ${client.accessToken}`)
+        .send({ value: 'term.client' });
+      expectLimit(byKey, 'strings', 10_000, null);
+    });
+
     it('take a term that adds no string (no locale yet), and refuse a locale that adds strings', async () => {
       const empty = await newProject(owner, organization.id);
       await addTerm(owner, empty, 'lonely').expect(201);
@@ -346,7 +364,8 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       await setPlan(organization.id, OrganizationPlanCode.SmallBusiness);
       expect(await usageOf(owner, organization.id)).toEqual({
         plan: { code: 'small_business', name: 'Small Business' },
-        seats: { used: 1, included: 25 },
+        // The owner and the editor
+        seats: { used: 2, included: 25 },
         strings: { used: 10_000, limit: null },
       });
       // Far past the project plan of the e2e install (100 strings), which an organization's project does not use
@@ -355,7 +374,7 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       await addLocale(owner, projectId, 'fr').expect(201);
 
       await setPlan(organization.id, OrganizationPlanCode.Enterprise);
-      expect((await usageOf(owner, organization.id)).seats).toEqual({ used: 1, included: null });
+      expect((await usageOf(owner, organization.id)).seats).toEqual({ used: 2, included: null });
     });
   });
 

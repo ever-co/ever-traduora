@@ -149,7 +149,10 @@ The plans are a code constant (`api/src/domain/organization-plans.ts`), as in De
     lock after an organization lock. A deadlock would still answer 503 with `Retry-After`, as a backstop only.
 - The organization keeps cached counters (`seatsUsed`, `stringsUsed`), recomputed inside the same transaction.
 - **Errors:**
-  - 402 `plan_limit_reached`, with `limit`, `used` and `plan` in the body;
+  - 402 `plan_limit_reached`, with `resource` (`seats` or `strings`) and `limit` in the body. `used` and `plan` are
+    added only when the caller holds `ViewUsage` in that organization (owner, admin). An editor, an API key or an
+    invitee gets neither, because the organization-wide total covers projects and people they cannot see
+    (owner's default, see HANDOVER "Needs owner");
   - the web app shows "Your plan allows N members. Upgrade to add more." with a link to billing.
 - **A downgrade, a lapse or a cancel never deletes data.** Over the limit, adds are refused until the organization is back under it. Reads, edits and exports keep working.
 - **The effective plan** falls back to Starter on `canceled`, `unpaid` or `incomplete_expired`, and after `TR_BILLING_PAST_DUE_GRACE_DAYS` (default 14) of `past_due`.

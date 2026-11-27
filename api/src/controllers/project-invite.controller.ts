@@ -107,7 +107,7 @@ export default class ProjectInviteController {
         }
         await this.auth.authorizeAddingToOrganization(user, locked, targetUser.id, tx);
         // Someone new to the organization takes one of its seats (402 plan_limit_reached when none is left)
-        await assertSeatAvailable(tx, locked, { email: targetUser.email, userId: targetUser.id }, 'member');
+        await assertSeatAvailable(tx, locked, { email: targetUser.email, userId: targetUser.id }, 'member', user.id);
         await ensureMember(tx, project.organizationId, targetUser.id);
         return tx.save(
           tx.create(ProjectUser, {
@@ -154,7 +154,7 @@ export default class ProjectInviteController {
         if (!locked) {
           throw new NotFoundException('project not found');
         }
-        await assertSeatAvailable(tx, locked, { email, userId: targetUser?.id }, 'invite');
+        await assertSeatAvailable(tx, locked, { email, userId: targetUser?.id }, 'invite', user.id);
 
         // Inviting the same email again sends a new link and invalidates the previous one
         const existingInvite = await tx.findOne(Invite, { where: { project: { id: projectId }, email } });

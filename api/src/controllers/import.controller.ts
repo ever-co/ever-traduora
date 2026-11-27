@@ -155,7 +155,7 @@ export class ImportController {
           // SaaS mode: the organization's plan, from the project's strings before this import to after it
           const before = (project.localesCount - (createsLocale ? 1 : 0)) * project.termsCount;
           const after = project.localesCount * (project.termsCount + termsToAdd.length);
-          await assertProjectStrings(entityManager, organization, project.id, before, after);
+          await assertProjectStrings(entityManager, organization, project.id, before, after, user instanceof User ? user.id : null);
         } else if (project.localesCount * (project.termsCount + termsToAdd.length) > project.plan.maxStrings) {
           throw new PaymentRequiredException('request would exceed plan limit');
         }

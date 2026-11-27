@@ -348,6 +348,12 @@ pending project invites, and every refusal showed as a red error.
 
 The build goes on with the defaults of `DESIGN.md` §12 (OD-T1 … OD-T14). Nothing blocks yet.
 
+Decisions taken with a default, to confirm:
+
+- **What a 402 `plan_limit_reached` shows (P3 review):** always `resource` and `limit` ("Your plan allows 15 members").
+  `used` and the effective `plan` only to a caller who may read `/usage` in that organization (owner, admin). An editor,
+  an API key or an invitee does not learn the organization-wide totals, which cover projects they cannot see.
+
 ## How to run the checks
 
 - Node 26 first on `PATH` (CI uses 26.12.1).
