@@ -15,11 +15,13 @@
               <app-edit-label *ngIf="true | can: 'EditLabel' | async" [project]="project" [label]="label"></app-edit-label>
               <button
                 *ngIf="true | can: 'DeleteLabel' | async"
+                type="button"
                 class="ml-3 btn bg-transparent text-dark btn-sm"
                 style="max-height: 2rem"
+                [attr.aria-label]="'Delete label ' + label.value"
                 (click)="deleteLabel(project.id, label.id)"
               >
-                <i class="material-icons" style="font-size: 1.25rem">close</i>
+                <i class="material-icons" style="font-size: 1.25rem" aria-hidden="true">close</i>
               </button>
             </div>
           </div>
