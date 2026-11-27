@@ -23,6 +23,7 @@ import { EverConnectPlatformClient, ProvisionComplete, problemOf } from './ever-
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
 import { PROVISION_TXN_MAX } from './ever-connect.dto';
 import { EverConnectService } from './ever-connect.service';
+import { readCommittedTransaction } from '../utils/database-locks';
 
 /** The header `typ` of a provisioning intent. */
 export const INTENT_HEADER_TYP = 'ever-intent+jwt';
@@ -364,7 +365,7 @@ export class EverConnectProvisionService {
     }
     let projectId: string;
     try {
-      projectId = await this.provisions.manager.transaction(async tx => {
+      projectId = await readCommittedTransaction(this.provisions.manager, async tx => {
         const now = Date.now();
         // The claim first: a second confirmation of the same intent waits for this one, then fails on the key
         await tx.insert(EverConnectProvision, {

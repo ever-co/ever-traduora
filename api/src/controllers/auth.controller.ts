@@ -74,6 +74,7 @@ import { hashInviteToken } from '../utils/invite-token';
 import { ensureMember, isOpenForMembers, lockOrganization } from '../services/organization/organization-membership';
 import { assertSaasEnabled, OrganizationService } from '../services/organization/organization.service';
 import { OrganizationInvite } from '../entity/organization-invite.entity';
+import { readCommittedTransaction } from '../utils/database-locks';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
 const EVERID = 'everid';
@@ -545,7 +546,7 @@ export class AuthController {
     if (invites.length === 0) {
       return Promise.resolve([]);
     }
-    return this.inviteRepo.manager.transaction(async entityManager => {
+    return readCommittedTransaction(this.inviteRepo.manager, async entityManager => {
       // Invites belong to the email they were sent to, so only while the account still has it. The row lock holds an
       // email change until this commits (SQLite runs one write transaction at a time and has no row locks).
       const current = await entityManager.findOne(User, {

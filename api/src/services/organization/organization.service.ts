@@ -26,6 +26,7 @@ import {
   recountSeats,
 } from './organization-membership';
 import { isAllowedSlug } from './slug';
+import { readCommittedTransaction } from '../../utils/database-locks';
 
 /** What the API answers for an organization the caller is a member of. */
 export interface OrganizationView {
@@ -201,7 +202,7 @@ export class OrganizationService {
     if (actingUserId === targetUserId) {
       throw new BadRequestException(`can't edit your own role`);
     }
-    await this.members.manager.transaction(async tx => {
+    await readCommittedTransaction(this.members.manager, async tx => {
       await lockOrganization(tx, organizationId);
       const target = await tx.findOne(OrganizationUser, { where: { organizationId, userId: targetUserId } });
       if (!target) {
@@ -220,7 +221,7 @@ export class OrganizationService {
    * in the organization's projects: they keep no access there. The owner is never removed; they transfer first.
    */
   async removeMember(organizationId: string, actingUserId: string, targetUserId: string): Promise<void> {
-    await this.members.manager.transaction(async tx => {
+    await readCommittedTransaction(this.members.manager, async tx => {
       await lockOrganization(tx, organizationId);
       const target = await tx.findOne(OrganizationUser, { where: { organizationId, userId: targetUserId } });
       if (!target) {
@@ -259,7 +260,7 @@ export class OrganizationService {
     if (ownerUserId === newOwnerUserId) {
       throw new BadRequestException('you are the owner already');
     }
-    await this.members.manager.transaction(async tx => {
+    await readCommittedTransaction(this.members.manager, async tx => {
       await lockOrganization(tx, organizationId);
       const owner = await tx.findOne(OrganizationUser, { where: { organizationId, userId: ownerUserId } });
       if (owner?.role !== OrganizationRole.Owner) {
@@ -303,7 +304,7 @@ export class OrganizationService {
     }
 
     if (account?.emailVerified) {
-      const added = await this.members.manager.transaction(async tx => {
+      const added = await readCommittedTransaction(this.members.manager, async tx => {
         // The account read again under its lock (then the organization's, as acceptInvites does): an email changed
         // meanwhile is unverified, and the address asked for then gets an invitation instead
         const current = await tx.findOne(User, {
@@ -327,7 +328,7 @@ export class OrganizationService {
     }
 
     const token = generateInviteToken();
-    const saved = await this.invites.manager.transaction(async tx => {
+    const saved = await readCommittedTransaction(this.invites.manager, async tx => {
       await this.assertStillOpen(tx, organization.id);
       const existing = await tx.findOne(OrganizationInvite, { where: { organizationId: organization.id, email } });
       const record = existing ?? tx.create(OrganizationInvite, { organizationId: organization.id, email });
@@ -345,7 +346,7 @@ export class OrganizationService {
   }
 
   async revokeInvite(organizationId: string, inviteId: string): Promise<void> {
-    await this.invites.manager.transaction(async tx => {
+    await readCommittedTransaction(this.invites.manager, async tx => {
       const invite = await tx.findOne(OrganizationInvite, { where: { id: inviteId, organizationId } });
       if (!invite) {
         throw new NotFoundException('invite not found');
@@ -385,7 +386,7 @@ export class OrganizationService {
     if (invites.length === 0) {
       return [];
     }
-    return this.invites.manager.transaction(async tx => {
+    return readCommittedTransaction(this.invites.manager, async tx => {
       const current = await tx.findOne(User, {
         where: { id: user.id },
         select: ['id', 'email'],

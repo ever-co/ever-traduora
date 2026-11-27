@@ -29,6 +29,7 @@ import { TooManyRequestsException } from '../errors';
 import AuthorizationService, { effectiveProjectRole } from '../services/authorization.service';
 import { activeMemberships, homeOrganizationId } from '../services/organization/organization-membership';
 import { ApiOAuth2, ApiTags, ApiResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { readCommittedTransaction } from '../utils/database-locks';
 
 /** What the API answers for a project: its own fields (never its plan or organization objects) and the caller's role. */
 export function projectView(project: Project, role: ProjectRole) {
@@ -129,7 +130,7 @@ export default class ProjectController {
     // Any member may create a project in their organization (DESIGN §3.2)
     await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.CreateProject);
 
-    const result = await this.projectRepo.manager.transaction(async tx => {
+    const result = await readCommittedTransaction(this.projectRepo.manager, async tx => {
       let project = this.projectRepo.create({ ...fields, organizationId });
       project = await tx.save(project);
 

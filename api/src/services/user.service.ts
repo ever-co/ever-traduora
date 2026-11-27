@@ -99,7 +99,7 @@ export class UserService {
     // The account and its organization in one transaction: a failure leaves neither, and the sign-up can be sent again.
     // A single-tenant install has one organization that everyone is in. In SaaS mode the sign-up decides: the person's
     // own organization, or the inviting one once the invitation is accepted (AuthController)
-    const newUser = await this.userRepo.manager.transaction(async tx => {
+    const newUser = await readCommittedTransaction(this.userRepo.manager, async tx => {
       const saved = await tx.save(user);
       if (!config.saasEnabled) {
         await joinDefaultOrganization(tx, saved.id);

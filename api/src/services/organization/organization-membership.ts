@@ -10,6 +10,7 @@ import { Organization } from '../../entity/organization.entity';
 import { OrganizationException } from '../../errors';
 import { DbType, isDbType } from '../../utils/database-type-helper';
 import { isAllowedSlug, randomSuffix, slugFromName, withSuffix } from './slug';
+import { readCommittedTransaction } from '../../utils/database-locks';
 
 /**
  * The organization writes that several places share (sign-up, invites, projects, Ever Connect provisioning), as
@@ -45,7 +46,7 @@ export function inTransaction<T>(manager: EntityManager, work: (tx: EntityManage
   if (manager.queryRunner?.isTransactionActive) {
     return work(manager);
   }
-  return manager.transaction(work);
+  return readCommittedTransaction(manager, work);
 }
 
 /**
