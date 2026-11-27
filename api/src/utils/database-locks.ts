@@ -2,7 +2,34 @@ import { EntityManager, In } from 'typeorm';
 import { ProjectUser } from '../entity/project-user.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
+import { User } from '../entity/user.entity';
 import { DbType, isDbType } from './database-type-helper';
+
+/**
+ * Locks the accounts' rows (FOR UPDATE) for the rest of the transaction, in the order of their ids: the first locks of
+ * the global order, account → projects → organizations (see `lockOrganization`). For a transaction that deletes the
+ * accounts or writes rows that reference them under later locks. SQLite runs one transaction at a time.
+ */
+export async function lockAccounts(entityManager: EntityManager, userIds: ReadonlyArray<string>): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3)) {
+    return;
+  }
+  for (const userId of Array.from(new Set(userIds)).sort(byCodeUnits)) {
+    await entityManager.findOne(User, { where: { id: userId }, select: ['id'], lock: { mode: 'pessimistic_write' } });
+  }
+}
+
+/**
+ * Locks the account's row for share, first: for a transaction that writes rows referencing the account (an import's
+ * history) after its project and organization locks, whose foreign key would otherwise take that lock last, against the
+ * global order. SQLite runs one transaction at a time.
+ */
+export async function lockAccountForShare(entityManager: EntityManager, userId: string): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3)) {
+    return;
+  }
+  await entityManager.findOne(User, { where: { id: userId }, select: ['id'], lock: { mode: 'pessimistic_read' } });
+}
 
 /**
  * Locks the project's row for the rest of the transaction. Every transaction that changes the project's counters

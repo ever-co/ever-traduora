@@ -13,7 +13,7 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { DbType, isDbType } from '../utils/database-type-helper';
-import { lockProjects, lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
+import { lockAccounts, lockProjects, lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { normalizeEmail } from '../ever-platform/env';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
@@ -21,7 +21,6 @@ import { EverConnectAuditService } from './ever-connect-audit.service';
 import { EverConnectPlatformClient, PersonRequestAnswer, PlatformEvent, problemOf } from './ever-connect-platform.client';
 import { CONNECTION_ID, EverConnectService } from './ever-connect.service';
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
-import { lockAccount } from '../services/ever-id-session.service';
 import { deleteAccountsWithOrganizations, organizationDeletionHold } from '../services/organization/organization-membership';
 
 /** The feed events of a person's requests, by the kind of request. */
@@ -343,9 +342,10 @@ export class EverConnectPersonService {
     const now = Date.now();
     // Each account's row locked first, as a sign-in that opens a session locks it (in one order: two deletions never
     // deadlock), so a sign-in that read the identity just before cannot open a session once it is removed
-    for (const userId of Array.from(new Set(matches.map(identity => identity.userId))).sort((a, b) => a.localeCompare(b))) {
-      await lockAccount(manager, userId);
-    }
+    await lockAccounts(
+      manager,
+      matches.map(identity => identity.userId),
+    );
     for (const identity of matches) {
       await manager.update(EverIdSession, { userId: identity.userId, revokedAt: IsNull() }, { revokedAt: new Date(now) });
       await manager.delete(UserIdentity, { id: identity.id });
@@ -371,7 +371,9 @@ export class EverConnectPersonService {
    */
   private async deleteAccounts(manager: EntityManager, userIds: string[]): Promise<boolean> {
     if (!this.settings.personDeletionEnabled) return false;
-    // Every project of every account, in one order, before any admin role is read (see lockProjectsOf)
+    // The global lock order (see lockOrganization): the accounts, then every project of every account, in one order,
+    // before any admin role is read (see lockProjectsOf), then the organizations
+    await lockAccounts(manager, userIds);
     await lockProjectsOf(manager, userIds);
     for (const userId of userIds) {
       const hold = await this.deletionHold(manager, userId, userIds);

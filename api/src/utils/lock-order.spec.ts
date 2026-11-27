@@ -2,11 +2,15 @@ import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative, sep } from 'path';
 
 /**
- * The global lock order (see `lockOrganization`): account → project(s) → organization(s). A transaction never locks a
- * project once it holds an organization. This scan reads each source file and fails on a project lock that comes after
- * an organization lock in the same block: after the call that takes the organization lock (or a function that does),
- * up to the end of the block that holds it. It does not follow calls into other functions, so a helper that locks an
- * organization belongs in ORGANIZATION_LOCKS.
+ * The global lock order (see `lockOrganization`): account → project(s) → organization(s). This scan reads each source
+ * file and fails on a lock taken against it after another lock in the same transaction:
+ * - a project or an account after an organization;
+ * - an account after a project.
+ * A lock lasts until its transaction ends, so the window after a lock runs to the end of the transaction callback that
+ * holds it (`transaction(…)`, `readCommittedTransaction(…)`, `inTransaction(…)`), or of the enclosing function when the
+ * scan finds no such callback. It does not follow calls into other functions: a helper that takes one of these locks
+ * belongs in the lists below. Nor does it see the implicit lock of a foreign key; the code takes those rows' locks
+ * first, explicitly (`lockAccounts`, `lockAccountForShare`, `lockProjectForShare`).
  */
 const SRC = join(__dirname, '..');
 
@@ -19,7 +23,18 @@ const ORGANIZATION_LOCKS = [
   'deleteAccountsWithOrganizations',
   'assertStillOpen',
 ];
-const PROJECT_LOCKS = /\b(lockProject|lockProjects|lockProjectForShare|lockProjectsForShare|lockProjectsOf)\(/;
+const PROJECT_LOCKS = ['lockProject', 'lockProjects', 'lockProjectForShare', 'lockProjectsForShare', 'lockProjectsOf'];
+const ACCOUNT_LOCKS = ['lockAccount', 'lockAccounts', 'lockAccountForShare'];
+
+/** What may not follow a lock of each kind */
+const NOT_AFTER: Array<{ locks: string[]; forbidden: string[] }> = [
+  { locks: ORGANIZATION_LOCKS, forbidden: [...PROJECT_LOCKS, ...ACCOUNT_LOCKS] },
+  { locks: PROJECT_LOCKS, forbidden: ACCOUNT_LOCKS },
+];
+
+/** A transaction callback: the body of an arrow function passed to a call that opens (or joins) a transaction */
+const TRANSACTION_CALLBACK = /(?:transaction|Transaction)\s*\([^;{}]*=>\s*$/;
+const CLASS_BODY = /\bclass\s+\w+[^{};]*$/;
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
@@ -36,33 +51,54 @@ function withoutComments(code: string): string {
   return code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
-/** The text from `index` to the end of the block that holds it. */
-function restOfBlock(code: string, index: number): string {
-  let depth = 0;
-  for (let at = index; at < code.length; at++) {
-    if (code[at] === '{') {
-      depth++;
-    } else if (code[at] === '}' && --depth < 0) {
-      return code.slice(index, at);
-    }
-  }
-  return code.slice(index);
+interface Block {
+  start: number;
+  end: number;
 }
 
-/** The project locks taken after an organization lock, as `organization lock → project lock`. */
+function blocksOf(code: string): Block[] {
+  const blocks: Block[] = [];
+  const open: number[] = [];
+  for (let at = 0; at < code.length; at++) {
+    if (code[at] === '{') {
+      open.push(at);
+    } else if (code[at] === '}' && open.length) {
+      blocks.push({ start: open.pop(), end: at });
+    }
+  }
+  return blocks;
+}
+
+/** Where the locks taken at `index` are released: the end of the transaction callback, else of the enclosing function */
+function windowEnd(code: string, blocks: Block[], index: number): number {
+  const around = blocks.filter(block => block.start < index && index < block.end).sort((a, b) => b.start - a.start);
+  const callback = around.find(block => TRANSACTION_CALLBACK.test(code.slice(Math.max(0, block.start - 300), block.start)));
+  if (callback) {
+    return callback.end;
+  }
+  // The function: the outermost block that is not a class body
+  const functions = around.filter(block => !CLASS_BODY.test(code.slice(Math.max(0, block.start - 300), block.start)));
+  return functions.length ? functions[functions.length - 1].end : code.length;
+}
+
+/** The locks taken against the global order, as `first → then`. */
 export function lockOrderViolations(source: string): string[] {
   const code = withoutComments(source);
-  const calls = new RegExp(`(function\\s+|async\\s+|\\.)?\\b(${ORGANIZATION_LOCKS.join('|')})\\(`, 'g');
+  const blocks = blocksOf(code);
   const violations: string[] = [];
-  for (const match of code.matchAll(calls)) {
-    // A definition (`function lockOrganization(`, a method `async assertStillOpen(`) is no call of the lock
-    if (match[1] && match[1] !== '.') {
-      continue;
-    }
-    const after = restOfBlock(code, match.index + match[0].length);
-    const projectLock = PROJECT_LOCKS.exec(after);
-    if (projectLock) {
-      violations.push(`${match[2]} → ${projectLock[1]}`);
+  for (const { locks, forbidden } of NOT_AFTER) {
+    const calls = new RegExp(`(function\\s+|async\\s+|\\.)?\\b(${locks.join('|')})\\(`, 'g');
+    const later = new RegExp(`\\b(${forbidden.join('|')})\\(`);
+    for (const match of code.matchAll(calls)) {
+      // A definition (`function lockOrganization(`, a method `async assertStillOpen(`) is no call of the lock
+      if (match[1] && match[1] !== '.') {
+        continue;
+      }
+      const from = match.index + match[0].length;
+      const found = later.exec(code.slice(from, windowEnd(code, blocks, match.index)));
+      if (found) {
+        violations.push(`${match[2]} → ${found[1]}`);
+      }
     }
   }
   return violations;
@@ -71,7 +107,7 @@ export function lockOrderViolations(source: string): string[] {
 describe('the lock order: account → projects → organization', () => {
   const files = sourceFiles(SRC).map(path => ({ rel: relative(SRC, path).split(sep).join('/'), text: readFileSync(path, 'utf8') }));
 
-  it('finds a project locked after an organization, and passes the right order', () => {
+  it('finds a lock taken against the order, until the end of the transaction', () => {
     expect(
       lockOrderViolations(`async function add(tx) {
         await lockOrganization(tx, organizationId);
@@ -85,11 +121,32 @@ describe('the lock order: account → projects → organization', () => {
         });
       }`),
     ).toEqual(['deleteAccountsWithOrganizations → lockProjects']);
+    // The organization lock taken inside a loop still holds after the loop, to the end of the transaction
+    expect(
+      lockOrderViolations(`async accept(invites) {
+        return readCommittedTransaction(this.manager, async tx => {
+          for (const invite of invites) {
+            await lockOrganization(tx, invite.organizationId);
+          }
+          await lockProjectsForShare(tx, ids);
+        });
+      }`),
+    ).toEqual(['lockOrganization → lockProjectsForShare']);
+    expect(
+      lockOrderViolations(`async function importing(tx) {
+        await lockProject(tx, projectId);
+        await lockAccountForShare(tx, userId);
+      }`),
+    ).toEqual(['lockProject → lockAccountForShare']);
+  });
+
+  it('passes the right order, and stops at the end of the transaction or the function', () => {
     expect(
       lockOrderViolations(`async function add(tx) {
+        await lockAccounts(tx, [userId]);
         await lockProject(tx, projectId);
         // lockProject() named in a comment after the organization does not count
-        const organization = await lockOrganizationForStrings(tx, organizationId);
+        const organization = await lockOrganizationForStrings(tx, project);
       }
       async function other(tx) {
         await lockProjectForShare(tx, projectId);
@@ -100,6 +157,14 @@ describe('the lock order: account → projects → organization', () => {
         }
         async later(tx) {
           await lockProject(tx, projectId);
+        }
+        async twoTransactions() {
+          await readCommittedTransaction(this.manager, async tx => {
+            await lockOrganization(tx, id);
+          });
+          await readCommittedTransaction(this.manager, async tx => {
+            await lockProject(tx, projectId);
+          });
         }
       }`),
     ).toEqual([]);

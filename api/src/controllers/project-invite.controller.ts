@@ -19,7 +19,7 @@ import { ensureMember, lockOrganization, recountSeats } from '../services/organi
 import { assertSeatAvailable } from '../services/organization/organization-usage';
 import MailService from '../services/mail.service';
 import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
-import { lockProjectForShare, readCommittedTransaction } from '../utils/database-locks';
+import { lockAccounts, lockProjectForShare, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects')
@@ -97,6 +97,9 @@ export default class ProjectInviteController {
         // The project (for share: the membership written below references it), then the organization: the global lock
         // order. Decided again under the organization lock that a removal takes: a member removed meanwhile is someone
         // new. The locked row, not the copy read before the transaction: an organization closed meanwhile is refused
+        // The account first: the membership references it, and the person's own acceptance of an invitation holds it
+        // while it waits for the organization (the global order, see lockOrganization)
+        await lockAccounts(tx, [targetUser.id]);
         await lockProjectForShare(tx, projectId);
         const locked = await lockOrganization(tx, project.organizationId);
         if (!locked) {

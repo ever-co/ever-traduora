@@ -35,7 +35,7 @@ import { xliffParser } from '../formatters/xliff';
 import { yamlFlatParser } from '../formatters/yaml-flat';
 import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
-import { isTransientDatabaseError, lockProject } from '../utils/database-locks';
+import { isTransientDatabaseError, lockAccountForShare, lockProject } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
@@ -97,7 +97,11 @@ export class ImportController {
       // lock, not as of the import's first read.
       const lockLocale = !isDbType(DbType.BETTER_SQLITE3);
       const run = async (entityManager: EntityManager) => {
-        // The project first, then (SaaS mode) its organization, whose lock counts the strings: the global lock order
+        // The global lock order: the importer's account (for share: the history below references it), the project, then
+        // (SaaS mode) its organization, whose lock counts the strings
+        if (user instanceof User) {
+          await lockAccountForShare(entityManager, user.id);
+        }
         await lockProject(entityManager, membership.project.id);
         const organization = await lockOrganizationForStrings(entityManager, membership.project);
         // The upload was read after the access check: access that ended since (removed from the project or the
