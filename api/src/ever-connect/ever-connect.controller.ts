@@ -5,6 +5,7 @@ import { EverConnectAuditService } from './ever-connect-audit.service';
 import { EverConnectManagedService } from './ever-connect-managed.service';
 import { EverConnectAcceptRequest, EverConnectConnectRequest, EverConnectManagedRequest, EverConnectPublicUrlRequest } from './ever-connect.dto';
 import { EverConnectService } from './ever-connect.service';
+import { Access } from '../access/access.decorator';
 
 /** Who acts, as the audit trail names them: the user id, never an e-mail. */
 const actor = (req: { user?: { id?: string } }) => (req.user && req.user.id ? `user:${req.user.id}` : 'unknown');
@@ -23,6 +24,7 @@ export class EverConnectController {
     private readonly managed: EverConnectManagedService,
   ) {}
 
+  @Access('operator')
   @Get('managed')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -33,6 +35,7 @@ export class EverConnectController {
     return { data: await this.managed.view() };
   }
 
+  @Access('operator')
   @Put('managed')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -44,6 +47,7 @@ export class EverConnectController {
     return { data: await this.managed.update(body || {}, actor(req)) };
   }
 
+  @Access('public')
   @Get('health')
   @ApiOperation({ summary: 'Whether the Ever Platform connection module is loaded' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Loaded' })
@@ -51,6 +55,7 @@ export class EverConnectController {
     return { data: { module: 'ever-connect', loaded: true } };
   }
 
+  @Access('operator')
   @Get('status')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -61,6 +66,7 @@ export class EverConnectController {
     return { data: await this.connect.status() };
   }
 
+  @Access('operator')
   @Post('connect')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -73,6 +79,7 @@ export class EverConnectController {
     return { data: await this.connect.connect(body.code, body.displayName, actor(req)) };
   }
 
+  @Access('operator')
   @Post('disconnect')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -83,6 +90,7 @@ export class EverConnectController {
     return { data: await this.connect.disconnect(actor(req)) };
   }
 
+  @Access('operator')
   @Post('entitlement/refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -93,6 +101,7 @@ export class EverConnectController {
     return { data: await this.connect.refreshEntitlements(actor(req)) };
   }
 
+  @Access('operator')
   @Get('integrations')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -102,6 +111,7 @@ export class EverConnectController {
     return { data: await this.connect.integrations() };
   }
 
+  @Access('operator')
   @Post('integrations/refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -112,6 +122,7 @@ export class EverConnectController {
     return { data: await this.connect.refreshIntegrations() };
   }
 
+  @Access('operator')
   @Get('integrations/:key/consent-url')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -122,6 +133,7 @@ export class EverConnectController {
     return { data: { url: await this.connect.consentUrl(key) } };
   }
 
+  @Access('operator')
   @Post('integrations/:key/accept')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -132,6 +144,7 @@ export class EverConnectController {
     return { data: await this.connect.acceptIntegration(key, body.accepted, actor(req)) };
   }
 
+  @Access('operator')
   @Post('integrations/:key/disable')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -142,6 +155,7 @@ export class EverConnectController {
     return { data: await this.connect.disableIntegration(key, actor(req)) };
   }
 
+  @Access('operator')
   @Put('public-url')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -152,6 +166,7 @@ export class EverConnectController {
     return { data: await this.connect.setPublicUrl(body.url, actor(req)) };
   }
 
+  @Access('operator')
   @Delete('public-url')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -161,6 +176,7 @@ export class EverConnectController {
     return { data: await this.connect.clearPublicUrl(actor(req)) };
   }
 
+  @Access('operator')
   @Get('audit')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])

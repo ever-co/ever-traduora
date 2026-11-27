@@ -1,5 +1,4 @@
-import { BadRequestException, Controller, Get, HttpStatus, NotFoundException, Param, Query, Req, Res, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException, Controller, Get, HttpStatus, NotFoundException, Param, Query, Req, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Request, Response } from 'express';
 import { Repository } from 'typeorm';
@@ -29,6 +28,7 @@ import { resolveColumnName } from '../utils/alias-helper';
 import { mergeWithFallback } from '../utils/fallback-merge';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
 import { computeEtag, ifNoneMatchMatches } from '../utils/conditional-get';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects/:projectId/exports')
 export class ExportsController {
@@ -39,8 +39,8 @@ export class ExportsController {
     private projectLocaleRepo: Repository<ProjectLocale>,
   ) {}
 
+  @Access('project:ExportTranslation')
   @Get()
-  @UseGuards(AuthGuard())
   @ApiTags('Exports')
   @ApiOAuth2([])
   @ApiOperation({ summary: `Export all translated terms for a project's locale` })

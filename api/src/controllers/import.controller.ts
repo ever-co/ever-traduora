@@ -9,11 +9,9 @@ import {
   Query,
   Req,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
 import { EntityManager, Repository } from 'typeorm';
@@ -47,6 +45,7 @@ import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
 import { arbParser } from '../formatters/arb';
 import { PaymentRequiredException } from './../errors';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects/:projectId/imports')
 @ApiTags('Imports')
@@ -59,9 +58,9 @@ export class ImportController {
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
   ) {}
 
+  @Access('project:ImportTranslation')
   @Post()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard())
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 1024 * 1024 } })) // 1024 KB max size
   @ApiOAuth2([])
   @ApiOperation({ summary: 'Import a translation file' })

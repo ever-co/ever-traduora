@@ -1,14 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateUserDataRequest, UserInfoResponse } from '../domain/http';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
 import { verifyEmailUrl } from '../utils/email-verification-token';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/users')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Users')
 export default class UserController {
@@ -18,6 +17,7 @@ export default class UserController {
     private mail: MailService,
   ) {}
 
+  @Access('user')
   @Get('me')
   @ApiOperation({ summary: `Get the current user's profile` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: UserInfoResponse })
@@ -27,6 +27,7 @@ export default class UserController {
     return { data: user };
   }
 
+  @Access('user')
   @Patch('me')
   @ApiOperation({ summary: `Update the current user's profile` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: UserInfoResponse })
@@ -53,6 +54,7 @@ export default class UserController {
     };
   }
 
+  @Access('user')
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Delete the current user's account` })

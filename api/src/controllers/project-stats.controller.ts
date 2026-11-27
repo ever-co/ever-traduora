@@ -1,5 +1,4 @@
-import { Controller, Get, HttpStatus, Param, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, HttpStatus, Param, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
@@ -14,9 +13,9 @@ import { Translation } from '../entity/translation.entity';
 import AuthorizationService from '../services/authorization.service';
 import { resolveColumnName } from '../utils/alias-helper';
 import { progressRatio } from '../utils/progress';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects/:projectId/stats')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Project Stats')
 export default class ProjectStatsController {
@@ -28,6 +27,7 @@ export default class ProjectStatsController {
     @InjectRepository(Locale) private localeRepo: Repository<Locale>,
   ) {}
 
+  @Access('project:ViewTranslation')
   @Get()
   @ApiOperation({ summary: 'Get stats for project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectStatsResponse })

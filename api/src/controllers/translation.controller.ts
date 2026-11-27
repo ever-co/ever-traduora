@@ -12,9 +12,7 @@ import {
   Post,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
@@ -40,6 +38,7 @@ import AuthorizationService from '../services/authorization.service';
 import { isUniqueViolation } from '../services/ever-id-session.service';
 import { lockProject, readCommittedTransaction, translationEditLockKey, withEditLock } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
+import { Access } from '../access/access.decorator';
 
 export const DEFAULT_HISTORY_LIMIT = 50;
 export const MAX_HISTORY_LIMIT = 100;
@@ -54,7 +53,6 @@ export function parseHistoryLimit(raw: unknown): number {
 }
 
 @Controller('api/v1/projects/:projectId/translations')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Translations')
 export default class TranslationController {
@@ -67,6 +65,7 @@ export default class TranslationController {
     @InjectRepository(TranslationHistory) private historyRepo: Repository<TranslationHistory>,
   ) {}
 
+  @Access('project:ViewTranslation')
   @Get()
   @ApiOperation({ summary: 'List all translation locales for a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectLocalesResponse })
@@ -89,6 +88,7 @@ export default class TranslationController {
     };
   }
 
+  @Access('project:AddTranslation')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a new translation locale for a project' })
@@ -148,6 +148,7 @@ export default class TranslationController {
     };
   }
 
+  @Access('project:ViewTranslation')
   @Get(':localeCode')
   @ApiOperation({ summary: `List translated terms for a locale` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListTermTranslatonsResponse })
@@ -187,6 +188,7 @@ export default class TranslationController {
     }
   }
 
+  @Access('project:EditTranslation')
   @Patch(':localeCode')
   @ApiOperation({ summary: `Update a term's translation` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: TermTranslatonResponse })
@@ -315,6 +317,7 @@ export default class TranslationController {
     );
   }
 
+  @Access('project:ViewTranslation')
   @Get(':localeCode/history')
   @ApiOperation({ summary: `List the changes made to a term's translation, newest first` })
   @ApiQuery({ name: 'termId', required: true })
@@ -365,6 +368,7 @@ export default class TranslationController {
     };
   }
 
+  @Access('project:DeleteTranslation')
   @Delete(':localeCode')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Delete a project's locale`, description: `Deletes a project's locale and all related translations` })

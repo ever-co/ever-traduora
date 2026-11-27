@@ -1,9 +1,11 @@
 import { Body, CanActivate, Controller, Header, HttpCode, HttpStatus, Injectable, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ModuleRef } from '@nestjs/core';
 import { Throttle } from '@nestjs/throttler';
 import { EverConnectProvisionService } from './ever-connect-provision.service';
 import { EverConnectProvisionConfirmRequest, EverConnectProvisionIntentRequest } from './ever-connect.dto';
 import { EverSignedInUserGuard } from './ever-connect-person.controller';
+import { Access } from '../access/access.decorator';
 
 /** The provisioning routes exist only with `TR_EVER_CONNECT_PROVISION_ENABLED=true`: 404 otherwise, for everyone. */
 @Injectable()
@@ -15,6 +17,9 @@ export class EverConnectProvisionEnabledGuard implements CanActivate {
     return true;
   }
 }
+
+/** For the access guard, which runs first: switched off, the route answers 404 even to a signed-out caller. */
+export const provisionEnabled = (moduleRef: ModuleRef) => moduleRef.get(EverConnectProvisionService, { strict: false }).ensureEnabled();
 
 /** A few attempts a minute per address on these routes (two of them are public). */
 const PROVISION_THROTTLE = { default: { limit: 30, ttl: 60000 } };
@@ -32,6 +37,7 @@ const PROVISION_THROTTLE = { default: { limit: 30, ttl: 60000 } };
 export class EverConnectProvisionController {
   constructor(private readonly provision: EverConnectProvisionService) {}
 
+  @Access('public')
   @Post('intent')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -42,6 +48,7 @@ export class EverConnectProvisionController {
     return { data: await this.provision.intent(body?.intent) };
   }
 
+  @Access('user', { apiKeys: 'not-found', enabled: provisionEnabled })
   @Post('confirm')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverSignedInUserGuard)
@@ -55,6 +62,7 @@ export class EverConnectProvisionController {
   }
 
   /** The sealed confirmation is the capability: whoever holds it (valid while the intent is) may decline. */
+  @Access('public')
   @Post('intents/:jti/reject')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')

@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { User } from '../entity/user.entity';
 import { EverConnectPersonService } from './ever-connect-person.service';
+import { Access } from '../access/access.decorator';
 
 /**
  * A signed-in user only (never an API client token): a signed-out caller gets 401, an API client 404, as for any
@@ -42,6 +43,7 @@ export class EverSignedInUserGuard extends AuthGuard('jwt') implements CanActiva
 export class EverConnectPersonController {
   constructor(private readonly person: EverConnectPersonService) {}
 
+  @Access('user', { apiKeys: 'not-found' })
   @Get('exports')
   @UseGuards(EverSignedInUserGuard)
   @ApiOAuth2([])
@@ -52,6 +54,7 @@ export class EverConnectPersonController {
     return { data: await this.person.listExports(req.user.id) };
   }
 
+  @Access('user', { apiKeys: 'not-found' })
   @Get('exports/:jobId')
   @UseGuards(EverSignedInUserGuard)
   @ApiOAuth2([])

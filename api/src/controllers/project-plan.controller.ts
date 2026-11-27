@@ -1,17 +1,17 @@
-import { Controller, Get, Param, Req, UseGuards, HttpStatus } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, Param, Req, HttpStatus } from '@nestjs/common';
 import { ProjectAction } from '../domain/actions';
 import AuthorizationService from '../services/authorization.service';
 import { ApiOAuth2, ApiTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { ProjectPlanResponse } from '../domain/http';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Project Plans')
 export default class ProjectPlanController {
   constructor(private auth: AuthorizationService) {}
 
+  @Access('project:ViewProjectPlan')
   @Get(':projectId/plan')
   @ApiOperation({ summary: `Get a project's plan` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectPlanResponse })

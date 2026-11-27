@@ -1,5 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
   CreateOrganizationRequest,
@@ -19,6 +18,7 @@ import { User } from '../entity/user.entity';
 import { OrganizationException } from '../errors';
 import AuthorizationService from '../services/authorization.service';
 import { assertSaasEnabled, organizationView, OrganizationService } from '../services/organization/organization.service';
+import { Access } from '../access/access.decorator';
 
 /**
  * Organizations (DESIGN §5). A single-tenant install answers only the caller's own memberships (`GET /organizations`,
@@ -26,7 +26,6 @@ import { assertSaasEnabled, organizationView, OrganizationService } from '../ser
  * account of such an install is in the one default organization.
  */
 @Controller('api/v1/organizations')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Organizations')
 export default class OrganizationController {
@@ -35,6 +34,7 @@ export default class OrganizationController {
     private readonly organizations: OrganizationService,
   ) {}
 
+  @Access('user')
   @Get()
   @ApiOperation({ summary: `List the caller's organizations, with their role in each` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListOrganizationsResponse })
@@ -44,6 +44,7 @@ export default class OrganizationController {
     return { data: await this.organizations.listForUser(user.id) };
   }
 
+  @Access('user')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create an organization, with the caller as its owner (SaaS mode)' })
@@ -56,6 +57,7 @@ export default class OrganizationController {
     return { data: await this.organizations.create(user, payload) };
   }
 
+  @Access('organization:ViewOrganization')
   @Get(':organizationId')
   @ApiOperation({ summary: 'Get an organization' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: OrganizationResponse })
@@ -66,6 +68,7 @@ export default class OrganizationController {
     return { data: organizationView(membership.organization, membership.role) };
   }
 
+  @Access('organization:EditOrganization')
   @Patch(':organizationId')
   @ApiOperation({ summary: 'Rename an organization or change its slug (owner, admin)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: OrganizationResponse })
@@ -78,6 +81,7 @@ export default class OrganizationController {
     return { data: await this.organizations.rename(membership.organization, payload, membership.role) };
   }
 
+  @Access('organization:ViewMembers')
   @Get(':organizationId/members')
   @ApiOperation({ summary: `List an organization's members` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListOrganizationMembersResponse })
@@ -89,6 +93,7 @@ export default class OrganizationController {
     return { data: await this.organizations.listMembers(organizationId) };
   }
 
+  @Access('organization:EditMembers')
   @Patch(':organizationId/members/:userId')
   @ApiOperation({ summary: `Change a member's role to admin or member (owner, admin)` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: OrganizationMemberResponse })
@@ -106,6 +111,7 @@ export default class OrganizationController {
     return { data: await this.organizations.changeRole(organizationId, user.id, userId, payload.role) };
   }
 
+  @Access('organization:ViewOrganization')
   @Delete(':organizationId/members/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -124,6 +130,7 @@ export default class OrganizationController {
     await this.organizations.removeMember(organizationId, user.id, userId);
   }
 
+  @Access('organization:TransferOwnership')
   @Post(':organizationId/transfer-ownership')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Make another member the owner; the current owner becomes an admin (owner)' })
@@ -136,6 +143,7 @@ export default class OrganizationController {
     return { data: await this.organizations.transferOwnership(organizationId, user.id, payload.userId) };
   }
 
+  @Access('organization:EditMembers')
   @Get(':organizationId/invites')
   @ApiOperation({ summary: `List an organization's pending invites (owner, admin)` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListOrganizationInvitesResponse })
@@ -147,6 +155,7 @@ export default class OrganizationController {
     return { data: await this.organizations.listInvites(organizationId) };
   }
 
+  @Access('organization:EditMembers')
   @Post(':organizationId/invites')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -164,6 +173,7 @@ export default class OrganizationController {
     return { data: 'member' in result ? result.member : result.invite };
   }
 
+  @Access('organization:EditMembers')
   @Delete(':organizationId/invites/:inviteId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke a pending invite (owner, admin)' })

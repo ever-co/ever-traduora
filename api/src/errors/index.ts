@@ -80,3 +80,12 @@ export class OrganizationException extends HttpException {
     super(message, status);
   }
 }
+
+/** A route without an access rule (`@Access`), or with one the guard does not know: 403 `access_undeclared`. */
+export class AccessUndeclaredException extends HttpException {
+  readonly code = 'access_undeclared';
+
+  constructor() {
+    super('This route declares no access rule', HttpStatus.FORBIDDEN);
+  }
+}

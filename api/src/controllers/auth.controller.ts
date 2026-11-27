@@ -17,7 +17,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -75,6 +74,7 @@ import { ensureMember, isOpenForMembers, lockOrganization } from '../services/or
 import { assertSaasEnabled, OrganizationService } from '../services/organization/organization.service';
 import { OrganizationInvite } from '../entity/organization-invite.entity';
 import { readCommittedTransaction } from '../utils/database-locks';
+import { Access } from '../access/access.decorator';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
 const EVERID = 'everid';
@@ -101,6 +101,7 @@ export class AuthController {
     private organizations: OrganizationService,
   ) {}
 
+  @Access('public')
   @Get('providers')
   @ApiOperation({ summary: 'List available external auth providers' })
   @ApiResponse({ status: HttpStatus.OK, type: ListAuthProvidersResponse, description: 'Success' })
@@ -121,6 +122,7 @@ export class AuthController {
     };
   }
 
+  @Access('public')
   @Post('signup')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create a new user account' })
@@ -200,6 +202,7 @@ export class AuthController {
     void this.mailService.welcomeNewUser(user, verificationToken ? verifyEmailUrl(verificationToken) : undefined);
   }
 
+  @Access('public')
   @Post('signup-provider')
   @UseGuards(OidcSignInThrottlerGuard)
   async signupWithProvider(
@@ -292,6 +295,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
+  @Access('public')
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -389,6 +393,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
+  @Access('public')
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request reset password email' })
@@ -405,6 +410,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
+  @Access('public')
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password from token' })
@@ -419,8 +425,8 @@ export class AuthController {
     this.mailService.passwordChanged(user);
   }
 
+  @Access('user')
   @Post('change-password')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Change password using current one' })
@@ -434,8 +440,8 @@ export class AuthController {
     this.mailService.passwordChanged(user);
   }
 
+  @Access('user')
   @Post('verify-email')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: `Verify the signed-in user's email with the token from its verification link` })
@@ -481,8 +487,8 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
+  @Access('user')
   @Post('resend-verification-email')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Email a new verification link for the current user's email` })
@@ -500,8 +506,8 @@ export class AuthController {
     }
   }
 
+  @Access('user')
   @Post('accept-invite')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Accept a pending project invite with the token from its invitation link' })
@@ -529,8 +535,8 @@ export class AuthController {
     return { data: { projectId: invite.project.id, role: invite.role } };
   }
 
+  @Access('user')
   @Post('accept-organization-invite')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Accept a pending organization invite with the token from its invitation link (SaaS mode)' })
@@ -675,6 +681,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
+  @Access('public')
   @Post('everid/signup-confirm')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -757,8 +764,8 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
+  @Access('user')
   @Post('identities/connect')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -797,8 +804,8 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
+  @Access('user')
   @Post('identities/connect/confirm')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -830,8 +837,8 @@ export class AuthController {
     return { data: identities.find(item => item.id === identity.id) };
   }
 
+  @Access('user')
   @Get('identities')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -844,8 +851,8 @@ export class AuthController {
     return { data: await this.everIdSessions.listForUser(requestingUser.id) };
   }
 
+  @Access('user')
   @Delete('identities/:id')
-  @UseGuards(AuthGuard())
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Disconnect a sign-in identity from the signed-in account' })
@@ -872,6 +879,7 @@ export class AuthController {
   // Not under the per-address auth rate limit: the issuer sends every logout from its own servers, and a mass sign-out
   // must not leave sessions open. Each request is a signature check at most (unknown keys are refetched at most every
   // 30 s); only verified, unseen logout tokens reach the database.
+  @Access('webhook')
   @Post('everid/backchannel-logout')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')

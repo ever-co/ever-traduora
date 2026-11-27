@@ -12,9 +12,7 @@ import {
   Post,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { config } from '../config';
@@ -31,6 +29,7 @@ import { activeMemberships, homeOrganizationId } from '../services/organization/
 import { OrganizationScopedProjects } from '../services/organization/organization-scoped-projects.service';
 import { ApiOAuth2, ApiTags, ApiResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { readCommittedTransaction } from '../utils/database-locks';
+import { Access } from '../access/access.decorator';
 
 /** What the API answers for a project: its own fields (never its plan or organization objects) and the caller's role. */
 export function projectView(project: Project, role: ProjectRole) {
@@ -47,7 +46,6 @@ export function projectView(project: Project, role: ProjectRole) {
 }
 
 @Controller('api/v1/projects')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Projects')
 export default class ProjectController {
@@ -57,6 +55,7 @@ export default class ProjectController {
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
   ) {}
 
+  @Access('user')
   @Get()
   @ApiOperation({
     summary: 'List projects',
@@ -108,6 +107,7 @@ export default class ProjectController {
     };
   }
 
+  @Access('user')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -153,6 +153,7 @@ export default class ProjectController {
     return { data: projectView(result.project, result.role) };
   }
 
+  @Access('project:ViewProject')
   @Get(':projectId')
   @ApiOperation({ summary: 'Get a project by id' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
@@ -166,6 +167,7 @@ export default class ProjectController {
     };
   }
 
+  @Access('project:EditProject')
   @Patch(':projectId')
   @ApiOperation({ summary: 'Update a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
@@ -182,6 +184,7 @@ export default class ProjectController {
     return { data: projectView(project, membership.role) };
   }
 
+  @Access('project:DeleteProject')
   @Delete(':projectId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a project' })

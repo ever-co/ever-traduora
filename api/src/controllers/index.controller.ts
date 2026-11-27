@@ -4,6 +4,7 @@ import { resolve } from 'path';
 import { config } from '../config';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { EverAppId, formatEverAppLinks } from '../utils/ever-app-links';
+import { Access } from '../access/access.decorator';
 
 /**
  * The tag a demo install (`TR_DEMO=true`) adds to the web app's index.html. The web app shows its demo banner
@@ -66,6 +67,7 @@ export default class IndexController {
    * answers is a 404, as for any other method: a client asking for an API route that does not exist (or a module that is
    * not loaded) never gets the web app's page instead.
    */
+  @Access('public')
   @Get('{*splat}')
   @ApiExcludeEndpoint()
   async index(@Res() res, @Req() req?) {

@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
 import {
+  AccessUndeclaredException,
   AuthProviderException,
   EverPlatformException,
   FormatCannotHoldTermsException,
@@ -24,7 +25,11 @@ export class CustomExceptionFilter implements ExceptionFilter {
           ...(exception.details ? { details: exception.details } : {}),
         },
       });
-    } else if (exception instanceof EverPlatformException || exception instanceof OrganizationException) {
+    } else if (
+      exception instanceof EverPlatformException ||
+      exception instanceof OrganizationException ||
+      exception instanceof AccessUndeclaredException
+    ) {
       // Answers of the optional Ever Platform routes and of the organizations keep their status and code
       response.status(exception.getStatus()).json({
         error: {

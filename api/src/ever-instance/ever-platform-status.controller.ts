@@ -2,6 +2,7 @@ import { Controller, Get, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { config } from '../config';
 import { EverAdminGuard } from './ever-admin.guard';
+import { Access } from '../access/access.decorator';
 
 /**
  * Which Ever Platform pages the operator of the installation has: the web app shows its menu entry only when this
@@ -10,6 +11,7 @@ import { EverAdminGuard } from './ever-admin.guard';
 @Controller('api/v1/ever-platform')
 @ApiTags('Ever Platform')
 export class EverPlatformStatusController {
+  @Access('operator')
   @Get('status')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])

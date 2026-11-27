@@ -1,5 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as _ from 'lodash';
@@ -21,9 +20,9 @@ import {
   withTermLabelEditLock,
 } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects/:projectId/labels')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Project Labels')
 export default class ProjectLabelController {
@@ -35,6 +34,7 @@ export default class ProjectLabelController {
     @InjectRepository(Translation) private translationsRepo: Repository<Translation>,
   ) {}
 
+  @Access('project:ViewLabel')
   @Get()
   @ApiOperation({ summary: `List a project's labels` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectLabelResponse })
@@ -57,6 +57,7 @@ export default class ProjectLabelController {
     };
   }
 
+  @Access('project:AddLabel')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a new project label' })
@@ -86,6 +87,7 @@ export default class ProjectLabelController {
     };
   }
 
+  @Access('project:EditLabel')
   @Patch(':labelId')
   @ApiOperation({ summary: `Update a project's label` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectLabelResponse })
@@ -108,6 +110,7 @@ export default class ProjectLabelController {
     };
   }
 
+  @Access('project:DeleteLabel')
   @Delete(':labelId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Remove a project's label`, description: `Removes a project's label and removes it from all attached translations too` })
@@ -122,6 +125,7 @@ export default class ProjectLabelController {
     await this.labelRepo.remove(label);
   }
 
+  @Access('project:EditLabel')
   @Post(':labelId/terms/:termId')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Label a project term' })
@@ -172,6 +176,7 @@ export default class ProjectLabelController {
     );
   }
 
+  @Access('project:EditLabel')
   @Delete(':labelId/terms/:termId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Unlabel a project term' })
@@ -190,6 +195,7 @@ export default class ProjectLabelController {
     await this.termsRepo.createQueryBuilder().relation(Term, 'labels').of(term.id).remove(label.id);
   }
 
+  @Access('project:EditLabel')
   @Post(':labelId/terms/:termId/translations/:localeCode')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -279,6 +285,7 @@ export default class ProjectLabelController {
     }
   }
 
+  @Access('project:EditLabel')
   @Delete(':labelId/terms/:termId/translations/:localeCode')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Unlabel a project term translation' })

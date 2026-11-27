@@ -55,6 +55,7 @@ import { OidcProviderService } from './services/oidc-provider.service';
 import { EverIdSessionService } from './services/ever-id-session.service';
 import { OrganizationService } from './services/organization/organization.service';
 import { OrganizationScopedProjects } from './services/organization/organization-scoped-projects.service';
+import { AccessGuard } from './access/access.guard';
 import { OrganizationBootCheck } from './services/organization/organization-boot-check';
 import ProjectStatsController from './controllers/project-stats.controller';
 import { ConfigModule } from '@nestjs/config';
@@ -147,6 +148,11 @@ export class IndexModule {}
     {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard,
+    },
+    // Default deny: every route declares who may call it (@Access), checked before the route's own guards
+    {
+      provide: APP_GUARD,
+      useClass: AccessGuard,
     },
     UserService,
     AuthService,
