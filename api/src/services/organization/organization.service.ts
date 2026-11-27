@@ -357,6 +357,9 @@ export class OrganizationService {
 
   async revokeInvite(organizationId: string, inviteId: string): Promise<void> {
     await readCommittedTransaction(this.invites.manager, async tx => {
+      // The organization first, as an acceptance takes it before it updates the invitation: a revoke deleting the
+      // invitation and then recounting under the lock would wait for the acceptance in a cycle
+      await lockOrganization(tx, organizationId);
       const invite = await tx.findOne(OrganizationInvite, { where: { id: inviteId, organizationId } });
       if (!invite) {
         throw new NotFoundException('invite not found');
