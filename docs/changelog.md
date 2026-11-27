@@ -8,6 +8,11 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- On the terms and labels pages, screen readers name the delete button of each card after what it deletes:
+  "Delete term greeting", "Delete label todo". Before, each of these buttons was read out as "close", the text of its
+  icon, so a page of ten terms had ten identical "close" buttons, nothing said that they delete, and a screen reader
+  user could delete the wrong term or label. The icon is no longer read out
+
 - Android XML and RESX export: a term with `&`, `<` or `>` in it (`Terms & Conditions`, `a<b`) is written with
   `&amp;`, `&lt;` and `&gt;` in the `name` attribute of its `<string>` or `<data>`. Before, these characters were
   written as they are, which is not well-formed XML: Android, .NET and other XML readers refused the whole file, and
