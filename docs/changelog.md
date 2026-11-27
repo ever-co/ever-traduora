@@ -8,6 +8,11 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Android XML and RESX export: a term with `&`, `<` or `>` in it (`Terms & Conditions`, `a<b`) is written with
+  `&amp;`, `&lt;` and `&gt;` in the `name` attribute of its `<string>` or `<data>`. Before, these characters were
+  written as they are, which is not well-formed XML: Android, .NET and other XML readers refused the whole file, and
+  importing it back into Traduora failed. Translations were already written correctly
+
 - Password reset API: `POST /api/v1/auth/forgot-password` and `POST /api/v1/auth/reset-password` take the rate limit
   of the other auth routes (sign-in, the verification email): `TR_AUTH_THROTTLE_LIMIT` requests per
   `TR_AUTH_THROTTLE_TTL` from one address (10 per minute, 100 in production), then 429 Too Many Requests. Before, they

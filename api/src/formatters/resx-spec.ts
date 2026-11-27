@@ -47,3 +47,9 @@ test('should keep the space between two CDATA sections', async () => {
   const result = await resXParser(resxWithData('<data name="cdata" xml:space="preserve"><value><![CDATA[Hello]]> <![CDATA[world]]></value></data>'));
   expect(result.translations).toEqual([{ term: 'cdata', translation: 'Hello world' }]);
 });
+
+test('should export a term with &, < and > as well-formed XML and read it back', async () => {
+  const exported = await resXExporter({ iso: 'en', translations: [{ term: 'Terms & <Conditions> "q"', translation: 'x' }] });
+  const result = await resXParser(exported as string);
+  expect(result.translations).toEqual([{ term: 'Terms & <Conditions> "q"', translation: 'x' }]);
+});

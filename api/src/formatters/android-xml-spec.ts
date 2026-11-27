@@ -81,3 +81,9 @@ test('should export android resources files', async () => {
   const expected = loadFixture('simple-android.xml');
   expect(result).toEqual(expected);
 });
+
+test('should export a term with &, < and > as well-formed XML and read it back', async () => {
+  const exported = await androidXmlExporter({ iso: 'en', translations: [{ term: 'Terms & <Conditions> "q"', translation: 'x' }] });
+  const result = await androidXmlParser(exported as string);
+  expect(result.translations).toEqual([{ term: 'Terms & <Conditions> "q"', translation: 'x' }]);
+});
