@@ -1,4 +1,6 @@
 import { INestApplication } from '@nestjs/common';
+import { Agent } from 'http';
+import { AddressInfo } from 'net';
 import * as request from 'supertest';
 import { DataSource } from 'typeorm';
 import { config } from '../src/config';
@@ -28,35 +30,41 @@ describe('Organization plans in SaaS mode (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   const saasBefore = config.saasEnabled;
-
-  const server = () => app.getHttpServer();
+  /**
+   * Every request of this suite goes to one listener (`app.listen(0)`), through one keep-alive agent: supertest on an
+   * unlistened server opens a listener per request, and a burst of parallel ones could drop a connection under load.
+   * The agent closes an idle socket (10 s) before the server would (30 s), so a reused socket is never one the server
+   * is closing.
+   */
+  let base: string;
+  const agent = new Agent({ keepAlive: true, maxSockets: 8, timeout: 10_000 });
+  const call = (method: 'get' | 'post' | 'patch' | 'delete', path: string) => request(base)[method](path).agent(agent);
   const auth = (user: TestingUser) => ({ Authorization: `Bearer ${user.accessToken}` });
   const ownOrganizationOf = async (user: TestingUser): Promise<Org> => {
-    const organizations = (await request(server()).get('/api/v1/organizations').set(auth(user)).expect(200)).body.data;
+    const organizations = (await call('get', '/api/v1/organizations').set(auth(user)).expect(200)).body.data;
     expect(organizations).toHaveLength(1);
     return organizations[0];
   };
   const usageOf = async (user: TestingUser, organizationId: string) =>
-    (await request(server()).get(`/api/v1/organizations/${organizationId}/usage`).set(auth(user)).expect(200)).body.data;
+    (await call('get', `/api/v1/organizations/${organizationId}/usage`).set(auth(user)).expect(200)).body.data;
   const invite = (owner: TestingUser, organizationId: string, email: string) =>
-    request(server()).post(`/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).send({ email, role: 'member' });
+    call('post', `/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).send({ email, role: 'member' });
   const pendingInvites = async (owner: TestingUser, organizationId: string): Promise<Array<{ id: string; email: string }>> =>
-    (await request(server()).get(`/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).expect(200)).body.data;
+    (await call('get', `/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).expect(200)).body.data;
   const revoke = async (owner: TestingUser, organizationId: string, email: string) => {
     const pending = (await pendingInvites(owner, organizationId)).find(each => each.email === email);
-    await request(server()).delete(`/api/v1/organizations/${organizationId}/invites/${pending.id}`).set(auth(owner)).expect(204);
+    await call('delete', `/api/v1/organizations/${organizationId}/invites/${pending.id}`).set(auth(owner)).expect(204);
   };
   const projectInvite = (admin: TestingUser, projectId: string, email: string) =>
-    request(server()).post(`/api/v1/projects/${projectId}/invites`).set(auth(admin)).send({ email, role: 'editor' });
+    call('post', `/api/v1/projects/${projectId}/invites`).set(auth(admin)).send({ email, role: 'editor' });
   const newProject = async (owner: TestingUser, organizationId: string): Promise<string> =>
-    (await request(server()).post('/api/v1/projects').set(auth(owner)).send({ name: 'Plans', organizationId }).expect(201)).body.data.id;
+    (await call('post', '/api/v1/projects').set(auth(owner)).send({ name: 'Plans', organizationId }).expect(201)).body.data.id;
   const addLocale = (user: TestingUser, projectId: string, code: string) =>
-    request(server()).post(`/api/v1/projects/${projectId}/translations`).set(auth(user)).send({ code });
+    call('post', `/api/v1/projects/${projectId}/translations`).set(auth(user)).send({ code });
   const addTerm = (user: TestingUser, projectId: string, value: string) =>
-    request(server()).post(`/api/v1/projects/${projectId}/terms`).set(auth(user)).send({ value });
+    call('post', `/api/v1/projects/${projectId}/terms`).set(auth(user)).send({ value });
   const importInto = (user: TestingUser, projectId: string, locale: string, content: Record<string, string>) =>
-    request(server())
-      .post(`/api/v1/projects/${projectId}/imports?locale=${locale}&format=jsonflat`)
+    call('post', `/api/v1/projects/${projectId}/imports?locale=${locale}&format=jsonflat`)
       .set(auth(user))
       .attach('file', Buffer.from(JSON.stringify(content)), 'file');
   const counters = async (projectId: string) =>
@@ -79,16 +87,55 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       },
     ]);
   };
-  const statuses = (responses: request.Response[]) => responses.map(res => res.status).sort();
+
+  /**
+   * Sends the requests at once and answers their statuses, sorted. A request that gets no answer (a dropped connection)
+   * fails the test here, with what happened, instead of showing up as a wrong count in the tests after it.
+   */
+  const atOnce = async (label: string, requests: Array<() => request.Test>): Promise<number[]> => {
+    const settled = await Promise.allSettled(requests.map(send => send()));
+    const failed = settled
+      .map((result, index) => (result.status === 'rejected' ? `#${index}: ${result.reason?.code ?? ''} ${result.reason?.message}` : null))
+      .filter(Boolean);
+    if (failed.length) {
+      throw new Error(`${label}: ${failed.length} of ${requests.length} parallel requests got no answer (${failed.join('; ')})`);
+    }
+    return settled.map(result => (result as PromiseFulfilledResult<request.Response>).value.status).sort();
+  };
+  /** A new organization whose owner signs up, with `seats` seats taken: the owner and pending invitations */
+  const organizationWithSeats = async (label: string, seats: number) => {
+    const owner = await signupTestUser(app, `${label}-owner@test.com`);
+    const organization = await ownOrganizationOf(owner);
+    for (let i = 1; i < seats; i++) {
+      await invite(owner, organization.id, `${label}-${i}@test.com`).expect(201);
+    }
+    expect((await usageOf(owner, organization.id)).seats.used).toBe(seats);
+    return { owner, organization };
+  };
+  /** A new organization with a project in German, and `left` strings left before Starter's limit (a ballast project) */
+  const organizationWithStringsLeft = async (label: string, left: number) => {
+    const owner = await signupTestUser(app, `${label}-owner@test.com`);
+    const organization = await ownOrganizationOf(owner);
+    const projectId = await newProject(owner, organization.id);
+    await addLocale(owner, projectId, 'de').expect(201);
+    await setCounters(await newProject(owner, organization.id), 1, 10_000 - left);
+    expect((await usageOf(owner, organization.id)).strings.used).toBe(10_000 - left);
+    return { owner, organization, projectId };
+  };
 
   beforeAll(async () => {
     config.saasEnabled = true;
     app = await createAndMigrateApp();
     dataSource = app.get(DataSource);
+    await app.listen(0, '127.0.0.1');
+    const server = app.getHttpServer();
+    server.keepAliveTimeout = 30_000;
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
 
   afterAll(async () => {
     config.saasEnabled = saasBefore;
+    agent.destroy();
     await app.close();
   });
 
@@ -145,7 +192,7 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
       expectLimit(await invite(owner, organization.id, 'seat-14@test.com'), 'seats', 15, 15);
 
-      await request(server()).delete(`/api/v1/projects/${projectId}/invites/${pending.body.data.id}`).set(auth(owner)).expect(204);
+      await call('delete', `/api/v1/projects/${projectId}/invites/${pending.body.data.id}`).set(auth(owner)).expect(204);
       expect((await usageOf(owner, organization.id)).seats.used).toBe(14);
       const back = await invite(owner, organization.id, 'seat-14@test.com').expect(201);
       tokens.set('seat-14@test.com', tokenOf(back));
@@ -153,114 +200,12 @@ describe('Organization plans in SaaS mode (e2e)', () => {
     });
 
     it('let an invited person join at the limit: the seat they held becomes theirs', async () => {
-      const res = await request(server())
-        .post('/api/v1/auth/signup')
+      const res = await call('post', '/api/v1/auth/signup')
         .send({ name: 'Seat 3', email: 'seat-3@test.com', password: 'mysupersecretpassword', inviteToken: tokens.get('seat-3@test.com') })
         .expect(200);
       const joined = res.body.data as TestingUser;
-      expect((await request(server()).get('/api/v1/organizations').set(auth(joined)).expect(200)).body.data.map(each => each.id)).toEqual([
-        organization.id,
-      ]);
+      expect((await call('get', '/api/v1/organizations').set(auth(joined)).expect(200)).body.data.map(each => each.id)).toEqual([organization.id]);
       expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
-    });
-
-    it('are never exceeded by parallel invitations', async () => {
-      await revoke(owner, organization.id, 'seat-13@test.com');
-      await revoke(owner, organization.id, 'seat-12@test.com');
-      expect((await usageOf(owner, organization.id)).seats.used).toBe(13);
-
-      const responses = await Promise.all(Array.from({ length: 6 }, (_, i) => invite(owner, organization.id, `parallel-${i}@test.com`)));
-      expect(statuses(responses)).toEqual([201, 201, 402, 402, 402, 402]);
-      expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
-    });
-
-    it('are never exceeded by parallel project invitations', async () => {
-      await revoke(owner, organization.id, (await pendingInvites(owner, organization.id)).find(each => each.email.startsWith('parallel-')).email);
-      const responses = await Promise.all(Array.from({ length: 4 }, (_, i) => projectInvite(owner, projectId, `project-parallel-${i}@test.com`)));
-      expect(statuses(responses)).toEqual([201, 402, 402, 402]);
-      expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
-    });
-
-    describe('over the limit after a downgrade (OD-T13)', () => {
-      let late: TestingUser;
-      let lateToken: string;
-      let projectLate: TestingUser;
-      let projectLateToken: string;
-      let membersBefore: number;
-
-      beforeAll(async () => {
-        // Accounts without a verified email get an invitation, as anyone new does
-        late = await signupTestUser(app, 'late@test.com', false);
-        projectLate = await signupTestUser(app, 'project-late@test.com', false);
-        await setPlan(organization.id, OrganizationPlanCode.SmallBusiness);
-        lateToken = tokenOf(await invite(owner, organization.id, late.email).expect(201));
-        await invite(owner, organization.id, 'late-signup@test.com').expect(201);
-        tokens.set('late-signup@test.com', tokenOf(await invite(owner, organization.id, 'late-signup@test.com').expect(201)));
-        projectLateToken = tokenOf(await projectInvite(owner, projectId, projectLate.email).expect(201));
-        expect((await usageOf(owner, organization.id)).seats).toEqual({ used: 18, included: 25 });
-        membersBefore = (await request(server()).get(`/api/v1/organizations/${organization.id}/members`).set(auth(owner)).expect(200)).body.data
-          .length;
-        await setPlan(organization.id, OrganizationPlanCode.Starter);
-      });
-
-      it('keeps everyone and every invitation, and reads keep working', async () => {
-        expect(await usageOf(owner, organization.id)).toMatchObject({ plan: { code: 'starter' }, seats: { used: 18, included: 15 } });
-        const members = await request(server()).get(`/api/v1/organizations/${organization.id}/members`).set(auth(owner)).expect(200);
-        expect(members.body.data).toHaveLength(membersBefore);
-        expect((await pendingInvites(owner, organization.id)).map(each => each.email)).toEqual(
-          expect.arrayContaining([late.email, 'late-signup@test.com']),
-        );
-        await request(server()).get(`/api/v1/projects/${projectId}`).set(auth(owner)).expect(200);
-      });
-
-      it('refuses new invitations', async () => {
-        expectLimit(await invite(owner, organization.id, 'one-more@test.com'), 'seats', 15, 18);
-        expectLimit(await projectInvite(owner, projectId, 'one-more@test.com'), 'seats', 15, 18);
-      });
-
-      it('refuses an acceptance, and the invitation stays pending', async () => {
-        expectLimit(
-          await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(late)).send({ inviteToken: lateToken }),
-          'seats',
-          15,
-          // An invitee may not read the organization's usage: what the plan allows, nothing more
-          null,
-        );
-        expectLimit(
-          await request(server()).post('/api/v1/auth/accept-invite').set(auth(projectLate)).send({ inviteToken: projectLateToken }),
-          'seats',
-          15,
-          null,
-        );
-        expect((await pendingInvites(owner, organization.id)).map(each => each.email)).toContain(late.email);
-        await request(server()).get(`/api/v1/organizations/${organization.id}`).set(auth(late)).expect(404);
-        await request(server()).get(`/api/v1/projects/${projectId}`).set(auth(projectLate)).expect(404);
-      });
-
-      it('still makes the account of a sign-up with an invitation, in its own organization', async () => {
-        const res = await request(server())
-          .post('/api/v1/auth/signup')
-          .send({
-            name: 'Late signup',
-            email: 'late-signup@test.com',
-            password: 'mysupersecretpassword',
-            inviteToken: tokens.get('late-signup@test.com'),
-          })
-          .expect(200);
-        const own = await ownOrganizationOf(res.body.data);
-        expect(own.id).not.toBe(organization.id);
-        expect((await pendingInvites(owner, organization.id)).map(each => each.email)).toContain('late-signup@test.com');
-      });
-
-      it('accepts again once the organization is back within its seats', async () => {
-        for (const email of ['seat-4@test.com', 'seat-5@test.com', 'seat-6@test.com']) {
-          await revoke(owner, organization.id, email);
-        }
-        expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
-        await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(late)).send({ inviteToken: lateToken }).expect(200);
-        expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
-        await request(server()).get(`/api/v1/organizations/${organization.id}`).set(auth(late)).expect(200);
-      });
     });
   });
 
@@ -294,15 +239,10 @@ describe('Organization plans in SaaS mode (e2e)', () => {
 
     it('tell an editor and an API key what the plan allows, not what the organization uses', async () => {
       const editor = await signupTestUser(app, 'strings-editor@test.com');
-      await request(server())
-        .post(`/api/v1/projects/${projectId}/invites`)
-        .set(auth(owner))
-        .send({ email: editor.email, role: 'editor' })
-        .expect(201);
+      await call('post', `/api/v1/projects/${projectId}/invites`).set(auth(owner)).send({ email: editor.email, role: 'editor' }).expect(201);
       expectLimit(await addTerm(editor, projectId, 'term.editor'), 'strings', 10_000, null);
       const client = await createTestProjectClient(app, owner, { id: projectId } as TestingProject, ProjectRole.Editor);
-      const byKey = await request(server())
-        .post(`/api/v1/projects/${projectId}/terms`)
+      const byKey = await call('post', `/api/v1/projects/${projectId}/terms`)
         .set('Authorization', `Bearer ${client.accessToken}`)
         .send({ value: 'term.client' });
       expectLimit(byKey, 'strings', 10_000, null);
@@ -319,7 +259,7 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       expectLimit(await importInto(owner, projectId, 'de', { 'new.one': 'eins', 'new.two': 'zwei' }), 'strings', 10_000, 10_000);
       expectLimit(await importInto(owner, projectId, 'fr', { 'term.0': 'zéro' }), 'strings', 10_000, 10_000);
       expect(await counters(projectId)).toMatchObject({ localesCount: 1, termsCount: 10 });
-      const terms = await request(server()).get(`/api/v1/projects/${projectId}/terms`).set(auth(owner)).expect(200);
+      const terms = await call('get', `/api/v1/projects/${projectId}/terms`).set(auth(owner)).expect(200);
       expect(terms.body.data).toHaveLength(10);
 
       const edit = await importInto(owner, projectId, 'de', { 'term.0': 'null', 'term.1': 'eins' }).expect(200);
@@ -329,54 +269,167 @@ describe('Organization plans in SaaS mode (e2e)', () => {
     it('keep reads, edits and exports working over the limit', async () => {
       await setCounters(ballastId, 1, 10_500);
       expect((await usageOf(owner, organization.id)).strings).toEqual({ used: 10_510, limit: 10_000 });
-      const terms = (await request(server()).get(`/api/v1/projects/${projectId}/terms`).set(auth(owner)).expect(200)).body.data;
-      await request(server()).get(`/api/v1/projects/${projectId}/translations/de`).set(auth(owner)).expect(200);
-      await request(server())
-        .patch(`/api/v1/projects/${projectId}/translations/de`)
+      const terms = (await call('get', `/api/v1/projects/${projectId}/terms`).set(auth(owner)).expect(200)).body.data;
+      await call('get', `/api/v1/projects/${projectId}/translations/de`).set(auth(owner)).expect(200);
+      await call('patch', `/api/v1/projects/${projectId}/translations/de`)
         .set(auth(owner))
         .send({ termId: terms[0].id, value: 'geändert' })
         .expect(200);
-      await request(server()).get(`/api/v1/projects/${projectId}/exports?locale=de&format=jsonflat`).set(auth(owner)).expect(200);
+      await call('get', `/api/v1/projects/${projectId}/exports?locale=de&format=jsonflat`).set(auth(owner)).expect(200);
       expectLimit(await addTerm(owner, projectId, 'term.over'), 'strings', 10_000, 10_510);
       // Removing is fine, and brings the organization back down
-      await request(server()).delete(`/api/v1/projects/${projectId}/terms/${terms[9].id}`).set(auth(owner)).expect(204);
+      await call('delete', `/api/v1/projects/${projectId}/terms/${terms[9].id}`).set(auth(owner)).expect(204);
       expect((await usageOf(owner, organization.id)).strings.used).toBe(10_509);
     });
+  });
 
-    it('are never exceeded by parallel adds', async () => {
-      const own = await counters(projectId);
-      // Three strings left: three of the terms fit
-      await setCounters(ballastId, 1, 10_000 - own.localesCount * own.termsCount - 3);
-      const responses = await Promise.all(Array.from({ length: 8 }, (_, i) => addTerm(owner, projectId, `parallel.${i}`)));
-      expect(statuses(responses)).toEqual([201, 201, 201, 402, 402, 402, 402, 402]);
-      expect((await usageOf(owner, organization.id)).strings.used).toBe(10_000);
-    });
-
-    it('are never exceeded by parallel imports', async () => {
-      const own = await counters(projectId);
-      await setCounters(ballastId, 1, 10_000 - own.localesCount * own.termsCount - 2);
-      const responses = await Promise.all(
-        Array.from({ length: 4 }, (_, i) => importInto(owner, projectId, 'de', { [`import.${i}.a`]: 'a', [`import.${i}.b`]: 'b' })),
+  describe('limits under parallel requests (each test with its own organization)', () => {
+    it('never let parallel invitations exceed the seats', async () => {
+      const { owner, organization } = await organizationWithSeats('parallel-invites', 13);
+      const statuses = await atOnce(
+        'invitations',
+        Array.from({ length: 6 }, (_, i) => () => invite(owner, organization.id, `parallel-invites-new-${i}@test.com`)),
       );
-      expect(statuses(responses)).toEqual([200, 402, 402, 402]);
+      expect(statuses).toEqual([201, 201, 402, 402, 402, 402]);
+      expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
+    });
+
+    it('never let parallel project invitations exceed the seats', async () => {
+      const { owner, organization } = await organizationWithSeats('parallel-project-invites', 14);
+      const projectId = await newProject(owner, organization.id);
+      const statuses = await atOnce(
+        'project invitations',
+        Array.from({ length: 4 }, (_, i) => () => projectInvite(owner, projectId, `parallel-project-invites-new-${i}@test.com`)),
+      );
+      expect(statuses).toEqual([201, 402, 402, 402]);
+      expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
+    });
+
+    it('never let parallel term adds exceed the strings', async () => {
+      // Three strings left: three of the eight terms fit (one locale)
+      const { owner, organization, projectId } = await organizationWithStringsLeft('parallel-terms', 3);
+      const statuses = await atOnce(
+        'term adds',
+        Array.from({ length: 8 }, (_, i) => () => addTerm(owner, projectId, `parallel.${i}`)),
+      );
+      expect(statuses).toEqual([201, 201, 201, 402, 402, 402, 402, 402]);
       expect((await usageOf(owner, organization.id)).strings.used).toBe(10_000);
     });
 
-    it('have no limit on Small Business and Enterprise, and the project plans stay ignored', async () => {
+    it('never let parallel imports exceed the strings', async () => {
+      // Two strings left: one import of two new terms fits
+      const { owner, organization, projectId } = await organizationWithStringsLeft('parallel-imports', 2);
+      const statuses = await atOnce(
+        'imports',
+        Array.from({ length: 4 }, (_, i) => () => importInto(owner, projectId, 'de', { [`import.${i}.a`]: 'a', [`import.${i}.b`]: 'b' })),
+      );
+      expect(statuses).toEqual([200, 402, 402, 402]);
+      expect((await usageOf(owner, organization.id)).strings.used).toBe(10_000);
+    });
+  });
+
+  describe('over the limit after a downgrade (OD-T13)', () => {
+    let owner: TestingUser;
+    let organization: Org;
+    let projectId: string;
+    let late: TestingUser;
+    let lateToken: string;
+    let projectLate: TestingUser;
+    let projectLateToken: string;
+    let signupToken: string;
+    /** Pending invitations that only fill seats */
+    const fillers = 14;
+    /** The owner, the fillers, and three people invited while on Small Business */
+    const seats = 1 + fillers + 3;
+
+    beforeAll(async () => {
+      owner = await signupTestUser(app, 'downgrade-owner@test.com');
+      organization = await ownOrganizationOf(owner);
+      projectId = await newProject(owner, organization.id);
+      // Accounts without a verified email get an invitation, as anyone new does
+      late = await signupTestUser(app, 'downgrade-late@test.com', false);
+      projectLate = await signupTestUser(app, 'downgrade-project-late@test.com', false);
       await setPlan(organization.id, OrganizationPlanCode.SmallBusiness);
+      for (let i = 1; i <= fillers; i++) {
+        await invite(owner, organization.id, `downgrade-${i}@test.com`).expect(201);
+      }
+      lateToken = tokenOf(await invite(owner, organization.id, late.email).expect(201));
+      signupToken = tokenOf(await invite(owner, organization.id, 'downgrade-signup@test.com').expect(201));
+      projectLateToken = tokenOf(await projectInvite(owner, projectId, projectLate.email).expect(201));
+      expect((await usageOf(owner, organization.id)).seats).toEqual({ used: seats, included: 25 });
+      await setPlan(organization.id, OrganizationPlanCode.Starter);
+    });
+
+    it('keeps everyone and every invitation, and reads keep working', async () => {
+      expect(await usageOf(owner, organization.id)).toMatchObject({ plan: { code: 'starter' }, seats: { used: seats, included: 15 } });
+      const members = await call('get', `/api/v1/organizations/${organization.id}/members`).set(auth(owner)).expect(200);
+      expect(members.body.data.map(member => member.email)).toEqual([owner.email]);
+      const pending = (await pendingInvites(owner, organization.id)).map(each => each.email);
+      expect(pending).toHaveLength(fillers + 2);
+      expect(pending).toEqual(expect.arrayContaining([late.email, 'downgrade-signup@test.com']));
+      await call('get', `/api/v1/projects/${projectId}`).set(auth(owner)).expect(200);
+    });
+
+    it('refuses new invitations', async () => {
+      expectLimit(await invite(owner, organization.id, 'downgrade-one-more@test.com'), 'seats', 15, seats);
+      expectLimit(await projectInvite(owner, projectId, 'downgrade-one-more@test.com'), 'seats', 15, seats);
+    });
+
+    it('refuses an acceptance, and the invitation stays pending', async () => {
+      expectLimit(
+        await call('post', '/api/v1/auth/accept-organization-invite').set(auth(late)).send({ inviteToken: lateToken }),
+        'seats',
+        15,
+        // An invitee may not read the organization's usage: what the plan allows, nothing more
+        null,
+      );
+      expectLimit(await call('post', '/api/v1/auth/accept-invite').set(auth(projectLate)).send({ inviteToken: projectLateToken }), 'seats', 15, null);
+      expect((await pendingInvites(owner, organization.id)).map(each => each.email)).toContain(late.email);
+      await call('get', `/api/v1/organizations/${organization.id}`).set(auth(late)).expect(404);
+      await call('get', `/api/v1/projects/${projectId}`).set(auth(projectLate)).expect(404);
+      expect((await usageOf(owner, organization.id)).seats.used).toBe(seats);
+    });
+
+    it('still makes the account of a sign-up with an invitation, in its own organization', async () => {
+      const res = await call('post', '/api/v1/auth/signup')
+        .send({ name: 'Downgrade signup', email: 'downgrade-signup@test.com', password: 'mysupersecretpassword', inviteToken: signupToken })
+        .expect(200);
+      const own = await ownOrganizationOf(res.body.data);
+      expect(own.id).not.toBe(organization.id);
+      expect((await pendingInvites(owner, organization.id)).map(each => each.email)).toContain('downgrade-signup@test.com');
+      expect((await usageOf(owner, organization.id)).seats.used).toBe(seats);
+    });
+
+    it('accepts again once the organization is back within its seats', async () => {
+      for (let i = 1; i <= seats - 15; i++) {
+        await revoke(owner, organization.id, `downgrade-${i}@test.com`);
+      }
+      expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
+      await call('post', '/api/v1/auth/accept-organization-invite').set(auth(late)).send({ inviteToken: lateToken }).expect(200);
+      expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
+      await call('get', `/api/v1/organizations/${organization.id}`).set(auth(late)).expect(200);
+    });
+  });
+
+  describe('plans without limits', () => {
+    it('have no strings limit on Small Business and Enterprise, and the project plans stay ignored', async () => {
+      const owner = await signupTestUser(app, 'unlimited-owner@test.com');
+      const organization = await ownOrganizationOf(owner);
+      const projectId = await newProject(owner, organization.id);
+      await addLocale(owner, projectId, 'de').expect(201);
+      await setPlan(organization.id, OrganizationPlanCode.SmallBusiness);
+      // Far past Starter's strings, and the project plan of the e2e install (100 strings), which it does not use
+      await setCounters(projectId, 1, 12_000);
       expect(await usageOf(owner, organization.id)).toEqual({
         plan: { code: 'small_business', name: 'Small Business' },
-        // The owner and the editor
-        seats: { used: 2, included: 25 },
-        strings: { used: 10_000, limit: null },
+        seats: { used: 1, included: 25 },
+        strings: { used: 12_000, limit: null },
       });
-      // Far past the project plan of the e2e install (100 strings), which an organization's project does not use
-      await setCounters(projectId, 1, 500);
       await addTerm(owner, projectId, 'unlimited').expect(201);
       await addLocale(owner, projectId, 'fr').expect(201);
 
       await setPlan(organization.id, OrganizationPlanCode.Enterprise);
-      expect((await usageOf(owner, organization.id)).seats).toEqual({ used: 2, included: null });
+      expect((await usageOf(owner, organization.id)).seats).toEqual({ used: 1, included: null });
     });
   });
 
@@ -404,11 +457,11 @@ describe('Organization plans in SaaS mode (e2e)', () => {
         terms.push((await addTerm(owner, projectId, value).expect(201)).body.data.id);
       }
       await expectCountersMatch(1, 3);
-      await request(server()).delete(`/api/v1/projects/${projectId}/terms/${terms[0]}`).set(auth(owner)).expect(204);
+      await call('delete', `/api/v1/projects/${projectId}/terms/${terms[0]}`).set(auth(owner)).expect(204);
       await expectCountersMatch(1, 2);
       await addLocale(owner, projectId, 'fr').expect(201);
       await expectCountersMatch(1, 4);
-      await request(server()).delete(`/api/v1/projects/${projectId}/translations/fr`).set(auth(owner)).expect(204);
+      await call('delete', `/api/v1/projects/${projectId}/translations/fr`).set(auth(owner)).expect(204);
       await expectCountersMatch(1, 2);
     });
 
@@ -418,7 +471,7 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       await addTerm(owner, projectId, 'gone').expect(201);
       await projectInvite(owner, projectId, 'counters-pending@test.com').expect(201);
       await expectCountersMatch(2, 3);
-      await request(server()).delete(`/api/v1/projects/${projectId}`).set(auth(owner)).expect(204);
+      await call('delete', `/api/v1/projects/${projectId}`).set(auth(owner)).expect(204);
       await expectCountersMatch(1, 2);
     });
 
@@ -443,17 +496,13 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       const member = await signupTestUser(app, 'usage-member@test.com');
       const outsider = await signupTestUser(app, 'usage-outsider@test.com');
       const organization = await ownOrganizationOf(owner);
-      await request(server())
-        .post(`/api/v1/organizations/${organization.id}/invites`)
-        .set(auth(owner))
-        .send({ email: admin.email, role: 'admin' })
-        .expect(201);
+      await call('post', `/api/v1/organizations/${organization.id}/invites`).set(auth(owner)).send({ email: admin.email, role: 'admin' }).expect(201);
       await invite(owner, organization.id, member.email).expect(201);
 
       expect((await usageOf(admin, organization.id)).seats.used).toBe(3);
-      await request(server()).get(`/api/v1/organizations/${organization.id}/usage`).set(auth(member)).expect(404);
-      await request(server()).get(`/api/v1/organizations/${organization.id}/usage`).set(auth(outsider)).expect(404);
-      await request(server()).get(`/api/v1/organizations/${organization.id}/usage`).expect(401);
+      await call('get', `/api/v1/organizations/${organization.id}/usage`).set(auth(member)).expect(404);
+      await call('get', `/api/v1/organizations/${organization.id}/usage`).set(auth(outsider)).expect(404);
+      await call('get', `/api/v1/organizations/${organization.id}/usage`).expect(401);
     });
   });
 
@@ -474,7 +523,7 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       await addTerm(user, projectId, 'within').expect(201);
       const refused = await addTerm(user, projectId, 'past').expect(402);
       expect(refused.body.error.code).toBe('PaymentRequired');
-      await request(server()).get(`/api/v1/organizations/${defaultOrganization.id}/usage`).set(auth(user)).expect(404);
+      await call('get', `/api/v1/organizations/${defaultOrganization.id}/usage`).set(auth(user)).expect(404);
     });
   });
 });
