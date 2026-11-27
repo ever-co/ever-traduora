@@ -1,4 +1,18 @@
-import { Body, ConflictException, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -16,8 +30,10 @@ import { Invite, InviteStatus } from '../entity/invite.entity';
 import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
+import { ensureMember, lockOrganization } from '../services/organization/organization-membership';
 import MailService from '../services/mail.service';
 import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
+import { readCommittedTransaction } from '../utils/database-locks';
 
 @Controller('api/v1/projects')
 @UseGuards(AuthGuard())
@@ -74,6 +90,9 @@ export default class ProjectInviteController {
       where: { email: normalizeEmail(inviteUserRequest.email) },
     });
 
+    // A project invite to someone outside the organization brings them into it: only its owner and admins may do that
+    await this.auth.authorizeAddingToOrganization(user, project.organization, targetUser?.id);
+
     // Anyone can create an account with any email, so only an account that proved it reads this email joins directly.
     // Any other account gets an invite like a new user, accepted with the link sent to the email.
     if (targetUser && !targetUser.emailVerified) {
@@ -84,13 +103,25 @@ export default class ProjectInviteController {
     }
 
     if (targetUser?.emailVerified) {
-      const record = this.projectUserRepo.create({
-        project: { id: projectId },
-        user: targetUser,
-        role: inviteUserRequest.role,
+      // The person joins the project's organization first (as a member, unless they are one), in the same transaction:
+      // a project membership alone gives no access outside the organization (DESIGN §4.3)
+      let newProjectUser = await readCommittedTransaction(this.projectUserRepo.manager, async tx => {
+        // Decided again under the organization lock that a removal takes: a member removed meanwhile is someone new
+        // The locked row, not the copy read before the transaction: an organization closed meanwhile is refused
+        const locked = await lockOrganization(tx, project.organizationId);
+        if (!locked) {
+          throw new NotFoundException('project not found');
+        }
+        await this.auth.authorizeAddingToOrganization(user, locked, targetUser.id, tx);
+        await ensureMember(tx, project.organizationId, targetUser.id);
+        return tx.save(
+          tx.create(ProjectUser, {
+            project: { id: projectId },
+            user: targetUser,
+            role: inviteUserRequest.role,
+          }),
+        );
       });
-
-      let newProjectUser = await this.projectUserRepo.save(record);
 
       newProjectUser = await this.projectUserRepo.findOneOrFail({
         where: { id: newProjectUser.id },

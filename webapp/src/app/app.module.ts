@@ -22,6 +22,8 @@ import { TranslationsState } from './projects/stores/translations.state';
 import { NotFoundComponent } from './shared/components/not-found/not-found.component';
 import { SharedModule } from './shared/shared.module';
 import { ProjectInviteState } from './projects/stores/project-invite.state';
+import { OrganizationsState } from './organizations/stores/organizations.state';
+import { saasGuard } from './organizations/guards/organization.guards';
 
 @NgModule({
   declarations: [AppComponent],
@@ -31,9 +33,12 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
     SharedModule,
     NgbModule,
     HttpClientModule,
-    NgxsModule.forRoot([AuthState, TermsState, ProjectsState, TranslationsState, ProjectUserState, ProjectInviteState, ProjectClientState], {
-      developmentMode: !environment.production,
-    }),
+    NgxsModule.forRoot(
+      [AuthState, TermsState, ProjectsState, TranslationsState, ProjectUserState, ProjectInviteState, ProjectClientState, OrganizationsState],
+      {
+        developmentMode: !environment.production,
+      },
+    ),
     NgxsRouterPluginModule.forRoot(),
     NgxsReduxDevtoolsPluginModule.forRoot({ disabled: environment.production }),
     AuthModule,
@@ -48,6 +53,12 @@ import { ProjectInviteState } from './projects/stores/project-invite.state';
           path: 'projects',
           loadChildren: () => import('./projects/projects.module').then(m => m.ProjectsModule),
           canActivate: [AuthGuard],
+        },
+        {
+          // Organization pages, SaaS mode only: /orgs/new, /orgs/:slug/{projects,members,settings}
+          path: 'orgs',
+          loadChildren: () => import('./organizations/organizations.routes').then(m => m.ORGANIZATION_ROUTES),
+          canActivate: [AuthGuard, saasGuard],
         },
         {
           // Ever Platform pages, for the operator of the installation (the API answers nobody else)

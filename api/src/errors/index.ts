@@ -66,3 +66,17 @@ export class EverPlatformException extends HttpException {
     super(message, status);
   }
 }
+
+/**
+ * An answer about organizations that the webapp acts on: its own status and a stable `code`, such as
+ * `organization_suspended`, `saas_disabled`, `slug_taken` or `owner_required`.
+ */
+export class OrganizationException extends HttpException {
+  constructor(
+    status: HttpStatus,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message, status);
+  }
+}

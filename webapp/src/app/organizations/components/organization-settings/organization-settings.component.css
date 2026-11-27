@@ -1,0 +1,36 @@
+.org-panel {
+  max-width: 640px;
+  margin-bottom: 24px;
+  padding: 24px;
+  border-radius: 12px;
+}
+
+.org-panel-title {
+  margin-bottom: 16px;
+}
+
+.org-saved {
+  font-size: 0.875rem;
+}
+
+.org-danger {
+  border-color: rgba(209, 67, 84, 0.24);
+}
+
+.org-transfer {
+  display: flex;
+  gap: 8px;
+}
+
+.org-transfer select {
+  max-width: 360px;
+}
+
+.org-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}

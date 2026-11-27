@@ -2,22 +2,26 @@ import { Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot } from '@angular/router';
 import { Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-import { ProjectUser } from '../../projects/models/project-user';
-import { ProjectUserState } from '../../projects/stores/project-user.state';
+import { filter, map, take } from 'rxjs/operators';
+import { ProjectsState } from '../../projects/stores/projects.state';
 
+/**
+ * Lets a project page open for the roles in its route `data.roles`, by the role the person acts with in that project
+ * (the effective one the API answers with the project, see `currentProjectRole`), once that project is loaded.
+ */
 @Injectable({
   providedIn: 'root',
 })
 export class CanGuard {
-  user$: Observable<ProjectUser>;
+  constructor(private store: Store) {}
 
-  constructor(private store: Store) {
-    this.user$ = this.store.select(ProjectUserState.userSelf);
-  }
-
-  canActivate(next: ActivatedRouteSnapshot): Observable<boolean> | Promise<boolean> | boolean {
+  canActivate(next: ActivatedRouteSnapshot): Observable<boolean> {
     const roles = (next.data['roles'] || []) as Array<string>;
-    return this.user$.pipe(map(user => (user && user.role && roles.findIndex(r => r === user.role) >= 0) || false));
+    const projectId = next.paramMap.get('projectId') ?? next.parent?.paramMap.get('projectId');
+    return this.store.select(ProjectsState.currentProject).pipe(
+      filter(project => !!project && (!projectId || project.id === projectId)),
+      take(1),
+      map(project => !!project.role && roles.includes(project.role)),
+    );
   }
 }

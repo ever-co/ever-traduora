@@ -1,0 +1,89 @@
+.org-count {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.icon-18 {
+  font-size: 18px;
+}
+
+.org-empty {
+  padding: 24px;
+  border: 1px dashed rgba(33, 37, 41, 0.16);
+  border-radius: 12px;
+}
+
+.org-list {
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.org-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  padding: 12px 20px;
+  color: #212529;
+  text-decoration: none;
+  transition: background-color 120ms ease-out;
+}
+
+.org-row + .org-row {
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.org-row:hover,
+.org-row:focus-visible {
+  background-color: #f5f7f9;
+  color: #212529;
+  text-decoration: none;
+}
+
+.org-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.org-row-title,
+.org-row-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.org-row-sub {
+  font-size: 0.875rem;
+}
+
+.org-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.org-figure-value {
+  font-size: 1rem;
+}
+
+.org-figure-label {
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+.org-role {
+  width: 56px;
+  color: #6c757d;
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+@media (max-width: 575.98px) {
+  .org-figure-label,
+  .org-role {
+    display: none;
+  }
+}

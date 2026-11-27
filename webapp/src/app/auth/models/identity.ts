@@ -12,7 +12,9 @@ export interface Identity {
 /** An invitation the person may accept when creating their account. */
 export interface PendingInvite {
   id: string;
-  projectName: string;
+  // A project invite names its project, an organization invite (SaaS mode) its organization
+  projectName?: string;
+  organizationName?: string;
 }
 
 /** What the sign-up confirmation screen shows, from the API's `signup_confirmation_required` answer. */

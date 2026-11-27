@@ -5,6 +5,7 @@ import { Select, Store } from '@ngxs/store';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { Provider } from '../../models/provider';
+import { SaasModeService } from '../../../organizations/services/saas-mode.service';
 import { ClearMessages, GetProviders, Signup } from '../../stores/auth.state';
 
 @Component({
@@ -21,10 +22,17 @@ export class SignupComponent implements OnInit, OnDestroy {
   // From the invitation link: proves that the person signing up received the invitation
   inviteToken = this.route.snapshot.queryParamMap.get('invite') || undefined;
 
+  // An organization invitation's link says so: signing in to accept it goes to the organization's acceptance
+  inviteKind = this.route.snapshot.queryParamMap.get('kind') === 'organization' ? 'organization' : undefined;
+
+  // SaaS mode: a new person gets their own organization, named here (an invitation joins theirs instead)
+  readonly saas$ = this.saasMode.saas$;
+
   signupForm = this.fb.group({
     name: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(this.passwordMinLength)]],
+    organizationName: ['', [Validators.maxLength(80)]],
   });
 
   @Select(state => state.auth.errorMessage)
@@ -40,6 +48,7 @@ export class SignupComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private store: Store,
+    private saasMode: SaasModeService,
   ) {}
 
   ngOnInit() {
@@ -54,7 +63,22 @@ export class SignupComponent implements OnInit, OnDestroy {
     if (!this.signupForm.valid) {
       return;
     }
-    this.store.dispatch(new Signup(this.name.value as string, this.email.value as string, this.password.value as string, this.inviteToken));
+    const organizationName = ((this.signupForm.get('organizationName').value as string) || '').trim();
+    this.store.dispatch(
+      new Signup(
+        this.name.value as string,
+        this.email.value as string,
+        this.password.value as string,
+        this.inviteToken,
+        !this.inviteToken && organizationName.length >= 2 ? organizationName : undefined,
+      ),
+    );
+  }
+
+  /** What the organization is called when the field stays empty (as the API names it) */
+  get organizationPlaceholder(): string {
+    const name = ((this.name.value as string) || '').trim();
+    return name ? `${name}'s organization` : 'Your organization';
   }
 
   get name() {

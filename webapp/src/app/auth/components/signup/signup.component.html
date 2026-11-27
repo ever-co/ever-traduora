@@ -62,6 +62,20 @@
           </div>
         </div>
 
+        <div *ngIf="(saas$ | async) && !inviteToken" class="form-group">
+          <label for="organizationNameInput">Organization <span class="text-muted">(optional)</span></label>
+          <input
+            id="organizationNameInput"
+            class="form-control"
+            type="text"
+            formControlName="organizationName"
+            [placeholder]="organizationPlaceholder"
+            autocomplete="organization"
+            maxlength="80"
+          />
+          <small class="form-text text-muted">Your projects and team live here. You can rename it later</small>
+        </div>
+
         <button type="submit" [disabled]="!signupForm.valid || (isLoading$ | async)" class="btn btn-primary w-100">Get started</button>
       </form>
 
@@ -75,7 +89,9 @@
   <div class="text-center mt-3">
     <p *ngIf="inviteToken" class="text-sm">
       Already have an account?
-      <a class="btn btn-link text-sm p-0" routerLink="/accept-invite" [queryParams]="{ invite: inviteToken }">Sign in to accept the invitation</a>
+      <a class="btn btn-link text-sm p-0" routerLink="/accept-invite" [queryParams]="{ invite: inviteToken, kind: inviteKind }"
+        >Sign in to accept the invitation</a
+      >
     </p>
     <p *ngIf="!inviteToken" class="text-sm">Already have an account? <a class="btn btn-link text-sm p-0" routerLink="/login">Sign in </a></p>
   </div>

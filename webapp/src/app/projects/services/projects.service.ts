@@ -15,8 +15,10 @@ export class ProjectsService {
 
   constructor(private http: HttpClient) {}
 
-  find(): Observable<Project[]> {
-    return this.http.get<Payload<Project[]>>(`${this.endpoint}/projects`).pipe(map(res => res.data));
+  /** The projects the person can see; with an organization id, those of that organization only. */
+  find(organizationId?: string): Observable<Project[]> {
+    const options = organizationId ? { params: { organizationId } } : {};
+    return this.http.get<Payload<Project[]>>(`${this.endpoint}/projects`, options).pipe(map(res => res.data));
   }
 
   findOne(id: string): Observable<Project> {
@@ -27,7 +29,7 @@ export class ProjectsService {
     return this.http.get<Payload<Plan>>(`${this.endpoint}/projects/${projectId}/plan`).pipe(map(res => res.data));
   }
 
-  create(data: { name: string; description?: string }): Observable<Project> {
+  create(data: { name: string; description?: string; organizationId?: string }): Observable<Project> {
     return this.http.post<Payload<Project>>(`${this.endpoint}/projects`, data).pipe(map(res => res.data));
   }
 

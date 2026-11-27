@@ -7,5 +7,7 @@ export interface Project {
   role: string;
   termsCount: number;
   localesCount: number;
+  /** The organization the project belongs to */
+  organizationId?: string;
   plan?: Plan;
 }

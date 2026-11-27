@@ -1,5 +1,5 @@
 import { DbType } from './database-type-helper';
-import { createTableSql, TableSpec } from './ever-platform-tables';
+import { camelCaseName, createTableSql, engineColumnName, TableSpec } from './ever-platform-tables';
 
 describe('ever-platform-tables', () => {
   const table: TableSpec = {
@@ -40,5 +40,49 @@ describe('ever-platform-tables', () => {
     expect(createTableSql(DbType.BETTER_SQLITE3, exports)).toBe(
       'CREATE TABLE IF NOT EXISTS "x" ("job_id" varchar(64) NOT NULL, "user_id" varchar(36) NOT NULL, CONSTRAINT "PK_x" PRIMARY KEY ("job_id", "user_id"))',
     );
+  });
+});
+
+describe('tables that follow the engine naming', () => {
+  const table: TableSpec = {
+    name: 'member',
+    engineNaming: true,
+    columns: [
+      { name: 'id', type: 'uuid', generated: true },
+      { name: 'organization_id', type: 'uuid' },
+      { name: 'role', type: 'varchar', length: 16, defaultText: "o'k" },
+      { name: 'date_created', type: 'timestamp', defaultNow: true },
+    ],
+    primary: ['id'],
+    uniques: [{ name: 'UQ_member', columns: ['organization_id', 'role'] }],
+    foreignKeys: [{ name: 'FK_member_organization', column: 'organization_id', table: 'organization', onDelete: 'CASCADE' }],
+  };
+
+  it('renders snake_case names, camelCase on MySQL, with ids, timestamps, uniques and foreign keys', () => {
+    expect(createTableSql(DbType.POSTGRES, table)).toBe(
+      'CREATE TABLE IF NOT EXISTS "member" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "organization_id" uuid NOT NULL, ' +
+        `"role" varchar(16) NOT NULL DEFAULT 'o''k', "date_created" timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), ` +
+        'CONSTRAINT "PK_member" PRIMARY KEY ("id"), CONSTRAINT "UQ_member" UNIQUE ("organization_id", "role"), ' +
+        'CONSTRAINT "FK_member_organization" FOREIGN KEY ("organization_id") REFERENCES "organization" ("id") ON DELETE CASCADE)',
+    );
+    expect(createTableSql(DbType.MYSQL, table)).toBe(
+      'CREATE TABLE IF NOT EXISTS `member` (`id` varchar(255) NOT NULL, `organizationId` varchar(255) NOT NULL, ' +
+        "`role` varchar(16) NOT NULL DEFAULT 'o''k', `dateCreated` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), " +
+        'CONSTRAINT `PK_member` PRIMARY KEY (`id`), CONSTRAINT `UQ_member` UNIQUE (`organizationId`, `role`), ' +
+        'CONSTRAINT `FK_member_organization` FOREIGN KEY (`organizationId`) REFERENCES `organization` (`id`) ON DELETE CASCADE) ' +
+        'ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_bin',
+    );
+    expect(createTableSql(DbType.BETTER_SQLITE3, table)).toBe(
+      'CREATE TABLE IF NOT EXISTS "member" ("id" varchar(255) NOT NULL, "organization_id" varchar(255) NOT NULL, ' +
+        `"role" varchar(16) NOT NULL DEFAULT 'o''k', "date_created" datetime NOT NULL DEFAULT (datetime('now')), ` +
+        'CONSTRAINT "PK_member" PRIMARY KEY ("id"), CONSTRAINT "UQ_member" UNIQUE ("organization_id", "role"), ' +
+        'CONSTRAINT "FK_member_organization" FOREIGN KEY ("organization_id") REFERENCES "organization" ("id") ON DELETE CASCADE)',
+    );
+  });
+
+  it('turns snake_case into the MySQL names', () => {
+    expect(camelCaseName('admins_see_all_projects')).toBe('adminsSeeAllProjects');
+    expect(engineColumnName(DbType.MYSQL, 'organization_id')).toBe('organizationId');
+    expect(engineColumnName(DbType.POSTGRES, 'organization_id')).toBe('organization_id');
   });
 });

@@ -23,6 +23,7 @@ import ProjectPlanController from './controllers/project-plan.controller';
 import ProjectLabelController from './controllers/project-label.controller';
 import ProjectUserController from './controllers/project-user.controller';
 import ProjectController from './controllers/project.controller';
+import OrganizationController from './controllers/organization.controller';
 import TermController from './controllers/term.controller';
 import TranslationController from './controllers/translation.controller';
 import UserController from './controllers/user.controller';
@@ -38,6 +39,9 @@ import { Term } from './entity/term.entity';
 import { Translation } from './entity/translation.entity';
 import { TranslationHistory } from './entity/translation-history.entity';
 import { User } from './entity/user.entity';
+import { Organization } from './entity/organization.entity';
+import { OrganizationInvite } from './entity/organization-invite.entity';
+import { OrganizationUser } from './entity/organization-user.entity';
 import { UserIdentity } from './entity/user-identity.entity';
 import { EverIdSession } from './entity/ever-id-session.entity';
 import { EverIdLogoutJti } from './entity/ever-id-logout-jti.entity';
@@ -49,6 +53,8 @@ import MailService from './services/mail.service';
 import { UserService } from './services/user.service';
 import { OidcProviderService } from './services/oidc-provider.service';
 import { EverIdSessionService } from './services/ever-id-session.service';
+import { OrganizationService } from './services/organization/organization.service';
+import { OrganizationBootCheck } from './services/organization/organization-boot-check';
 import ProjectStatsController from './controllers/project-stats.controller';
 import { ConfigModule } from '@nestjs/config';
 import { RedisModule } from './redis/redis.module';
@@ -106,6 +112,9 @@ export class IndexModule {}
       UserIdentity,
       EverIdSession,
       EverIdLogoutJti,
+      Organization,
+      OrganizationUser,
+      OrganizationInvite,
     ]),
     HttpModule,
     // Optional Ever Platform modules: the statistics unless TR_EVER_STATS_ENABLED=false, the connection only with
@@ -118,6 +127,7 @@ export class IndexModule {}
     HealthController,
     AuthController,
     UserController,
+    OrganizationController,
     ProjectController,
     ProjectStatsController,
     ProjectPlanController,
@@ -147,6 +157,8 @@ export class IndexModule {}
     UserSeed,
     OidcProviderService,
     EverIdSessionService,
+    OrganizationService,
+    OrganizationBootCheck,
   ],
 })
 export class AppModule {

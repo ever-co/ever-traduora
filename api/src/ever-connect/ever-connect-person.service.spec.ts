@@ -12,6 +12,10 @@ import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.
 import { EverIdSession } from '../entity/ever-id-session.entity';
 import { EverInstance } from '../entity/ever-instance.entity';
 import { Project } from '../entity/project.entity';
+import { Organization } from '../entity/organization.entity';
+import { OrganizationUser } from '../entity/organization-user.entity';
+import { OrganizationRole, OrganizationStatus } from '../domain/organization-actions';
+import { createOrganizationWithOwner } from '../services/organization/organization-membership';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
@@ -186,8 +190,13 @@ describeOnSqlite('EverConnectPersonService', () => {
     expect(personExportUrl(undefined)).toBeNull();
   });
 
+  // Every project is in an organization: the default one, which the migrations made
+  const defaultOrganizationId = async () => (await dataSource.getRepository(Organization).findOneByOrFail({ isDefault: true })).id;
+
   const createProject = async (name: string, members: Array<[User, ProjectRole]>) => {
-    const project = await dataSource.getRepository(Project).save(dataSource.getRepository(Project).create({ name, description: '' }));
+    const project = await dataSource
+      .getRepository(Project)
+      .save(dataSource.getRepository(Project).create({ name, description: '', organizationId: await defaultOrganizationId() }));
     for (const [user, role] of members) {
       await dataSource.getRepository(ProjectUser).save(dataSource.getRepository(ProjectUser).create({ project, user, role }));
     }
@@ -300,6 +309,35 @@ describeOnSqlite('EverConnectPersonService', () => {
       expect(await dataSource.getRepository(UserIdentity).count()).toBe(0);
     });
 
+    it('switched on, but the account owns an organization with other members: kept, account_deletion_pending', async () => {
+      const { person } = await connected({ personDeletionEnabled: true });
+      await linkIdentity(alice, 's1');
+      const { organization } = await createOrganizationWithOwner(dataSource.manager, { name: 'Alice Co', ownerId: alice.id });
+      await dataSource.getRepository(OrganizationUser).save({ organizationId: organization.id, userId: bob.id, role: OrganizationRole.Member });
+      const live = await build().connect.liveClient();
+
+      await person.handleEvents(live.client, [request(DELETION, 'job-d5', [subjectHash(ISSUER, 's1')])]);
+
+      expect(platform.answers).toEqual([{ jobId: 'job-d5', result: 'failed', reasonCode: 'account_deletion_pending' }]);
+      expect(await dataSource.getRepository(User).count({ where: { id: alice.id } })).toBe(1);
+      expect((await dataSource.getRepository(OrganizationUser).findOneByOrFail({ organizationId: organization.id, userId: alice.id })).role).toBe(
+        OrganizationRole.Owner,
+      );
+    });
+
+    it('switched on: the only member of an organization is deleted, and the organization is closed', async () => {
+      const { person } = await connected({ personDeletionEnabled: true });
+      await linkIdentity(alice, 's1');
+      const { organization } = await createOrganizationWithOwner(dataSource.manager, { name: 'Alice Solo', ownerId: alice.id });
+      const live = await build().connect.liveClient();
+
+      await person.handleEvents(live.client, [request(DELETION, 'job-d6', [subjectHash(ISSUER, 's1')])]);
+
+      expect(platform.answers).toEqual([{ jobId: 'job-d6', result: 'deleted' }]);
+      const closed = await dataSource.getRepository(Organization).findOneByOrFail({ id: organization.id });
+      expect([closed.status, closed.seatsUsed]).toEqual([OrganizationStatus.Deleted, 0]);
+    });
+
     it('switched on: an admin of a project with another admin is deleted', async () => {
       const { person } = await connected({ personDeletionEnabled: true });
       await linkIdentity(alice, 's1');
@@ -397,7 +435,9 @@ describeOnSqlite('EverConnectPersonService', () => {
       await reportAddress('https://translate.example.test/');
       await linkIdentity(alice, 's1');
       await linkIdentity(bob, 's2');
-      const project = await dataSource.getRepository(Project).save(dataSource.getRepository(Project).create({ name: 'Website', description: '' }));
+      const project = await dataSource
+        .getRepository(Project)
+        .save(dataSource.getRepository(Project).create({ name: 'Website', description: '', organizationId: await defaultOrganizationId() }));
       await dataSource
         .getRepository(ProjectUser)
         .save(dataSource.getRepository(ProjectUser).create({ project, user: alice, role: ProjectRole.Editor }));

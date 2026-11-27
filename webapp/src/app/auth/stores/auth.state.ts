@@ -34,6 +34,8 @@ export class Signup {
     public email: string,
     public password: string,
     public inviteToken?: string,
+    // SaaS mode: the name of the person's own organization
+    public organizationName?: string,
   ) {}
 }
 

@@ -1,0 +1,36 @@
+.org-header {
+  margin: 0 4px 16px;
+}
+
+.org-address {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.75rem;
+}
+
+.org-dot {
+  color: #adb5bd;
+}
+
+.org-tabs {
+  margin-bottom: 24px;
+}
+
+.org-tabs .nav-link {
+  color: #6c757d;
+  transition: color 120ms ease-out;
+}
+
+.org-tabs .nav-link:hover {
+  color: #212529;
+}
+
+.org-tabs .nav-link.active {
+  color: #212529;
+}
+
+.org-missing {
+  max-width: 480px;
+  margin: 48px auto;
+}

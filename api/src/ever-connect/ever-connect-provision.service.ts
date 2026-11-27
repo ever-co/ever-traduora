@@ -12,6 +12,9 @@ import { Project } from '../entity/project.entity';
 import { UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { EverPlatformException } from '../errors';
+import { homeOrganizationId } from '../services/organization/organization-membership';
+import { Organization } from '../entity/organization.entity';
+import { OrganizationStatus } from '../domain/organization-actions';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { EverInstanceKeyError, KeyPurpose, unwrapKey, verifyBytes, wrapKey } from '../ever-instance/key-wrap';
 import { isLocalHost } from '../ever-platform/env';
@@ -20,6 +23,7 @@ import { EverConnectPlatformClient, ProvisionComplete, problemOf } from './ever-
 import { EVER_CONNECT_SETTINGS, EverConnectSettings } from './ever-connect.settings';
 import { PROVISION_TXN_MAX } from './ever-connect.dto';
 import { EverConnectService } from './ever-connect.service';
+import { readCommittedTransaction } from '../utils/database-locks';
 
 /** The header `typ` of a provisioning intent. */
 export const INTENT_HEADER_TYP = 'ever-intent+jwt';
@@ -361,7 +365,7 @@ export class EverConnectProvisionService {
     }
     let projectId: string;
     try {
-      projectId = await this.provisions.manager.transaction(async tx => {
+      projectId = await readCommittedTransaction(this.provisions.manager, async tx => {
         const now = Date.now();
         // The claim first: a second confirmation of the same intent waits for this one, then fails on the key
         await tx.insert(EverConnectProvision, {
@@ -386,8 +390,16 @@ export class EverConnectProvisionService {
         if (!counted.affected) {
           throw refuse(HttpStatus.CONFLICT, 'project_limit', 'This account cannot create more projects');
         }
-        // As the projects route creates one: the person is its admin, it has the default plan
-        const project = await tx.save(tx.create(Project, { name: txn.org.displayName.slice(0, PROJECT_NAME_MAX) }));
+        // As the projects route creates one: in the person's organization (the default one of a single-tenant install,
+        // otherwise the one they own), with the person as its admin and the default plan
+        const organizationId = await homeOrganizationId(tx, user);
+        // Only into an active organization (a suspended default organization of a single-tenant install, say): a refusal
+        // here rolls back the claim of the intent and the project count
+        const organization = await tx.findOne(Organization, { where: { id: organizationId } });
+        if (organization?.status !== OrganizationStatus.Active) {
+          throw refuse(HttpStatus.FORBIDDEN, 'organization_suspended', 'Your organization is suspended: no project can be created in it');
+        }
+        const project = await tx.save(tx.create(Project, { name: txn.org.displayName.slice(0, PROJECT_NAME_MAX), organizationId }));
         await tx.save(tx.create(ProjectUser, { user, project, role: ProjectRole.Admin }));
         project.plan = await tx.findOneOrFail(Plan, { where: { code: config.defaultProjectPlan } });
         await tx.save(project);

@@ -79,6 +79,11 @@ export const config = {
   demo: getBoolOrDefault(env.TR_DEMO, false),
   // The Ever app switcher in front of the logo (EVER_APP_LINKS, `id=url` pairs): hidden when no link is set
   everAppLinks: parseEverAppLinks(env.EVER_APP_LINKS),
+  // Hosted, multi-tenant mode (app.traduora.co): every sign-up gets its own organization. Off by default: a self-hosted
+  // install keeps one organization, the default one, that everyone is in (docs/saas/DESIGN.md §3.5)
+  saasEnabled: getBoolOrDefault(env.TR_SAAS_ENABLED, false),
+  // Name of the default organization, made by the migration for the existing data or with the first account
+  defaultOrganizationName: (env.TR_DEFAULT_ORGANIZATION_NAME || '').trim() || 'My organization',
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),

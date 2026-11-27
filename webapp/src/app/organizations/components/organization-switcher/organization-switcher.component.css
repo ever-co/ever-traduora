@@ -1,0 +1,103 @@
+/* Sits on the blue app bar next to the wordmark, like a path: traduora / Acme */
+.org-separator {
+  margin: 0 8px 0 4px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.org-trigger {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  max-width: 240px;
+  padding: 0 4px 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 0.9375rem;
+  transition: background-color 120ms ease-out;
+}
+
+.org-trigger:hover,
+.org-trigger[aria-expanded='true'] {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+.org-trigger:focus {
+  outline: none;
+}
+
+.org-trigger:focus-visible {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.org-trigger.dropdown-toggle::after {
+  display: none;
+}
+
+.org-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.org-chevron {
+  margin-left: 4px;
+  font-size: 18px;
+  opacity: 0.8;
+}
+
+.org-menu {
+  min-width: 240px;
+  max-width: 320px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  box-shadow: 0 4px 16px rgba(33, 37, 41, 0.08);
+}
+
+.org-menu-title {
+  margin: 4px 8px 4px;
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+.org-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.org-item.is-current {
+  background-color: #f5f7f9;
+}
+
+.org-item-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.org-item-role {
+  color: #6c757d;
+  font-family: Menlo, Monaco, 'Roboto Mono', monospace;
+  font-size: 0.6875rem;
+}
+
+.org-check,
+.org-add {
+  width: 18px;
+  font-size: 18px;
+  color: #3b84f8;
+}
+
+.org-add {
+  color: #6c757d;
+}

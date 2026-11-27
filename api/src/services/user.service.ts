@@ -22,6 +22,12 @@ import { isPublishedPassword } from '../utils/published-passwords';
 import { lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { lockAccount } from './ever-id-session.service';
 import { EMAIL_VERIFICATION_VALID_DAYS, generateEmailVerificationToken, hashEmailVerificationToken } from '../utils/email-verification-token';
+import {
+  createOrganizationWithOwner,
+  deleteAccountsWithOrganizations,
+  joinDefaultOrganization,
+  personalOrganizationName,
+} from './organization/organization-membership';
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
 
@@ -55,11 +61,14 @@ export class UserService {
     email,
     name,
     password,
+    ownOrganization,
   }: {
     grantType: GrantType;
     email: string;
     name: string;
     password?: string;
+    /** SaaS mode, a sign-up that accepts no invitation: the person's own organization, made with the account. */
+    ownOrganization?: { name?: string };
   }): Promise<{ user: User; isNewUser: boolean }> {
     const normalizedEmail = normalizeEmail(email);
     const exists = await this.userRepo.findOneBy({ email: normalizedEmail });
@@ -87,7 +96,19 @@ export class UserService {
       user.encryptedPassword = Buffer.from(await bcrypt.hash(password, 10), 'utf-8');
     }
 
-    const newUser = await this.userRepo.save(user);
+    // The account and its organization in one transaction: a failure leaves neither, and the sign-up can be sent again.
+    // A single-tenant install has one organization that everyone is in. In SaaS mode the sign-up decides: the person's
+    // own organization, or the inviting one once the invitation is accepted (AuthController)
+    const newUser = await readCommittedTransaction(this.userRepo.manager, async tx => {
+      const saved = await tx.save(user);
+      if (!config.saasEnabled) {
+        await joinDefaultOrganization(tx, saved.id);
+      } else if (ownOrganization) {
+        const organizationName = ownOrganization.name?.trim() || personalOrganizationName(saved.name);
+        await createOrganizationWithOwner(tx, { name: organizationName, ownerId: saved.id });
+      }
+      return saved;
+    });
     return { user: newUser, isNewUser: true };
   }
 
@@ -252,7 +273,11 @@ export class UserService {
         }
       }
 
-      await manager.getRepository(User).remove(user);
+      // In one transaction with the organization locks: an organization the user owns passes to another member, or the
+      // deletion waits for a transfer (SaaS mode); an organization left with nobody is closed; seats are recounted
+      await deleteAccountsWithOrganizations(manager, [user.id], async tx => {
+        await tx.remove(user);
+      });
     });
   }
 

@@ -4,6 +4,8 @@ import { config } from '../config';
 import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { Invite } from '../entity/invite.entity';
+import { OrganizationInvite } from '../entity/organization-invite.entity';
+import { Organization } from '../entity/organization.entity';
 import * as Handlebars from 'handlebars';
 import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
@@ -25,6 +27,8 @@ export default class MailService {
     invitedToProject: this.mustCompileTemplate('invited-to-project.txt'),
     invitedToPlatform: this.mustCompileTemplate('invited-to-platform.txt'),
     verifyEmail: this.mustCompileTemplate('verify-email.txt'),
+    invitedToOrganization: this.mustCompileTemplate('invited-to-organization.txt'),
+    addedToOrganization: this.mustCompileTemplate('added-to-organization.txt'),
   };
 
   constructor() {
@@ -120,6 +124,34 @@ export default class MailService {
       text: this.knownTemplates.invitedToPlatform({
         invite: invite,
         inviteUrl: inviteUrl,
+        virtualHost: config.virtualHost,
+      }),
+    });
+  }
+
+  async invitedToOrganization(invite: OrganizationInvite, organization: Organization, inviteUrl: string) {
+    await this.send({
+      from: this.from,
+      to: invite.email,
+      subject: 'You have been invited to an organization on Traduora',
+      text: this.knownTemplates.invitedToOrganization({
+        invite,
+        organization,
+        inviteUrl,
+        virtualHost: config.virtualHost,
+      }),
+    });
+  }
+
+  async addedToOrganization(user: User, organization: Organization, role: string) {
+    await this.send({
+      from: this.from,
+      to: user.email,
+      subject: 'You have been added to an organization on Traduora',
+      text: this.knownTemplates.addedToOrganization({
+        user,
+        organization,
+        role,
         virtualHost: config.virtualHost,
       }),
     });

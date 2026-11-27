@@ -1,0 +1,92 @@
+<p *ngIf="organization?.isDefault" class="text-muted" data-test="default-organization">
+  The default organization holds every account of this installation, so its members are not listed here.
+</p>
+<ng-container *ngIf="!organization?.isDefault && { user: user$ | async } as view">
+  <div class="d-flex align-items-center section-title-row mb-3">
+    <span class="org-seats text-muted" data-test="seats">{{ seatsLine }}</span>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center">
+    <span class="flex-1">{{ errorMessage }}</span>
+    <button *ngIf="loadFailed" type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
+  </div>
+
+  <form *ngIf="canManage" class="org-invite" [formGroup]="form" (ngSubmit)="invite()" novalidate>
+    <label class="sr-only" for="orgInviteEmail">Email</label>
+    <input id="orgInviteEmail" class="form-control form-control-sm" type="email" formControlName="email" placeholder="Email" autocomplete="off" />
+    <label class="sr-only" for="orgInviteRole">Role</label>
+    <select id="orgInviteRole" class="custom-select custom-select-sm org-invite-role" formControlName="role">
+      <option *ngFor="let role of roles" [value]="role">{{ role === 'admin' ? 'Admin' : 'Member' }}</option>
+    </select>
+    <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || busy">Invite</button>
+  </form>
+
+  <div *ngIf="lastInvite?.inviteUrl" class="alert alert-light org-link">
+    <output class="d-block mb-2"
+      >We emailed an invitation to {{ lastInvite?.email }}. You can also send them this link, it works only for that email:</output
+    >
+    <input class="form-control form-control-sm font-mono" type="text" readonly [value]="lastInvite?.inviteUrl" aria-label="Invitation link" />
+  </div>
+
+  <div *ngIf="members" class="card org-list">
+    <div *ngFor="let member of members; trackBy: trackByUser" class="org-row" data-test="member">
+      <div class="org-row-main">
+        <span class="org-row-title"> {{ member.name }}<span *ngIf="member.userId === view.user?.id" class="text-muted"> (you)</span> </span>
+        <span class="org-row-sub text-muted">{{ member.email }}</span>
+      </div>
+      <ng-container *ngIf="canEdit(member, view.user?.id); else readOnlyRole">
+        <label class="sr-only" [for]="'role-' + member.userId">Role of {{ member.name }}</label>
+        <select
+          [id]="'role-' + member.userId"
+          class="custom-select custom-select-sm org-role-select"
+          [value]="member.role"
+          [disabled]="busy"
+          (change)="changeRole(member, $any($event.target).value)"
+        >
+          <option *ngFor="let role of roles" [value]="role" [selected]="role === member.role">{{ role === 'admin' ? 'Admin' : 'Member' }}</option>
+        </select>
+        <span class="org-trailing">
+          <button
+            type="button"
+            class="btn btn-sm org-icon-button"
+            [disabled]="busy"
+            [attr.aria-label]="'Remove ' + member.name"
+            (click)="remove(member)"
+          >
+            <i class="material-icons" aria-hidden="true">close</i>
+          </button>
+        </span>
+      </ng-container>
+      <ng-template #readOnlyRole>
+        <span class="org-role font-mono">{{ member.role }}</span>
+        <span class="org-trailing">
+          <button
+            *ngIf="member.userId === view.user?.id && member.role !== 'owner'"
+            type="button"
+            class="btn btn-sm btn-link org-leave"
+            [disabled]="busy"
+            (click)="leave(member.userId)"
+          >
+            Leave
+          </button>
+        </span>
+      </ng-template>
+    </div>
+  </div>
+
+  <ng-container *ngIf="canManage && invites.length > 0">
+    <h6 class="org-subtitle">Pending invites</h6>
+    <div class="card org-list">
+      <div *ngFor="let invite of invites; trackBy: trackById" class="org-row" data-test="invite">
+        <div class="org-row-main">
+          <span class="org-row-title">{{ invite.email }}</span>
+          <span class="org-row-sub text-muted">Invited, not signed up yet</span>
+        </div>
+        <span class="org-role font-mono">{{ invite.role }}</span>
+        <span class="org-trailing">
+          <button type="button" class="btn btn-sm btn-link org-leave" [disabled]="busy" (click)="revoke(invite)">Revoke</button>
+        </span>
+      </div>
+    </div>
+  </ng-container>
+</ng-container>

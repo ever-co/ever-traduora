@@ -18,7 +18,9 @@ export class NoAuthGuard {
         if (isAuthenticated) {
           // Signed-in people opening an invitation link accept it with their account
           const invite = next.queryParamMap.get('invite');
-          this.store.dispatch(invite ? new Navigate(['/accept-invite'], { invite }) : new Navigate(['/']));
+          // An organization invitation's link says so (kind=organization): it is accepted by its own route
+          const kind = next.queryParamMap.get('kind');
+          this.store.dispatch(invite ? new Navigate(['/accept-invite'], { invite, ...(kind ? { kind } : {}) }) : new Navigate(['/']));
           return false;
         }
         return true;
