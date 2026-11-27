@@ -8,6 +8,7 @@ import { Organization } from '../src/entity/organization.entity';
 import { ProjectUser } from '../src/entity/project-user.entity';
 import { Project } from '../src/entity/project.entity';
 import { OrganizationInvite } from '../src/entity/organization-invite.entity';
+import { Invite } from '../src/entity/invite.entity';
 import { User } from '../src/entity/user.entity';
 import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
 
@@ -311,6 +312,26 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const stranger = await signupTestUser(app, 'legacy-stranger@test.com');
       const hidden = await request(server()).get(`${base}/members`).set(auth(stranger));
       expect([hidden.status, hidden.body.error?.code]).toEqual([404, 'NotFound']);
+    });
+
+    it('ends the pending project invitations of a removed member, so none brings them back', async () => {
+      const removed = await signupTestUser(app, 'stale-invite@test.com', false);
+      const invited = await inviteToOrganization(owner, organization.id, removed.email).expect(201);
+      const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
+      await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(removed)).send({ inviteToken: token }).expect(200);
+      const project = await createProject(owner, organization.id);
+      // An unverified account gets a pending project invitation
+      const projectInvite = await request(server())
+        .post(`/api/v1/projects/${project.id}/invites`)
+        .set(auth(owner))
+        .send({ email: removed.email, role: 'editor' })
+        .expect(201);
+      const projectToken = new URL(projectInvite.body.data.inviteUrl).searchParams.get('invite');
+
+      await request(server()).delete(`/api/v1/organizations/${organization.id}/members/${removed.id}`).set(auth(owner)).expect(204);
+      expect(await dataSource.getRepository(Invite).count({ where: { project: { id: project.id } } })).toBe(0);
+      await request(server()).post('/api/v1/auth/accept-invite').set(auth(removed)).send({ inviteToken: projectToken }).expect(404);
+      expect((await organizationsOf(removed)).map(o => o.id)).not.toContain(organization.id);
     });
 
     it('keeps the seat counter: members plus pending invites', async () => {

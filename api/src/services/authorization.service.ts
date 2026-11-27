@@ -1,6 +1,6 @@
 import { ForbiddenException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AllowedEditorActions, AllowedViewerActions, ProjectAction } from '../domain/actions';
 import {
   isImplicitProjectAdmin,
@@ -175,15 +175,22 @@ export default class AuthorizationService {
    * admins (`EditMembers`), as with organization invites; otherwise 403 `organization_admin_required`. The default
    * organization keeps the rule of a self-hosted install, where everyone is a member anyway.
    */
-  async authorizeAddingToOrganization(caller: User, organization: Organization, targetUserId: string | undefined): Promise<void> {
+  async authorizeAddingToOrganization(
+    caller: User,
+    organization: Organization,
+    targetUserId: string | undefined,
+    manager?: EntityManager,
+  ): Promise<void> {
     assertOrganizationOpen(organization, 'project not found');
     if (organization.isDefault) {
       return;
     }
-    if (targetUserId && (await this.organizationUserRepo.exists({ where: { organizationId: organization.id, userId: targetUserId } }))) {
+    // Given the transaction that holds the organization lock, the decision reads the memberships as they are then
+    const members = manager ? manager.getRepository(OrganizationUser) : this.organizationUserRepo;
+    if (targetUserId && (await members.exists({ where: { organizationId: organization.id, userId: targetUserId } }))) {
       return;
     }
-    const membership = await this.organizationUserRepo.findOne({ where: { organizationId: organization.id, userId: caller.id } });
+    const membership = await members.findOne({ where: { organizationId: organization.id, userId: caller.id } });
     if (!isOrganizationActionAllowed(membership?.role, OrganizationAction.EditMembers)) {
       throw new OrganizationException(
         HttpStatus.FORBIDDEN,

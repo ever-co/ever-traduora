@@ -4,7 +4,7 @@ import { EntityManager, In, IsNull, Repository } from 'typeorm';
 import { config } from '../../config';
 import { OrganizationPlanCode, OrganizationRole, OrganizationStatus } from '../../domain/organization-actions';
 import { normalizeEmail } from '../../domain/validators';
-import { InviteStatus } from '../../entity/invite.entity';
+import { Invite, InviteStatus } from '../../entity/invite.entity';
 import { OrganizationInvite } from '../../entity/organization-invite.entity';
 import { OrganizationUser } from '../../entity/organization-user.entity';
 import { Organization } from '../../entity/organization.entity';
@@ -240,9 +240,14 @@ export class OrganizationService {
   /** Deletes the membership and the person's project memberships in the organization's projects, then recounts. */
   private async removeMembership(tx: EntityManager, membership: OrganizationUser): Promise<void> {
     const projectIds = (await tx.find(Project, { where: { organizationId: membership.organizationId }, select: ['id'] })).map(project => project.id);
+    // Their pending project invitations there go too: accepting one would bring them back into the organization
+    const person = await tx.findOne(User, { where: { id: membership.userId }, select: ['id', 'email'] });
     for (let index = 0; index < projectIds.length; index += 500) {
       const page = projectIds.slice(index, index + 500);
       await tx.delete(ProjectUser, { user: { id: membership.userId }, project: { id: In(page) } });
+      if (person?.email) {
+        await tx.delete(Invite, { email: person.email, status: InviteStatus.Sent, project: { id: In(page) } });
+      }
     }
     await tx.delete(OrganizationUser, { id: membership.id });
     await recountSeats(tx, membership.organizationId);
@@ -308,7 +313,7 @@ export class OrganizationService {
         if (current?.email !== email || !current.emailVerified) {
           return null;
         }
-        await lockOrganization(tx, organization.id);
+        await this.assertStillOpen(tx, organization.id);
         await tx.save(tx.create(OrganizationUser, { organizationId: organization.id, userId: current.id, role: payload.role }));
         // An invitation sent before they had an account is no longer needed
         await tx.delete(OrganizationInvite, { organizationId: organization.id, email });
@@ -323,7 +328,7 @@ export class OrganizationService {
 
     const token = generateInviteToken();
     const saved = await this.invites.manager.transaction(async tx => {
-      await lockOrganization(tx, organization.id);
+      await this.assertStillOpen(tx, organization.id);
       const existing = await tx.findOne(OrganizationInvite, { where: { organizationId: organization.id, email } });
       const record = existing ?? tx.create(OrganizationInvite, { organizationId: organization.id, email });
       record.role = payload.role;
@@ -420,6 +425,17 @@ export class OrganizationService {
       }
       return accepted;
     });
+  }
+
+  /**
+   * Locks the organization and refuses a write into one that is no longer open (closed by its last member's account
+   * deletion, or suspended, after the request was authorized).
+   */
+  private async assertStillOpen(tx: EntityManager, organizationId: string): Promise<void> {
+    await lockOrganization(tx, organizationId);
+    if (!(await isOpenForMembers(tx, organizationId))) {
+      throw new NotFoundException('organization not found');
+    }
   }
 
   private async memberView(organizationId: string, userId: string): Promise<MemberView> {

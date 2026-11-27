@@ -16,7 +16,7 @@ import { Invite, InviteStatus } from '../entity/invite.entity';
 import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ensureMember } from '../services/organization/organization-membership';
+import { ensureMember, lockOrganization } from '../services/organization/organization-membership';
 import MailService from '../services/mail.service';
 import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
 
@@ -91,6 +91,9 @@ export default class ProjectInviteController {
       // The person joins the project's organization first (as a member, unless they are one), in the same transaction:
       // a project membership alone gives no access outside the organization (DESIGN §4.3)
       let newProjectUser = await this.projectUserRepo.manager.transaction(async tx => {
+        // Decided again under the organization lock that a removal takes: a member removed meanwhile is someone new
+        await lockOrganization(tx, project.organizationId);
+        await this.auth.authorizeAddingToOrganization(user, project.organization, targetUser.id, tx);
         await ensureMember(tx, project.organizationId, targetUser.id);
         return tx.save(
           tx.create(ProjectUser, {
