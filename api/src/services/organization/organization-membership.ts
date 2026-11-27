@@ -9,6 +9,7 @@ import { OrganizationUser } from '../../entity/organization-user.entity';
 import { Organization } from '../../entity/organization.entity';
 import { OrganizationException } from '../../errors';
 import { DbType, isDbType } from '../../utils/database-type-helper';
+import { activeMemberships } from './organization-scope';
 import { isAllowedSlug, randomSuffix, slugFromName, withSuffix } from './slug';
 import { readCommittedTransaction } from '../../utils/database-locks';
 
@@ -225,12 +226,7 @@ export async function homeOrganizationId(manager: EntityManager, user: { id: str
     const membership = await joinDefaultOrganization(manager, user.id);
     return membership.organizationId;
   }
-  const memberships = await manager.find(OrganizationUser, {
-    where: { userId: user.id },
-    relations: ['organization'],
-    order: { date: { created: 'ASC' }, id: 'ASC' },
-  });
-  const active = memberships.filter(membership => membership.organization?.status === OrganizationStatus.Active);
+  const active = await activeMemberships(manager, user.id);
   const pick =
     active.find(membership => membership.role === OrganizationRole.Owner) ??
     active.find(membership => membership.role === OrganizationRole.Admin) ??
@@ -242,15 +238,8 @@ export async function homeOrganizationId(manager: EntityManager, user: { id: str
   return organization.id;
 }
 
-/** The ids of the organizations the user is an active member of, with their role. */
-export async function activeMemberships(manager: EntityManager, userId: string, organizationIds?: string[]): Promise<OrganizationUser[]> {
-  const memberships = await manager.find(OrganizationUser, {
-    where: { userId, ...(organizationIds ? { organizationId: In(organizationIds) } : {}) },
-    relations: ['organization'],
-    order: { date: { created: 'ASC' }, id: 'ASC' },
-  });
-  return memberships.filter(membership => membership.organization?.status === OrganizationStatus.Active);
-}
+// Part of the organization scope (see organization-scope.ts), here for the callers that imported it from this module
+export { activeMemberships } from './organization-scope';
 
 /**
  * Closes an organization that has no member left (not the default one, which the next account joins): it becomes

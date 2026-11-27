@@ -54,6 +54,7 @@ import { UserService } from './services/user.service';
 import { OidcProviderService } from './services/oidc-provider.service';
 import { EverIdSessionService } from './services/ever-id-session.service';
 import { OrganizationService } from './services/organization/organization.service';
+import { OrganizationScopedProjects } from './services/organization/organization-scoped-projects.service';
 import { OrganizationBootCheck } from './services/organization/organization-boot-check';
 import ProjectStatsController from './controllers/project-stats.controller';
 import { ConfigModule } from '@nestjs/config';
@@ -158,6 +159,7 @@ export class IndexModule {}
     OidcProviderService,
     EverIdSessionService,
     OrganizationService,
+    OrganizationScopedProjects,
     OrganizationBootCheck,
   ],
 })
