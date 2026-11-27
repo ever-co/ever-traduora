@@ -215,6 +215,16 @@ describe('Upgrade to organizations (e2e)', () => {
     expect(await dataSource.getRepository(Organization).count()).toBe(1);
   });
 
+  it('makes a missing default organization once, inside the transaction of the first sign-ups', async () => {
+    await dataSource.dropDatabase();
+    await dataSource.runMigrations();
+    await dataSource.getRepository(Organization).delete({ isDefault: true });
+    const [one, two] = await Promise.all([signupTestUser(app, 'race-one@test.com'), signupTestUser(app, 'race-two@test.com')]);
+    const organizations = await dataSource.getRepository(Organization).find();
+    expect(organizations.map(o => [o.slug, o.isDefault])).toEqual([['default', true]]);
+    expect([...(await roleOf(one)), ...(await roleOf(two))].sort((a, b) => a.localeCompare(b))).toEqual(['member', 'owner']);
+  });
+
   it('gives an empty database its default organization, which the first account owns', async () => {
     await dataSource.dropDatabase();
     await dataSource.runMigrations();

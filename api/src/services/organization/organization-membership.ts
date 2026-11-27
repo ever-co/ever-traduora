@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { EntityManager, In } from 'typeorm';
 import { config } from '../../config';
 import { OrganizationPlanCode, OrganizationRole, OrganizationStatus } from '../../domain/organization-actions';
@@ -62,33 +63,38 @@ export function findDefaultOrganization(manager: EntityManager): Promise<Organiz
   return manager.findOne(Organization, { where: { isDefault: true } });
 }
 
-/** The default organization; a fresh install has none until its first account, so it is made then. */
+/**
+ * The default organization. The migration makes it; should it be missing, it is made here with an insert that does
+ * nothing when a sign-up at the same moment made it first (ON CONFLICT DO NOTHING, INSERT IGNORE, INSERT OR IGNORE):
+ * a failed insert would end the caller's transaction on PostgreSQL.
+ */
 export async function ensureDefaultOrganization(manager: EntityManager): Promise<Organization> {
   const existing = await findDefaultOrganization(manager);
   if (existing) {
     return existing;
   }
-  try {
-    return await manager.save(
-      manager.create(Organization, {
-        name: config.defaultOrganizationName.slice(0, 255),
-        slug: DEFAULT_ORGANIZATION_SLUG,
-        status: OrganizationStatus.Active,
-        planCode: OrganizationPlanCode.Enterprise,
-        isDefault: true,
-        adminsSeeAllProjects: false,
-        seatsUsed: 0,
-        stringsUsed: 0,
-      }),
-    );
-  } catch (error) {
-    // Made by a sign-up at the same moment
-    const made = isDuplicateKey(error) ? await findDefaultOrganization(manager) : null;
-    if (made) {
-      return made;
-    }
-    throw error;
+  await manager
+    .createQueryBuilder()
+    .insert()
+    .into(Organization)
+    .values({
+      id: randomUUID(),
+      name: config.defaultOrganizationName.slice(0, 255),
+      slug: DEFAULT_ORGANIZATION_SLUG,
+      status: OrganizationStatus.Active,
+      planCode: OrganizationPlanCode.Enterprise,
+      isDefault: true,
+      adminsSeeAllProjects: false,
+      seatsUsed: 0,
+      stringsUsed: 0,
+    })
+    .orIgnore()
+    .execute();
+  const made = await findDefaultOrganization(manager);
+  if (!made) {
+    throw new Error('the default organization could not be made');
   }
+  return made;
 }
 
 /** Recomputes the cached seat counter (DESIGN §3.6): members plus pending organization invites. */
