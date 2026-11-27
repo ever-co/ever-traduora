@@ -6,7 +6,10 @@
     <span class="org-seats text-muted" data-test="seats">{{ seatsLine }}</span>
   </div>
 
-  <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+  <div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center">
+    <span class="flex-1">{{ errorMessage }}</span>
+    <button *ngIf="loadFailed" type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
+  </div>
 
   <form *ngIf="canManage" class="org-invite" [formGroup]="form" (ngSubmit)="invite()" novalidate>
     <label class="sr-only" for="orgInviteEmail">Email</label>

@@ -4,8 +4,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Store } from '@ngxs/store';
-import { forkJoin, Observable, of } from 'rxjs';
-import { distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, EMPTY, forkJoin, Observable, of } from 'rxjs';
+import { catchError, distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
 import { AuthState } from '../../../auth/stores/auth.state';
 import { canManage, countOf, Organization, OrganizationInvite, OrganizationMember, OrganizationRole } from '../../models/organization';
 import { organizationErrorMessage } from '../../models/organization-errors';
@@ -26,7 +26,10 @@ export class OrganizationMembersComponent implements OnInit {
   /** The link of the invite just sent, to hand over when the email does not arrive. */
   lastInvite: OrganizationInvite | undefined;
   errorMessage: string | undefined;
+  /** The lists could not be loaded: a retry is offered. */
+  loadFailed = false;
   busy = false;
+  private readonly reload$ = new BehaviorSubject<void>(undefined);
 
   readonly roles: OrganizationRole[] = ['member', 'admin'];
   readonly user$ = this.store.select(AuthState.user);
@@ -59,13 +62,20 @@ export class OrganizationMembersComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.store
-      .select(OrganizationsState.currentOrganization)
+    const organization$ = this.store.select(OrganizationsState.currentOrganization).pipe(
+      filter((organization): organization is Organization => !!organization),
+      distinctUntilChanged((a, b) => a.id === b.id && a.role === b.role),
+    );
+    combineLatest([organization$, this.reload$])
       .pipe(
-        filter((organization): organization is Organization => !!organization),
-        distinctUntilChanged((a, b) => a.id === b.id && a.role === b.role),
-        switchMap(organization => {
+        switchMap(([organization]) => {
+          // Another organization (the page is reused for it) or a retry: nothing shown before stays actionable
           this.organization = organization;
+          this.members = undefined;
+          this.invites = [];
+          this.lastInvite = undefined;
+          this.errorMessage = undefined;
+          this.loadFailed = false;
           // The default organization holds every account of the installation: its members are not listed (API: 404)
           if (organization.isDefault) {
             return of<[OrganizationMember[], OrganizationInvite[]]>([[], []]);
@@ -73,17 +83,25 @@ export class OrganizationMembersComponent implements OnInit {
           return forkJoin([
             this.organizations.members(organization.id),
             canManage(organization.role) ? this.organizations.invites(organization.id) : of([] as OrganizationInvite[]),
-          ]);
+          ]).pipe(
+            // A failed load stays on this organization only: the next one (or a retry) loads again
+            catchError(error => {
+              this.errorMessage = organizationErrorMessage(error);
+              this.loadFailed = true;
+              return EMPTY;
+            }),
+          );
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe({
-        next: ([members, invites]) => {
-          this.members = members;
-          this.invites = invites;
-        },
-        error: error => (this.errorMessage = organizationErrorMessage(error)),
+      .subscribe(([members, invites]) => {
+        this.members = members;
+        this.invites = invites;
       });
+  }
+
+  retry(): void {
+    this.reload$.next();
   }
 
   /** Whether the signed-in person may change this member's role or remove them (never the owner, never themselves). */
@@ -131,9 +149,13 @@ export class OrganizationMembersComponent implements OnInit {
     if (!this.organization) {
       return;
     }
-    this.run(this.organizations.removeMember(this.organization.id, selfId), () => {
-      this.store.dispatch(new GetOrganizations()).subscribe(() => this.router.navigate(['/projects']));
-    });
+    this.run(
+      this.organizations.removeMember(this.organization.id, selfId),
+      () => {
+        this.store.dispatch(new GetOrganizations()).subscribe(() => this.router.navigate(['/projects']));
+      },
+      true,
+    );
   }
 
   revoke(invite: OrganizationInvite): void {
@@ -156,12 +178,26 @@ export class OrganizationMembersComponent implements OnInit {
     return invite.id;
   }
 
-  private run<T>(request: Observable<T>, done: (result: T) => void): void {
+  /**
+   * Sends a change. Its answer updates the lists only while they still show the organization it was sent for (the page
+   * may be reused for another one meanwhile), unless `always` (leaving: the person left that organization either way).
+   */
+  private run<T>(request: Observable<T>, done: (result: T) => void, always = false): void {
+    const organizationId = this.organization?.id;
+    const current = () => always || this.organization?.id === organizationId;
     this.busy = true;
     this.errorMessage = undefined;
     request.pipe(finalize(() => (this.busy = false))).subscribe({
-      next: result => done(result),
-      error: error => (this.errorMessage = organizationErrorMessage(error)),
+      next: result => {
+        if (current()) {
+          done(result);
+        }
+      },
+      error: error => {
+        if (current()) {
+          this.errorMessage = organizationErrorMessage(error);
+        }
+      },
     });
   }
 }

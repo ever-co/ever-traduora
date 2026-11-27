@@ -66,7 +66,12 @@ export class OrganizationSettingsComponent implements OnInit {
         const first = this.organization?.id !== organization.id;
         this.organization = organization;
         if (first) {
+          // Another organization (the page is reused for it): nothing of the previous one carries over
           this.form.reset({ name: organization.name, slug: organization.slug });
+          this.transferForm.reset({ userId: '' });
+          this.confirmTransfer = false;
+          this.saved = false;
+          this.errorMessage = undefined;
           this.loadCandidates();
         }
       });
@@ -86,8 +91,12 @@ export class OrganizationSettingsComponent implements OnInit {
       .pipe(finalize(() => (this.busy = false)))
       .subscribe({
         next: () => {
-          this.saved = true;
-          this.form.markAsPristine();
+          // Only what was sent counts as saved: an edit typed during the request stays to be saved
+          const current = this.form.getRawValue();
+          if (current.name === name && current.slug === slug) {
+            this.saved = true;
+            this.form.markAsPristine();
+          }
           if (slugChanged) {
             // The address of this page changed with the slug
             this.router.navigate(['/orgs', slug, 'settings'], { replaceUrl: true });
@@ -119,13 +128,23 @@ export class OrganizationSettingsComponent implements OnInit {
   }
 
   private loadCandidates(): void {
+    this.candidates = [];
     if (!this.isOwner) {
-      this.candidates = [];
       return;
     }
-    this.organizations.members(this.organization.id).subscribe({
-      next: members => (this.candidates = members.filter(member => member.role !== 'owner')),
-      error: error => (this.errorMessage = organizationErrorMessage(error)),
+    // An answer for an organization the page no longer shows is dropped
+    const organizationId = this.organization.id;
+    this.organizations.members(organizationId).subscribe({
+      next: members => {
+        if (this.organization?.id === organizationId) {
+          this.candidates = members.filter(member => member.role !== 'owner');
+        }
+      },
+      error: error => {
+        if (this.organization?.id === organizationId) {
+          this.errorMessage = organizationErrorMessage(error);
+        }
+      },
     });
   }
 }

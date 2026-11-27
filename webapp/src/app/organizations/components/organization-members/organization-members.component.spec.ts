@@ -76,6 +76,31 @@ describe('OrganizationMembersComponent', () => {
     expect(fixture.nativeElement.querySelector('form.org-invite')).toBeNull();
   });
 
+  it('offers a retry when the lists cannot be loaded, and loads them again', () => {
+    store.reset({
+      ...store.snapshot(),
+      auth: { ...store.snapshot().auth, user: { id: owner.userId, name: owner.name, email: owner.email, emailVerified: true } },
+      organizations: { ...store.snapshot().organizations, organizations: [organization], loaded: true, currentOrganizationId: 'o1' },
+    });
+    const fixture = TestBed.createComponent(OrganizationMembersComponent);
+    fixture.detectChanges();
+    http.expectOne(`${endpoint}/organizations/o1/members`).flush('down', { status: 503, statusText: 'Unavailable' });
+    http
+      .match(`${endpoint}/organizations/o1/invites`)
+      .filter(req => !req.cancelled)
+      .forEach(req => req.flush({ data: [] }));
+    fixture.detectChanges();
+    const retry = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (button: HTMLButtonElement) => button.textContent.trim() === 'Try again',
+    ) as HTMLButtonElement;
+    expect(retry).toBeTruthy();
+    retry.click();
+    http.expectOne(`${endpoint}/organizations/o1/members`).flush({ data: [owner, member] });
+    http.expectOne(`${endpoint}/organizations/o1/invites`).flush({ data: [] });
+    fixture.detectChanges();
+    expect(rows(fixture, 'member').length).toBe(2);
+  });
+
   it('counts the seats: members plus pending invites', () => {
     const fixture = render('owner');
     expect(fixture.nativeElement.querySelector('[data-test="seats"]').textContent.trim()).toBe('2 members · 1 pending invite');

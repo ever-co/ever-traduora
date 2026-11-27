@@ -5,8 +5,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { Store } from '@ngxs/store';
-import { BehaviorSubject } from 'rxjs';
-import { distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
+import { BehaviorSubject, EMPTY } from 'rxjs';
+import { catchError, distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
 import { Project } from '../../../projects/models/project';
 import { ProjectsService } from '../../../projects/services/projects.service';
 import { countOf, Organization } from '../../models/organization';
@@ -52,14 +52,18 @@ export class OrganizationProjectsComponent implements OnInit {
         switchMap(organization => {
           this.organization = organization;
           this.projects$.next(undefined);
-          return this.projects.find(organization.id);
+          this.loadError = undefined;
+          return this.projects.find(organization.id).pipe(
+            // A failed load stays on this organization only: switching to another one loads again
+            catchError(error => {
+              this.loadError = organizationErrorMessage(error);
+              return EMPTY;
+            }),
+          );
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe({
-        next: projects => this.projects$.next(projects),
-        error: error => (this.loadError = organizationErrorMessage(error)),
-      });
+      .subscribe(projects => this.projects$.next(projects));
   }
 
   /** "2 projects", or nothing while the list loads. */
