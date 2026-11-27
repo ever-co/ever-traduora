@@ -45,8 +45,9 @@ export class OrganizationSettingsComponent implements OnInit {
     return canManage(this.organization?.role);
   }
 
+  /** The owner transfers the ownership, except of the default organization, whose members are not listed. */
   get isOwner(): boolean {
-    return this.organization?.role === 'owner';
+    return this.organization?.role === 'owner' && !this.organization.isDefault;
   }
 
   get newOwnerName(): string {
@@ -118,7 +119,7 @@ export class OrganizationSettingsComponent implements OnInit {
   }
 
   private loadCandidates(): void {
-    if (!this.organization || this.organization.role !== 'owner') {
+    if (!this.isOwner) {
       this.candidates = [];
       return;
     }

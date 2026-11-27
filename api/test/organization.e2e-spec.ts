@@ -269,6 +269,37 @@ describe('Organizations in SaaS mode (e2e)', () => {
       expect((await organizationsOf(admin)).map(o => o.id)).not.toContain(organization.id);
     });
 
+    it('lists and changes no members of the default organization, in SaaS mode either', async () => {
+      // An upgraded install: the default organization holds every migrated account
+      const legacy = await signupTestUser(app, 'legacy-owner@test.com');
+      const other = await signupTestUser(app, 'legacy-member@test.com');
+      const defaultOrganization = await dataSource.getRepository(Organization).findOneByOrFail({ isDefault: true });
+      await dataSource.getRepository(OrganizationUser).save([
+        { organizationId: defaultOrganization.id, userId: legacy.id, role: OrganizationRole.Owner },
+        { organizationId: defaultOrganization.id, userId: other.id, role: OrganizationRole.Member },
+      ]);
+      const base = `/api/v1/organizations/${defaultOrganization.id}`;
+      await request(server()).get(base).set(auth(other)).expect(200);
+      for (const [method, path, body] of [
+        ['get', `${base}/members`, {}],
+        ['patch', `${base}/members/${other.id}`, { role: 'admin' }],
+        ['delete', `${base}/members/${other.id}`, {}],
+        ['get', `${base}/invites`, {}],
+        ['post', `${base}/invites`, { email: 'x@test.com', role: 'member' }],
+        ['post', `${base}/transfer-ownership`, { userId: other.id }],
+      ] as Array<[string, string, object]>) {
+        const res = await request(server())[method](path).set(auth(legacy)).send(body);
+        expect([method, path, res.status, res.body.error?.code]).toEqual([method, path, 404, 'saas_disabled']);
+      }
+      // A member leaving it is refused the same way
+      const leave = await request(server()).delete(`${base}/members/${other.id}`).set(auth(other));
+      expect([leave.status, leave.body.error?.code]).toEqual([404, 'saas_disabled']);
+      // A non-member still learns nothing
+      const stranger = await signupTestUser(app, 'legacy-stranger@test.com');
+      const hidden = await request(server()).get(`${base}/members`).set(auth(stranger));
+      expect([hidden.status, hidden.body.error?.code]).toEqual([404, 'NotFound']);
+    });
+
     it('keeps the seat counter: members plus pending invites', async () => {
       const members = await dataSource.getRepository(OrganizationUser).count({ where: { organizationId: organization.id } });
       const pending = (await request(server()).get(`/api/v1/organizations/${organization.id}/invites`).set(auth(owner)).expect(200)).body.data.length;

@@ -15,6 +15,8 @@ import {
   UpdateOrganizationRequest,
 } from '../domain/http';
 import { OrganizationAction } from '../domain/organization-actions';
+import { User } from '../entity/user.entity';
+import { OrganizationException } from '../errors';
 import AuthorizationService from '../services/authorization.service';
 import { assertSaasEnabled, organizationView, OrganizationService } from '../services/organization/organization.service';
 
@@ -83,7 +85,7 @@ export default class OrganizationController {
   async members(@Req() req, @Param('organizationId') organizationId: string) {
     assertSaasEnabled();
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.ViewMembers);
+    await this.authorizeMembers(user, organizationId, OrganizationAction.ViewMembers);
     return { data: await this.organizations.listMembers(organizationId) };
   }
 
@@ -100,7 +102,7 @@ export default class OrganizationController {
   ) {
     assertSaasEnabled();
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.EditMembers);
+    await this.authorizeMembers(user, organizationId, OrganizationAction.EditMembers);
     return { data: await this.organizations.changeRole(organizationId, user.id, userId, payload.role) };
   }
 
@@ -118,7 +120,7 @@ export default class OrganizationController {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     // Leaving needs only the membership; removing someone else needs EditMembers
     const action = userId === user.id ? OrganizationAction.ViewOrganization : OrganizationAction.EditMembers;
-    await this.auth.authorizeOrganizationAction(user, organizationId, action);
+    await this.authorizeMembers(user, organizationId, action);
     await this.organizations.removeMember(organizationId, user.id, userId);
   }
 
@@ -130,7 +132,7 @@ export default class OrganizationController {
   async transferOwnership(@Req() req, @Param('organizationId') organizationId: string, @Body() payload: TransferOwnershipRequest) {
     assertSaasEnabled();
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.TransferOwnership);
+    await this.authorizeMembers(user, organizationId, OrganizationAction.TransferOwnership);
     return { data: await this.organizations.transferOwnership(organizationId, user.id, payload.userId) };
   }
 
@@ -141,7 +143,7 @@ export default class OrganizationController {
   async invites(@Req() req, @Param('organizationId') organizationId: string) {
     assertSaasEnabled();
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.EditMembers);
+    await this.authorizeMembers(user, organizationId, OrganizationAction.EditMembers);
     return { data: await this.organizations.listInvites(organizationId) };
   }
 
@@ -157,7 +159,7 @@ export default class OrganizationController {
   async invite(@Req() req, @Param('organizationId') organizationId: string, @Body() payload: InviteOrganizationMemberRequest) {
     assertSaasEnabled();
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    const membership = await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.EditMembers);
+    const membership = await this.authorizeMembers(user, organizationId, OrganizationAction.EditMembers);
     const result = await this.organizations.invite(membership.organization, user, payload);
     return { data: 'member' in result ? result.member : result.invite };
   }
@@ -170,7 +172,20 @@ export default class OrganizationController {
   async revokeInvite(@Req() req, @Param('organizationId') organizationId: string, @Param('inviteId') inviteId: string) {
     assertSaasEnabled();
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.EditMembers);
+    await this.authorizeMembers(user, organizationId, OrganizationAction.EditMembers);
     await this.organizations.revokeInvite(organizationId, inviteId);
+  }
+
+  /**
+   * The organization routes about members and invites, after the action check. The default organization holds every
+   * account of a self-hosted install (and every migrated one after an upgrade), so its members are not listed nor
+   * changed there, in SaaS mode either: it answers as a single-tenant install does (404 saas_disabled).
+   */
+  private async authorizeMembers(user: User, organizationId: string, action: OrganizationAction) {
+    const membership = await this.auth.authorizeOrganizationAction(user, organizationId, action);
+    if (membership.organization.isDefault) {
+      throw new OrganizationException(HttpStatus.NOT_FOUND, 'saas_disabled', 'Organizations are not enabled on this installation');
+    }
+    return membership;
   }
 }

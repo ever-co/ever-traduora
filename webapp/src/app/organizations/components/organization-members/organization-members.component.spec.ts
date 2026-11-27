@@ -58,6 +58,24 @@ describe('OrganizationMembersComponent', () => {
 
   afterEach(() => http.verify());
 
+  it('lists no members of the default organization, and asks the API for none', () => {
+    store.reset({
+      ...store.snapshot(),
+      auth: { ...store.snapshot().auth, user: { id: owner.userId, name: owner.name, email: owner.email, emailVerified: true } },
+      organizations: {
+        ...store.snapshot().organizations,
+        organizations: [{ ...organization, isDefault: true }],
+        loaded: true,
+        currentOrganizationId: 'o1',
+      },
+    });
+    const fixture = TestBed.createComponent(OrganizationMembersComponent);
+    fixture.detectChanges();
+    http.expectNone(`${endpoint}/organizations/o1/members`);
+    expect(fixture.nativeElement.querySelector('[data-test="default-organization"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('form.org-invite')).toBeNull();
+  });
+
   it('counts the seats: members plus pending invites', () => {
     const fixture = render('owner');
     expect(fixture.nativeElement.querySelector('[data-test="seats"]').textContent.trim()).toBe('2 members · 1 pending invite');

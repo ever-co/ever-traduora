@@ -63,6 +63,10 @@ export class OrganizationMembersComponent implements OnInit {
         distinctUntilChanged((a, b) => a.id === b.id && a.role === b.role),
         switchMap(organization => {
           this.organization = organization;
+          // The default organization holds every account of the installation: its members are not listed (API: 404)
+          if (organization.isDefault) {
+            return of<[OrganizationMember[], OrganizationInvite[]]>([[], []]);
+          }
           return forkJoin([
             this.organizations.members(organization.id),
             canManage(organization.role) ? this.organizations.invites(organization.id) : of([] as OrganizationInvite[]),

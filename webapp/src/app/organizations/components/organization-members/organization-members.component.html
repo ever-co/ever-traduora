@@ -1,4 +1,7 @@
-<ng-container *ngIf="{ user: user$ | async } as view">
+<p *ngIf="organization?.isDefault" class="text-muted" data-test="default-organization">
+  The default organization holds every account of this installation, so its members are not listed here.
+</p>
+<ng-container *ngIf="!organization?.isDefault && { user: user$ | async } as view">
   <div class="d-flex align-items-center section-title-row mb-3">
     <span class="org-seats text-muted" data-test="seats">{{ seatsLine }}</span>
   </div>

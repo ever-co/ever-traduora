@@ -81,7 +81,15 @@ design says how it is built.
   it in its locked transaction).
 - Organization members, invites, rename and transfer routes are SaaS-only (404 `saas_disabled`) for the privacy reason
   above; DESIGN said one code path serves both modes. The isolation checks themselves never branch on the mode.
-- Deleting the last member's account leaves an organization without members (P6 decides deletion).
+- **The default organization's members are never listed or changed, in SaaS mode either** (review of #666, item 4): it
+  holds every migrated account of an upgraded install, so `ViewMembers` there would list every e-mail. Its member,
+  invite and transfer routes answer 404 `saas_disabled`, as on a single-tenant install; `GET /organizations/:id` and
+  the rename still work. The web app hides its Members tab and its Ownership section.
+- When the last member of an organization goes (account deletion, leaving), the organization becomes `deleted` and its
+  pending invites are removed; its data stays (deletion proper is P6). The default organization is never closed: the
+  next account joins it as owner. Invites are accepted only into an organization that is `active` and has its owner.
+- In an organization other than the default one, a project invite to someone who is not a member yet needs the
+  organization's `EditMembers` (owner, admin); otherwise 403 `organization_admin_required`.
 
 ### Left
 

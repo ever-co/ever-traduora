@@ -13,7 +13,7 @@
       </header>
       <nav class="nav nav-tabs org-tabs" aria-label="Organization">
         <a class="nav-link" routerLink="projects" routerLinkActive="active">Projects</a>
-        <a class="nav-link" routerLink="members" routerLinkActive="active">Members</a>
+        <a *ngIf="!organization.isDefault" class="nav-link" routerLink="members" routerLinkActive="active">Members</a>
         <a *ngIf="canManage(organization.role)" class="nav-link" routerLink="settings" routerLinkActive="active">Settings</a>
       </nav>
       <router-outlet></router-outlet>
