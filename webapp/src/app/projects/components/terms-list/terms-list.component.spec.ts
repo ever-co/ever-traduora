@@ -3,9 +3,10 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { NO_ERRORS_SCHEMA, Pipe, PipeTransform } from '@angular/core';
 import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
-import { NgxsModule } from '@ngxs/store';
+import { NgxsModule, Store } from '@ngxs/store';
 import { of, Subscription } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { ErrorMessageComponent } from '../../../shared/components/error-message/error-message.component';
 import { Label } from '../../models/label';
 import { Term } from '../../models/term';
 import { ProjectLabelState } from '../../stores/project-label.state';
@@ -68,7 +69,7 @@ describe('TermsListComponent label filter', () => {
   beforeEach(fakeAsync(() => {
     TestBed.configureTestingModule({
       imports: [NgxsModule.forRoot([TermsState, ProjectLabelState]), ReactiveFormsModule, AllowAllPipe],
-      declarations: [TermsListComponent],
+      declarations: [TermsListComponent, ErrorMessageComponent],
       schemas: [NO_ERRORS_SCHEMA],
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
@@ -142,4 +143,49 @@ describe('TermsListComponent label filter', () => {
 
     expect(shownIds()).toEqual(['t1', 't3']);
   }));
+
+  // The API refuses a label of a term, for example one deleted in another tab (404)
+  describe('a label the API refuses', () => {
+    const notFound = { status: 404, statusText: 'Not Found' };
+
+    const errorMessage = (): string | undefined => fixture.nativeElement.querySelector('app-error-message p')?.textContent.trim();
+
+    const labelIds = (termId: string) => shown.find(t => t.id === termId).labels.map(l => l.id);
+
+    const failLabel = () => {
+      fixture.componentInstance.labelTerm('p1', 't3', labelA);
+      http.expectOne({ method: 'POST', url: `${projectUrl}/labels/${labelA.id}/terms/t3` }).flush(null, notFound);
+      settle();
+    };
+
+    it('takes the label off the term again and shows the error', fakeAsync(() => {
+      failLabel();
+
+      expect(labelIds('t3')).toEqual([]);
+      expect(errorMessage()).toBe('Error, resource not found');
+    }));
+
+    it('puts a label it could not remove back on the term and shows the error', fakeAsync(() => {
+      fixture.componentInstance.unlabelTerm('p1', 't1', labelA);
+      http.expectOne({ method: 'DELETE', url: `${projectUrl}/labels/${labelA.id}/terms/t1` }).flush(null, notFound);
+      settle();
+
+      expect(labelIds('t1')).toEqual(jasmine.arrayWithExactContents([labelA.id, labelB.id]));
+      expect(errorMessage()).toBe('Error, resource not found');
+    }));
+
+    it('drops the error once a label is added, and when the page is left', fakeAsync(() => {
+      failLabel();
+
+      fixture.componentInstance.labelTerm('p1', 't2', labelA);
+      settle();
+      expect(labelIds('t2')).toEqual([labelB.id, labelA.id]);
+      expect(errorMessage()).toBeUndefined();
+
+      failLabel();
+      expect(errorMessage()).toBe('Error, resource not found');
+      fixture.destroy();
+      expect(TestBed.inject(Store).selectSnapshot(state => state.projectLabels.errorMessage)).toBeUndefined();
+    }));
+  });
 });

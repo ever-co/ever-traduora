@@ -1,8 +1,9 @@
-import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
+import { Action, Actions, NgxsOnInit, ofActionErrored, Selector, State, StateContext } from '@ngxs/store';
 import { throwError } from 'rxjs';
 import { catchError, finalize, tap } from 'rxjs/operators';
 import { Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
+import { Label } from '../models/label';
 import { Term } from '../models/term';
 import { ProjectTermsService } from '../services/terms.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
@@ -63,7 +64,10 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class TermsState implements NgxsOnInit {
-  constructor(private termService: ProjectTermsService) {}
+  constructor(
+    private termService: ProjectTermsService,
+    private actions$: Actions,
+  ) {}
 
   @Selector()
   static isLoading(state: TermsStateModel) {
@@ -75,7 +79,19 @@ export class TermsState implements NgxsOnInit {
     return state.terms;
   }
 
-  ngxsOnInit(ctx: StateContext<TermsStateModel>) {}
+  ngxsOnInit(ctx: StateContext<TermsStateModel>) {
+    // A label is added to a term or removed from it here before the API answers (LabelTerm, UnlabelTerm). When the API
+    // refuses (a label deleted in another tab, a lost connection), the change is undone, so the term shows its labels as
+    // they are. The labels store keeps the error, which the terms page shows.
+    this.actions$
+      .pipe(ofActionErrored(LabelTerm))
+      .subscribe((action: LabelTerm) => this.patchTermLabels(ctx, action.termId, labels => labels.filter(l => l.id !== action.label.id)));
+    this.actions$
+      .pipe(ofActionErrored(UnlabelTerm))
+      .subscribe((action: UnlabelTerm) =>
+        this.patchTermLabels(ctx, action.termId, labels => (labels.some(l => l.id === action.label.id) ? labels : [...labels, action.label])),
+      );
+  }
 
   @Action(Logout)
   logout(ctx: StateContext<TermsStateModel>, action: Logout) {
@@ -170,6 +186,11 @@ export class TermsState implements NgxsOnInit {
       return v;
     });
     ctx.patchState({ terms: updated });
+  }
+
+  private patchTermLabels(ctx: StateContext<TermsStateModel>, termId: string, update: (labels: Label[]) => Label[]) {
+    const terms = ctx.getState().terms.map(t => (t.id === termId ? { ...t, labels: update(t.labels) } : t));
+    ctx.patchState({ terms });
   }
 
   @Action(ClearMessages)

@@ -8,6 +8,10 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Terms page: a label that could not be added to a term or removed from it (a label deleted in another tab, a change
+  that conflicted with another one, a lost connection) is taken off the term again, or put back on it, and the page shows the
+  error. Before, the page showed the change as done and no error, and the change was gone after a reload
+
 - Android XML and RESX export: a term with `&`, `<` or `>` in it (`Terms & Conditions`, `a<b`) is written with
   `&amp;`, `&lt;` and `&gt;` in the `name` attribute of its `<string>` or `<data>`. Before, these characters were
   written as they are, which is not well-formed XML: Android, .NET and other XML readers refused the whole file, and
