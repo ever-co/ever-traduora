@@ -314,8 +314,11 @@ describe('Organizations in SaaS mode (e2e)', () => {
     });
 
     it('keeps the seat counter: members plus pending invites', async () => {
+      // Its own pending invite, so the count holds without the tests before
+      await inviteToOrganization(owner, organization.id, 'seat-counter-pending@test.com').expect(201);
       const members = await dataSource.getRepository(OrganizationUser).count({ where: { organizationId: organization.id } });
       const pending = (await request(server()).get(`/api/v1/organizations/${organization.id}/invites`).set(auth(owner)).expect(200)).body.data.length;
+      expect(pending).toBeGreaterThan(0);
       const stored = await dataSource.getRepository(Organization).findOneByOrFail({ id: organization.id });
       expect(stored.seatsUsed).toBe(members + pending);
     });
