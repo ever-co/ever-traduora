@@ -131,7 +131,7 @@ export default class TermController {
     await readCommittedTransaction(this.termRepo.manager, async entityManager => {
       // The project first, then (SaaS mode) its organization, whose lock counts the strings: the global lock order
       await lockProject(entityManager, membership.project.id);
-      const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
+      const organization = await lockOrganizationForStrings(entityManager, membership.project);
       if (organization) {
         await assertStringsAdded(entityManager, organization, membership.project.id, { terms: 1 });
       }

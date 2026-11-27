@@ -1,6 +1,7 @@
 import { config } from '../../config';
 import { OrganizationPlanCode } from '../../domain/organization-actions';
 import { Organization } from '../../entity/organization.entity';
+import { lockOrganizationForStrings } from './organization-membership';
 import { assertProjectStrings, recountSeats, recountStrings, seatAvailable, usesOrganizationPlan } from './organization-usage';
 
 /** An entity manager whose string total of the other projects is `others` */
@@ -74,6 +75,23 @@ describe('organization usage', () => {
       await expect(
         assertProjectStrings(managerSumming(20_000), organization(OrganizationPlanCode.SmallBusiness), 'p2', 0, 1_000),
       ).resolves.toBeUndefined();
+    });
+  });
+
+  describe('the organization lock for strings', () => {
+    it('is never taken for the default organization, nor on a single-tenant install', async () => {
+      const manager: any = { findOne: jest.fn() };
+      expect(await lockOrganizationForStrings(manager, { organizationId: 'org', organization: { isDefault: true } })).toBeNull();
+      config.saasEnabled = false;
+      expect(await lockOrganizationForStrings(manager, { organizationId: 'org', organization: { isDefault: false } })).toBeNull();
+      expect(manager.findOne).not.toHaveBeenCalled();
+    });
+
+    it('is taken for an organization with its own plan, which it answers', async () => {
+      const row = organization(OrganizationPlanCode.Starter);
+      const manager: any = { findOne: jest.fn(async () => row) };
+      expect(await lockOrganizationForStrings(manager, { organizationId: 'org', organization: { isDefault: false } })).toBe(row);
+      expect(manager.findOne).toHaveBeenCalledTimes(1);
     });
   });
 

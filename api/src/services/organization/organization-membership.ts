@@ -66,26 +66,42 @@ export function inTransaction<T>(manager: EntityManager, work: (tx: EntityManage
  * (its strings) locks none of the other projects: every writer of strings takes the organization lock, so reading the
  * totals under it is enough. A deadlock still answers 503 with `Retry-After` (`isTransientDatabaseError`), as a
  * backstop only. `lock-order.spec.ts` checks the order in the source.
+ *
+ * On PostgreSQL the lock is FOR NO KEY UPDATE: lockers still wait for each other, while the foreign-key checks of rows
+ * that reference the organization (a project, a membership, an invitation; FOR KEY SHARE) are not held up. FOR UPDATE on
+ * MySQL.
  */
 export function lockOrganization(tx: EntityManager, organizationId: string): Promise<Organization | null> {
+  if (isDbType(DbType.BETTER_SQLITE3)) {
+    return tx.findOne(Organization, { where: { id: organizationId } });
+  }
   return tx.findOne(Organization, {
     where: { id: organizationId },
-    ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+    lock: { mode: isDbType(DbType.POSTGRES) ? 'for_no_key_update' : 'pessimistic_write' },
   });
 }
 
 /**
- * For a change that adds strings to a project of the organization (a term, a locale, an import): in SaaS mode, locks the
- * organization after the project's own lock (`lockProject`, global order in `lockOrganization`), and answers the
- * locked row when its plan limits it (`assertStringsAdded`), so parallel changes in its projects are counted one after
- * another. `null` otherwise: a single-tenant install takes no organization lock and checks the project's own plan, as
- * before (DESIGN §3.5).
+ * For a change of the strings of a project (a term, a locale, an import, their removal): in SaaS mode, locks the
+ * project's organization after the project's own lock (`lockProject`, global order in `lockOrganization`), and answers
+ * the locked row, when the organization has its own plan (`assertStringsAdded`), so parallel changes in its projects
+ * are counted one after another. `null` otherwise, with no organization lock: a single-tenant install and the default
+ * organization check the project's own plan, as before (DESIGN §3.5). Which one it is comes from the organization the
+ * access check loaded, unlocked (`isDefault` never changes), so the default organization's row is never a queue.
  */
-export async function lockOrganizationForStrings(tx: EntityManager, organizationId: string): Promise<Organization | null> {
+export async function lockOrganizationForStrings(
+  tx: EntityManager,
+  project: { organizationId: string; organization?: Pick<Organization, 'isDefault'> | null },
+): Promise<Organization | null> {
   if (!config.saasEnabled) {
     return null;
   }
-  const organization = await lockOrganization(tx, organizationId);
+  const known =
+    project.organization ?? (await tx.findOne(Organization, { where: { id: project.organizationId }, select: { id: true, isDefault: true } }));
+  if (!usesOrganizationPlan(known)) {
+    return null;
+  }
+  const organization = await lockOrganization(tx, project.organizationId);
   return usesOrganizationPlan(organization) ? organization : null;
 }
 

@@ -99,7 +99,7 @@ export class ImportController {
       const run = async (entityManager: EntityManager) => {
         // The project first, then (SaaS mode) its organization, whose lock counts the strings: the global lock order
         await lockProject(entityManager, membership.project.id);
-        const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
+        const organization = await lockOrganizationForStrings(entityManager, membership.project);
         // The upload was read after the access check: access that ended since (removed from the project or the
         // organization, organization suspended) stops the import here, before anything is written
         await this.auth.recheckProjectAccess(entityManager, user, membership.project.id, ProjectAction.ImportTranslation);
