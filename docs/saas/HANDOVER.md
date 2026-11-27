@@ -12,14 +12,14 @@ design says how it is built.
 
 | Phase | State | PR | Notes |
 |---|---|---|---|
-| P0 Design | 🔨 PR open | (this PR) | `docs/saas/DESIGN.md`; owner questions OD-T1..T14 with defaults in §12 |
-| P1 Organizations | 🔨 code complete, pushed | (to open) | Branch `feat/saas-p1-organizations`; see "P1 Organizations" below |
+| P0 Design | ✅ merged | [#665](https://github.com/ever-co/ever-traduora/pull/665) | `docs/saas/DESIGN.md`; owner questions OD-T1..T14 with defaults in §12; bot findings fixed (an upgrade never widens access) |
+| P1 Organizations | 🔨 PR open, review | (this PR) | Branch `feat/saas-p1-organizations`; see "P1 Organizations" below |
 | P2 Isolation | ⏳ | — | |
 | P3 Plans and seats | ⏳ | — | |
 | P4 Billing (Stripe test mode) | ⏳ | — | |
 | P5 Accounts and hardening | ⏳ | — | |
 | P6 Operator console and data rights | ⏳ | — | |
-| P7 Environments (dev, stage, prod) | ⏳ | — | Each step is a claimed live change (homelab `MAINTENANCE.md` §3) |
+| P7 Environments (dev, stage, prod) | ✅ live 2026-11-26 23:5xZ | k8s-gitops `54463a2b`, `6378a731`, `7783981f` | `app-dev.traduora.co`, `app-stage.traduora.co` (noindex); prod on nip.io until P8; Postgres `ever_traduora_<env>`; sign-ups off until P1+P2 ship. Runbook: homelab `projects/traduora/knowledge/runbooks/hosted-traduora.md`. Owed: first prod restore drill. Moved to P8: prod Valkey + 2 replicas |
 | P8 Go live | ⏳ | — | Stripe live keys and webhook are a claimed change |
 | P9 Open the sale | ⏳ | — | |
 
