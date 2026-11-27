@@ -216,11 +216,16 @@ export default class TermController {
   async delete(@Req() req, @Param('projectId') projectId: string, @Param('termId') termId: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTerm);
-    await this.termRepo.manager.transaction(async entityManager => {
+    await readCommittedTransaction(this.termRepo.manager, async entityManager => {
       await lockProject(entityManager, membership.project.id);
       const term = await entityManager.findOneOrFail(Term, { where: { id: termId, project: { id: membership.project.id } } });
       await entityManager.remove(term);
       await entityManager.decrement(Project, { id: membership.project.id }, 'termsCount', 1);
+      // SaaS mode: the organization's cached strings, recounted under its lock (after the project's: the global order)
+      const organization = await lockOrganizationForStrings(entityManager, membership.project);
+      if (organization) {
+        await recountStrings(entityManager, organization.id);
+      }
     });
   }
 }

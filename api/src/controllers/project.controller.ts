@@ -25,10 +25,11 @@ import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import AuthorizationService, { effectiveProjectRole } from '../services/authorization.service';
-import { activeMemberships, homeOrganizationId } from '../services/organization/organization-membership';
+import { activeMemberships, homeOrganizationId, lockOrganizationForStrings } from '../services/organization/organization-membership';
+import { recountSeats, recountStrings } from '../services/organization/organization-usage';
 import { OrganizationScopedProjects } from '../services/organization/organization-scoped-projects.service';
 import { ApiOAuth2, ApiTags, ApiResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import { readCommittedTransaction } from '../utils/database-locks';
+import { lockAccounts, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
 
 /** What the API answers for a project: its own fields (never its plan or organization objects) and the caller's role. */
@@ -195,7 +196,9 @@ export default class ProjectController {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     const { project } = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteProject);
 
-    await this.projects.manager.transaction(async tx => {
+    await readCommittedTransaction(this.projects.manager, async tx => {
+      // The global lock order: the account (its project count changes below), the project (deleted), the organization
+      await lockAccounts(tx, [user.id]);
       await this.projects.delete(tx, project.organizationId, projectId);
 
       user.numProjectsCreated -= 1;
@@ -204,6 +207,13 @@ export default class ProjectController {
       }
 
       await tx.update(User, { id: user.id }, { numProjectsCreated: user.numProjectsCreated });
+
+      // SaaS mode: the organization's cached counters lose the project's strings and its pending invitations
+      const organization = await lockOrganizationForStrings(tx, project);
+      if (organization) {
+        await recountStrings(tx, organization.id);
+        await recountSeats(tx, organization.id);
+      }
     });
   }
 }

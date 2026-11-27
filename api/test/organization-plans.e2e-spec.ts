@@ -6,6 +6,8 @@ import { OrganizationPlanCode, OrganizationRole } from '../src/domain/organizati
 import { OrganizationUser } from '../src/entity/organization-user.entity';
 import { Organization } from '../src/entity/organization.entity';
 import { Project } from '../src/entity/project.entity';
+import { Invite } from '../src/entity/invite.entity';
+import { User } from '../src/entity/user.entity';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { createAndMigrateApp, createTestProjectClient, signupTestUser, TestingProject, TestingUser } from './util';
 
@@ -375,6 +377,62 @@ describe('Organization plans in SaaS mode (e2e)', () => {
 
       await setPlan(organization.id, OrganizationPlanCode.Enterprise);
       expect((await usageOf(owner, organization.id)).seats).toEqual({ used: 2, included: null });
+    });
+  });
+
+  describe('the cached counters', () => {
+    let owner: TestingUser;
+    let organization: Org;
+
+    /** The counters stored on the organization, which P4's billing reads, against the live usage */
+    const expectCountersMatch = async (seats: number, strings: number) => {
+      const stored = await dataSource.getRepository(Organization).findOneByOrFail({ id: organization.id });
+      const usage = await usageOf(owner, organization.id);
+      expect([stored.seatsUsed, stored.stringsUsed, usage.seats.used, usage.strings.used]).toEqual([seats, strings, seats, strings]);
+    };
+
+    beforeAll(async () => {
+      owner = await signupTestUser(app, 'counters-owner@test.com');
+      organization = await ownOrganizationOf(owner);
+    });
+
+    it('follow term and locale removals', async () => {
+      const projectId = await newProject(owner, organization.id);
+      await addLocale(owner, projectId, 'de').expect(201);
+      const terms = [];
+      for (const value of ['one', 'two', 'three']) {
+        terms.push((await addTerm(owner, projectId, value).expect(201)).body.data.id);
+      }
+      await expectCountersMatch(1, 3);
+      await request(server()).delete(`/api/v1/projects/${projectId}/terms/${terms[0]}`).set(auth(owner)).expect(204);
+      await expectCountersMatch(1, 2);
+      await addLocale(owner, projectId, 'fr').expect(201);
+      await expectCountersMatch(1, 4);
+      await request(server()).delete(`/api/v1/projects/${projectId}/translations/fr`).set(auth(owner)).expect(204);
+      await expectCountersMatch(1, 2);
+    });
+
+    it('follow a project removal: its strings and its pending invitations go', async () => {
+      const projectId = await newProject(owner, organization.id);
+      await addLocale(owner, projectId, 'de').expect(201);
+      await addTerm(owner, projectId, 'gone').expect(201);
+      await projectInvite(owner, projectId, 'counters-pending@test.com').expect(201);
+      await expectCountersMatch(2, 3);
+      await request(server()).delete(`/api/v1/projects/${projectId}`).set(auth(owner)).expect(204);
+      await expectCountersMatch(1, 2);
+    });
+
+    it('follow a pending invitation that becomes a member', async () => {
+      const projectId = await newProject(owner, organization.id);
+      // An account whose e-mail is not verified yet gets an invitation; once verified, a new invite adds it at once
+      const later = await signupTestUser(app, 'counters-later@test.com', false);
+      await projectInvite(owner, projectId, later.email).expect(201);
+      await expectCountersMatch(2, 2);
+      await dataSource.getRepository(User).update({ id: later.id }, { emailVerified: true });
+      const added = await projectInvite(owner, projectId, later.email).expect(201);
+      expect(added.body.data.userId).toBe(later.id);
+      expect(await dataSource.getRepository(Invite).count({ where: { email: later.email } })).toBe(0);
+      await expectCountersMatch(2, 2);
     });
   });
 

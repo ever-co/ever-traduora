@@ -109,13 +109,17 @@ export default class ProjectInviteController {
         // Someone new to the organization takes one of its seats (402 plan_limit_reached when none is left)
         await assertSeatAvailable(tx, locked, { email: targetUser.email, userId: targetUser.id }, 'member', user.id);
         await ensureMember(tx, project.organizationId, targetUser.id);
-        return tx.save(
+        // An invite sent before they had an account is no longer needed: the seat is the member's now
+        await tx.delete(Invite, { project: { id: projectId }, email: normalizeEmail(inviteUserRequest.email) });
+        const saved = await tx.save(
           tx.create(ProjectUser, {
             project: { id: projectId },
             user: targetUser,
             role: inviteUserRequest.role,
           }),
         );
+        await recountSeats(tx, project.organizationId);
+        return saved;
       });
 
       newProjectUser = await this.projectUserRepo.findOneOrFail({
@@ -124,14 +128,6 @@ export default class ProjectInviteController {
       });
 
       this.mail.invitedToProject(newProjectUser);
-
-      // An invite sent before they had an account is no longer needed
-      const staleInvite = await this.inviteRepo.findOne({
-        where: { project: { id: projectId }, email: normalizeEmail(inviteUserRequest.email) },
-      });
-      if (staleInvite) {
-        await this.inviteRepo.remove(staleInvite);
-      }
 
       return {
         data: {

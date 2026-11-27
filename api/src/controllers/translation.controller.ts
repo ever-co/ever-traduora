@@ -389,7 +389,7 @@ export default class TranslationController {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteTranslation);
 
-    await this.projectLocaleRepo.manager.transaction(async entityManager => {
+    await readCommittedTransaction(this.projectLocaleRepo.manager, async entityManager => {
       await lockProject(entityManager, membership.project.id);
       const projectLocale = await entityManager.findOneOrFail(ProjectLocale, {
         where: {
@@ -401,6 +401,11 @@ export default class TranslationController {
       });
       await entityManager.remove(projectLocale);
       await entityManager.decrement(Project, { id: membership.project.id }, 'localesCount', 1);
+      // SaaS mode: the organization's cached strings, recounted under its lock (after the project's: the global order)
+      const organization = await lockOrganizationForStrings(entityManager, membership.project);
+      if (organization) {
+        await recountStrings(entityManager, organization.id);
+      }
     });
   }
 }
