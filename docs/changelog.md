@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Password reset API: `POST /api/v1/auth/forgot-password` and `POST /api/v1/auth/reset-password` take the rate limit
+  of the other auth routes (sign-in, the verification email): `TR_AUTH_THROTTLE_LIMIT` requests per
+  `TR_AUTH_THROTTLE_TTL` from one address (10 per minute, 100 in production), then 429 Too Many Requests. Before, they
+  had no limit: anyone could send a person reset emails in a loop, and each one voided the link sent before, so the
+  person could not reset their password; an email could be checked for an account at full speed; and reset tokens
+  could be tried without end
+
 - A person's export and deletion requests from app.ever.co (Ever Platform connection) get answers Ever Platform takes.
   Before, an export was answered `exported` without the address Ever Platform requires (so it was refused), and a
   deletion was answered `anonymised`, a final answer, though only the Ever ID was removed and the account stayed. Now
