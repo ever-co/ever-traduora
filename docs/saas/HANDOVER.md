@@ -14,8 +14,8 @@ design says how it is built.
 |---|---|---|---|
 | P0 Design | ✅ merged | [#665](https://github.com/ever-co/ever-traduora/pull/665) | `docs/saas/DESIGN.md`; owner questions OD-T1..T14 with defaults in §12; bot findings fixed (an upgrade never widens access) |
 | P1 Organizations | ✅ merged | [#666](https://github.com/ever-co/ever-traduora/pull/666) | Merged as `2a9aa6f`; see "P1 Organizations" below |
-| P2 Isolation | 🔨 code complete, pushed | (to open) | Branch `feat/saas-p2-isolation`; mutation check 73.2 %; see "P2 Isolation" below |
-| P3 Plans and seats | ⏳ | — | |
+| P2 Isolation | 🔍 in review | [#672](https://github.com/ever-co/ever-traduora/pull/672) | Branch `feat/saas-p2-isolation`; review round 1 fixed; mutation check 66.7 %; see "P2 Isolation" below |
+| P3 Plans and seats | 🔨 code complete, pushed | (stacked on #672) | Branch `feat/saas-p3-plans`; see "P3 Plans, seats and strings" below |
 | P4 Billing (Stripe test mode) | ⏳ | — | |
 | P5 Accounts and hardening | ⏳ | — | |
 | P6 Operator console and data rights | ⏳ | — | |
@@ -204,6 +204,7 @@ Fixes after the checklist (rendered in SaaS mode at 1024 px and 390 px):
 |---|---|---|---|---|
 | 2026-11-27 | `6b689cd` | 60 of 82 | 73.2 % | ≥ 60 % ✅ |
 | 2026-11-27 | `452225e` | 64 of 96 (the suite passes all 96 as it is, fixtures confirmed) | 66.7 % | ≥ 60 % ✅ |
+| 2026-11-27 | `79fb2ff` (P3) | 64 of 97 (B's `/usage` added; the new check that each usage counts only its own projects passes against the double, as each side asks for its own) | 66.0 % | ≥ 60 % ✅ |
 
 What still passes against the double, by design: the checks that do not rest on the organization scope (B's child ids
 through A's own project are scoped by the project id; an API key is tied to its project; invitation tokens are tied to
@@ -235,7 +236,106 @@ to the suite, and add the result here.
 ### Left
 
 - Postgres 15 and MySQL 5.7 run in CI only.
-- P3: plans, seats and strings with locking (`seats_used` is kept; `strings_used` is recomputed there).
+- P3: plans, seats and strings with locking: done on `feat/saas-p3-plans`.
+
+## P3 Plans, seats and strings (branch `feat/saas-p3-plans`, stacked on `feat/saas-p2-isolation`)
+
+DESIGN §3.6, §4.1, §5 `/usage`, §12 OD-T2, T12, T13, T14.
+
+### Done
+
+- **Plans as a code constant**, `api/src/domain/organization-plans.ts`: Starter (15 seats, 10,000 strings), Small
+  Business (25 seats plus `extraSeats`, unlimited strings), Enterprise (unlimited both). A code that is no plan reads as
+  Starter.
+- **Effective plan** (`effectivePlan(organization, graceDays)`): Starter on `canceled`, `unpaid`, `incomplete_expired`,
+  and after `TR_BILLING_PAST_DUE_GRACE_DAYS` (default 14, new in `config.ts` and `docs/configuration.md`) of `past_due`.
+  The billing fields come with P4. Until then they are missing, which means no subscription, and the organization's
+  `plan_code` applies as it is. A `past_due` without a date keeps the plan; an unreadable date counts as lapsed.
+- **Seats** (`services/organization/organization-usage.ts`): members, plus everyone else with a pending organization
+  invite or a pending project invite to one of the organization's projects, counted once per person (by normalized
+  email). This adds the project invites to non-members that P1 left out. `recountSeats` now uses the same count.
+- **Strings**: the sum over the organization's projects of `localesCount × termsCount`.
+- **Enforced**, each inside a `readCommittedTransaction` that holds the organization row lock first, then the project
+  lock for adds (`lockOrganizationForStrings`, then `lockProject`):
+
+  | Change | Check |
+  |---|---|
+  | `POST /organizations/:id/invites`, direct add of a verified account | a new member needs a free seat |
+  | `POST /organizations/:id/invites`, invitation | a new pending invitation needs a free seat; a new link for someone who holds one passes |
+  | `POST /auth/accept-organization-invite`, `POST /auth/accept-invite` | refused only over the limit (the invitation already holds its seat) |
+  | `POST /projects/:id/invites` to someone outside the organization | as an organization invite (direct add or pending) |
+  | `POST /projects/:id/terms`, `POST /projects/:id/translations` (a locale), imports | the strings the change adds; a change that adds none passes |
+
+  A refusal answers **402 `plan_limit_reached`** with `resource` (`seats` or `strings`), `limit`, `used` and `plan`,
+  and the message "Your plan allows N members|strings. Upgrade to add more."
+- **Over the limit** (a downgrade, a lapse): adds are refused, nothing is deleted. Reads, edits, exports, removals and an
+  import of existing terms keep working. An acceptance that comes with a sign-up or a sign-in leaves the invitation
+  pending instead of failing, so the account is still made (with its own organization in SaaS mode).
+- **Single-tenant mode and the default organization** take no organization lock and keep the per-project
+  `Plan.maxStrings` check exactly as before (`PaymentRequired`). In an organization of SaaS mode the project plans are
+  ignored.
+- **`GET /organizations/:id/usage`**, `@Access('organization:ViewUsage')`, a new action of owners and admins: the effective
+  plan, seats used and included, strings used and limit (`null` is unlimited), counted live. SaaS mode only, and 404
+  `saas_disabled` for the default organization, like the members routes.
+- **Cached counters** `seats_used` and `strings_used` are refreshed in the same transaction by every limited change and
+  every seat change (invite, revoke, project invite and its removal, accept, member removal). A term, locale or project
+  removal does not refresh `strings_used`; nothing reads it, and `/usage` counts live.
+- **Web app**: the members page shows owners and admins the plan with two meters (seats, strings), read again after an
+  invite, revoke, removal or refusal. A `plan_limit_reached` anywhere in the app (`errorToMessage`) reads "Your plan
+  allows 15 members. Upgrade to add more." (figures as 10,000). On the members page it shows as a quiet notice, not as a
+  red error.
+- **Tests**: unit `organization-plans.spec.ts` (plans, limits, effective plan, grace), `organization-usage.spec.ts`
+  (counting once per person, seat and strings refusals), the 402 body in `exception.filter.spec.ts`; e2e
+  `test/organization-plans.e2e-spec.ts` (23 tests): every limit (invite, accept, project invite and its acceptance,
+  term, locale, import), parallel invites, project invites, term adds and imports at the edge of a limit never
+  exceeding it, a downgrade over the limit, Small Business and Enterprise without limits, the default organization and
+  single-tenant mode unchanged, `/usage` access; the isolation suite asks for B's `/usage` from A's people and checks
+  each organization's usage counts only its own projects.
+
+### Deviations from DESIGN.md (DESIGN updated)
+
+- `/usage` is owner and admin (`ViewUsage`), as the P3 brief says; §5 had `organization:View`.
+- §4.3 said a project invite to a non-member also creates an organization invite. P1 does not create one; the pending
+  project invite takes the seat itself, once per person.
+- Lock order for adds is organization, then project. An account deletion locks its projects first, then its
+  organizations. A term add at the same moment as the deletion of an account in that project can therefore deadlock
+  on Postgres or MySQL. The database breaks it, and the request that loses answers 503 with `Retry-After` (transient,
+  nothing written). Worth a look in review.
+- Term and locale adds now run in `readCommittedTransaction` (they used the default isolation level); the import kept
+  its own, which was READ COMMITTED already on Postgres and MySQL.
+- No link to billing in the 402 message yet: the billing page is P4.
+
+### P3 unslop notes (members page)
+
+Mode: **polish**. P1's direction stays (orderly, plain-spoken; string catalogues; figures in mono). Audit before
+building, `organization-members`: no slop signs in the page itself (4 px steps, hairlines at 8 %, one accent, mono
+roles). Two problems for P3: the seats line counted on the client (members plus organization invites) and missed
+pending project invites, and every refusal showed as a red error.
+
+- Moment: the plan card, two thin meters, the one place with the brand blue as fill; a reached limit turns its meter
+  the brand's danger tone (meaning, not decoration). Figures in mono, tabular, "6,240 of 10,000" or "40, no limit".
+- The 402 notice is a quiet surface with a hairline (`#f5f7f9`, the theme's light), not `alert-danger`.
+- Checklist: 4 px grid (card padding 20, meter rows 32 high, gaps 16, 12 on phones), radius 12 for the card like the
+  lists, bar radius 2, no emoji or icons added, sentence case, no exclamation marks, the two-sentence note keeps its
+  periods, a 200 ms width transition on the meter fill only. Rendered as a static preview at 800 px: plan card, notice
+  and list align on one left edge.
+
+### Test results (this machine, SQLite)
+
+- API unit (`--runInBand`): 488 of 488 tests pass in 47 suites. The 13 `src/formatters/*` suites cannot start on this
+  PC (jest EPERM, as before).
+- API e2e on SQLite, the whole suite: 35 suites, 415 passed, 10 skipped, 0 failed. Parallel requests are serialized on
+  SQLite; CI proves them on Postgres and MySQL.
+- Mutation check: 64 of 97 (66.0 %), see the table.
+- Web app Karma: 222 of 222. `ng lint`: no finding in the files P3 changed (the 61 `prefer-standalone` errors elsewhere
+  predate it). Prettier clean. `tslint` on the API clean.
+- `ng build --configuration=production` succeeds.
+
+### Left
+
+- CI (Postgres 15, MySQL 5.7) for the parallel tests at the edge of a limit.
+- P4: the billing fields on `organization` (`billing_status`, `past_due_since`, `extra_seats`), which `effectivePlan`
+  already reads; a link to billing from the 402 notice and the plan card.
 
 ## Needs owner
 

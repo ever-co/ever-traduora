@@ -124,7 +124,8 @@ The plans are a code constant (`api/src/domain/organization-plans.ts`), as in De
 | Small Business | `small_business` | 25 | +1 per extra seat bought | unlimited |
 | Enterprise | `enterprise` | unlimited (OD-T5) | — | unlimited |
 
-- **Seats** count the organization's members plus its pending organization invites.
+- **Seats** count the organization's members plus everyone else with a pending invitation: an organization invite, or a
+  project invite to one of its projects (OD-T10). A person counts once.
 - **Strings** count the sum over the organization's projects of `localesCount × termsCount`, the formula Traduora already uses per project.
 - The limits are checked on:
   - invite create and invite accept;
@@ -242,7 +243,8 @@ P4 adds:
 
 `id`, `organization_id` (FK CASCADE), `email`, `role`, `status` (`sent`/`accepted`), `token_hash`, `invited_by_user_id`, `date_created`. Unique on (`organization_id`, `email`).
 
-- A project invite to someone who is not yet a member also creates an organization invite, as `member`. That invite is a seat (OD-T10).
+- A pending project invite to someone who is not yet a member takes a seat of the organization itself (OD-T10); no
+  organization invite is made for it.
 - On acceptance, the organization membership is created before the project membership, in one transaction.
 
 ### 4.4 `project.organization_id` (P1)
@@ -293,7 +295,7 @@ New, all under `/api/v1`:
 | `POST /organizations/:id/transfer-ownership` | owner |
 | `GET/POST /organizations/:id/invites`, `DELETE …/invites/:inviteId` | organization:EditMembers |
 | `POST /auth/accept-organization-invite` | user (token) |
-| `GET /organizations/:id/usage` | organization:View: plan, seats, strings, limits |
+| `GET /organizations/:id/usage` | owner/admin (organization:ViewUsage): plan, seats, strings, limits |
 | `GET /organizations/:id/billing` | owner/admin, read-only (P4) |
 | `POST /organizations/:id/billing/checkout`, `POST …/billing/portal` | owner only (P4) |
 | `POST /billing/webhook` | webhook (P4) |
