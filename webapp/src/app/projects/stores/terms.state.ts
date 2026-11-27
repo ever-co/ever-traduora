@@ -60,12 +60,17 @@ const stateDefaults = {
 
 // The changes of one label on one term that wait for the API
 interface UnansweredLabelChanges {
-  // Whether the API has the label on the term: before the first of these changes, then after each one it saved
+  termId: string;
+  labelId: string;
+  // Whether the API has the label on the term, as known last: from the terms before the first of these changes or when
+  // GetTerms loads them, or from a change the API saved
   saved: boolean;
   waiting: number;
 }
 
 const unansweredKey = (action: LabelTerm | UnlabelTerm) => `${action.termId}/${action.label.id}`;
+
+const hasLabel = (terms: Term[], termId: string, labelId: string) => terms.some(t => t.id === termId && t.labels.some(l => l.id === labelId));
 
 @State<TermsStateModel>({
   name: 'terms',
@@ -97,8 +102,10 @@ export class TermsState implements NgxsOnInit {
     // they are. The labels store keeps the error, which the terms page shows.
     // The user can add a label and remove it again before the first answer: undoing each failed change alone would put
     // back a label that was never saved when both fail. So once every change of that label on that term is answered,
-    // the term gets the label as the API saved it last. TermsState lives as long as the app (providedIn root), and so
-    // does this subscription.
+    // the term gets the label as the API saved it last. Terms that GetTerms loads while a change waits have the labels as
+    // the API has them, which a failed change did not touch: the term then keeps the labels loaded, and a label that
+    // another session added meanwhile stays. TermsState lives as long as the app (providedIn root), and so does this
+    // subscription.
     this.actions$.pipe(ofActionCompleted(LabelTerm, UnlabelTerm)).subscribe(({ action, result }) => {
       const key = unansweredKey(action);
       const changes = this.unansweredLabels.get(key);
@@ -131,8 +138,12 @@ export class TermsState implements NgxsOnInit {
       changes.waiting++;
       return;
     }
-    const term = ctx.getState().terms.find(t => t.id === action.termId);
-    this.unansweredLabels.set(key, { saved: !!term && term.labels.some(l => l.id === action.label.id), waiting: 1 });
+    this.unansweredLabels.set(key, {
+      termId: action.termId,
+      labelId: action.label.id,
+      saved: hasLabel(ctx.getState().terms, action.termId, action.label.id),
+      waiting: 1,
+    });
   }
 
   @Action(Logout)
@@ -144,7 +155,11 @@ export class TermsState implements NgxsOnInit {
   getTerms(ctx: StateContext<TermsStateModel>, action: GetTerms) {
     ctx.patchState({ isLoading: true });
     return this.termService.find(action.projectId).pipe(
-      tap(terms => ctx.patchState({ terms })),
+      tap(terms => {
+        ctx.patchState({ terms });
+        // These terms are newer than what a label change that waits for the API read before it was sent
+        this.unansweredLabels.forEach(changes => (changes.saved = hasLabel(terms, changes.termId, changes.labelId)));
+      }),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);

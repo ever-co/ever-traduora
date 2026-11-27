@@ -10,7 +10,7 @@ import { ErrorMessageComponent } from '../../../shared/components/error-message/
 import { Label } from '../../models/label';
 import { Term } from '../../models/term';
 import { ProjectLabelState } from '../../stores/project-label.state';
-import { TermsState } from '../../stores/terms.state';
+import { GetTerms, TermsState } from '../../stores/terms.state';
 import { TermsListComponent } from './terms-list.component';
 
 @Pipe({ name: 'can' })
@@ -234,6 +234,38 @@ describe('TermsListComponent label filter', () => {
       settle();
 
       expect(errorMessage()).toBeUndefined();
+    }));
+
+    // The terms load again while a label change waits for the API, for example on a new visit of the page, and show the
+    // label that another session added to t3 meanwhile
+    const reloadTermsWithLabelOnT3 = () => {
+      TestBed.inject(Store).dispatch(new GetTerms('p1'));
+      http.expectOne({ method: 'GET', url: `${projectUrl}/terms` }).flush({ data: terms.map(t => (t.id === 't3' ? { ...t, labels: [labelA] } : t)) });
+    };
+
+    it('keeps a label that the terms loaded again show when adding it fails', fakeAsync(() => {
+      fixture.componentInstance.labelTerm('p1', 't3', labelA);
+      const request = http.expectOne({ method: 'POST', url: `${projectUrl}/labels/${labelA.id}/terms/t3` });
+      reloadTermsWithLabelOnT3();
+      // A lost connection
+      request.error(new ProgressEvent('error'));
+      settle();
+
+      expect(labelIds('t3')).toEqual([labelA.id]);
+      expect(errorMessage()).toBeTruthy();
+    }));
+
+    it('puts back a label that the terms loaded again show when removing it fails', fakeAsync(() => {
+      fixture.componentInstance.labelTerm('p1', 't3', labelA);
+      const add = http.expectOne({ method: 'POST', url: `${projectUrl}/labels/${labelA.id}/terms/t3` });
+      reloadTermsWithLabelOnT3();
+      fixture.componentInstance.unlabelTerm('p1', 't3', labelA);
+      add.error(new ProgressEvent('error'));
+      http.expectOne({ method: 'DELETE', url: `${projectUrl}/labels/${labelA.id}/terms/t3` }).error(new ProgressEvent('error'));
+      settle();
+
+      expect(labelIds('t3')).toEqual([labelA.id]);
+      expect(errorMessage()).toBeTruthy();
     }));
   });
 });
