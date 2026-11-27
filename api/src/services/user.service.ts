@@ -19,6 +19,8 @@ import { PublishedPasswordException, TooManyRequestsException } from '../errors'
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 import { config } from '../config';
 import { isPublishedPassword } from '../utils/published-passwords';
+import { lockProjects, readCommittedTransaction } from '../utils/database-locks';
+import { lockAccount } from './ever-id-session.service';
 import { EMAIL_VERIFICATION_VALID_DAYS, generateEmailVerificationToken, hashEmailVerificationToken } from '../utils/email-verification-token';
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
@@ -36,7 +38,6 @@ export class UserService {
 
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
-    @InjectRepository(ProjectUser) private projectUsersRepo: Repository<ProjectUser>,
     private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
   ) {
     this.loginAttemptsTTL = config.loginAttempts.ttl;
@@ -220,33 +221,38 @@ export class UserService {
     await entityManager.increment(User, { id: userId }, 'sessionVersion', 1);
   }
 
+  /**
+   * Deletes the account, unless it is the last admin of a project that other users use. The account's row and then the
+   * projects it administers are locked before their admins are counted, as Ever Platform's deletion path locks them
+   * ({@link lockProjects}): a deletion or role change at the same time waits, then counts what this one left.
+   */
   async deleteAccount(user: User) {
-    const ownedProjects = await this.projectUsersRepo.find({
-      where: { user: { id: user.id }, role: ProjectRole.Admin },
-      relations: ['project'],
-    });
+    await readCommittedTransaction(this.userRepo.manager, async manager => {
+      await lockAccount(manager, user.id);
+      const memberships = manager.getRepository(ProjectUser);
+      const ownedProjects = await memberships.find({
+        where: { user: { id: user.id }, role: ProjectRole.Admin },
+        relations: ['project'],
+      });
+      const projectIds = ownedProjects.filter(owned => owned.project).map(owned => owned.project.id);
+      await lockProjects(manager, projectIds);
 
-    // Ensure user is not last project admin for any of their projects with other users
-    if (ownedProjects && ownedProjects.length > 0) {
-      for (const ownedProject of ownedProjects) {
-        const projectUsers = await this.projectUsersRepo.find({
-          where: { project: { id: ownedProject.project.id } },
+      // Ensure user is not last project admin for any of their projects with other users
+      for (const projectId of projectIds) {
+        const projectUsers = await memberships.find({
+          where: { project: { id: projectId } },
           relations: ['user'],
         });
 
         const otherUsers = projectUsers.filter(u => u.user.id !== user.id);
 
-        if (otherUsers && otherUsers.length > 0) {
-          const otherAdmins = otherUsers.find(u => u.role === ProjectRole.Admin);
-
-          if (!otherAdmins) {
-            throw new UnprocessableEntityException('cant delete account if last project admin and other users use project');
-          }
+        if (otherUsers.length > 0 && !otherUsers.some(u => u.role === ProjectRole.Admin)) {
+          throw new UnprocessableEntityException('cant delete account if last project admin and other users use project');
         }
       }
-    }
 
-    await this.userRepo.remove(user);
+      await manager.getRepository(User).remove(user);
+    });
   }
 
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<User> {

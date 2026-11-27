@@ -22,6 +22,19 @@ export async function lockProject(entityManager: EntityManager, projectId: strin
 }
 
 /**
+ * Locks the rows of the projects, in the order of their ids, for a change that may leave one of them without an admin:
+ * an account deletion (*Delete account* or Ever Platform's), a project role change or a removal from a project. Each
+ * runs in a {@link readCommittedTransaction} and locks the projects before it counts their admins, so another such
+ * change waits for it and then counts what it left: two of them never each count the other's admin as the one who
+ * stays. SQLite runs one transaction at a time.
+ */
+export async function lockProjects(entityManager: EntityManager, projectIds: ReadonlyArray<string>): Promise<void> {
+  for (const projectId of Array.from(new Set(projectIds)).sort((a, b) => a.localeCompare(b))) {
+    await lockProject(entityManager, projectId);
+  }
+}
+
+/**
  * Locks the project's row for share for the rest of the transaction, taken first like {@link lockProject}: the
  * transaction waits for one that holds the project locked (an import, a new locale) to commit, and such a transaction
  * waits for it, while transactions that lock it for share do not wait for each other. SQLite runs one transaction at a
