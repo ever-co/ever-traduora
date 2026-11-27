@@ -2,6 +2,8 @@ import {
   isTransientDatabaseError,
   lockProject,
   lockProjectForShare,
+  lockProjects,
+  lockProjectsOf,
   lockTerm,
   readCommittedTransaction,
   translationEditLockKey,
@@ -40,6 +42,38 @@ describe('lockProject', () => {
     const entityManager: any = { findOne: jest.fn() };
 
     await lockProject(entityManager, 'project-1');
+
+    expect(entityManager.findOne).not.toHaveBeenCalled();
+  });
+});
+
+describe('lockProjects', () => {
+  it('locks each project once, in the order of their ids, so two changes never wait for each other', async () => {
+    const { locks } = loadOn('postgres');
+    const entityManager: any = { findOne: jest.fn() };
+
+    await locks.lockProjects(entityManager, ['project-b', 'project-a', 'project-b']);
+
+    expect(entityManager.findOne.mock.calls.map(([, options]) => options.where.id)).toEqual(['project-a', 'project-b']);
+    expect(entityManager.findOne.mock.calls.map(([, options]) => options.lock.mode)).toEqual(['for_no_key_update', 'for_no_key_update']);
+  });
+
+  it('locks every project the accounts belong to, in any role, once each and in order', async () => {
+    const { locks } = loadOn('mysql');
+    const find = jest.fn(async () => [{ project: { id: 'project-b' } }, { project: { id: 'project-a' } }, { project: null }]);
+    const entityManager: any = { findOne: jest.fn(), getRepository: () => ({ find }) };
+
+    await locks.lockProjectsOf(entityManager, ['user-1', 'user-2']);
+
+    expect(find).toHaveBeenCalledTimes(1);
+    expect(entityManager.findOne.mock.calls.map(([, options]) => options.where.id)).toEqual(['project-a', 'project-b']);
+  });
+
+  it('takes no lock on SQLite, which runs one transaction at a time', async () => {
+    const entityManager: any = { findOne: jest.fn(), getRepository: jest.fn() };
+
+    await lockProjects(entityManager, ['project-1']);
+    await lockProjectsOf(entityManager, ['user-1']);
 
     expect(entityManager.findOne).not.toHaveBeenCalled();
   });

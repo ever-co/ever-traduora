@@ -13,7 +13,7 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { DbType, isDbType } from '../utils/database-type-helper';
-import { lockProject, readCommittedTransaction } from '../utils/database-locks';
+import { lockProjects, lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { normalizeEmail } from '../ever-platform/env';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
@@ -286,7 +286,8 @@ export class EverConnectPersonService {
   private async decide(request: EverConnectPersonRequest, hashes: string[]): Promise<EverConnectPersonRequest> {
     let decidedHere = false;
     // READ COMMITTED (MySQL reads as of the first read otherwise): an admin count taken after a project lock wait sees
-    // the deletion the other transaction committed meanwhile
+    // the deletion or role change the other transaction committed meanwhile. Delete account and project role changes run
+    // in the same kind of transaction
     const decided = await readCommittedTransaction(this.requests.manager, async manager => {
       const locked = await manager.findOne(EverConnectPersonRequest, {
         where: { jobId: request.jobId },
@@ -369,6 +370,8 @@ export class EverConnectPersonService {
    */
   private async deleteAccounts(manager: EntityManager, userIds: string[]): Promise<boolean> {
     if (!this.settings.personDeletionEnabled) return false;
+    // Every project of every account, in one order, before any admin role is read (see lockProjectsOf)
+    await lockProjectsOf(manager, userIds);
     for (const userId of userIds) {
       const hold = await this.deletionHold(manager, userId, userIds);
       if (hold) {
@@ -392,9 +395,10 @@ export class EverConnectPersonService {
    *   administers. With other people in it, *Delete account* refuses as well; alone, the project would stay with nobody
    *   to reach it. The person hands the project over, or deletes it, in Traduora first.
    *
-   * The project's row is locked while its admins are counted ({@link lockProject}; SQLite runs one write transaction at
-   * a time), and the request's transaction reads committed rows: another deletion through this path waits for this one
-   * and then counts what it left.
+   * The projects' rows are locked, in the order of their ids, before their admins are counted ({@link lockProjects};
+   * {@link deleteAccounts} locks every project of the accounts first, see {@link lockProjectsOf}), and the request's
+   * transaction reads committed rows ({@link readCommittedTransaction}): another deletion, through this path or *Delete
+   * account*, or a project role change, waits for this one and then counts what it left.
    */
   async deletionHold(manager: EntityManager, userId: string, deleting: ReadonlyArray<string> = [userId]): Promise<PersonDeletionHold | null> {
     const user = await manager.getRepository(User).findOne({ where: { id: userId } });
@@ -406,11 +410,11 @@ export class EverConnectPersonService {
     }
     const memberships = manager.getRepository(ProjectUser);
     const administered = await memberships.find({ where: { user: { id: userId }, role: ProjectRole.Admin }, relations: { project: true } });
-    for (const membership of administered) {
-      if (!membership.project) continue;
-      await lockProject(manager, membership.project.id);
+    const projectIds = administered.filter(membership => membership.project).map(membership => membership.project.id);
+    await lockProjects(manager, projectIds);
+    for (const projectId of projectIds) {
       const admins = await memberships.find({
-        where: { project: { id: membership.project.id }, role: ProjectRole.Admin },
+        where: { project: { id: projectId }, role: ProjectRole.Admin },
         relations: { user: true },
       });
       if (!admins.some(admin => admin.user && !deleting.includes(admin.user.id))) return 'project_last_admin';

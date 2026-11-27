@@ -4,7 +4,6 @@ import Redis from 'ioredis';
 import { FindOperator, Repository } from 'typeorm';
 import { config } from '../config';
 import { GrantType } from '../domain/http';
-import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
@@ -192,7 +191,7 @@ describe('UserService', () => {
       users = new InMemoryUserRepository(await newUser({ loginAttempts: 5 }));
       // Without REDIS_HOST and REDIS_PORT there is no Redis client: the count is the one stored on the user
       const loginAttemptsStorage = { getRedisClient: () => null } as unknown as UserLoginAttemptsStorage;
-      service = new UserService(users as unknown as Repository<User>, {} as unknown as Repository<ProjectUser>, loginAttemptsStorage);
+      service = new UserService(users as unknown as Repository<User>, loginAttemptsStorage);
     });
 
     it('counts a failed sign-in from zero once the 15 minutes have passed', async () => {
@@ -275,7 +274,7 @@ describe('UserService', () => {
       users = new InMemoryUserRepository(await newUser());
       redis = new FakeRedis();
       const loginAttemptsStorage = new UserLoginAttemptsStorage(redis as unknown as Redis);
-      service = new UserService(users as unknown as Repository<User>, {} as unknown as Repository<ProjectUser>, loginAttemptsStorage);
+      service = new UserService(users as unknown as Repository<User>, loginAttemptsStorage);
     });
 
     it('checks no more parallel wrong passwords than the maximum', async () => {
