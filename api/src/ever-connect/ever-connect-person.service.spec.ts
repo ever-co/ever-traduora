@@ -124,10 +124,7 @@ describeOnSqlite('EverConnectPersonService', () => {
     data: { job_id: jobId, person_id: 'p', subject_hashes: hashes },
   });
 
-  const connected = async (
-    settings: Partial<EverConnectSettings> = {},
-    instanceSettings: EverInstanceSettings = INSTANCE_SETTINGS,
-  ) => {
+  const connected = async (settings: Partial<EverConnectSettings> = {}, instanceSettings: EverInstanceSettings = INSTANCE_SETTINGS) => {
     const built = build(settings, instanceSettings);
     await built.connect.connect('EVC-TEST-0000-0001', 'Our translations', 'user:u1');
     platform.calls.length = 0;
