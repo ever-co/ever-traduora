@@ -169,6 +169,30 @@ export default class AuthorizationService {
     return membership;
   }
 
+  /**
+   * Whether the caller may bring `targetUserId` (or a person without an account, `undefined`) into the organization
+   * through a project invite. Someone who is a member already: any project admin may. Anyone new: only the owner and the
+   * admins (`EditMembers`), as with organization invites; otherwise 403 `organization_admin_required`. The default
+   * organization keeps the rule of a self-hosted install, where everyone is a member anyway.
+   */
+  async authorizeAddingToOrganization(caller: User, organization: Organization, targetUserId: string | undefined): Promise<void> {
+    assertOrganizationOpen(organization, 'project not found');
+    if (organization.isDefault) {
+      return;
+    }
+    if (targetUserId && (await this.organizationUserRepo.exists({ where: { organizationId: organization.id, userId: targetUserId } }))) {
+      return;
+    }
+    const membership = await this.organizationUserRepo.findOne({ where: { organizationId: organization.id, userId: caller.id } });
+    if (!isOrganizationActionAllowed(membership?.role, OrganizationAction.EditMembers)) {
+      throw new OrganizationException(
+        HttpStatus.FORBIDDEN,
+        'organization_admin_required',
+        'Only the owner and the admins of the organization can add new people to it',
+      );
+    }
+  }
+
   private isAuthorized(role: ProjectRole, action: ProjectAction): boolean {
     switch (role) {
       // Authorize admins to every action

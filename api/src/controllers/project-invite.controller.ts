@@ -75,6 +75,9 @@ export default class ProjectInviteController {
       where: { email: normalizeEmail(inviteUserRequest.email) },
     });
 
+    // A project invite to someone outside the organization brings them into it: only its owner and admins may do that
+    await this.auth.authorizeAddingToOrganization(user, project.organization, targetUser?.id);
+
     // Anyone can create an account with any email, so only an account that proved it reads this email joins directly.
     // Any other account gets an invite like a new user, accepted with the link sent to the email.
     if (targetUser && !targetUser.emailVerified) {

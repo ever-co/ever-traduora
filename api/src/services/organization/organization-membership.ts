@@ -242,13 +242,16 @@ export async function closeIfEmpty(tx: EntityManager, organizationId: string): P
   return true;
 }
 
-/** Whether the organization can take a new member: `active`, with its owner. */
+/**
+ * Whether the organization can take a new member: `active`, with its owner (the default organization may wait for its
+ * first account, which becomes the owner).
+ */
 export async function isOpenForMembers(manager: EntityManager, organizationId: string): Promise<boolean> {
   const organization = await manager.findOne(Organization, { where: { id: organizationId } });
-  return (
-    organization?.status === OrganizationStatus.Active &&
-    (await manager.exists(OrganizationUser, { where: { organizationId, role: OrganizationRole.Owner } }))
-  );
+  if (organization?.status !== OrganizationStatus.Active) {
+    return false;
+  }
+  return organization.isDefault || manager.exists(OrganizationUser, { where: { organizationId, role: OrganizationRole.Owner } });
 }
 
 /**

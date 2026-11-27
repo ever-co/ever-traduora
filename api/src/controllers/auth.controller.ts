@@ -71,7 +71,7 @@ import { clientSecretHash } from '../utils/client-secret-hash';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
-import { ensureMember } from '../services/organization/organization-membership';
+import { ensureMember, isOpenForMembers } from '../services/organization/organization-membership';
 import { assertSaasEnabled, OrganizationService } from '../services/organization/organization.service';
 import { OrganizationInvite } from '../entity/organization-invite.entity';
 
@@ -534,6 +534,10 @@ export class AuthController {
       const accepted: Invite[] = [];
       for (const invite of invites) {
         if (current?.email !== invite.email) {
+          continue;
+        }
+        // Only into an organization that is open: an invite of a suspended or closed one stays as it is
+        if (!(await isOpenForMembers(entityManager, invite.project.organizationId))) {
           continue;
         }
         const { affected } = await entityManager.update(

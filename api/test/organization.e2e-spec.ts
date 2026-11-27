@@ -436,6 +436,45 @@ describe('Organizations in SaaS mode (e2e)', () => {
       expect(await projectIds(invitee)).toEqual([project.id]);
     });
 
+    it('lets only owners and admins bring new people into the organization through a project invite', async () => {
+      const owner = await signupTestUser(app, 'gate-owner@test.com');
+      const member = await signupTestUser(app, 'gate-member@test.com');
+      const colleague = await signupTestUser(app, 'gate-colleague@test.com');
+      const outsider = await signupTestUser(app, 'gate-outsider@test.com');
+      const organization = await onlyOrganizationOf(owner);
+      await inviteToOrganization(owner, organization.id, member.email).expect(201);
+      await inviteToOrganization(owner, organization.id, colleague.email).expect(201);
+      // A member creates a project and is its admin
+      const theirs = await createProject(member, organization.id);
+
+      // ...but cannot bring anyone new into the organization, with or without an account
+      for (const email of [outsider.email, 'gate-nobody@test.com']) {
+        const refused = await request(server())
+          .post(`/api/v1/projects/${theirs.id}/invites`)
+          .set(auth(member))
+          .send({ email, role: 'viewer' })
+          .expect(403);
+        expect(refused.body.error.code).toBe('organization_admin_required');
+      }
+      expect((await organizationsOf(outsider)).map(o => o.id)).not.toContain(organization.id);
+
+      // A member of the organization joins the project as before
+      await request(server())
+        .post(`/api/v1/projects/${theirs.id}/invites`)
+        .set(auth(member))
+        .send({ email: colleague.email, role: 'viewer' })
+        .expect(201);
+      expect(await projectIds(colleague, organization.id)).toEqual([theirs.id]);
+
+      // The owner (an implicit project admin here) may bring the outsider in
+      await request(server())
+        .post(`/api/v1/projects/${theirs.id}/invites`)
+        .set(auth(owner))
+        .send({ email: outsider.email, role: 'viewer' })
+        .expect(201);
+      expect((await organizationsOf(outsider)).map(o => [o.id, o.role])).toContainEqual([organization.id, 'member']);
+    });
+
     it('lets an API key reach its own project only', async () => {
       const owner = await signupTestUser(app, 'client-owner@test.com');
       const project = await createProject(owner);

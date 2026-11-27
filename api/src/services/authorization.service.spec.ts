@@ -150,3 +150,41 @@ describe('AuthorizationService.authorizeOrganizationAction', () => {
     await expect(auth.authorizeOrganizationAction(user, 'org-1', OrganizationAction.ViewOrganization)).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
+
+describe('AuthorizationService.authorizeAddingToOrganization', () => {
+  /** Members of org-1: the caller with `callerRole`, and `member-1`. */
+  const over = (callerRole: OrganizationRole | undefined) => {
+    const organizationUserRepo = {
+      exists: jest.fn(async ({ where }) => where.userId === 'member-1'),
+      findOne: jest.fn(async () => (callerRole ? Object.assign(new OrganizationUser(), { role: callerRole }) : null)),
+    };
+    return new AuthorizationService({} as any, {} as any, {} as any, organizationUserRepo as any);
+  };
+
+  it('lets anyone allowed to invite to the project add a member of the organization', async () => {
+    await expect(over(OrganizationRole.Member).authorizeAddingToOrganization(user, organization(), 'member-1')).resolves.toBeUndefined();
+  });
+
+  it('keeps bringing new people in to the owner and the admins', async () => {
+    for (const target of ['outsider', undefined]) {
+      await expect(over(OrganizationRole.Admin).authorizeAddingToOrganization(user, organization(), target)).resolves.toBeUndefined();
+      await expect(over(OrganizationRole.Owner).authorizeAddingToOrganization(user, organization(), target)).resolves.toBeUndefined();
+      const refused = over(OrganizationRole.Member).authorizeAddingToOrganization(user, organization(), target);
+      await expect(refused).rejects.toBeInstanceOf(OrganizationException);
+      await expect(refused).rejects.toMatchObject({ code: 'organization_admin_required' });
+    }
+  });
+
+  it('keeps the rule of a self-hosted install in the default organization', async () => {
+    await expect(
+      over(OrganizationRole.Member).authorizeAddingToOrganization(user, organization({ isDefault: true }), 'outsider'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('refuses any addition to an organization that is not active', async () => {
+    const suspended = organization({ status: OrganizationStatus.Suspended });
+    await expect(over(OrganizationRole.Owner).authorizeAddingToOrganization(user, suspended, 'member-1')).rejects.toBeInstanceOf(
+      OrganizationException,
+    );
+  });
+});
