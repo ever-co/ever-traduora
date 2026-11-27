@@ -1,4 +1,18 @@
-import { Body, ConflictException, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -92,8 +106,12 @@ export default class ProjectInviteController {
       // a project membership alone gives no access outside the organization (DESIGN §4.3)
       let newProjectUser = await this.projectUserRepo.manager.transaction(async tx => {
         // Decided again under the organization lock that a removal takes: a member removed meanwhile is someone new
-        await lockOrganization(tx, project.organizationId);
-        await this.auth.authorizeAddingToOrganization(user, project.organization, targetUser.id, tx);
+        // The locked row, not the copy read before the transaction: an organization closed meanwhile is refused
+        const locked = await lockOrganization(tx, project.organizationId);
+        if (!locked) {
+          throw new NotFoundException('project not found');
+        }
+        await this.auth.authorizeAddingToOrganization(user, locked, targetUser.id, tx);
         await ensureMember(tx, project.organizationId, targetUser.id);
         return tx.save(
           tx.create(ProjectUser, {

@@ -71,7 +71,7 @@ import { clientSecretHash } from '../utils/client-secret-hash';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
-import { ensureMember, isOpenForMembers } from '../services/organization/organization-membership';
+import { ensureMember, isOpenForMembers, lockOrganization } from '../services/organization/organization-membership';
 import { assertSaasEnabled, OrganizationService } from '../services/organization/organization.service';
 import { OrganizationInvite } from '../entity/organization-invite.entity';
 
@@ -558,7 +558,10 @@ export class AuthController {
         if (current?.email !== invite.email) {
           continue;
         }
-        // Only into an organization that is open: an invite of a suspended or closed one stays as it is
+        // Under the organization lock that a member removal takes, so the two cannot interleave (the user row is
+        // locked first and a removal never locks it, so the order cannot deadlock). Only into an organization that is
+        // open: an invite of a suspended or closed one stays as it is
+        await lockOrganization(entityManager, invite.project.organizationId);
         if (!(await isOpenForMembers(entityManager, invite.project.organizationId))) {
           continue;
         }
