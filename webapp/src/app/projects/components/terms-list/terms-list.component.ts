@@ -6,7 +6,7 @@ import { Project } from '../../models/project';
 import { Term } from '../../models/term';
 import { ProjectsState } from '../../stores/projects.state';
 import { ClearMessages, CreateTerm, DeleteTerm, GetTerms, TermsState, UpdateTerm } from '../../stores/terms.state';
-import { LabelTerm, UnlabelTerm, ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
+import { ClearMessages as ClearLabelMessages, LabelTerm, UnlabelTerm, ProjectLabelState, GetProjectLabels } from '../../stores/project-label.state';
 import { Label } from '../../models/label';
 import { FormControl } from '@angular/forms';
 
@@ -29,7 +29,8 @@ export class TermsListComponent implements OnInit, OnDestroy {
   @Select(state => state.terms.isLoading)
   isLoading$: Observable<boolean>;
 
-  @Select(state => state.terms.errorMessage)
+  // A failed label of a term writes its error to the labels store (the dialog that picked the label is closed by then)
+  @Select(state => state.terms.errorMessage || state.projectLabels.errorMessage)
   errorMessage$: Observable<string | undefined>;
 
   newValue = '';
@@ -90,6 +91,9 @@ export class TermsListComponent implements OnInit, OnDestroy {
   constructor(private store: Store) {}
 
   ngOnInit() {
+    // A label error already in the store is not about this visit: a label change can fail after the page was left
+    this.store.dispatch(new ClearLabelMessages());
+
     this.sub = this.project$
       .pipe(
         tap(project => {
@@ -104,7 +108,7 @@ export class TermsListComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.sub.unsubscribe();
-    this.store.dispatch(new ClearMessages());
+    this.store.dispatch([new ClearMessages(), new ClearLabelMessages()]);
   }
 
   onCreate(projectId: string, value: string) {

@@ -1,8 +1,9 @@
-import { Action, NgxsOnInit, Selector, State, StateContext } from '@ngxs/store';
+import { Action, Actions, NgxsOnInit, ofActionCompleted, Selector, State, StateContext } from '@ngxs/store';
 import { throwError } from 'rxjs';
 import { catchError, finalize, tap } from 'rxjs/operators';
 import { Logout } from '../../auth/stores/auth.state';
 import { errorToMessage } from '../../shared/util/api-error';
+import { Label } from '../models/label';
 import { Term } from '../models/term';
 import { ProjectTermsService } from '../services/terms.service';
 import { ClearCurrentProject, RefreshProjectStats } from './projects.state';
@@ -57,13 +58,33 @@ const stateDefaults = {
   errorMessage: undefined,
 };
 
+// The changes of one label on one term that wait for the API
+interface UnansweredLabelChanges {
+  termId: string;
+  labelId: string;
+  // Whether the API has the label on the term, as known last: from the terms before the first of these changes or when
+  // GetTerms loads them, or from a change the API saved
+  saved: boolean;
+  waiting: number;
+}
+
+const unansweredKey = (action: LabelTerm | UnlabelTerm) => `${action.termId}/${action.label.id}`;
+
+const hasLabel = (terms: Term[], termId: string, labelId: string) => terms.some(t => t.id === termId && t.labels.some(l => l.id === labelId));
+
 @State<TermsStateModel>({
   name: 'terms',
   defaults: stateDefaults,
 })
 @Injectable({ providedIn: 'root' })
 export class TermsState implements NgxsOnInit {
-  constructor(private termService: ProjectTermsService) {}
+  // By term id and label id
+  private unansweredLabels = new Map<string, UnansweredLabelChanges>();
+
+  constructor(
+    private termService: ProjectTermsService,
+    private actions$: Actions,
+  ) {}
 
   @Selector()
   static isLoading(state: TermsStateModel) {
@@ -75,7 +96,55 @@ export class TermsState implements NgxsOnInit {
     return state.terms;
   }
 
-  ngxsOnInit(ctx: StateContext<TermsStateModel>) {}
+  ngxsOnInit(ctx: StateContext<TermsStateModel>) {
+    // A label is added to a term or removed from it here before the API answers (LabelTerm, UnlabelTerm). When the API
+    // refuses (a label deleted in another tab, a lost connection), the change is undone, so the term shows its labels as
+    // they are. The labels store keeps the error, which the terms page shows.
+    // The user can add a label and remove it again before the first answer: undoing each failed change alone would put
+    // back a label that was never saved when both fail. So once every change of that label on that term is answered,
+    // the term gets the label as the API saved it last. Terms that GetTerms loads while a change waits have the labels as
+    // the API has them, which a failed change did not touch: the term then keeps the labels loaded, and a label that
+    // another session added meanwhile stays. TermsState lives as long as the app (providedIn root), and so does this
+    // subscription.
+    this.actions$.pipe(ofActionCompleted(LabelTerm, UnlabelTerm)).subscribe(({ action, result }) => {
+      const key = unansweredKey(action);
+      const changes = this.unansweredLabels.get(key);
+      if (!changes) {
+        return;
+      }
+      changes.waiting--;
+      if (result.successful) {
+        changes.saved = action instanceof LabelTerm;
+      }
+      if (changes.waiting > 0) {
+        return;
+      }
+      this.unansweredLabels.delete(key);
+      const term = ctx.getState().terms.find(t => t.id === action.termId);
+      if (term && term.labels.some(l => l.id === action.label.id) !== changes.saved) {
+        this.patchTermLabels(ctx, action.termId, labels =>
+          changes.saved ? [...labels, action.label] : labels.filter(l => l.id !== action.label.id),
+        );
+      }
+    });
+  }
+
+  // Counts a change of a label on a term that waits for the API. The first one reads whether the term has the label
+  // (saved): a change sent while another one waits does not know yet whether that one is saved.
+  private waitForAnswer(ctx: StateContext<TermsStateModel>, action: LabelTerm | UnlabelTerm) {
+    const key = unansweredKey(action);
+    const changes = this.unansweredLabels.get(key);
+    if (changes) {
+      changes.waiting++;
+      return;
+    }
+    this.unansweredLabels.set(key, {
+      termId: action.termId,
+      labelId: action.label.id,
+      saved: hasLabel(ctx.getState().terms, action.termId, action.label.id),
+      waiting: 1,
+    });
+  }
 
   @Action(Logout)
   logout(ctx: StateContext<TermsStateModel>, action: Logout) {
@@ -86,7 +155,11 @@ export class TermsState implements NgxsOnInit {
   getTerms(ctx: StateContext<TermsStateModel>, action: GetTerms) {
     ctx.patchState({ isLoading: true });
     return this.termService.find(action.projectId).pipe(
-      tap(terms => ctx.patchState({ terms })),
+      tap(terms => {
+        ctx.patchState({ terms });
+        // These terms are newer than what a label change that waits for the API read before it was sent
+        this.unansweredLabels.forEach(changes => (changes.saved = hasLabel(terms, changes.termId, changes.labelId)));
+      }),
       catchError(error => {
         ctx.patchState({ errorMessage: errorToMessage(error) });
         return throwError(error);
@@ -150,6 +223,7 @@ export class TermsState implements NgxsOnInit {
 
   @Action(LabelTerm)
   labelTerm(ctx: StateContext<TermsStateModel>, action: LabelTerm) {
+    this.waitForAnswer(ctx, action);
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
@@ -157,11 +231,14 @@ export class TermsState implements NgxsOnInit {
       }
       return v;
     });
-    ctx.patchState({ terms: updated });
+    // The terms page shows this error before the one of the labels store: an error of an earlier term change goes, so
+    // the error of this label change shows
+    ctx.patchState({ terms: updated, errorMessage: undefined });
   }
 
   @Action(UnlabelTerm)
   unlabelTerm(ctx: StateContext<TermsStateModel>, action: UnlabelTerm) {
+    this.waitForAnswer(ctx, action);
     const terms = ctx.getState().terms;
     const updated = terms.map(v => {
       if (v.id === action.termId) {
@@ -169,7 +246,13 @@ export class TermsState implements NgxsOnInit {
       }
       return v;
     });
-    ctx.patchState({ terms: updated });
+    // As in labelTerm: the error of this label change shows, not one of an earlier term change
+    ctx.patchState({ terms: updated, errorMessage: undefined });
+  }
+
+  private patchTermLabels(ctx: StateContext<TermsStateModel>, termId: string, update: (labels: Label[]) => Label[]) {
+    const terms = ctx.getState().terms.map(t => (t.id === termId ? { ...t, labels: update(t.labels) } : t));
+    ctx.patchState({ terms });
   }
 
   @Action(ClearMessages)

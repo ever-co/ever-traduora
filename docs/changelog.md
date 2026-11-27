@@ -8,6 +8,9 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Terms page: a label that could not be added to a term or removed from it (a label deleted in another tab, a change
+  that conflicted with another one, a lost connection) is taken off the term again, or put back on it, and the page shows the
+  error. Before, the page showed the change as done and no error, and the change was gone after a reload
 - On the terms and labels pages, screen readers name the delete button of each card after what it deletes:
   "Delete term greeting", "Delete label todo". Before, each of these buttons was read out as "close", the text of its
   icon, so a page of ten terms had ten identical "close" buttons, nothing said that they delete, and a screen reader
