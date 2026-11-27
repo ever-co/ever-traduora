@@ -17,6 +17,8 @@ import { generateInviteToken, hashInviteToken, organizationInviteSignupUrl } fro
 import MailService from '../mail.service';
 import {
   activeMemberships,
+  closeIfEmpty,
+  isOpenForMembers,
   createOrganizationWithOwner,
   isDuplicateKey,
   lockOrganization,
@@ -231,6 +233,7 @@ export class OrganizationService {
     }
     await tx.delete(OrganizationUser, { id: membership.id });
     await recountSeats(tx, membership.organizationId);
+    await closeIfEmpty(tx, membership.organizationId);
   }
 
   /** Makes another member the owner; the previous owner becomes an admin. */
@@ -337,7 +340,7 @@ export class OrganizationService {
       where: { tokenHash: hashInviteToken(token), status: InviteStatus.Sent },
       relations: ['organization'],
     });
-    if (!invite || invite.email !== normalizeEmail(email) || invite.organization?.status !== OrganizationStatus.Active) {
+    if (!invite || invite.email !== normalizeEmail(email) || !(await isOpenForMembers(this.invites.manager, invite.organizationId))) {
       return null;
     }
     return invite;
@@ -364,6 +367,10 @@ export class OrganizationService {
           continue;
         }
         await lockOrganization(tx, invite.organizationId);
+        // Only into an active organization that has its owner (a closed one has no pending invites left anyway)
+        if (!(await isOpenForMembers(tx, invite.organizationId))) {
+          continue;
+        }
         const { affected } = await tx.update(
           OrganizationInvite,
           { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() },

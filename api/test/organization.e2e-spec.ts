@@ -6,6 +6,8 @@ import { OrganizationRole, OrganizationStatus } from '../src/domain/organization
 import { OrganizationUser } from '../src/entity/organization-user.entity';
 import { Organization } from '../src/entity/organization.entity';
 import { ProjectUser } from '../src/entity/project-user.entity';
+import { Project } from '../src/entity/project.entity';
+import { OrganizationInvite } from '../src/entity/organization-invite.entity';
 import { User } from '../src/entity/user.entity';
 import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
 
@@ -316,6 +318,43 @@ describe('Organizations in SaaS mode (e2e)', () => {
       // A sole member can go
       await request(server()).delete('/api/v1/users/me').set(auth(member)).expect(204);
       expect(await dataSource.getRepository(User).count({ where: { id: member.id } })).toBe(0);
+    });
+
+    it('closes an organization whose last member deletes their account, and its invites stop working', async () => {
+      const owner = await signupTestUser(app, 'closing-owner@test.com');
+      const organization = await onlyOrganizationOf(owner);
+      const project = await createProject(owner, organization.id);
+      const invited = await inviteToOrganization(owner, organization.id, 'closing-invitee@test.com').expect(201);
+      const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
+
+      await request(server()).delete('/api/v1/users/me').set(auth(owner)).expect(204);
+      const stored = await dataSource.getRepository(Organization).findOneByOrFail({ id: organization.id });
+      expect(stored.status).toBe(OrganizationStatus.Deleted);
+      expect(stored.seatsUsed).toBe(0);
+      // Its data stays (deletion proper is P6); its pending invites are gone
+      expect(await dataSource.getRepository(Project).count({ where: { id: project.id } })).toBe(1);
+      expect(await dataSource.getRepository(OrganizationInvite).count({ where: { organizationId: organization.id } })).toBe(0);
+
+      // The invitee signs up on their own (no pending invite holds them back) and the old link joins nothing
+      const signup = await request(server())
+        .post('/api/v1/auth/signup')
+        .send({ name: 'Late Invitee', email: 'closing-invitee@test.com', password: 'mysupersecretpassword', inviteToken: token })
+        .expect(200);
+      const invitee = signup.body.data as TestingUser;
+      await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(invitee)).send({ inviteToken: token }).expect(404);
+      expect((await organizationsOf(invitee)).map(o => o.id)).not.toContain(organization.id);
+    });
+
+    it('accepts no invite of an organization that is not active', async () => {
+      const owner = await signupTestUser(app, 'suspended-inviter@test.com');
+      const invitee = await signupTestUser(app, 'suspended-invitee@test.com', false);
+      const organization = await onlyOrganizationOf(owner);
+      const invited = await inviteToOrganization(owner, organization.id, invitee.email).expect(201);
+      const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
+      await dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Suspended });
+      await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(invitee)).send({ inviteToken: token }).expect(404);
+      await dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Active });
+      await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(invitee)).send({ inviteToken: token }).expect(200);
     });
   });
 

@@ -22,7 +22,7 @@ import { isPublishedPassword } from '../utils/published-passwords';
 import { lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { lockAccount } from './ever-id-session.service';
 import { EMAIL_VERIFICATION_VALID_DAYS, generateEmailVerificationToken, hashEmailVerificationToken } from '../utils/email-verification-token';
-import { joinDefaultOrganization, passOwnershipBeforeAccountDeletion } from './organization/organization-membership';
+import { joinDefaultOrganization, prepareOrganizationsForAccountDeletion } from './organization/organization-membership';
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
 
@@ -258,8 +258,9 @@ export class UserService {
         }
       }
 
-      // An organization the user owns passes to another member, or the deletion waits for a transfer (SaaS mode)
-      await passOwnershipBeforeAccountDeletion(manager, user.id);
+      // An organization the user owns passes to another member, or the deletion waits for a transfer (SaaS mode); an
+      // organization the user is alone in is closed
+      await prepareOrganizationsForAccountDeletion(manager, user.id);
 
       await manager.getRepository(User).remove(user);
     });

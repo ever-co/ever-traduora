@@ -227,23 +227,57 @@ export async function activeMemberships(manager: EntityManager, userId: string, 
 }
 
 /**
- * Before an account is deleted: an organization must not be left without an owner while it has other members. The
- * default organization (single-tenant mode, where nobody can transfer by hand) passes to its earliest admin, else its
- * earliest member. Another organization (SaaS mode) refuses: its owner transfers the ownership first.
+ * Closes an organization that has no member left (not the default one, which the next account joins): it becomes
+ * `deleted`, so nobody reaches it, and its pending invites go, so nobody joins it. Its data stays; deleting it is the
+ * organization deletion of P6. Needs the organization row locked by the caller's transaction.
  */
-export async function passOwnershipBeforeAccountDeletion(manager: EntityManager, userId: string): Promise<void> {
-  const owned = await manager.find(OrganizationUser, { where: { userId, role: OrganizationRole.Owner }, relations: ['organization'] });
-  for (const ownership of owned) {
+export async function closeIfEmpty(tx: EntityManager, organizationId: string): Promise<boolean> {
+  const organization = await tx.findOne(Organization, { where: { id: organizationId } });
+  if (!organization || organization.isDefault || (await tx.exists(OrganizationUser, { where: { organizationId } }))) {
+    return false;
+  }
+  await tx.delete(OrganizationInvite, { organizationId, status: InviteStatus.Sent });
+  await tx.update(Organization, { id: organizationId }, { status: OrganizationStatus.Deleted });
+  await recountSeats(tx, organizationId);
+  return true;
+}
+
+/** Whether the organization can take a new member: `active`, with its owner. */
+export async function isOpenForMembers(manager: EntityManager, organizationId: string): Promise<boolean> {
+  const organization = await manager.findOne(Organization, { where: { id: organizationId } });
+  return (
+    organization?.status === OrganizationStatus.Active &&
+    (await manager.exists(OrganizationUser, { where: { organizationId, role: OrganizationRole.Owner } }))
+  );
+}
+
+/**
+ * Before an account is deleted, for each organization of the user:
+ * - the only member: the organization is closed (`closeIfEmpty`), except the default one;
+ * - the owner, with other members: the default organization (single-tenant mode, where nobody can transfer by hand)
+ *   passes to its earliest admin, else its earliest member; another organization (SaaS mode) refuses, its owner
+ *   transfers the ownership first.
+ */
+export async function prepareOrganizationsForAccountDeletion(manager: EntityManager, userId: string): Promise<void> {
+  const memberships = await manager.find(OrganizationUser, { where: { userId }, relations: ['organization'] });
+  for (const membership of memberships) {
     await inTransaction(manager, async tx => {
-      await lockOrganization(tx, ownership.organizationId);
+      await lockOrganization(tx, membership.organizationId);
       const members = await tx.find(OrganizationUser, {
-        where: { organizationId: ownership.organizationId },
+        where: { organizationId: membership.organizationId },
         order: { date: { created: 'ASC' }, id: 'ASC' },
       });
       const candidates = members.filter(member => member.userId !== userId);
       if (candidates.length === 0) {
+        // The account's membership goes with the account: the organization has nobody left
+        await tx.delete(OrganizationUser, { id: membership.id });
+        await closeIfEmpty(tx, membership.organizationId);
         return;
       }
+      if (membership.role !== OrganizationRole.Owner) {
+        return;
+      }
+      const ownership = membership;
       if (!ownership.organization?.isDefault) {
         throw new OrganizationException(
           HttpStatus.UNPROCESSABLE_ENTITY,
