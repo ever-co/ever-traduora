@@ -189,14 +189,21 @@ Fixes after the checklist (rendered in SaaS mode at 1024 px and 390 px):
     organization members and invites) is exactly as before.
 - **Mutation check**: `api/test/organization-isolation.mutation.json` maps the scope module to
   `api/test/mutation/no-organization-scope.ts` (everyone owns every organization, every organization is open, every
-  member acts as project admin; no switch in production code). `yarn --cwd api test:isolation:mutation` runs the suite
-  under it and prints the failing share; it fails below 60 %.
+  member acts as project admin; no switch in production code). `yarn --cwd api test:isolation:mutation` first runs the
+  suite as it is and stops unless all of it passes, then runs it under the double and prints the failing share; it
+  fails below 60 %, and counts nothing unless the suite reports that its fixtures were made.
+- **Review of #672:** an id that is not a non-empty string is refused before any access lookup (guard,
+  `resolveProjectAccess`, `membershipOf`); an import re-checks access inside its transaction after the project lock
+  (`recheckProjectAccess`), so access lost during a slow upload writes nothing; the source scan also watches entity
+  manager calls naming `Project` or `Organization` (allowed one by one, with a reason); the isolation suite covers
+  project creation in B, B's ids in a request body, and each child of a nested route on its own.
 
 ### Mutation check results
 
 | Date | Commit | Failing tests with the scope removed | Share | Target |
 |---|---|---|---|---|
 | 2026-11-27 | `6b689cd` | 60 of 82 | 73.2 % | ≥ 60 % ✅ |
+| 2026-11-27 | `452225e` | 64 of 96 (the suite passes all 96 as it is, fixtures confirmed) | 66.7 % | ≥ 60 % ✅ |
 
 What still passes against the double, by design: the checks that do not rest on the organization scope (B's child ids
 through A's own project are scoped by the project id; an API key is tied to its project; invitation tokens are tied to
