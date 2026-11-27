@@ -77,10 +77,10 @@ export default class AuthorizationService {
 
   /**
    * The caller's access to a project, with `project.plan` and `project.organization` loaded. In order:
-   * 1. the project's organization exists and is `active` (`assertOrganizationOpen`);
-   * 2. a user is a member of that organization;
+   * 1. a user is a member of the project's organization (a non-member learns nothing more, not even its status);
+   * 2. that organization is `active` (`assertOrganizationOpen`);
    * 3. the user has a project role, or is an implicit project admin (`effectiveProjectRole`);
-   * 4. an API key belongs to this very project; its organization is checked as in 1, without the member step.
+   * 4. an API key belongs to this very project; its organization is checked as in 2, without the member step.
    * A user's answer carries the effective role; it is not a stored row when the role is implicit.
    */
   async mustBeProjectUserOrClient(userOrClient: User | ProjectClient, projectId: string): Promise<ProjectUser | ProjectClient> {
@@ -90,16 +90,16 @@ export default class AuthorizationService {
         relations: ['project', 'project.plan', 'project.organization'],
       });
       const project = membership?.project ?? (await this.projectRepo.findOne({ where: { id: projectId }, relations: ['plan', 'organization'] }));
-      if (!project) {
+      if (!project?.organizationId) {
         throw new ForbiddenException('project not found');
       }
-      assertOrganizationOpen(project.organization, 'project not found');
       const organizationMembership = await this.organizationUserRepo.findOne({
         where: { organizationId: project.organizationId, userId: userOrClient.id },
       });
       if (!organizationMembership) {
         throw new ForbiddenException('project not found');
       }
+      assertOrganizationOpen(project.organization, 'project not found');
       const role = effectiveProjectRole(membership?.role, organizationMembership.role, project.organization);
       if (!role) {
         throw new ForbiddenException('project not found');

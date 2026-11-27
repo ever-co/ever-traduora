@@ -109,6 +109,15 @@ describe('AuthorizationService.authorizeProjectAction', () => {
     await expect(orphan.authorizeProjectAction(user, 'project-1', ProjectAction.ViewProject)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('tells a non-member nothing about the status of the organization', async () => {
+    for (const status of [OrganizationStatus.Suspended, OrganizationStatus.Deleted, OrganizationStatus.Active]) {
+      const auth = service({ project: project(organization({ status })) });
+      const refused = auth.authorizeProjectAction(user, 'project-1', ProjectAction.ViewProject);
+      await expect(refused).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(refused).rejects.not.toBeInstanceOf(OrganizationException);
+    }
+  });
+
   it('gives an organization owner or admin the admin role without a project membership', async () => {
     const auth = service({ project: project(organization()), organizationRole: OrganizationRole.Admin });
     const membership = await auth.authorizeProjectAction(user, 'project-1', ProjectAction.DeleteProject);
