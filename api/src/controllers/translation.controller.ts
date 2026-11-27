@@ -115,9 +115,9 @@ export default class TranslationController {
     });
 
     await readCommittedTransaction(this.termRepo.manager, async entityManager => {
-      // SaaS mode: the organization's strings, counted under its lock, which comes before the project's
-      const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
+      // The project first, then (SaaS mode) its organization, whose lock counts the strings: the global lock order
       await lockProject(entityManager, membership.project.id);
+      const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
       if (organization) {
         await assertStringsAdded(entityManager, organization, membership.project.id, { locales: 1 });
       }

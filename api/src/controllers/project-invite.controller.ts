@@ -19,7 +19,7 @@ import { ensureMember, lockOrganization, recountSeats } from '../services/organi
 import { assertSeatAvailable } from '../services/organization/organization-usage';
 import MailService from '../services/mail.service';
 import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
-import { readCommittedTransaction } from '../utils/database-locks';
+import { lockProjectForShare, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects')
@@ -94,8 +94,10 @@ export default class ProjectInviteController {
       // The person joins the project's organization first (as a member, unless they are one), in the same transaction:
       // a project membership alone gives no access outside the organization (DESIGN §4.3)
       let newProjectUser = await readCommittedTransaction(this.projectUserRepo.manager, async tx => {
-        // Decided again under the organization lock that a removal takes: a member removed meanwhile is someone new
-        // The locked row, not the copy read before the transaction: an organization closed meanwhile is refused
+        // The project (for share: the membership written below references it), then the organization: the global lock
+        // order. Decided again under the organization lock that a removal takes: a member removed meanwhile is someone
+        // new. The locked row, not the copy read before the transaction: an organization closed meanwhile is refused
+        await lockProjectForShare(tx, projectId);
         const locked = await lockOrganization(tx, project.organizationId);
         if (!locked) {
           throw new NotFoundException('project not found');
@@ -142,7 +144,9 @@ export default class ProjectInviteController {
 
       const newInvite = await readCommittedTransaction(this.inviteRepo.manager, async tx => {
         // Under the organization lock: a pending invitation to someone outside the organization takes one of its seats
-        // (OD-T10), counted one change at a time (402 plan_limit_reached when none is left)
+        // (OD-T10), counted one change at a time (402 plan_limit_reached when none is left). The project first (for
+        // share: the invitation references it), then the organization: the global lock order
+        await lockProjectForShare(tx, projectId);
         const locked = await lockOrganization(tx, project.organizationId);
         if (!locked) {
           throw new NotFoundException('project not found');

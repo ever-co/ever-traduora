@@ -297,10 +297,17 @@ DESIGN §3.6, §4.1, §5 `/usage`, §12 OD-T2, T12, T13, T14.
 - `/usage` is owner and admin (`ViewUsage`), as the P3 brief says; §5 had `organization:View`.
 - §4.3 said a project invite to a non-member also creates an organization invite. P1 does not create one; the pending
   project invite takes the seat itself, once per person.
-- Lock order for adds is organization, then project. An account deletion locks its projects first, then its
-  organizations. A term add at the same moment as the deletion of an account in that project can therefore deadlock
-  on Postgres or MySQL. The database breaks it, and the request that loses answers 503 with `Retry-After` (transient,
-  nothing written). Worth a look in review.
+- **One lock order: account → project(s) → organization(s)** (DESIGN §3.6, the comment on `lockOrganization`). This is
+  develop's *Delete account* order. P3 had first locked the organization before the project for adds, which could
+  deadlock with an account deletion; now:
+  - term and locale adds and imports lock their project, then the organization;
+  - project invites lock their project for share (the row they write references it), then the organization;
+  - an invitation's acceptance locks the account, then every project of the invitations for share, then the
+    organizations in the order of their ids. Organization invites are accepted in that order too.
+  - `deleteAccountsWithOrganizations` sorts by code unit like `lockProjects` (it used `localeCompare`; same order for
+    uuids).
+  - `utils/lock-order.spec.ts` scans the source for a project lock after an organization lock (the old add order fails
+    it). The 503 with `Retry-After` on a deadlock stays as a backstop only.
 - Term and locale adds now run in `readCommittedTransaction` (they used the default isolation level); the import kept
   its own, which was READ COMMITTED already on Postgres and MySQL.
 - No link to billing in the 402 message yet: the billing page is P4.

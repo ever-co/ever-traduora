@@ -97,9 +97,9 @@ export class ImportController {
       // lock, not as of the import's first read.
       const lockLocale = !isDbType(DbType.BETTER_SQLITE3);
       const run = async (entityManager: EntityManager) => {
-        // SaaS mode: the organization's strings, counted under its lock, which comes before the project's
-        const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
+        // The project first, then (SaaS mode) its organization, whose lock counts the strings: the global lock order
         await lockProject(entityManager, membership.project.id);
+        const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
         // The upload was read after the access check: access that ended since (removed from the project or the
         // organization, organization suspended) stops the import here, before anything is written
         await this.auth.recheckProjectAccess(entityManager, user, membership.project.id, ProjectAction.ImportTranslation);

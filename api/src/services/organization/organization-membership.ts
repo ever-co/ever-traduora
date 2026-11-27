@@ -12,7 +12,7 @@ import { DbType, isDbType } from '../../utils/database-type-helper';
 import { activeMemberships } from './organization-scope';
 import { recountSeats, usesOrganizationPlan } from './organization-usage';
 import { isAllowedSlug, randomSuffix, slugFromName, withSuffix } from './slug';
-import { readCommittedTransaction } from '../../utils/database-locks';
+import { byCodeUnits, readCommittedTransaction } from '../../utils/database-locks';
 
 /**
  * The organization writes that several places share (sign-up, invites, projects, Ever Connect provisioning), as
@@ -54,6 +54,18 @@ export function inTransaction<T>(manager: EntityManager, work: (tx: EntityManage
 /**
  * Reads the organization and, on PostgreSQL and MySQL, locks its row until the transaction ends, so that changes of its
  * owner or its seats run one after another. SQLite runs one write transaction at a time. Needs a transaction.
+ *
+ * **One lock order for the whole API: account (user row) → project(s) → organization(s).** A transaction that holds both
+ * a project lock and an organization lock takes the project lock first (`lockProject`, `lockProjects`,
+ * `lockProjectForShare`, `lockProjectsForShare`), several of a kind in the order of their ids (`byCodeUnits`), and never
+ * locks a project once it holds an organization. That includes the implicit lock a foreign key takes: a row that
+ * references a project (a project membership, a project invitation) is written under an organization lock only after
+ * that project was locked, at least for share. *Delete account* (account → its projects → its organizations), an
+ * invitation's acceptance (account → projects → organizations) and the adds that count strings (project →
+ * organization) all follow it, so none of them waits for another in a cycle. A count over the organization's projects
+ * (its strings) locks none of the other projects: every writer of strings takes the organization lock, so reading the
+ * totals under it is enough. A deadlock still answers 503 with `Retry-After` (`isTransientDatabaseError`), as a
+ * backstop only. `lock-order.spec.ts` checks the order in the source.
  */
 export function lockOrganization(tx: EntityManager, organizationId: string): Promise<Organization | null> {
   return tx.findOne(Organization, {
@@ -64,9 +76,10 @@ export function lockOrganization(tx: EntityManager, organizationId: string): Pro
 
 /**
  * For a change that adds strings to a project of the organization (a term, a locale, an import): in SaaS mode, locks the
- * organization first, before the project's own lock (`lockProject`), and answers the locked row when its plan limits it
- * (`assertStringsAdded`), so parallel changes in its projects are counted one after another. `null` otherwise: a
- * single-tenant install takes no organization lock and checks the project's own plan, as before (DESIGN §3.5).
+ * organization after the project's own lock (`lockProject`, global order in `lockOrganization`), and answers the
+ * locked row when its plan limits it (`assertStringsAdded`), so parallel changes in its projects are counted one after
+ * another. `null` otherwise: a single-tenant install takes no organization lock and checks the project's own plan, as
+ * before (DESIGN §3.5).
  */
 export async function lockOrganizationForStrings(tx: EntityManager, organizationId: string): Promise<Organization | null> {
   if (!config.saasEnabled) {
@@ -322,7 +335,7 @@ export async function deleteAccountsWithOrganizations(
   await inTransaction(manager, async tx => {
     const touched = await tx.find(OrganizationUser, { where: { userId: In([...deleting]) }, select: ['id', 'organizationId'] });
     // One order for the locks, so two deletions never wait on each other in a cycle
-    const organizationIds = [...new Set(touched.map(membership => membership.organizationId))].sort((a, b) => a.localeCompare(b));
+    const organizationIds = [...new Set(touched.map(membership => membership.organizationId))].sort(byCodeUnits);
     for (const organizationId of organizationIds) {
       const organization = await lockOrganization(tx, organizationId);
       const members = await tx.find(OrganizationUser, { where: { organizationId }, order: { date: { created: 'ASC' }, id: 'ASC' } });

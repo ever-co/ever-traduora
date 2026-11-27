@@ -27,7 +27,7 @@ import {
 } from './organization-membership';
 import { assertSeatAvailable, organizationUsage, OrganizationUsage, seatRefusal } from './organization-usage';
 import { isAllowedSlug } from './slug';
-import { readCommittedTransaction } from '../../utils/database-locks';
+import { byCodeUnits, readCommittedTransaction } from '../../utils/database-locks';
 
 /** What the API answers for an organization the caller is a member of. */
 export interface OrganizationView {
@@ -407,7 +407,8 @@ export class OrganizationService {
         ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
       });
       const accepted: AcceptedInvite[] = [];
-      for (const invite of invites) {
+      // The organizations in the order of their ids, after the account: the global lock order (see lockOrganization)
+      for (const invite of [...invites].sort((a, b) => byCodeUnits(a.organizationId, b.organizationId))) {
         if (current?.email !== invite.email) {
           continue;
         }

@@ -131,9 +131,22 @@ The plans are a code constant (`api/src/domain/organization-plans.ts`), as in De
   - invite create and invite accept;
   - adding a member through a project invite;
   - adding a term or a locale, and imports.
-- **Parallel requests cannot exceed a limit.** Each check runs in a transaction that first locks the organization row:
+- **Parallel requests cannot exceed a limit.** Each check runs in a read-committed transaction that holds the
+  organization row lock and reads the counts under it:
   - `SELECT … FOR UPDATE` on Postgres and MySQL;
   - SQLite transactions are already serialized (`app.module.ts:88-91`).
+- **One lock order for the whole API: account (user row) → project(s) → organization(s).** This is the order of
+  *Delete account* (account → its projects → its organizations) and of an invitation's acceptance.
+  - A transaction that holds both a project lock and the organization lock takes the project lock first, then
+    `lockOrganization`. This covers term and locale adds, imports, project invites and their acceptance.
+  - That includes the implicit lock of a foreign key: a row that references a project (a project membership or
+    invitation) is written under an organization lock only after that project was locked, at least for share.
+  - Several locks of a kind (projects, organizations) are taken in the order of their ids.
+  - A check of the organization's string total locks only its own project, then the organization, and reads the
+    totals under the organization lock. It never locks the other projects: every writer of strings takes the
+    organization lock, so the totals are serialized.
+  - The rule sits next to `lockOrganization`, and `api/src/utils/lock-order.spec.ts` scans the source for a project
+    lock after an organization lock. A deadlock would still answer 503 with `Retry-After`, as a backstop only.
 - The organization keeps cached counters (`seatsUsed`, `stringsUsed`), recomputed inside the same transaction.
 - **Errors:**
   - 402 `plan_limit_reached`, with `limit`, `used` and `plan` in the body;

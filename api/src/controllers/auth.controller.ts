@@ -74,7 +74,7 @@ import { ensureMember, isOpenForMembers, lockOrganization } from '../services/or
 import { seatRefusal } from '../services/organization/organization-usage';
 import { assertSaasEnabled, OrganizationService } from '../services/organization/organization.service';
 import { OrganizationInvite } from '../entity/organization-invite.entity';
-import { readCommittedTransaction } from '../utils/database-locks';
+import { byCodeUnits, lockProjectsForShare, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
@@ -576,8 +576,14 @@ export class AuthController {
         select: ['id', 'email'],
         ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
       });
+      // The global lock order: the account (above), then the projects the memberships below reference (for share), then
+      // the organizations, each kind in the order of its ids
+      await lockProjectsForShare(
+        entityManager,
+        invites.map(invite => invite.project.id),
+      );
       const accepted: Invite[] = [];
-      for (const invite of invites) {
+      for (const invite of [...invites].sort((a, b) => byCodeUnits(a.project.organizationId, b.project.organizationId))) {
         if (current?.email !== invite.email) {
           continue;
         }
