@@ -6,7 +6,8 @@ import { DbType, isDbType } from './database-type-helper';
 
 /**
  * Locks the project's row for the rest of the transaction. Every transaction that changes the project's counters
- * (adding or removing terms or locales, imports) takes it first, before any other lock: they then run one at a time
+ * (adding or removing terms or locales, imports) takes it first, before any other lock but its organization's (SaaS
+ * mode, where an add first locks the organization to count its strings, `lockOrganizationForStrings`): they then run one at a time
  * per project and lock the other rows in the same order. Otherwise MySQL deadlocks them, as the shared locks its
  * foreign-key checks take on the project come before the exclusive one the counter update needs. On Postgres the lock
  * is the one the counter update takes anyway (FOR NO KEY UPDATE), so rows that only reference the project are not held

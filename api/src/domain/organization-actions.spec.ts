@@ -22,6 +22,7 @@ describe('the organization action table', () => {
       OrganizationAction.CreateProject,
       OrganizationAction.ManageBilling,
       OrganizationAction.ExportOrganization,
+      OrganizationAction.ViewUsage,
     ],
     [OrganizationRole.Member]: [OrganizationAction.ViewOrganization, OrganizationAction.ViewMembers, OrganizationAction.CreateProject],
   };

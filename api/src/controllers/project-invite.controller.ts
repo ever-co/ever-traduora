@@ -15,7 +15,8 @@ import { Invite, InviteStatus } from '../entity/invite.entity';
 import { ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
-import { ensureMember, lockOrganization } from '../services/organization/organization-membership';
+import { ensureMember, lockOrganization, recountSeats } from '../services/organization/organization-membership';
+import { assertSeatAvailable } from '../services/organization/organization-usage';
 import MailService from '../services/mail.service';
 import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
 import { readCommittedTransaction } from '../utils/database-locks';
@@ -100,6 +101,8 @@ export default class ProjectInviteController {
           throw new NotFoundException('project not found');
         }
         await this.auth.authorizeAddingToOrganization(user, locked, targetUser.id, tx);
+        // Someone new to the organization takes one of its seats (402 plan_limit_reached when none is left)
+        await assertSeatAvailable(tx, locked, { email: targetUser.email, userId: targetUser.id }, 'member');
         await ensureMember(tx, project.organizationId, targetUser.id);
         return tx.save(
           tx.create(ProjectUser, {
@@ -137,16 +140,25 @@ export default class ProjectInviteController {
       const email = normalizeEmail(inviteUserRequest.email);
       const token = generateInviteToken();
 
-      // Inviting the same email again sends a new link and invalidates the previous one
-      const existingInvite = await this.inviteRepo.findOne({
-        where: { project: { id: projectId }, email },
-      });
-      const record = existingInvite ?? this.inviteRepo.create({ email, project: { id: projectId } });
-      record.role = inviteUserRequest.role;
-      record.status = InviteStatus.Sent;
-      record.tokenHash = hashInviteToken(token);
+      const newInvite = await readCommittedTransaction(this.inviteRepo.manager, async tx => {
+        // Under the organization lock: a pending invitation to someone outside the organization takes one of its seats
+        // (OD-T10), counted one change at a time (402 plan_limit_reached when none is left)
+        const locked = await lockOrganization(tx, project.organizationId);
+        if (!locked) {
+          throw new NotFoundException('project not found');
+        }
+        await assertSeatAvailable(tx, locked, { email, userId: targetUser?.id }, 'invite');
 
-      const newInvite = await this.inviteRepo.save(record, { reload: true });
+        // Inviting the same email again sends a new link and invalidates the previous one
+        const existingInvite = await tx.findOne(Invite, { where: { project: { id: projectId }, email } });
+        const record = existingInvite ?? tx.create(Invite, { email, project: { id: projectId } });
+        record.role = inviteUserRequest.role;
+        record.status = InviteStatus.Sent;
+        record.tokenHash = hashInviteToken(token);
+        const saved = await tx.save(record, { reload: true });
+        await recountSeats(tx, project.organizationId);
+        return saved;
+      });
       const inviteUrl = inviteSignupUrl(token);
 
       // Not awaited: the admin also gets the link, and MailService logs delivery failures
@@ -208,12 +220,17 @@ export default class ProjectInviteController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Param('projectId') projectId: string, @Param('inviteId') inviteId: string) {
     const requestingUser = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.DeleteProjectInvites);
+    const { project } = await this.auth.authorizeProjectAction(requestingUser, projectId, ProjectAction.DeleteProjectInvites);
 
     const targetInvite = await this.inviteRepo.findOneOrFail({
       where: { project: { id: projectId }, id: inviteId },
     });
 
-    await this.inviteRepo.remove(targetInvite);
+    // The seat a pending invitation held is free again
+    await readCommittedTransaction(this.inviteRepo.manager, async tx => {
+      await lockOrganization(tx, project.organizationId);
+      await tx.remove(targetInvite);
+      await recountSeats(tx, project.organizationId);
+    });
   }
 }

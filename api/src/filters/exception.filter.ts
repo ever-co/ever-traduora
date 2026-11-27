@@ -5,6 +5,7 @@ import {
   EverPlatformException,
   FormatCannotHoldTermsException,
   OrganizationException,
+  PlanLimitException,
   PublishedPasswordException,
 } from '../errors';
 import { isTransientDatabaseError } from '../utils/database-locks';
@@ -35,6 +36,18 @@ export class CustomExceptionFilter implements ExceptionFilter {
         error: {
           code: exception.code,
           message: exception.message,
+        },
+      });
+    } else if (exception instanceof PlanLimitException) {
+      // A plan limit of the organization: what it allows, what is used, and the plan, for the upgrade message
+      response.status(402).json({
+        error: {
+          code: exception.code,
+          message: exception.message,
+          resource: exception.resource,
+          limit: exception.limit,
+          used: exception.used,
+          plan: exception.plan,
         },
       });
     } else if (exception instanceof FormatCannotHoldTermsException) {

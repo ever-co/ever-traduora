@@ -8,7 +8,9 @@ import { Term } from '../entity/term.entity';
 import AuthorizationService from '../services/authorization.service';
 import { ApiOAuth2, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Translation } from '../entity/translation.entity';
-import { lockProject } from '../utils/database-locks';
+import { lockProject, readCommittedTransaction } from '../utils/database-locks';
+import { lockOrganizationForStrings } from '../services/organization/organization-membership';
+import { assertStringsAdded, recountStrings } from '../services/organization/organization-usage';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Access } from '../access/access.decorator';
@@ -126,8 +128,13 @@ export default class TermController {
       project: membership.project,
     });
 
-    await this.termRepo.manager.transaction(async entityManager => {
+    await readCommittedTransaction(this.termRepo.manager, async entityManager => {
+      // SaaS mode: the organization's strings, counted under its lock, which comes before the project's
+      const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
       await lockProject(entityManager, membership.project.id);
+      if (organization) {
+        await assertStringsAdded(entityManager, organization, membership.project.id, { terms: 1 });
+      }
       await entityManager.save(term);
 
       // Read through the transaction's manager: a read on another pooled connection while this
@@ -151,6 +158,9 @@ export default class TermController {
       await entityManager.save(translations);
 
       await entityManager.increment(Project, { id: membership.project.id }, 'termsCount', 1);
+      if (organization) {
+        await recountStrings(entityManager, organization.id);
+      }
     });
 
     return {

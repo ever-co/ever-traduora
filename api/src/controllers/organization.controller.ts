@@ -9,6 +9,7 @@ import {
   OrganizationInviteCreatedResponse,
   OrganizationMemberResponse,
   OrganizationResponse,
+  OrganizationUsageResponse,
   TransferOwnershipRequest,
   UpdateOrganizationMemberRequest,
   UpdateOrganizationRequest,
@@ -141,6 +142,18 @@ export default class OrganizationController {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     await this.authorizeMembers(user, organizationId, OrganizationAction.TransferOwnership);
     return { data: await this.organizations.transferOwnership(organizationId, user.id, payload.userId) };
+  }
+
+  @Access('organization:ViewUsage')
+  @Get(':organizationId/usage')
+  @ApiOperation({ summary: "The organization's plan, its seats and its strings against the plan's limits (owner, admin)" })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: OrganizationUsageResponse })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  async usage(@Req() req, @Param('organizationId') organizationId: string) {
+    assertSaasEnabled();
+    const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
+    const membership = await this.authorizeMembers(user, organizationId, OrganizationAction.ViewUsage);
+    return { data: await this.organizations.usage(membership.organization) };
   }
 
   @Access('organization:EditMembers')

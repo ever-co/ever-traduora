@@ -25,6 +25,7 @@ import {
   personalOrganizationName,
   recountSeats,
 } from './organization-membership';
+import { assertSeatAvailable, organizationUsage, OrganizationUsage, seatRefusal } from './organization-usage';
 import { isAllowedSlug } from './slug';
 import { readCommittedTransaction } from '../../utils/database-locks';
 
@@ -314,7 +315,9 @@ export class OrganizationService {
         if (current?.email !== email || !current.emailVerified) {
           return null;
         }
-        await this.assertStillOpen(tx, organization.id);
+        const locked = await this.assertStillOpen(tx, organization.id);
+        // A seat of the plan (402 plan_limit_reached), counted under the organization lock
+        await assertSeatAvailable(tx, locked, { email, userId: current.id }, 'member');
         await tx.save(tx.create(OrganizationUser, { organizationId: organization.id, userId: current.id, role: payload.role }));
         // An invitation sent before they had an account is no longer needed
         await tx.delete(OrganizationInvite, { organizationId: organization.id, email });
@@ -329,7 +332,9 @@ export class OrganizationService {
 
     const token = generateInviteToken();
     const saved = await readCommittedTransaction(this.invites.manager, async tx => {
-      await this.assertStillOpen(tx, organization.id);
+      const locked = await this.assertStillOpen(tx, organization.id);
+      // A pending invitation takes a seat too, unless this person holds one already (a new link for the same email)
+      await assertSeatAvailable(tx, locked, { email, userId: account?.id }, 'invite');
       const existing = await tx.findOne(OrganizationInvite, { where: { organizationId: organization.id, email } });
       const record = existing ?? tx.create(OrganizationInvite, { organizationId: organization.id, email });
       record.role = payload.role;
@@ -343,6 +348,11 @@ export class OrganizationService {
     const inviteUrl = organizationInviteSignupUrl(token);
     void this.mail.invitedToOrganization(saved, organization, inviteUrl);
     return { invite: { ...inviteView(saved), inviteUrl } };
+  }
+
+  /** The plan, seats and strings of the organization, counted now (DESIGN §3.6) */
+  usage(organization: Organization): Promise<OrganizationUsage> {
+    return organizationUsage(this.organizations.manager, organization);
   }
 
   async revokeInvite(organizationId: string, inviteId: string): Promise<void> {
@@ -381,8 +391,12 @@ export class OrganizationService {
    * Turns pending organization invites into memberships, each only if it is still exactly as the caller read it (an
    * admin may have sent a new link, changed the role or revoked it) and only while the account still has the email it
    * was sent to. A person who is a member already keeps their role. Returns the accepted ones.
+   *
+   * An invitation the organization's seats cannot take now (over the limit of its plan, DESIGN §3.6) stays pending:
+   * `onLimit: 'refuse'` answers 402 `plan_limit_reached` instead, for the acceptance the person asked for; the
+   * acceptances that come with a sign-up or a sign-in skip it, so the account is still made.
    */
-  async acceptInvites(invites: OrganizationInvite[], user: User): Promise<AcceptedInvite[]> {
+  async acceptInvites(invites: OrganizationInvite[], user: User, options: { onLimit?: 'skip' | 'refuse' } = {}): Promise<AcceptedInvite[]> {
     if (invites.length === 0) {
       return [];
     }
@@ -397,9 +411,16 @@ export class OrganizationService {
         if (current?.email !== invite.email) {
           continue;
         }
-        await lockOrganization(tx, invite.organizationId);
+        const organization = await lockOrganization(tx, invite.organizationId);
         // Only into an active organization that has its owner (a closed one has no pending invites left anyway)
-        if (!(await isOpenForMembers(tx, invite.organizationId))) {
+        if (!organization || !(await isOpenForMembers(tx, invite.organizationId))) {
+          continue;
+        }
+        const refusal = await seatRefusal(tx, organization, { email: invite.email, userId: user.id }, 'member');
+        if (refusal) {
+          if (options.onLimit === 'refuse') {
+            throw refusal;
+          }
           continue;
         }
         const { affected } = await tx.update(
@@ -432,11 +453,12 @@ export class OrganizationService {
    * Locks the organization and refuses a write into one that is no longer open (closed by its last member's account
    * deletion, or suspended, after the request was authorized).
    */
-  private async assertStillOpen(tx: EntityManager, organizationId: string): Promise<void> {
-    await lockOrganization(tx, organizationId);
-    if (!(await isOpenForMembers(tx, organizationId))) {
+  private async assertStillOpen(tx: EntityManager, organizationId: string): Promise<Organization> {
+    const organization = await lockOrganization(tx, organizationId);
+    if (!organization || !(await isOpenForMembers(tx, organizationId))) {
       throw new NotFoundException('organization not found');
     }
+    return organization;
   }
 
   private async memberView(organizationId: string, userId: string): Promise<MemberView> {

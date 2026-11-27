@@ -9,6 +9,7 @@ import { ProjectClient } from '../entity/project-client.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { User } from '../entity/user.entity';
 import { OrganizationException, PaymentRequiredException } from '../errors';
+import { usesOrganizationPlan } from './organization/organization-usage';
 import { assertOrganizationOpen, effectiveProjectRole, membershipOf, projectForAccess } from './organization/organization-scope';
 
 // The organization scope's decisions, as they were exported from here before
@@ -162,7 +163,9 @@ export default class AuthorizationService {
       case ProjectAction.AddTerm:
       case ProjectAction.AddTranslation:
       case ProjectAction.ImportTranslation:
-        if (localesCount * termsCount > membership.project.plan.maxStrings) {
+        // An organization of SaaS mode has its own plan, checked by the handler under the organization lock: the
+        // project's plan applies only on a single-tenant install and in the default organization (DESIGN §3.5)
+        if (!usesOrganizationPlan(membership.project.organization) && localesCount * termsCount > membership.project.plan.maxStrings) {
           throw new PaymentRequiredException('request would exceed plan limit');
         }
     }

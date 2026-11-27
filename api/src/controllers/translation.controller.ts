@@ -37,6 +37,8 @@ import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
 import { isUniqueViolation } from '../services/ever-id-session.service';
 import { lockProject, readCommittedTransaction, translationEditLockKey, withEditLock } from '../utils/database-locks';
+import { lockOrganizationForStrings } from '../services/organization/organization-membership';
+import { assertStringsAdded, recountStrings } from '../services/organization/organization-usage';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { Access } from '../access/access.decorator';
 
@@ -112,8 +114,13 @@ export default class TranslationController {
       project: membership.project,
     });
 
-    await this.termRepo.manager.transaction(async entityManager => {
+    await readCommittedTransaction(this.termRepo.manager, async entityManager => {
+      // SaaS mode: the organization's strings, counted under its lock, which comes before the project's
+      const organization = await lockOrganizationForStrings(entityManager, membership.project.organizationId);
       await lockProject(entityManager, membership.project.id);
+      if (organization) {
+        await assertStringsAdded(entityManager, organization, membership.project.id, { locales: 1 });
+      }
       await entityManager.save(projectLocale);
       const terms = await entityManager.find(Term, { where: { project: { id: projectId } }, relations: ['labels'] });
       const translations = terms.map(term =>
@@ -126,6 +133,9 @@ export default class TranslationController {
       );
       await entityManager.save(translations);
       await entityManager.increment(Project, { id: membership.project.id }, 'localesCount', 1);
+      if (organization) {
+        await recountStrings(entityManager, organization.id);
+      }
     });
 
     const result = await this.projectLocaleRepo.findOneByOrFail({

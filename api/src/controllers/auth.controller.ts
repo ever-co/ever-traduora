@@ -71,6 +71,7 @@ import { DbType, isDbType } from '../utils/database-type-helper';
 import { verifyEmailUrl } from '../utils/email-verification-token';
 import { hashInviteToken } from '../utils/invite-token';
 import { ensureMember, isOpenForMembers, lockOrganization } from '../services/organization/organization-membership';
+import { seatRefusal } from '../services/organization/organization-usage';
 import { assertSaasEnabled, OrganizationService } from '../services/organization/organization.service';
 import { OrganizationInvite } from '../entity/organization-invite.entity';
 import { readCommittedTransaction } from '../utils/database-locks';
@@ -527,7 +528,7 @@ export class AuthController {
       throw new NotFoundException('invite not found');
     }
 
-    const accepted = await this.acceptInvites([invite], requestingUser);
+    const accepted = await this.acceptInvites([invite], requestingUser, { onLimit: 'refuse' });
     if (accepted.length === 0) {
       throw new NotFoundException('invite not found');
     }
@@ -548,7 +549,8 @@ export class AuthController {
     const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     // The token proves that the caller received this invitation, and the link only works for the email it was sent to
     const invite = await this.organizations.inviteForToken(payload.inviteToken, requestingUser.email);
-    const [accepted] = invite ? await this.organizations.acceptInvites([invite], requestingUser) : [];
+    // Asked for by the person: an organization whose seats are all taken answers 402 plan_limit_reached
+    const [accepted] = invite ? await this.organizations.acceptInvites([invite], requestingUser, { onLimit: 'refuse' }) : [];
     if (!accepted) {
       throw new NotFoundException('invite not found');
     }
@@ -558,9 +560,11 @@ export class AuthController {
 
   /**
    * Turns pending invites into project memberships. An invite is accepted only if it is still exactly as the caller
-   * checked it, since an admin may have sent a new link, changed the role or deleted it in the meantime.
+   * checked it, since an admin may have sent a new link, changed the role or deleted it in the meantime. An invite that
+   * would bring the person into an organization whose seats are all taken (SaaS mode, DESIGN §3.6) stays pending, or
+   * answers 402 `plan_limit_reached` with `onLimit: 'refuse'` (the acceptance the person asked for).
    */
-  private acceptInvites(invites: Invite[], user: User): Promise<Invite[]> {
+  private acceptInvites(invites: Invite[], user: User, options: { onLimit?: 'skip' | 'refuse' } = {}): Promise<Invite[]> {
     if (invites.length === 0) {
       return Promise.resolve([]);
     }
@@ -580,8 +584,15 @@ export class AuthController {
         // Under the organization lock that a member removal takes, so the two cannot interleave (the user row is
         // locked first and a removal never locks it, so the order cannot deadlock). Only into an organization that is
         // open: an invite of a suspended or closed one stays as it is
-        await lockOrganization(entityManager, invite.project.organizationId);
-        if (!(await isOpenForMembers(entityManager, invite.project.organizationId))) {
+        const organization = await lockOrganization(entityManager, invite.project.organizationId);
+        if (!organization || !(await isOpenForMembers(entityManager, invite.project.organizationId))) {
+          continue;
+        }
+        const refusal = await seatRefusal(entityManager, organization, { email: invite.email, userId: user.id }, 'member');
+        if (refusal) {
+          if (options.onLimit === 'refuse') {
+            throw refusal;
+          }
           continue;
         }
         const { affected } = await entityManager.update(

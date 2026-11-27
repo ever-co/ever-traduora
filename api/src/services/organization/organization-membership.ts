@@ -10,6 +10,7 @@ import { Organization } from '../../entity/organization.entity';
 import { OrganizationException } from '../../errors';
 import { DbType, isDbType } from '../../utils/database-type-helper';
 import { activeMemberships } from './organization-scope';
+import { recountSeats, usesOrganizationPlan } from './organization-usage';
 import { isAllowedSlug, randomSuffix, slugFromName, withSuffix } from './slug';
 import { readCommittedTransaction } from '../../utils/database-locks';
 
@@ -62,6 +63,20 @@ export function lockOrganization(tx: EntityManager, organizationId: string): Pro
 }
 
 /**
+ * For a change that adds strings to a project of the organization (a term, a locale, an import): in SaaS mode, locks the
+ * organization first, before the project's own lock (`lockProject`), and answers the locked row when its plan limits it
+ * (`assertStringsAdded`), so parallel changes in its projects are counted one after another. `null` otherwise: a
+ * single-tenant install takes no organization lock and checks the project's own plan, as before (DESIGN §3.5).
+ */
+export async function lockOrganizationForStrings(tx: EntityManager, organizationId: string): Promise<Organization | null> {
+  if (!config.saasEnabled) {
+    return null;
+  }
+  const organization = await lockOrganization(tx, organizationId);
+  return usesOrganizationPlan(organization) ? organization : null;
+}
+
+/**
  * Options for a read that decides something under the organization lock. Inside a transaction on PostgreSQL and MySQL
  * it is a locking read, which sees the latest committed rows: MySQL's REPEATABLE READ would otherwise answer from the
  * snapshot taken at the transaction's first read, before another writer committed (SQLite has one writer at a time).
@@ -111,12 +126,8 @@ export async function ensureDefaultOrganization(manager: EntityManager): Promise
   return made;
 }
 
-/** Recomputes the cached seat counter (DESIGN §3.6): members plus pending organization invites. */
-export async function recountSeats(manager: EntityManager, organizationId: string): Promise<void> {
-  const members = await manager.count(OrganizationUser, { where: { organizationId } });
-  const invites = await manager.count(OrganizationInvite, { where: { organizationId, status: InviteStatus.Sent } });
-  await manager.update(Organization, { id: organizationId }, { seatsUsed: members + invites });
-}
+/** Recomputes the cached seat counter (DESIGN §3.6), see `organization-usage.ts` */
+export { recountSeats };
 
 /**
  * Makes the user a member of the organization with `role`, unless they are one already (their role then stays).
