@@ -13,6 +13,8 @@ import { UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { EverPlatformException } from '../errors';
 import { homeOrganizationId } from '../services/organization/organization-membership';
+import { Organization } from '../entity/organization.entity';
+import { OrganizationStatus } from '../domain/organization-actions';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { EverInstanceKeyError, KeyPurpose, unwrapKey, verifyBytes, wrapKey } from '../ever-instance/key-wrap';
 import { isLocalHost } from '../ever-platform/env';
@@ -390,6 +392,12 @@ export class EverConnectProvisionService {
         // As the projects route creates one: in the person's organization (the default one of a single-tenant install,
         // otherwise the one they own), with the person as its admin and the default plan
         const organizationId = await homeOrganizationId(tx, user);
+        // Only into an active organization (a suspended default organization of a single-tenant install, say): a refusal
+        // here rolls back the claim of the intent and the project count
+        const organization = await tx.findOne(Organization, { where: { id: organizationId } });
+        if (organization?.status !== OrganizationStatus.Active) {
+          throw refuse(HttpStatus.FORBIDDEN, 'organization_suspended', 'Your organization is suspended: no project can be created in it');
+        }
         const project = await tx.save(tx.create(Project, { name: txn.org.displayName.slice(0, PROJECT_NAME_MAX), organizationId }));
         await tx.save(tx.create(ProjectUser, { user, project, role: ProjectRole.Admin }));
         project.plan = await tx.findOneOrFail(Plan, { where: { code: config.defaultProjectPlan } });
