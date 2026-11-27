@@ -78,16 +78,18 @@ export default class ProjectController {
     if (organizations.length === 0) {
       return { data: [] };
     }
-    const organizationRoles = new Map(organizations.map(membership => [membership.organizationId, membership.role]));
+    const byOrganization = new Map(organizations.map(membership => [membership.organizationId, membership]));
     const memberships = await this.projectUserRepo.find({
-      where: { user: { id: user.id }, project: { organizationId: In([...organizationRoles.keys()]) } },
+      where: { user: { id: user.id }, project: { organizationId: In([...byOrganization.keys()]) } },
       relations: ['project'],
     });
     const projects = new Map(memberships.map(membership => [membership.project.id, { project: membership.project, role: membership.role }]));
-    // In SaaS mode an organization owner or admin sees every project of the organization (implicit project admin,
+    // An owner or admin of an organization with adminsSeeAllProjects sees every project of it (implicit project admin,
     // see effectiveProjectRole)
-    const administered = organizations.filter(membership => isImplicitProjectAdmin(membership.role)).map(membership => membership.organizationId);
-    if (config.saasEnabled && administered.length > 0) {
+    const administered = organizations
+      .filter(membership => membership.organization.adminsSeeAllProjects === true && isImplicitProjectAdmin(membership.role))
+      .map(membership => membership.organizationId);
+    if (administered.length > 0) {
       for (const project of await this.projectRepo.find({ where: { organizationId: In(administered) } })) {
         if (!projects.has(project.id)) {
           projects.set(project.id, { project, role: undefined });
@@ -96,7 +98,10 @@ export default class ProjectController {
     }
     return {
       data: [...projects.values()].map(({ project, role }) =>
-        projectView(project, effectiveProjectRole(role, organizationRoles.get(project.organizationId))),
+        projectView(
+          project,
+          effectiveProjectRole(role, byOrganization.get(project.organizationId)?.role, byOrganization.get(project.organizationId)?.organization),
+        ),
       ),
     };
   }

@@ -17,6 +17,9 @@ const TABLES: TableSpec[] = [
       { name: 'status', type: 'varchar', length: 16, defaultText: 'active' },
       { name: 'plan_code', type: 'varchar', length: 32, defaultText: 'starter' },
       { name: 'is_default', type: 'boolean', default: 0 },
+      // Whether owners and admins are implicit admins of every project (organizations made in SaaS mode); never for the
+      // default organization, whose people get exactly the access they had
+      { name: 'admins_see_all_projects', type: 'boolean', default: 0 },
       { name: 'seats_used', type: 'int', default: 0 },
       { name: 'strings_used', type: 'int', default: 0 },
       { name: 'date_created', type: 'timestamp', defaultNow: true },
@@ -85,15 +88,16 @@ const SQLITE_TRIGGERS = ['fk_project_organization_insert', 'fk_project_organizat
 
 /**
  * Adds organizations (DESIGN §4.6) and puts every existing project and user into the **default organization**. Only adds
- * tables, a column and rows: no existing value changes. Safe to run again after an interruption (MySQL commits each DDL
- * statement on its own): every step looks before it writes.
+ * tables, a column and rows: no existing value changes, and nobody gets access they did not have. Safe to run again
+ * after an interruption (MySQL commits each DDL statement on its own): every step looks before it writes.
  *
  * 1. Creates `organization`, `organization_user`, `organization_invite`, and `project.organization_id` with its index.
- * 2. When projects or users exist and no default organization does, creates it (`slug` default, the name of
- *    `TR_DEFAULT_ORGANIZATION_NAME`, plan `enterprise`).
+ * 2. Creates the default organization when none exists, also on an empty database (single-tenant sign-ups and the seed
+ *    join it): `slug` default, the name of `TR_DEFAULT_ORGANIZATION_NAME`, plan `enterprise`, and
+ *    `admins_see_all_projects` false, so its owner sees exactly the projects they had.
  * 3. Moves every project without an organization into it.
- * 4. Makes every user a member: the owner is the user with `TR_ADMIN_EMAIL`, else the earliest-created project admin,
- *    else the earliest user; other project admins become `admin`, everyone else `member`.
+ * 4. Makes every user a `member`, except exactly one `owner`: the user with `TR_ADMIN_EMAIL`, else the earliest-created
+ *    project admin, else the earliest user. Nobody becomes `admin` for being a project admin.
  * 5. PostgreSQL and MySQL: `project.organization_id` becomes NOT NULL with its foreign key (CASCADE). SQLite keeps the
  *    column nullable without a REFERENCES clause: a NOT NULL or a REFERENCES there would mean rebuilding `project` with
  *    every foreign key that points at it (the rebuild that lost the translation foreign keys before, #551), and a
@@ -119,29 +123,26 @@ export class addOrganizations1795478400000 implements MigrationInterface {
       await this.createSqliteTriggers(sql);
     }
 
-    // 2. The default organization, when there is data to put in it
+    // 2. The default organization, also on an empty database (a fresh install)
     let defaultId = await sql.value(
       `SELECT ${sql.c('id')} AS ${sql.q('id')} FROM ${sql.t('organization')} WHERE ${sql.c('is_default')} = ${sql.true}`,
     );
-    const users = Number(await sql.value(`SELECT COUNT(*) AS ${sql.q('n')} FROM ${sql.t('user')}`));
-    const projects = Number(await sql.value(`SELECT COUNT(*) AS ${sql.q('n')} FROM ${sql.t('project')}`));
-    if (!defaultId && (users > 0 || projects > 0)) {
+    if (!defaultId) {
       defaultId = randomUUID();
       const name = (config.defaultOrganizationName || 'My organization').slice(0, 255);
+      const columns = ['id', 'name', 'slug', 'status', 'plan_code', 'is_default', 'admins_see_all_projects'];
       await sql.run(
-        `INSERT INTO ${sql.t('organization')} (${['id', 'name', 'slug', 'status', 'plan_code', 'is_default'].map(c => sql.c(c)).join(', ')}) ` +
-          `VALUES (?, ?, 'default', 'active', 'enterprise', ${sql.true})`,
+        `INSERT INTO ${sql.t('organization')} (${columns.map(c => sql.c(c)).join(', ')}) ` +
+          `VALUES (?, ?, 'default', 'active', 'enterprise', ${sql.true}, ${sql.false})`,
         [defaultId, name],
       );
     }
 
-    if (defaultId) {
-      // 3. Every project without an organization
-      await sql.run(`UPDATE ${sql.t('project')} SET ${sql.c('organization_id')} = ? WHERE ${sql.c('organization_id')} IS NULL`, [defaultId]);
+    // 3. Every project without an organization
+    await sql.run(`UPDATE ${sql.t('project')} SET ${sql.c('organization_id')} = ? WHERE ${sql.c('organization_id')} IS NULL`, [defaultId]);
 
-      // 4. Every user, with the owner first
-      await this.addMembers(sql, String(defaultId));
-    }
+    // 4. Every user, with the owner first
+    await this.addMembers(sql, String(defaultId));
 
     // 5. NOT NULL and the foreign key (PostgreSQL, MySQL)
     if (sql.db === DbType.POSTGRES) {
@@ -225,20 +226,18 @@ export class addOrganizations1795478400000 implements MigrationInterface {
       }
     }
 
-    // Everyone else who is not a member yet, in pages: project admins anywhere become `admin`, the others `member`
-    const isProjectAdmin = `EXISTS (SELECT 1 FROM ${sql.t('project_user')} pu WHERE pu.${sql.c('user_id')} = u.${sql.c('id')} AND pu.${sql.c('role')} = 'admin')`;
+    // Everyone else who is not a member yet, in pages: `member` (a project admin stays the admin of their projects only)
     const notMember = `NOT EXISTS (SELECT 1 FROM ${ou} m WHERE m.${sql.c('organization_id')} = ? AND m.${sql.c('user_id')} = u.${sql.c('id')})`;
     for (;;) {
-      const rows: Array<{ id: string; admin: number | string | boolean }> = await sql.rows(
-        `SELECT u.${sql.c('id')} AS ${sql.q('id')}, CASE WHEN ${isProjectAdmin} THEN 1 ELSE 0 END AS ${sql.q('admin')} ` +
-          `FROM ${sql.t('user')} u WHERE ${notMember} ORDER BY u.${sql.c('id')} LIMIT 500`,
+      const rows: Array<{ id: string }> = await sql.rows(
+        `SELECT u.${sql.c('id')} AS ${sql.q('id')} FROM ${sql.t('user')} u WHERE ${notMember} ORDER BY u.${sql.c('id')} LIMIT 500`,
         [organizationId],
       );
       if (rows.length === 0) {
         break;
       }
-      const values = rows.map(() => `(?, ?, ?, ?)`).join(', ');
-      const params = rows.flatMap(row => [randomUUID(), organizationId, row.id, Number(row.admin) === 1 ? 'admin' : 'member']);
+      const values = rows.map(() => `(?, ?, ?, 'member')`).join(', ');
+      const params = rows.flatMap(row => [randomUUID(), organizationId, row.id]);
       await sql.run(
         `INSERT INTO ${ou} (${sql.c('id')}, ${sql.c('organization_id')}, ${sql.c('user_id')}, ${sql.c('role')}) VALUES ${values}`,
         params,
@@ -284,6 +283,7 @@ export class addOrganizations1795478400000 implements MigrationInterface {
 class Sql {
   readonly db = config.db.default.type as DbType;
   readonly true = this.db === DbType.POSTGRES ? 'TRUE' : '1';
+  readonly false = this.db === DbType.POSTGRES ? 'FALSE' : '0';
 
   constructor(private readonly queryRunner: QueryRunner) {
     if (this.db !== DbType.POSTGRES && this.db !== DbType.MYSQL && this.db !== DbType.BETTER_SQLITE3) {

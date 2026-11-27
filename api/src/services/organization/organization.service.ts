@@ -33,6 +33,7 @@ export interface OrganizationView {
   status: OrganizationStatus;
   planCode: OrganizationPlanCode;
   isDefault: boolean;
+  adminsSeeAllProjects: boolean;
   role: OrganizationRole;
   date: { created: Date; modified: Date };
 }
@@ -59,6 +60,7 @@ export function organizationView(organization: Organization, role: OrganizationR
     status: organization.status,
     planCode: organization.planCode,
     isDefault: !!organization.isDefault,
+    adminsSeeAllProjects: !!organization.adminsSeeAllProjects,
     role,
     date: organization.date,
   };

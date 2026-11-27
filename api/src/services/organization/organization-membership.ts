@@ -76,6 +76,7 @@ export async function ensureDefaultOrganization(manager: EntityManager): Promise
         status: OrganizationStatus.Active,
         planCode: OrganizationPlanCode.Enterprise,
         isDefault: true,
+        adminsSeeAllProjects: false,
         seatsUsed: 0,
         stringsUsed: 0,
       }),
@@ -168,6 +169,8 @@ export async function createOrganizationWithOwner(
         status: OrganizationStatus.Active,
         planCode: options.planCode ?? OrganizationPlanCode.Starter,
         isDefault: false,
+        // A company's own organization: its owner and admins can always reach its projects
+        adminsSeeAllProjects: true,
         seatsUsed: 0,
         stringsUsed: 0,
       }),

@@ -1,7 +1,6 @@
 import { ForbiddenException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { config } from '../config';
 import { AllowedEditorActions, AllowedViewerActions, ProjectAction } from '../domain/actions';
 import {
   isImplicitProjectAdmin,
@@ -39,12 +38,16 @@ export function assertOrganizationOpen(organization: Organization | null | undef
 }
 
 /**
- * The project role a person acts with: their own project role, or `admin` for an organization owner or admin in SaaS
- * mode (implicit project admin, DESIGN §3.2, OD-T9). A single-tenant install keeps today's access: everyone shares the
- * default organization there, so the implicit role would open every project of the install to its admins.
+ * The project role a person acts with: their own project role, or `admin` for an organization owner or admin where the
+ * organization has `adminsSeeAllProjects` (implicit project admin, DESIGN §3.2, OD-T9). The default organization does
+ * not: everyone of a self-hosted install shares it, and its owner keeps exactly the projects they had.
  */
-export function effectiveProjectRole(projectRole: ProjectRole | undefined, organizationRole: OrganizationRole | undefined): ProjectRole | undefined {
-  if (config.saasEnabled && isImplicitProjectAdmin(organizationRole)) {
+export function effectiveProjectRole(
+  projectRole: ProjectRole | undefined,
+  organizationRole: OrganizationRole | undefined,
+  organization: Pick<Organization, 'adminsSeeAllProjects'> | undefined,
+): ProjectRole | undefined {
+  if (organization?.adminsSeeAllProjects === true && isImplicitProjectAdmin(organizationRole)) {
     return ProjectRole.Admin;
   }
   return projectRole;
@@ -97,7 +100,7 @@ export default class AuthorizationService {
       if (!organizationMembership) {
         throw new ForbiddenException('project not found');
       }
-      const role = effectiveProjectRole(membership?.role, organizationMembership.role);
+      const role = effectiveProjectRole(membership?.role, organizationMembership.role, project.organization);
       if (!role) {
         throw new ForbiddenException('project not found');
       }

@@ -976,6 +976,8 @@ export class OrganizationDTO {
   planCode: OrganizationPlanCode;
   @ApiProperty({ description: 'The organization of a single-tenant install, made for its existing data' })
   isDefault: boolean;
+  @ApiProperty({ description: 'Whether the owner and the admins are implicit admins of every project of the organization' })
+  adminsSeeAllProjects: boolean;
   @ApiProperty({ enum: OrganizationRole, description: "The caller's role" })
   role: OrganizationRole;
   @ApiProperty()

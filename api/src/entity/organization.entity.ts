@@ -28,6 +28,14 @@ export class Organization {
   @Column({ default: false })
   isDefault: boolean;
 
+  /**
+   * Whether the owner and the admins are implicit admins of every project of the organization (DESIGN §3.2, OD-T9).
+   * True for organizations made in SaaS mode (sign-up, POST /organizations); false for the default organization, whose
+   * people keep exactly the project access they had before organizations existed.
+   */
+  @Column({ default: false })
+  adminsSeeAllProjects: boolean;
+
   /** Cached counters (DESIGN §3.6): members plus pending organization invites. */
   @Column(NumberColumnType.integer(0))
   seatsUsed: number;
