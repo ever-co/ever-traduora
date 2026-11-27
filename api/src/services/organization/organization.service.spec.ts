@@ -19,8 +19,11 @@ function fakeManager(memberships: OrganizationUser[]) {
     }),
     update: jest.fn(async (entity, where, changes) => {
       const row = memberships.find(m => m.id === where.id);
+      if (!row) {
+        return { affected: 0 };
+      }
       Object.assign(row, changes);
-      return { affected: row ? 1 : 0 };
+      return { affected: 1 };
     }),
   };
   tx.transaction = async work => work(tx);
