@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { EntityManager, In } from 'typeorm';
 import { OrganizationRole } from '../../src/domain/organization-actions';
 import { OrganizationUser } from '../../src/entity/organization-user.entity';
@@ -21,6 +22,10 @@ export function effectiveProjectRole(projectRole: ProjectRole | undefined): Proj
 }
 
 export async function membershipOf(manager: EntityManager, organizationId: string, userId: string): Promise<OrganizationUser | null> {
+  // The id check is not a boundary of the scope: it stays
+  if (typeof organizationId !== 'string' || !organizationId || typeof userId !== 'string' || !userId) {
+    throw new ForbiddenException('organization not found');
+  }
   const organization = await manager.findOne(Organization, { where: { id: organizationId } });
   return organization ? Object.assign(new OrganizationUser(), { organizationId, userId, role: OrganizationRole.Owner, organization }) : null;
 }

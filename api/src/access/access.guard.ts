@@ -1,10 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ModuleRef, Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { ProjectClient } from '../entity/project-client.entity';
 import { User } from '../entity/user.entity';
 import { AccessUndeclaredException } from '../errors';
-import AuthorizationService from '../services/authorization.service';
+import AuthorizationService, { isId } from '../services/authorization.service';
 import { ACCESS_METADATA, AccessMetadata, parseAccessRule } from './access.decorator';
 import { OPERATOR_CHECK, OperatorCheck } from './operator-check';
 
@@ -57,10 +57,14 @@ export class AccessGuard implements CanActivate {
         }
         return true;
       case 'project':
-        await this.authorization.assertProjectAccess(caller, request.params?.projectId, rule.action);
+        await this.authorization.assertProjectAccess(caller, this.routeId(request, 'projectId', 'project not found'), rule.action);
         return true;
       case 'organization':
-        await this.authorization.authorizeOrganizationAction(this.mustBeUser(caller, false), request.params?.organizationId, rule.action);
+        await this.authorization.authorizeOrganizationAction(
+          this.mustBeUser(caller, false),
+          this.routeId(request, 'organizationId', 'organization not found'),
+          rule.action,
+        );
         return true;
       case 'operator':
         if (!this.isOperator(caller)) {
@@ -81,6 +85,15 @@ export class AccessGuard implements CanActivate {
       throw new UnauthorizedException();
     }
     return request.user;
+  }
+
+  /** The route's id parameter, refused (403) unless it is a non-empty string. */
+  private routeId(request: { params?: Record<string, unknown> }, name: string, notFound: string): string {
+    const value = request.params?.[name];
+    if (!isId(value)) {
+      throw new ForbiddenException(notFound);
+    }
+    return value;
   }
 
   private mustBeUser(caller: User | ProjectClient, apiKeyNotFound: boolean): User {

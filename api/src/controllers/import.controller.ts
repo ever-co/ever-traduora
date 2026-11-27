@@ -44,7 +44,7 @@ import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
 import { arbParser } from '../formatters/arb';
-import { PaymentRequiredException } from './../errors';
+import { OrganizationException, PaymentRequiredException } from './../errors';
 import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects/:projectId/imports')
@@ -95,6 +95,9 @@ export class ImportController {
       const lockLocale = !isDbType(DbType.BETTER_SQLITE3);
       const run = async (entityManager: EntityManager) => {
         await lockProject(entityManager, membership.project.id);
+        // The upload was read after the access check: access that ended since (removed from the project or the
+        // organization, organization suspended) stops the import here, before anything is written
+        await this.auth.recheckProjectAccess(entityManager, user, membership.project.id, ProjectAction.ImportTranslation);
 
         let projectLocale: ProjectLocale | undefined = await entityManager.findOne(ProjectLocale, {
           where: { project: { id: membership.project.id }, locale: { code: locale.code } },
@@ -196,6 +199,9 @@ export class ImportController {
     } catch (error) {
       if (error instanceof PaymentRequiredException) {
         throw new PaymentRequiredException('request would exceed plan limit');
+      } else if (error instanceof OrganizationException) {
+        // A suspended organization answers as on every other route (organization_suspended)
+        throw error;
       } else if (isTransientDatabaseError(error)) {
         // Answered as such (try again), not as a missing resource
         throw error;

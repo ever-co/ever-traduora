@@ -14,6 +14,11 @@ import { assertOrganizationOpen, effectiveProjectRole, membershipOf, projectForA
 // The organization scope's decisions, as they were exported from here before
 export { assertOrganizationOpen, effectiveProjectRole } from './organization/organization-scope';
 
+/** A route or body id worth a lookup: a non-empty string. */
+export function isId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
 @Injectable()
 export default class AuthorizationService {
   constructor(
@@ -50,7 +55,7 @@ export default class AuthorizationService {
    * A user's answer carries the effective role; it is not a stored row when the role is implicit.
    */
   mustBeProjectUserOrClient(userOrClient: User | ProjectClient, projectId: string): Promise<ProjectUser | ProjectClient> {
-    if (!userOrClient || typeof userOrClient !== 'object') {
+    if (!isId(projectId) || !userOrClient || typeof userOrClient !== 'object') {
       return this.resolveProjectAccess(userOrClient, projectId);
     }
     let byProject = this.resolved.get(userOrClient);
@@ -66,17 +71,30 @@ export default class AuthorizationService {
     return access;
   }
 
-  private async resolveProjectAccess(userOrClient: User | ProjectClient, projectId: string): Promise<ProjectUser | ProjectClient> {
+  /**
+   * The caller's access to a project, read now (with `manager`, inside the caller's transaction). An id that is not a
+   * non-empty string is refused before any read: TypeORM drops an `undefined` from a where clause, which would match the
+   * caller's first membership of any project.
+   */
+  private async resolveProjectAccess(
+    userOrClient: User | ProjectClient,
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<ProjectUser | ProjectClient> {
+    if (!isId(projectId)) {
+      throw new ForbiddenException('project not found');
+    }
+    const reader = manager ?? this.organizationUserRepo.manager;
     if (userOrClient instanceof User) {
-      const membership = await this.projectUserRepo.findOne({
+      const membership = await (manager ? manager.getRepository(ProjectUser) : this.projectUserRepo).findOne({
         where: { project: { id: projectId }, user: { id: userOrClient.id } },
         relations: ['project', 'project.plan', 'project.organization'],
       });
-      const project = membership?.project ?? (await projectForAccess(this.organizationUserRepo.manager, projectId));
+      const project = membership?.project ?? (await projectForAccess(reader, projectId));
       if (!project?.organizationId) {
         throw new ForbiddenException('project not found');
       }
-      const organizationMembership = await membershipOf(this.organizationUserRepo.manager, project.organizationId, userOrClient.id);
+      const organizationMembership = await membershipOf(reader, project.organizationId, userOrClient.id);
       if (!organizationMembership) {
         throw new ForbiddenException('project not found');
       }
@@ -87,7 +105,7 @@ export default class AuthorizationService {
       }
       return Object.assign(new ProjectUser(), membership ?? { user: userOrClient }, { project, role });
     } else if (userOrClient instanceof ProjectClient) {
-      const membership = await this.projectClientRepo.findOne({
+      const membership = await (manager ? manager.getRepository(ProjectClient) : this.projectClientRepo).findOne({
         where: { project: { id: projectId }, id: userOrClient.id },
         relations: ['project', 'project.plan', 'project.organization'],
       });
@@ -111,6 +129,18 @@ export default class AuthorizationService {
       throw new ForbiddenException('you are not authorized to perform this action');
     }
     return membership;
+  }
+
+  /**
+   * `assertProjectAccess` read again inside the caller's transaction, past the answer kept for the request: for a
+   * request that writes long after its access was checked (an import, whose upload is read after the guard), so that
+   * access ended meanwhile (removed from the project or the organization, organization suspended) stops the write.
+   */
+  async recheckProjectAccess(manager: EntityManager, userOrClient: User | ProjectClient, projectId: string, action: ProjectAction): Promise<void> {
+    const membership = await this.resolveProjectAccess(userOrClient, projectId, manager);
+    if (!this.isAuthorized(membership.role, action)) {
+      throw new ForbiddenException('you are not authorized to perform this action');
+    }
   }
 
   async authorizeProjectAction(
@@ -145,6 +175,9 @@ export default class AuthorizationService {
    * action the role does not have.
    */
   async authorizeOrganizationAction(user: User, organizationId: string, action: OrganizationAction): Promise<OrganizationUser> {
+    if (!isId(organizationId)) {
+      throw new ForbiddenException('organization not found');
+    }
     const membership = await membershipOf(this.organizationUserRepo.manager, organizationId, user.id, { withOrganization: true });
     if (!membership) {
       throw new ForbiddenException('organization not found');

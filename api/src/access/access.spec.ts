@@ -1,4 +1,4 @@
-import { ExecutionContext, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { ProjectAction } from '../domain/actions';
@@ -149,6 +149,18 @@ describe('AccessGuard', () => {
     expect(authorization.assertProjectAccess).toHaveBeenCalledWith(client, 'p1', ProjectAction.EditTerm);
     authorization.assertProjectAccess.mockRejectedValueOnce(new NotFoundException());
     await expect(guard.canActivate(context(access('project:EditTerm'), user, { projectId: 'p2' }))).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('refuses a project or organization rule without its id, before any lookup', async () => {
+    const { guard, authorization } = make();
+    for (const params of [{}, { projectId: '' }, { projectId: ['p1'] }] as any[]) {
+      await expect(guard.canActivate(context(access('project:ViewProject'), user, params))).rejects.toBeInstanceOf(ForbiddenException);
+    }
+    for (const params of [{}, { organizationId: '' }] as any[]) {
+      await expect(guard.canActivate(context(access('organization:ViewOrganization'), user, params))).rejects.toBeInstanceOf(ForbiddenException);
+    }
+    expect(authorization.assertProjectAccess).not.toHaveBeenCalled();
+    expect(authorization.authorizeOrganizationAction).not.toHaveBeenCalled();
   });
 
   it("checks an organization rule against the route's organization, for people only", async () => {

@@ -9,6 +9,7 @@ import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import { OrganizationException } from '../errors';
 import AuthorizationService, { assertOrganizationOpen, effectiveProjectRole } from './authorization.service';
+import { membershipOf } from './organization/organization-scope';
 
 const organization = (fields: Partial<Organization> = {}): Organization =>
   Object.assign(new Organization(), { id: 'org-1', status: OrganizationStatus.Active, adminsSeeAllProjects: true, ...fields });
@@ -198,5 +199,25 @@ describe('AuthorizationService.authorizeAddingToOrganization', () => {
     await expect(over(OrganizationRole.Owner).authorizeAddingToOrganization(user, suspended, 'member-1')).rejects.toBeInstanceOf(
       OrganizationException,
     );
+  });
+});
+
+describe('ids that are not ids', () => {
+  it('refuses a missing or empty project id before any read (TypeORM would drop it from the where clause)', async () => {
+    const auth = service({ project: project(organization()), projectRole: ProjectRole.Admin, organizationRole: OrganizationRole.Owner });
+    for (const id of [undefined, '', null, 42]) {
+      await expect(auth.authorizeProjectAction(user, id as any, ProjectAction.ViewProject)).rejects.toBeInstanceOf(ForbiddenException);
+    }
+  });
+
+  it('refuses a missing organization id, here and in the scope', async () => {
+    const auth = service({ organizationRole: OrganizationRole.Owner });
+    await expect(auth.authorizeOrganizationAction(user, undefined as any, OrganizationAction.ViewOrganization)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    const manager = { findOne: jest.fn() };
+    await expect(membershipOf(manager as any, undefined as any, 'user-1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(membershipOf(manager as any, 'org-1', '')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(manager.findOne).not.toHaveBeenCalled();
   });
 });

@@ -54,13 +54,19 @@ export function effectiveProjectRole(
   return projectRole;
 }
 
-/** The user's membership of the organization (with the organization loaded when asked), or null. */
+const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
+
+/** The user's membership of the organization (with the organization loaded when asked), or null; 403 without both ids. */
 export function membershipOf(
   manager: EntityManager,
   organizationId: string,
   userId: string,
   options: { withOrganization?: boolean } = {},
 ): Promise<OrganizationUser | null> {
+  // TypeORM drops an undefined from a where clause: without both ids this would read some other membership
+  if (!isNonEmptyString(organizationId) || !isNonEmptyString(userId)) {
+    return Promise.reject(new ForbiddenException('organization not found'));
+  }
   return manager.findOne(OrganizationUser, {
     where: { organizationId, userId },
     ...(options.withOrganization ? { relations: ['organization'] } : {}),
