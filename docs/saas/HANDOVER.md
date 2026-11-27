@@ -15,7 +15,7 @@ design says how it is built.
 | P0 Design | ✅ merged | [#665](https://github.com/ever-co/ever-traduora/pull/665) | `docs/saas/DESIGN.md`; owner questions OD-T1..T14 with defaults in §12; bot findings fixed (an upgrade never widens access) |
 | P1 Organizations | ✅ merged | [#666](https://github.com/ever-co/ever-traduora/pull/666) | Merged as `2a9aa6f`; see "P1 Organizations" below |
 | P2 Isolation | 🔍 in review | [#672](https://github.com/ever-co/ever-traduora/pull/672) | Branch `feat/saas-p2-isolation`; review round 1 fixed; mutation check 66.7 %; see "P2 Isolation" below |
-| P3 Plans and seats | 🔨 code complete, pushed | (stacked on #672) | Branch `feat/saas-p3-plans`; see "P3 Plans, seats and strings" below |
+| P3 Plans and seats | 🔍 in review | [#674](https://github.com/ever-co/ever-traduora/pull/674) (base `feat/saas-p2-isolation`) | Branch `feat/saas-p3-plans`; review round 1 fixed; see "P3 Plans, seats and strings" below |
 | P4 Billing (Stripe test mode) | ⏳ | — | |
 | P5 Accounts and hardening | ⏳ | — | |
 | P6 Operator console and data rights | ⏳ | — | |
@@ -253,10 +253,11 @@ DESIGN §3.6, §4.1, §5 `/usage`, §12 OD-T2, T12, T13, T14.
   `plan_code` applies as it is. A `past_due` without a date keeps the plan; an unreadable date counts as lapsed.
 - **Seats** (`services/organization/organization-usage.ts`): members, plus everyone else with a pending organization
   invite or a pending project invite to one of the organization's projects, counted once per person (by normalized
-  email). This adds the project invites to non-members that P1 left out. `recountSeats` now uses the same count.
-- **Strings**: the sum over the organization's projects of `localesCount × termsCount`.
-- **Enforced**, each inside a `readCommittedTransaction` that holds the organization row lock first, then the project
-  lock for adds (`lockOrganizationForStrings`, then `lockProject`):
+  email). This adds the project invites to non-members that P1 left out. Counted in SQL: COUNT of members plus
+  COUNT(DISTINCT email) of pending invitations of non-members (the organization's, then its projects' not among them).
+- **Strings**: the sum over the organization's projects of `localesCount × termsCount`, as SUM in SQL.
+- **Enforced**, each inside a `readCommittedTransaction` in the global lock order account → project(s) → organization
+  (DESIGN §3.6): the project lock, then the organization lock, under which the totals are read:
 
   | Change | Check |
   |---|---|
@@ -266,20 +267,25 @@ DESIGN §3.6, §4.1, §5 `/usage`, §12 OD-T2, T12, T13, T14.
   | `POST /projects/:id/invites` to someone outside the organization | as an organization invite (direct add or pending) |
   | `POST /projects/:id/terms`, `POST /projects/:id/translations` (a locale), imports | the strings the change adds; a change that adds none passes |
 
-  A refusal answers **402 `plan_limit_reached`** with `resource` (`seats` or `strings`), `limit`, `used` and `plan`,
-  and the message "Your plan allows N members|strings. Upgrade to add more."
+  A refusal answers **402 `plan_limit_reached`** with `resource` (`seats` or `strings`) and `limit`, and the message
+  "Your plan allows N members|strings. Upgrade to add more." `used` and `plan` come only for a caller who holds
+  `ViewUsage` there (owner, admin); see "Needs owner".
 - **Over the limit** (a downgrade, a lapse): adds are refused, nothing is deleted. Reads, edits, exports, removals and an
   import of existing terms keep working. An acceptance that comes with a sign-up or a sign-in leaves the invitation
   pending instead of failing, so the account is still made (with its own organization in SaaS mode).
-- **Single-tenant mode and the default organization** take no organization lock and keep the per-project
-  `Plan.maxStrings` check exactly as before (`PaymentRequired`). In an organization of SaaS mode the project plans are
-  ignored.
+- **Single-tenant mode and the default organization** take no organization lock for strings (decided on the unlocked
+  `isDefault`, which never changes), keep no cached counters, and keep the per-project `Plan.maxStrings` check exactly
+  as before (`PaymentRequired`). In an organization of SaaS mode the project plans are ignored.
+- `lockOrganization` takes FOR NO KEY UPDATE on Postgres (lockers still wait for each other; foreign-key checks of
+  rows that reference the organization do not), FOR UPDATE on MySQL.
 - **`GET /organizations/:id/usage`**, `@Access('organization:ViewUsage')`, a new action of owners and admins: the effective
   plan, seats used and included, strings used and limit (`null` is unlimited), counted live. SaaS mode only, and 404
   `saas_disabled` for the default organization, like the members routes.
-- **Cached counters** `seats_used` and `strings_used` are refreshed in the same transaction by every limited change and
-  every seat change (invite, revoke, project invite and its removal, accept, member removal). A term, locale or project
-  removal does not refresh `strings_used`; nothing reads it, and `/usage` counts live.
+- **Cached counters** `seats_used` and `strings_used`, kept only for organizations with their own plan, are recounted
+  in SQL in the same transaction under the organization lock by every change of seats or strings: invites, revokes,
+  project invites and their removal, acceptances, member removals, a direct add that replaces a pending invite, term
+  and locale adds and removals, imports and project deletion. e2e checks them against `/usage`, so P4 billing can
+  read them.
 - **Web app**: the members page shows owners and admins the plan with two meters (seats, strings), read again after an
   invite, revoke, removal or refusal. A `plan_limit_reached` anywhere in the app (`errorToMessage`) reads "Your plan
   allows 15 members. Upgrade to add more." (figures as 10,000). On the members page it shows as a quiet notice, not as a
@@ -291,6 +297,12 @@ DESIGN §3.6, §4.1, §5 `/usage`, §12 OD-T2, T12, T13, T14.
   exceeding it, a downgrade over the limit, Small Business and Enterprise without limits, the default organization and
   single-tenant mode unchanged, `/usage` access; the isolation suite asks for B's `/usage` from A's people and checks
   each organization's usage counts only its own projects.
+
+- **Review of #674, round 1**: seats and strings counted in SQL, no counters and no strings lock for the default
+  organization or a single-tenant install; FOR NO KEY UPDATE on Postgres; a revoke locks the organization first;
+  accounts locked first where a later write references them (a direct add, an import's history, Ever Connect
+  deletion), and `lock-order.spec.ts` keeps a lock's window to the end of its transaction and flags an account after a
+  project or an organization; the 402 shows `used` and `plan` to owners and admins only; the counters follow removals.
 
 ### Deviations from DESIGN.md (DESIGN updated)
 
@@ -329,9 +341,9 @@ pending project invites, and every refusal showed as a red error.
 
 ### Test results (this machine, SQLite)
 
-- API unit (`--runInBand`): 488 of 488 tests pass in 47 suites. The 13 `src/formatters/*` suites cannot start on this
+- API unit (`--runInBand`, after review round 1): 494 of 494 tests pass in 48 suites, the lock-order scan included. The 13 `src/formatters/*` suites cannot start on this
   PC (jest EPERM, as before).
-- API e2e on SQLite, the whole suite: 35 suites, 415 passed, 10 skipped, 0 failed. Parallel requests are serialized on
+- API e2e on SQLite, the whole suite: 35 suites, 419 passed, 10 skipped, 0 failed (27 in the plans suite). Parallel requests are serialized on
   SQLite; CI proves them on Postgres and MySQL.
 - Mutation check: 64 of 97 (66.0 %), see the table.
 - Web app Karma: 222 of 222. `ng lint`: no finding in the files P3 changed (the 61 `prefer-standalone` errors elsewhere
