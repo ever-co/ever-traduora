@@ -256,13 +256,23 @@ describe('Organizations in SaaS mode (e2e)', () => {
       expect(leaveOwner.body.error.code).toBe('owner_required');
       await request(server()).delete(`/api/v1/organizations/${organization.id}/members/${admin.id}`).set(auth(member)).expect(404);
 
-      // Removing a member also ends their project memberships in the organization's projects
+      // Removing a member also ends their project memberships in the organization's projects, and only there
       const project = await createProject(owner, organization.id);
+      const secondProject = await createProject(owner, organization.id);
       await addToProject(owner, project.id, member, 'editor');
+      await addToProject(owner, secondProject.id, member, 'viewer');
+      const elsewhere = await createProject(member); // in the member's own organization
+      const memberships = async () =>
+        (await dataSource.getRepository(ProjectUser).find({ where: { user: { id: member.id } }, relations: ['project'] }))
+          .map(row => row.project.id)
+          .sort((a, b) => a.localeCompare(b));
+      expect(await memberships()).toEqual([project.id, secondProject.id, elsewhere.id].sort((a, b) => a.localeCompare(b)));
       await request(server()).get(`/api/v1/projects/${project.id}`).set(auth(member)).expect(200);
       await request(server()).delete(`/api/v1/organizations/${organization.id}/members/${member.id}`).set(auth(admin)).expect(204);
       await request(server()).get(`/api/v1/projects/${project.id}`).set(auth(member)).expect(404);
-      expect(await dataSource.getRepository(ProjectUser).count({ where: { user: { id: member.id } } })).toBe(0);
+      expect(await memberships()).toEqual([elsewhere.id]);
+      // The other members keep theirs
+      expect(await dataSource.getRepository(ProjectUser).count({ where: { project: { id: project.id } } })).toBe(1);
 
       // A member leaves by removing themselves
       await request(server()).delete(`/api/v1/organizations/${organization.id}/members/${admin.id}`).set(auth(admin)).expect(204);
