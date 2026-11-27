@@ -114,6 +114,9 @@ export async function ensureMember(
   userId: string,
   role: OrganizationRole = OrganizationRole.Member,
 ): Promise<OrganizationUser> {
+  // The organization's lock first: two invitations of the same person wait for each other instead of colliding on the
+  // unique key, seats are counted one change at a time, and an account deletion holding the lock sees every member
+  await lockOrganization(manager, organizationId);
   const existing = await manager.findOne(OrganizationUser, { where: { organizationId, userId } });
   if (existing) {
     return existing;

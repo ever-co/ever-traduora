@@ -72,6 +72,19 @@ function inviteView(invite: OrganizationInvite): InviteView {
   return { id: invite.id, email: invite.email, role: invite.role, status: invite.status };
 }
 
+/** An accepted invitation, with the role its person holds in the organization once it is accepted. */
+export interface AcceptedInvite {
+  invite: OrganizationInvite;
+  role: OrganizationRole;
+}
+
+const ROLE_RANK: Record<string, number> = { [OrganizationRole.Owner]: 3, [OrganizationRole.Admin]: 2, [OrganizationRole.Member]: 1 };
+
+/** Whether `role` is higher than `than` (owner > admin > member). */
+export function outranks(role: OrganizationRole, than: OrganizationRole): boolean {
+  return (ROLE_RANK[role] ?? 0) > (ROLE_RANK[than] ?? 0);
+}
+
 /** Refuses the organization routes that only SaaS mode has (a single-tenant install shows no organization at all). */
 export function assertSaasEnabled(): void {
   if (!config.saasEnabled) {
@@ -285,15 +298,27 @@ export class OrganizationService {
     }
 
     if (account?.emailVerified) {
-      await this.members.manager.transaction(async tx => {
+      const added = await this.members.manager.transaction(async tx => {
+        // The account read again under its lock (then the organization's, as acceptInvites does): an email changed
+        // meanwhile is unverified, and the address asked for then gets an invitation instead
+        const current = await tx.findOne(User, {
+          where: { id: account.id },
+          ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+        });
+        if (current?.email !== email || !current.emailVerified) {
+          return null;
+        }
         await lockOrganization(tx, organization.id);
-        await tx.save(tx.create(OrganizationUser, { organizationId: organization.id, userId: account.id, role: payload.role }));
+        await tx.save(tx.create(OrganizationUser, { organizationId: organization.id, userId: current.id, role: payload.role }));
         // An invitation sent before they had an account is no longer needed
         await tx.delete(OrganizationInvite, { organizationId: organization.id, email });
         await recountSeats(tx, organization.id);
+        return current;
       });
-      void this.mail.addedToOrganization(account, organization, payload.role);
-      return { member: { userId: account.id, name: account.name, email: account.email, role: payload.role } };
+      if (added) {
+        void this.mail.addedToOrganization(added, organization, payload.role);
+        return { member: { userId: added.id, name: added.name, email: added.email, role: payload.role } };
+      }
     }
 
     const token = generateInviteToken();
@@ -351,7 +376,7 @@ export class OrganizationService {
    * admin may have sent a new link, changed the role or revoked it) and only while the account still has the email it
    * was sent to. A person who is a member already keeps their role. Returns the accepted ones.
    */
-  async acceptInvites(invites: OrganizationInvite[], user: User): Promise<OrganizationInvite[]> {
+  async acceptInvites(invites: OrganizationInvite[], user: User): Promise<AcceptedInvite[]> {
     if (invites.length === 0) {
       return [];
     }
@@ -361,7 +386,7 @@ export class OrganizationService {
         select: ['id', 'email'],
         ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
       });
-      const accepted: OrganizationInvite[] = [];
+      const accepted: AcceptedInvite[] = [];
       for (const invite of invites) {
         if (current?.email !== invite.email) {
           continue;
@@ -380,20 +405,21 @@ export class OrganizationService {
           continue;
         }
         const existing = await tx.findOne(OrganizationUser, { where: { organizationId: invite.organizationId, userId: user.id } });
+        let role = invite.role;
         if (!existing) {
-          await tx.save(tx.create(OrganizationUser, { organizationId: invite.organizationId, userId: user.id, role: invite.role }));
+          await tx.save(tx.create(OrganizationUser, { organizationId: invite.organizationId, userId: user.id, role }));
+        } else if (outranks(invite.role, existing.role)) {
+          // A membership made first by a project invite (as a member) gets the role this invitation grants
+          await tx.update(OrganizationUser, { id: existing.id }, { role });
+        } else {
+          // Never lowered: a higher role stays
+          role = existing.role;
         }
         await recountSeats(tx, invite.organizationId);
-        accepted.push(invite);
+        accepted.push({ invite, role });
       }
       return accepted;
     });
-  }
-
-  /** The user's role in the organization, or undefined when they are not a member. */
-  async roleOf(organizationId: string, userId: string): Promise<OrganizationRole | undefined> {
-    const membership = await this.members.findOne({ where: { organizationId, userId } });
-    return membership?.role;
   }
 
   private async memberView(organizationId: string, userId: string): Promise<MemberView> {

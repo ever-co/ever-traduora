@@ -529,12 +529,12 @@ export class AuthController {
     const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     // The token proves that the caller received this invitation, and the link only works for the email it was sent to
     const invite = await this.organizations.inviteForToken(payload.inviteToken, requestingUser.email);
-    const accepted = invite ? await this.organizations.acceptInvites([invite], requestingUser) : [];
-    if (accepted.length === 0) {
+    const [accepted] = invite ? await this.organizations.acceptInvites([invite], requestingUser) : [];
+    if (!accepted) {
       throw new NotFoundException('invite not found');
     }
-    const role = await this.organizations.roleOf(invite.organizationId, requestingUser.id);
-    return { data: { organizationId: invite.organizationId, slug: invite.organization.slug, role } };
+    // The role recorded by the acceptance itself (a membership that existed keeps a higher role)
+    return { data: { organizationId: invite.organizationId, slug: invite.organization.slug, role: accepted.role } };
   }
 
   /**

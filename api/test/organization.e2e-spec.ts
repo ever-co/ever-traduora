@@ -389,6 +389,47 @@ describe('Organizations in SaaS mode (e2e)', () => {
       expect((await organizationsOf(invitee)).map(o => o.id)).not.toContain(organization.id);
     });
 
+    it('recounts the seats when a member deletes their account', async () => {
+      const owner = await signupTestUser(app, 'seats-owner@test.com');
+      const member = await signupTestUser(app, 'seats-member@test.com');
+      const organization = await onlyOrganizationOf(owner);
+      await inviteToOrganization(owner, organization.id, member.email).expect(201);
+      const seats = async () => (await dataSource.getRepository(Organization).findOneByOrFail({ id: organization.id })).seatsUsed;
+      expect(await seats()).toBe(2);
+      await request(server()).delete('/api/v1/users/me').set(auth(member)).expect(204);
+      expect(await seats()).toBe(1);
+    });
+
+    it('grants the role of an organization invite accepted after a project invite made the person a member', async () => {
+      const owner = await signupTestUser(app, 'ranks-owner@test.com');
+      const person = await signupTestUser(app, 'ranks-person@test.com', false);
+      const organization = await onlyOrganizationOf(owner);
+      const project = await createProject(owner, organization.id);
+      const projectInvite = await request(server())
+        .post(`/api/v1/projects/${project.id}/invites`)
+        .set(auth(owner))
+        .send({ email: person.email, role: 'editor' })
+        .expect(201);
+      const organizationInvite = await inviteToOrganization(owner, organization.id, person.email, 'admin').expect(201);
+      const tokenOf = (res: request.Response) => new URL(res.body.data.inviteUrl).searchParams.get('invite');
+
+      // The project invite first: the person joins as a member
+      await request(server())
+        .post('/api/v1/auth/accept-invite')
+        .set(auth(person))
+        .send({ inviteToken: tokenOf(projectInvite) })
+        .expect(200);
+      expect((await organizationsOf(person)).find(o => o.id === organization.id)?.role).toBe('member');
+      // Then the organization invite: its admin role applies, and is the role answered
+      const accepted = await request(server())
+        .post('/api/v1/auth/accept-organization-invite')
+        .set(auth(person))
+        .send({ inviteToken: tokenOf(organizationInvite) })
+        .expect(200);
+      expect(accepted.body.data.role).toBe('admin');
+      expect((await organizationsOf(person)).find(o => o.id === organization.id)?.role).toBe('admin');
+    });
+
     it('accepts no invite of an organization that is not active', async () => {
       const owner = await signupTestUser(app, 'suspended-inviter@test.com');
       const invitee = await signupTestUser(app, 'suspended-invitee@test.com', false);
