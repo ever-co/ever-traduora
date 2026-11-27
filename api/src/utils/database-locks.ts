@@ -1,4 +1,5 @@
-import { EntityManager } from 'typeorm';
+import { EntityManager, In } from 'typeorm';
+import { ProjectUser } from '../entity/project-user.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
 import { DbType, isDbType } from './database-type-helper';
@@ -29,9 +30,38 @@ export async function lockProject(entityManager: EntityManager, projectId: strin
  * stays. SQLite runs one transaction at a time.
  */
 export async function lockProjects(entityManager: EntityManager, projectIds: ReadonlyArray<string>): Promise<void> {
-  for (const projectId of Array.from(new Set(projectIds)).sort((a, b) => a.localeCompare(b))) {
+  // One at a time and in one order (by code unit, the same everywhere): that order is what keeps two such changes from
+  // waiting for each other
+  for (const projectId of Array.from(new Set(projectIds)).sort(byCodeUnits)) {
     await lockProject(entityManager, projectId);
   }
+}
+
+/**
+ * Locks every project the accounts belong to, in any role ({@link lockProjects}), for a deletion of the accounts. Their
+ * admin roles are to be read only after this: a role change (a promotion) locks the project too, so it either committed
+ * before the read or waits for the deletion. A membership added meanwhile waits for the account's own lock (its foreign
+ * key), which the deletion takes first. SQLite runs one transaction at a time.
+ */
+export async function lockProjectsOf(entityManager: EntityManager, userIds: ReadonlyArray<string>): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3) || !userIds.length) {
+    return;
+  }
+  const memberships = await entityManager.getRepository(ProjectUser).find({
+    where: { user: { id: In([...userIds]) } },
+    relations: { project: true },
+  });
+  await lockProjects(
+    entityManager,
+    memberships.filter(membership => membership.project).map(membership => membership.project.id),
+  );
+}
+
+function byCodeUnits(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
 }
 
 /**

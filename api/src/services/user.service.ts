@@ -19,7 +19,7 @@ import { PublishedPasswordException, TooManyRequestsException } from '../errors'
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 import { config } from '../config';
 import { isPublishedPassword } from '../utils/published-passwords';
-import { lockProjects, readCommittedTransaction } from '../utils/database-locks';
+import { lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { lockAccount } from './ever-id-session.service';
 import { EMAIL_VERIFICATION_VALID_DAYS, generateEmailVerificationToken, hashEmailVerificationToken } from '../utils/email-verification-token';
 
@@ -222,20 +222,21 @@ export class UserService {
   }
 
   /**
-   * Deletes the account, unless it is the last admin of a project that other users use. The account's row and then the
-   * projects it administers are locked before their admins are counted, as Ever Platform's deletion path locks them
-   * ({@link lockProjects}): a deletion or role change at the same time waits, then counts what this one left.
+   * Deletes the account, unless it is the last admin of a project that other users use. The account's row and then every
+   * project it belongs to are locked before its admin roles are read and the projects' admins counted, as Ever
+   * Platform's deletion path locks them ({@link lockProjectsOf}): a deletion or role change at the same time waits, then
+   * counts what this one left.
    */
   async deleteAccount(user: User) {
     await readCommittedTransaction(this.userRepo.manager, async manager => {
       await lockAccount(manager, user.id);
+      await lockProjectsOf(manager, [user.id]);
       const memberships = manager.getRepository(ProjectUser);
       const ownedProjects = await memberships.find({
         where: { user: { id: user.id }, role: ProjectRole.Admin },
         relations: ['project'],
       });
       const projectIds = ownedProjects.filter(owned => owned.project).map(owned => owned.project.id);
-      await lockProjects(manager, projectIds);
 
       // Ensure user is not last project admin for any of their projects with other users
       for (const projectId of projectIds) {

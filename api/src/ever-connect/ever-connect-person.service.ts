@@ -13,7 +13,7 @@ import { TranslationHistory } from '../entity/translation-history.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
 import { DbType, isDbType } from '../utils/database-type-helper';
-import { lockProjects, readCommittedTransaction } from '../utils/database-locks';
+import { lockProjects, lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { normalizeEmail } from '../ever-platform/env';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from '../ever-instance/ever-instance.settings';
 import { KeyPurpose, unwrapKey, wrapKey } from '../ever-instance/key-wrap';
@@ -370,6 +370,8 @@ export class EverConnectPersonService {
    */
   private async deleteAccounts(manager: EntityManager, userIds: string[]): Promise<boolean> {
     if (!this.settings.personDeletionEnabled) return false;
+    // Every project of every account, in one order, before any admin role is read (see lockProjectsOf)
+    await lockProjectsOf(manager, userIds);
     for (const userId of userIds) {
       const hold = await this.deletionHold(manager, userId, userIds);
       if (hold) {
@@ -393,9 +395,10 @@ export class EverConnectPersonService {
    *   administers. With other people in it, *Delete account* refuses as well; alone, the project would stay with nobody
    *   to reach it. The person hands the project over, or deletes it, in Traduora first.
    *
-   * The projects' rows are locked, in the order of their ids, before their admins are counted ({@link lockProjects}),
-   * and the request's transaction reads committed rows ({@link readCommittedTransaction}): another deletion, through
-   * this path or *Delete account*, or a project role change, waits for this one and then counts what it left.
+   * The projects' rows are locked, in the order of their ids, before their admins are counted ({@link lockProjects};
+   * {@link deleteAccounts} locks every project of the accounts first, see {@link lockProjectsOf}), and the request's
+   * transaction reads committed rows ({@link readCommittedTransaction}): another deletion, through this path or *Delete
+   * account*, or a project role change, waits for this one and then counts what it left.
    */
   async deletionHold(manager: EntityManager, userId: string, deleting: ReadonlyArray<string> = [userId]): Promise<PersonDeletionHold | null> {
     const user = await manager.getRepository(User).findOne({ where: { id: userId } });

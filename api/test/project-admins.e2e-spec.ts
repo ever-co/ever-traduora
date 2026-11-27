@@ -4,7 +4,6 @@ import { Connection, EntityManager } from 'typeorm';
 import { ProjectRole, ProjectUser } from '../src/entity/project-user.entity';
 import { Project } from '../src/entity/project.entity';
 import { DbType, isDbType } from '../src/utils/database-type-helper';
-import './util';
 import { createAndMigrateApp, createTestProject, signupTestUser, TestingProject, TestingUser } from './util';
 
 // Changes that may leave a project without an admin: an account deletion counts the project's other admins under the
@@ -54,11 +53,24 @@ describe('Project admins (e2e)', () => {
         .find({ where: { project: { id: project.id }, role: ProjectRole.Admin }, relations: { user: true } })
     ).map(admin => admin.user.email);
 
+  const changeRole = (user: TestingUser, role: ProjectRole, by: TestingUser = alice) =>
+    request(app.getHttpServer())
+      .patch(`/api/v1/projects/${project.id}/users/${user.id}`)
+      .set('Authorization', `Bearer ${by.accessToken}`)
+      .send({ role });
+
+  // The deletion's count of the users of a project it administers
+  const countOfProjectUsers = (target: any, options: any) => target === ProjectUser && !!options?.where?.project;
+
   /**
-   * Deletes Alice's account, and runs the other request once the deletion counted the project's users: the deletion goes
-   * on once the other request is done, or asks for the project's lock, which the deletion holds.
+   * Deletes Alice's account, and runs the other requests once the deletion reached `pauseAt` (by default, its count of
+   * the project's users): the deletion goes on once they are done, or one of them asks for a project's lock, which the
+   * deletion holds.
    */
-  async function deleteAliceWhile(other: () => request.Test): Promise<[number, number]> {
+  async function deleteAliceWhile(
+    other: () => Promise<number | number[]>,
+    pauseAt: (target: any, options: any) => boolean = countOfProjectUsers,
+  ): Promise<[number, number | number[]]> {
     let lockRequested: () => void;
     const waitsForLock = new Promise<void>(resolve => (lockRequested = resolve));
     let paused = false;
@@ -72,13 +84,12 @@ describe('Project admins (e2e)', () => {
     } as any);
 
     const find = EntityManager.prototype.find;
-    let otherStatus: Promise<number>;
+    let otherStatus: Promise<number | number[]>;
     jest.spyOn(EntityManager.prototype, 'find').mockImplementation(async function (this: EntityManager, target: any, options: any) {
       const found = await find.call(this, target, options);
-      // The deletion's count of the users of the project it administers
-      if (target === ProjectUser && options?.where?.project && !paused) {
+      if (!paused && pauseAt(target, options)) {
         paused = true;
-        otherStatus = other().then(res => res.status);
+        otherStatus = other();
         await Promise.race([otherStatus, waitsForLock]);
       }
       return found;
@@ -93,7 +104,7 @@ describe('Project admins (e2e)', () => {
   }
 
   itConcurrently('two admins delete their accounts at the same time: one stays, as the last admin of the project', async () => {
-    const [aliceDeleted, bobDeleted] = await deleteAliceWhile(() => deleteAccount(bob));
+    const [aliceDeleted, bobDeleted] = await deleteAliceWhile(async () => (await deleteAccount(bob)).status);
 
     expect(aliceDeleted).toBe(204);
     expect(bobDeleted).toBe(422);
@@ -101,12 +112,7 @@ describe('Project admins (e2e)', () => {
   });
 
   itConcurrently("an admin's role is taken by an account deleted at the same time: the role stays, as the last admin's", async () => {
-    const [aliceDeleted, changed] = await deleteAliceWhile(() =>
-      request(app.getHttpServer())
-        .patch(`/api/v1/projects/${project.id}/users/${bob.id}`)
-        .set('Authorization', `Bearer ${alice.accessToken}`)
-        .send({ role: ProjectRole.Viewer }),
-    );
+    const [aliceDeleted, changed] = await deleteAliceWhile(async () => (await changeRole(bob, ProjectRole.Viewer)).status);
 
     expect(aliceDeleted).toBe(204);
     expect(changed).toBe(422);
@@ -114,12 +120,35 @@ describe('Project admins (e2e)', () => {
   });
 
   itConcurrently('an admin is removed by an account deleted at the same time: the admin stays, as the last one', async () => {
-    const [aliceDeleted, removed] = await deleteAliceWhile(() =>
-      request(app.getHttpServer()).delete(`/api/v1/projects/${project.id}/users/${bob.id}`).set('Authorization', `Bearer ${alice.accessToken}`),
+    const [aliceDeleted, removed] = await deleteAliceWhile(
+      async () =>
+        (
+          await request(app.getHttpServer())
+            .delete(`/api/v1/projects/${project.id}/users/${bob.id}`)
+            .set('Authorization', `Bearer ${alice.accessToken}`)
+        ).status,
     );
 
     expect(aliceDeleted).toBe(204);
     expect(removed).toBe(422);
+    expect(await admins()).toEqual([bob.email]);
+  });
+
+  itConcurrently('an account is promoted while it is deleted, then the admin who promoted it deletes theirs: that admin stays', async () => {
+    // Alice is a viewer of the project when her deletion reads her admin roles; Bob is its only other admin
+    await changeRole(alice, ProjectRole.Viewer, bob).expect(200);
+    const readsAdminRoles = (target: any, options: any) =>
+      target === ProjectUser && !!options?.where?.user && options?.where?.role === ProjectRole.Admin;
+
+    const [aliceDeleted, [promoted, bobDeleted]] = (await deleteAliceWhile(async () => {
+      const promotion = (await changeRole(alice, ProjectRole.Admin, bob)).status;
+      return [promotion, (await deleteAccount(bob)).status];
+    }, readsAdminRoles)) as [number, number[]];
+
+    expect(aliceDeleted).toBe(204);
+    // Alice's membership went with her account before the promotion could read it
+    expect(promoted).toBe(404);
+    expect(bobDeleted).toBe(422);
     expect(await admins()).toEqual([bob.email]);
   });
 
