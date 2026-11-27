@@ -91,6 +91,9 @@ export class TermsListComponent implements OnInit, OnDestroy {
   constructor(private store: Store) {}
 
   ngOnInit() {
+    // A label error already in the store is not about this visit: a label change can fail after the page was left
+    this.store.dispatch(new ClearLabelMessages());
+
     this.sub = this.project$
       .pipe(
         tap(project => {

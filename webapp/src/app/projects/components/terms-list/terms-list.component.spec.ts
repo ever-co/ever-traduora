@@ -174,6 +174,40 @@ describe('TermsListComponent label filter', () => {
       expect(errorMessage()).toBe('Error, resource not found');
     }));
 
+    // The label stays removable while its add waits for the API
+    it('keeps a label off the term when adding it and removing it again both fail', fakeAsync(() => {
+      fixture.componentInstance.labelTerm('p1', 't3', labelA);
+      fixture.componentInstance.unlabelTerm('p1', 't3', labelA);
+      http.expectOne({ method: 'POST', url: `${projectUrl}/labels/${labelA.id}/terms/t3` }).flush(null, notFound);
+      http.expectOne({ method: 'DELETE', url: `${projectUrl}/labels/${labelA.id}/terms/t3` }).flush(null, notFound);
+      settle();
+
+      expect(labelIds('t3')).toEqual([]);
+      expect(errorMessage()).toBe('Error, resource not found');
+    }));
+
+    it('keeps a label that was added on the term when removing it again fails', fakeAsync(() => {
+      fixture.componentInstance.labelTerm('p1', 't3', labelA);
+      fixture.componentInstance.unlabelTerm('p1', 't3', labelA);
+      http.expectOne({ method: 'POST', url: `${projectUrl}/labels/${labelA.id}/terms/t3` }).flush(null);
+      http.expectOne({ method: 'DELETE', url: `${projectUrl}/labels/${labelA.id}/terms/t3` }).flush(null, notFound);
+      settle();
+
+      expect(labelIds('t3')).toEqual([labelA.id]);
+      expect(errorMessage()).toBe('Error, resource not found');
+    }));
+
+    it('shows the error of a failed label change after an earlier term error', fakeAsync(() => {
+      fixture.componentInstance.updateTerm('p1', 't1', 'term.renamed', null);
+      http.expectOne({ method: 'PATCH', url: `${projectUrl}/terms/t1` }).flush(null, { status: 422, statusText: 'Unprocessable Entity' });
+      settle();
+      expect(errorMessage()).toBe('The server was unable to process the request, please check your request.');
+
+      failLabel();
+
+      expect(errorMessage()).toBe('Error, resource not found');
+    }));
+
     it('drops the error once a label is added, and when the page is left', fakeAsync(() => {
       failLabel();
 
@@ -186,6 +220,20 @@ describe('TermsListComponent label filter', () => {
       expect(errorMessage()).toBe('Error, resource not found');
       fixture.destroy();
       expect(TestBed.inject(Store).selectSnapshot(state => state.projectLabels.errorMessage)).toBeUndefined();
+    }));
+
+    it('does not show on the next visit the error of a label that failed after the page was left', fakeAsync(() => {
+      fixture.componentInstance.labelTerm('p1', 't3', labelA);
+      const request = http.expectOne({ method: 'POST', url: `${projectUrl}/labels/${labelA.id}/terms/t3` });
+      fixture.destroy();
+      request.flush(null, notFound);
+
+      fixture = TestBed.createComponent(TermsListComponent);
+      Object.defineProperty(fixture.componentInstance, 'project$', { value: of({ id: 'p1' }), configurable: true });
+      fixture.detectChanges();
+      settle();
+
+      expect(errorMessage()).toBeUndefined();
     }));
   });
 });
