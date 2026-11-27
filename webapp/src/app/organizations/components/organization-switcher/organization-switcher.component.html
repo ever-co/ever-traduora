@@ -1,0 +1,35 @@
+<div *ngIf="visible$ | async" class="d-flex align-items-center">
+  <span class="org-separator" aria-hidden="true">/</span>
+  <div ngbDropdown display="dynamic" placement="bottom-left" class="d-inline-block">
+    <button
+      type="button"
+      class="org-trigger"
+      ngbDropdownToggle
+      [attr.aria-label]="'Organization: ' + ((current$ | async)?.name || 'none') + '. Switch organization'"
+    >
+      <span class="org-name">{{ (current$ | async)?.name || 'No organization' }}</span>
+      <i class="material-icons org-chevron" aria-hidden="true">unfold_more</i>
+    </button>
+    <div ngbDropdownMenu class="org-menu">
+      <p class="org-menu-title">Organizations</p>
+      <button
+        *ngFor="let organization of organizations$ | async; trackBy: trackById"
+        type="button"
+        ngbDropdownItem
+        class="org-item"
+        [class.is-current]="organization.id === (current$ | async)?.id"
+        [attr.aria-current]="organization.id === (current$ | async)?.id ? 'true' : null"
+        (click)="switchTo(organization)"
+      >
+        <span class="org-item-name">{{ organization.name }}</span>
+        <span class="org-item-role">{{ organization.role }}</span>
+        <i class="material-icons org-check" aria-hidden="true">{{ organization.id === (current$ | async)?.id ? 'check' : '' }}</i>
+      </button>
+      <div class="dropdown-divider"></div>
+      <a ngbDropdownItem class="org-item" routerLink="/orgs/new">
+        <i class="material-icons org-add" aria-hidden="true">add</i>
+        <span class="org-item-name">New organization</span>
+      </a>
+    </div>
+  </div>
+</div>

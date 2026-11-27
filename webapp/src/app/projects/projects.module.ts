@@ -3,6 +3,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { NgxsModule } from '@ngxs/store';
 import { CanGuard } from '../shared/guards/can.guard';
+import { projectsRedirectGuard } from '../organizations/guards/organization.guards';
 import { SharedModule } from '../shared/shared.module';
 import { AddApiClientComponent } from './components/add-api-client/add-api-client.component';
 import { AddTeamMemberComponent } from './components/add-team-member/add-team-member.component';
@@ -40,7 +41,8 @@ import { TranslationsState } from './stores/translations.state';
     SharedModule,
     NgxsModule.forFeature([ProjectsState, TermsState, TranslationsState, ProjectLabelState]),
     RouterModule.forChild([
-      { path: '', component: ProjectListComponent },
+      // In SaaS mode the list is the current organization's (/orgs/:slug/projects)
+      { path: '', component: ProjectListComponent, canActivate: [projectsRedirectGuard] },
       {
         path: ':projectId',
         component: ProjectContainerComponent,

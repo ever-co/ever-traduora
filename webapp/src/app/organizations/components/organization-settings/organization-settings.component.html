@@ -1,0 +1,68 @@
+<div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+<p *ngIf="organization && !canManage" class="text-muted">Only the owner and the admins change the settings of {{ organization.name }}.</p>
+
+<form *ngIf="canManage" class="card org-panel" [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <h5 class="font-serif org-panel-title">General</h5>
+  <div class="form-group">
+    <label for="orgName">Name</label>
+    <input
+      id="orgName"
+      class="form-control"
+      formControlName="name"
+      autocomplete="off"
+      maxlength="80"
+      [class.is-invalid]="form.controls.name.touched && form.controls.name.invalid"
+    />
+    <div class="invalid-feedback">2 to 80 characters</div>
+  </div>
+  <div class="form-group">
+    <label for="orgSlug">Address</label>
+    <div class="input-group">
+      <div class="input-group-prepend"><span class="input-group-text font-mono">/orgs/</span></div>
+      <input
+        id="orgSlug"
+        class="form-control font-mono"
+        formControlName="slug"
+        autocomplete="off"
+        maxlength="40"
+        [class.is-invalid]="form.controls.slug.touched && form.controls.slug.invalid"
+      />
+      <div class="invalid-feedback">3 to 40 lowercase letters, digits and single hyphens, not a reserved word</div>
+    </div>
+    <small class="form-text text-muted">Links to the old address stop working when it changes</small>
+  </div>
+  <div class="d-flex align-items-center">
+    <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || form.pristine || busy">Save</button>
+    <span *ngIf="saved && form.pristine" class="text-muted ml-3 org-saved" role="status">Saved</span>
+  </div>
+</form>
+
+<section *ngIf="isOwner" class="card org-panel org-danger">
+  <h5 class="font-serif org-panel-title">Ownership</h5>
+  <p class="text-muted">
+    The owner can do everything an admin can, and transfers the ownership. After the transfer you stay in the organization as an admin.
+  </p>
+  <p *ngIf="candidates.length === 0" class="text-muted mb-0">Invite someone first: only a member can become the owner.</p>
+  <form *ngIf="candidates.length > 0" class="org-transfer" [formGroup]="transferForm" novalidate>
+    <label class="sr-only" for="orgNewOwner">New owner</label>
+    <select id="orgNewOwner" class="custom-select custom-select-sm" formControlName="userId" (change)="confirmTransfer = false">
+      <option value="" disabled>Choose a member</option>
+      <option *ngFor="let member of candidates" [value]="member.userId">{{ member.name }} ({{ member.email }})</option>
+    </select>
+    <button
+      *ngIf="!confirmTransfer"
+      type="button"
+      class="btn btn-sm btn-outline-danger"
+      [disabled]="!transferForm.valid || busy"
+      (click)="confirmTransfer = true"
+    >
+      Transfer ownership
+    </button>
+  </form>
+  <div *ngIf="confirmTransfer" class="org-confirm" role="alert">
+    <span>Make {{ newOwnerName }} the owner of {{ organization?.name }}? You become an admin</span>
+    <button type="button" class="btn btn-sm btn-danger" [disabled]="busy" (click)="transfer()">Transfer</button>
+    <button type="button" class="btn btn-sm btn-link" (click)="confirmTransfer = false">Cancel</button>
+  </div>
+</section>

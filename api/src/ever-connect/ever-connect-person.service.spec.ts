@@ -12,6 +12,7 @@ import { EverConnectPersonRequest } from '../entity/ever-connect-person-request.
 import { EverIdSession } from '../entity/ever-id-session.entity';
 import { EverInstance } from '../entity/ever-instance.entity';
 import { Project } from '../entity/project.entity';
+import { Organization } from '../entity/organization.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import { IdentityLinkMethod, UserIdentity } from '../entity/user-identity.entity';
 import { User } from '../entity/user.entity';
@@ -186,8 +187,13 @@ describeOnSqlite('EverConnectPersonService', () => {
     expect(personExportUrl(undefined)).toBeNull();
   });
 
+  // Every project is in an organization: the default one, which the migrations made
+  const defaultOrganizationId = async () => (await dataSource.getRepository(Organization).findOneByOrFail({ isDefault: true })).id;
+
   const createProject = async (name: string, members: Array<[User, ProjectRole]>) => {
-    const project = await dataSource.getRepository(Project).save(dataSource.getRepository(Project).create({ name, description: '' }));
+    const project = await dataSource
+      .getRepository(Project)
+      .save(dataSource.getRepository(Project).create({ name, description: '', organizationId: await defaultOrganizationId() }));
     for (const [user, role] of members) {
       await dataSource.getRepository(ProjectUser).save(dataSource.getRepository(ProjectUser).create({ project, user, role }));
     }
@@ -397,7 +403,9 @@ describeOnSqlite('EverConnectPersonService', () => {
       await reportAddress('https://translate.example.test/');
       await linkIdentity(alice, 's1');
       await linkIdentity(bob, 's2');
-      const project = await dataSource.getRepository(Project).save(dataSource.getRepository(Project).create({ name: 'Website', description: '' }));
+      const project = await dataSource
+        .getRepository(Project)
+        .save(dataSource.getRepository(Project).create({ name: 'Website', description: '', organizationId: await defaultOrganizationId() }));
       await dataSource
         .getRepository(ProjectUser)
         .save(dataSource.getRepository(ProjectUser).create({ project, user: alice, role: ProjectRole.Editor }));

@@ -4,6 +4,8 @@
     <a class="navbar-brand" routerLink="/">
       <app-logo></app-logo>
     </a>
+    <!-- SaaS mode only: renders nothing on a self-hosted install -->
+    <app-organization-switcher></app-organization-switcher>
   </div>
   <span class="flex-1"></span>
   <div class="d-flex" *ngIf="user$ | async as user">

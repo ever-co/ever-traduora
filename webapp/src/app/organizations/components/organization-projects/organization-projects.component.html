@@ -1,0 +1,63 @@
+<div class="d-flex align-items-center justify-content-between section-title-row mb-3">
+  <h5 class="font-serif m-0">Projects</h5>
+  <button type="button" class="btn btn-sm btn-primary d-flex align-items-center" (click)="open(newProject)">
+    <i class="material-icons icon-18 mr-1" aria-hidden="true">add</i>New project
+  </button>
+</div>
+
+<div *ngIf="loadError" class="alert alert-danger">{{ loadError }}</div>
+
+<ng-container *ngIf="projects$ | async as projects">
+  <div *ngIf="projects.length === 0" class="org-empty">
+    <p class="mb-1">No projects in {{ organization?.name }} yet</p>
+    <p class="text-muted mb-0">A project holds the terms of an app or a site and their translations in each locale.</p>
+  </div>
+
+  <div *ngIf="projects.length > 0" class="card org-list">
+    <a *ngFor="let project of projects; trackBy: trackById" class="org-row" [routerLink]="['/projects', project.id]">
+      <div class="org-row-main">
+        <span class="org-row-title font-serif">{{ project.name }}</span>
+        <span *ngIf="project.description" class="org-row-sub text-muted">{{ project.description }}</span>
+      </div>
+      <span class="org-figure">
+        <span class="org-figure-value">{{ strings(project) | number }}</span>
+        <span class="org-figure-label">{{ project.termsCount | number }} terms × {{ project.localesCount | number }} locales</span>
+      </span>
+      <span class="org-role font-mono">{{ project.role }}</span>
+    </a>
+  </div>
+</ng-container>
+
+<ng-template #newProject let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title font-serif">New project in {{ organization?.name }}</h4>
+    <button type="button" class="close" aria-label="Close" (click)="modal.dismiss()">
+      <i class="material-icons" aria-hidden="true">close</i>
+    </button>
+  </div>
+  <form [formGroup]="form" (ngSubmit)="create()" novalidate>
+    <div class="modal-body">
+      <div *ngIf="createError" class="alert alert-danger">{{ createError }}</div>
+      <div class="form-group">
+        <label for="orgProjectName">Name</label>
+        <input
+          id="orgProjectName"
+          class="form-control"
+          formControlName="name"
+          autocomplete="off"
+          maxlength="255"
+          [class.is-invalid]="form.controls.name.touched && form.controls.name.invalid"
+        />
+        <div class="invalid-feedback">A name is required</div>
+      </div>
+      <div class="form-group mb-0">
+        <label for="orgProjectDescription">Description <span class="text-muted">(optional)</span></label>
+        <input id="orgProjectDescription" class="form-control" formControlName="description" autocomplete="off" maxlength="255" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-link no-underline" (click)="modal.dismiss()">Cancel</button>
+      <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || creating">Create project</button>
+    </div>
+  </form>
+</ng-template>

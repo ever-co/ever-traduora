@@ -1,0 +1,27 @@
+<div class="h-100 w-100 p-4 container overflow-scroll">
+  <ng-container *ngIf="{ organization: organization$ | async } as view">
+    <ng-container *ngIf="view.organization as organization">
+      <header class="org-header">
+        <h4 class="font-serif mb-1">{{ organization.name }}</h4>
+        <p class="org-address font-mono text-muted mb-0">
+          <span>/orgs/{{ organization.slug }}</span>
+          <span class="org-dot" aria-hidden="true">·</span>
+          <span>{{ planNames[organization.planCode] }} plan</span>
+          <span class="org-dot" aria-hidden="true">·</span>
+          <span>{{ organization.role }}</span>
+        </p>
+      </header>
+      <nav class="nav nav-tabs org-tabs" aria-label="Organization">
+        <a class="nav-link" routerLink="projects" routerLinkActive="active">Projects</a>
+        <a class="nav-link" routerLink="members" routerLinkActive="active">Members</a>
+        <a *ngIf="canManage(organization.role)" class="nav-link" routerLink="settings" routerLinkActive="active">Settings</a>
+      </nav>
+      <router-outlet></router-outlet>
+    </ng-container>
+    <div *ngIf="view.organization === null" class="org-missing">
+      <h5 class="font-serif">No organization at this address</h5>
+      <p class="text-muted">It does not exist, or you are not a member of it.</p>
+      <a class="btn btn-sm btn-primary" routerLink="/projects">Go to your projects</a>
+    </div>
+  </ng-container>
+</div>

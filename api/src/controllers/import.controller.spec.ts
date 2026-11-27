@@ -7,6 +7,7 @@ import { Label } from '../entity/label.entity';
 import { Locale } from '../entity/locale.entity';
 import { ProjectLocale } from '../entity/project-locale.entity';
 import { Project } from '../entity/project.entity';
+import { Organization } from '../entity/organization.entity';
 import { Term } from '../entity/term.entity';
 import { Translation } from '../entity/translation.entity';
 import { SnakeNamingStrategy } from '../utils/snake-naming-strategy';
@@ -266,7 +267,8 @@ describe('ImportController labels of the imported translations', () => {
 
   it('never removes a label row: a label added or removed while the import runs stays so', async () => {
     const manager = dataSource.manager;
-    const project = await manager.save(Project, { name: 'Project', termsCount: 2, localesCount: 1, plan: { code: 'open-source' } });
+    const { id: organizationId } = await manager.findOneByOrFail(Organization, { isDefault: true });
+    const project = await manager.save(Project, { name: 'Project', termsCount: 2, localesCount: 1, plan: { code: 'open-source' }, organizationId });
     const locale = await manager.findOneByOrFail(Locale, { code: 'de' });
     const projectLocale = await manager.save(ProjectLocale, { project, locale });
     const [own, ofTerm, added] = await manager.save(
@@ -327,7 +329,8 @@ describe('ImportController labels of the imported translations', () => {
 
   it('keeps a label removed from a term and then from its translation after the import read the first labels', async () => {
     const manager = dataSource.manager;
-    const project = await manager.save(Project, { name: 'Project', termsCount: 1, localesCount: 1, plan: { code: 'open-source' } });
+    const { id: organizationId } = await manager.findOneByOrFail(Organization, { isDefault: true });
+    const project = await manager.save(Project, { name: 'Project', termsCount: 1, localesCount: 1, plan: { code: 'open-source' }, organizationId });
     const locale = await manager.findOneByOrFail(Locale, { code: 'de' });
     const projectLocale = await manager.save(ProjectLocale, { project, locale });
     const ofTerm = await manager.save(Label, { value: 'term', color: '#202020', project });

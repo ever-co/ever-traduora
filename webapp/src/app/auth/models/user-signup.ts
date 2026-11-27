@@ -3,6 +3,7 @@ export interface UserSignup {
   email: string;
   password: string;
   inviteToken?: string;
+  organizationName?: string;
 }
 
 export interface UserSignupWithProvider {

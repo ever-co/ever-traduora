@@ -1,0 +1,10 @@
+.org-new {
+  max-width: 520px;
+  margin: 32px auto;
+  padding: 32px;
+  border-radius: 16px;
+}
+
+.org-actions {
+  gap: 8px;
+}

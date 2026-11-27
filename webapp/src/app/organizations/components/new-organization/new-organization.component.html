@@ -1,0 +1,47 @@
+<div class="h-100 w-100 p-4 container overflow-scroll">
+  <form class="card org-new" [formGroup]="form" (ngSubmit)="create()" novalidate>
+    <h4 class="font-serif mb-1">New organization</h4>
+    <p class="text-muted mb-4" *ngIf="(organizations$ | async)?.length === 0; else more">
+      You are not in an organization yet. Create one to start a project, then invite your team.
+    </p>
+    <ng-template #more>
+      <p class="text-muted mb-4">An organization has its own projects, members and plan. You become its owner.</p>
+    </ng-template>
+
+    <div *ngIf="errorMessage$ | async as errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+    <div class="form-group">
+      <label for="newOrgName">Name</label>
+      <input
+        id="newOrgName"
+        class="form-control"
+        formControlName="name"
+        autocomplete="organization"
+        maxlength="80"
+        placeholder="Acme Translations"
+        [class.is-invalid]="form.controls.name.touched && form.controls.name.invalid"
+      />
+      <div class="invalid-feedback">2 to 80 characters</div>
+    </div>
+    <div class="form-group">
+      <label for="newOrgSlug">Address</label>
+      <div class="input-group">
+        <div class="input-group-prepend"><span class="input-group-text font-mono">/orgs/</span></div>
+        <input
+          id="newOrgSlug"
+          class="form-control font-mono"
+          formControlName="slug"
+          autocomplete="off"
+          maxlength="40"
+          (input)="slugInput()"
+          [class.is-invalid]="form.controls.slug.dirty && form.controls.slug.invalid"
+        />
+        <div class="invalid-feedback">3 to 40 lowercase letters, digits and single hyphens, not a reserved word</div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center justify-content-end org-actions">
+      <a class="btn btn-sm btn-link no-underline" routerLink="/projects">Cancel</a>
+      <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || busy">Create organization</button>
+    </div>
+  </form>
+</div>

@@ -18,7 +18,7 @@
         </div>
 
         <div *ngIf="pending.invites?.length" class="form-group">
-          <p class="mb-2">You are invited to these projects. Tick the invitations you want to accept:</p>
+          <p class="mb-2">You are invited to these projects and organizations. Tick the invitations you want to accept:</p>
           <div class="form-check" *ngFor="let invite of pending.invites">
             <input
               class="form-check-input"
@@ -27,7 +27,7 @@
               [checked]="acceptedInvites.has(invite.id)"
               (change)="toggleInvite(invite.id, $any($event.target).checked)"
             />
-            <label class="form-check-label" [for]="'everIdInvite-' + invite.id">{{ invite.projectName }}</label>
+            <label class="form-check-label" [for]="'everIdInvite-' + invite.id">{{ invite.projectName || invite.organizationName }}</label>
           </div>
         </div>
 

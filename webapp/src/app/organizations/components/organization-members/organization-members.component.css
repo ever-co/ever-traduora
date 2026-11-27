@@ -1,0 +1,116 @@
+.org-seats {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.org-invite {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.org-invite input {
+  flex: 1;
+  max-width: 360px;
+}
+
+.org-invite-role {
+  width: 120px;
+}
+
+.org-link {
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 12px;
+  font-size: 0.875rem;
+}
+
+.org-list {
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.org-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 8px 12px 8px 20px;
+}
+
+.org-row + .org-row {
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.org-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.org-row-title,
+.org-row-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.org-row-sub {
+  font-size: 0.875rem;
+}
+
+.org-role {
+  width: 120px;
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+.org-role-select {
+  width: 120px;
+}
+
+/* One trailing column on every row: remove, leave or revoke */
+.org-trailing {
+  display: flex;
+  justify-content: flex-end;
+  width: 64px;
+}
+
+.org-icon-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #6c757d;
+}
+
+.org-icon-button .material-icons {
+  font-size: 18px;
+  vertical-align: middle;
+}
+
+.org-icon-button:hover {
+  color: #d14354;
+}
+
+.org-leave {
+  padding: 0;
+  color: #6c757d;
+  text-align: right;
+}
+
+.org-subtitle {
+  margin: 24px 4px 12px;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+@media (max-width: 575.98px) {
+  .org-invite {
+    flex-wrap: wrap;
+  }
+
+  .org-invite input {
+    max-width: none;
+    flex-basis: 100%;
+  }
+}
