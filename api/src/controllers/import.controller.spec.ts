@@ -298,7 +298,11 @@ describe('ImportController labels of the imported translations', () => {
       return found;
     } as any);
 
-    const auth: any = { getRequestUserOrClient: () => ({}), authorizeProjectAction: async () => ({ project }) };
+    const auth: any = {
+      getRequestUserOrClient: () => ({}),
+      authorizeProjectAction: async () => ({ project }),
+      recheckProjectAccess: async () => undefined,
+    };
     const controller = new ImportController(
       auth,
       dataSource.getRepository(Translation),
@@ -352,7 +356,11 @@ describe('ImportController labels of the imported translations', () => {
       return found;
     } as any);
 
-    const auth: any = { getRequestUserOrClient: () => ({}), authorizeProjectAction: async () => ({ project }) };
+    const auth: any = {
+      getRequestUserOrClient: () => ({}),
+      authorizeProjectAction: async () => ({ project }),
+      recheckProjectAccess: async () => undefined,
+    };
     const controller = new ImportController(
       auth,
       dataSource.getRepository(Translation),
