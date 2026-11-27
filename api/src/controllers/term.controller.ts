@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -68,6 +68,12 @@ export default class TermController {
   async findByLabel(@Req() req, @Param('projectId') projectId: string, @Query('labelId') labelId: string) {
     const user = this.auth.getRequestUserOrClient(req);
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.ViewTerm);
+
+    // The query parser gives ?labelId=a&labelId=b and ?labelId[]=a as an array, ?labelId[x]=a as an object: neither
+    // is a label id, and either would reach the database as a parameter it cannot bind (a server error)
+    if (labelId !== undefined && typeof labelId !== 'string') {
+      throw new BadRequestException('labelId must be one label id');
+    }
 
     if (!labelId) {
       return {

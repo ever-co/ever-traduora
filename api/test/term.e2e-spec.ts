@@ -151,6 +151,32 @@ describe('TermController (e2e)', () => {
       });
   });
 
+  it('/api/v1/projects/:projectId/terms/filter-by-label (GET) should refuse a repeated or nested labelId with 400', async () => {
+    const label = await request(app.getHttpServer())
+      .post(`/api/v1/projects/${testProject.id}/labels`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ value: 'label-a', color: '#202020' })
+      .expect(201);
+    const labelId = label.body.data.id as string;
+    const filter = (query: string) =>
+      request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/terms/filter-by-label${query}`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`);
+
+    // The extended query parser gives a repeated or bracketed labelId as an array, a keyed one as an object
+    for (const query of [`?labelId=${labelId}&labelId=${labelId}`, '?labelId=a&labelId=b', `?labelId[]=${labelId}`, '?labelId[x]=a']) {
+      await filter(query).expect(400);
+    }
+    for (const query of ['', '?labelId=']) {
+      await filter(query)
+        .expect(200)
+        .expect(res => expect(res.body).toEqual({ data: [], message: 'No label provided for filtering' }));
+    }
+    await filter(`?labelId=${labelId}`)
+      .expect(200)
+      .expect(res => expect(res.body).toEqual({ data: [] }));
+  });
+
   it('/api/v1/projects/:projectId/terms/:termId (PATCH) should update term by id', async () => {
     let termId: string;
 

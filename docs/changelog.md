@@ -23,6 +23,11 @@ To download the source code for each release, check out [GitHub](https://github.
   `?locale[x]=fr`) is refused with 400 Bad Request. Before, the filter was dropped and the changes of every locale were
   listed, with no error. A missing or empty `locale` still lists every locale
 
+- Term label filter API: a `labelId` given more than once (`?labelId=a&labelId=b`) or in brackets (`?labelId[]=a`,
+  `?labelId[x]=a`) on `GET /api/v1/projects/:projectId/terms/filter-by-label` is refused with 400 Bad Request. Before,
+  most of these forms failed with a server error (500), and `?labelId[]=<id>` filtered by that label. A missing or
+  empty `labelId` still answers an empty list, and one label id filters as before
+
 - Project activity on SQLite (the default database) lists the changes made within one second in the order they were
   made. Before, a change was recorded there with a time in whole seconds, so changes to different translations made in
   the same second were ordered by their change numbers, which count per translation: an older change could be listed
