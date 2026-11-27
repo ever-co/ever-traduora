@@ -404,6 +404,7 @@ describe('Organization isolation (e2e)', () => {
       ['GET', `/api/v1/organizations/${b.organizationId}/invites`],
       ['POST', `/api/v1/organizations/${b.organizationId}/invites`],
       ['DELETE', `/api/v1/organizations/${b.organizationId}/invites/${b.organizationInviteId}`],
+      ['GET', `/api/v1/organizations/${b.organizationId}/usage`],
     ];
 
     it.each(['owner', 'admin', 'member'])("refuses every one to A's %s", async who => {
@@ -424,6 +425,8 @@ describe('Organization isolation (e2e)', () => {
 
     it('lets the person in both organizations see B as a member, and change nothing', async () => {
       await request(server()).get(`/api/v1/organizations/${b.organizationId}/members`).set(auth(both.accessToken)).expect(200);
+      // The usage is for the owner and the admins: a member of B does not see it, whatever they are in A
+      await request(server()).get(`/api/v1/organizations/${b.organizationId}/usage`).set(auth(both.accessToken)).expect(404);
       await request(server())
         .patch(`/api/v1/organizations/${b.organizationId}/members/${b.member.id}`)
         .set(auth(both.accessToken))
@@ -439,6 +442,15 @@ describe('Organization isolation (e2e)', () => {
         .set(auth(both.accessToken))
         .send({ email: a.owner.email, role: 'viewer' })
         .expect(404);
+    });
+
+    it('counts only its own projects in the usage of each organization', async () => {
+      for (const side of [a, b]) {
+        const usage = await request(server()).get(`/api/v1/organizations/${side.organizationId}/usage`).set(auth(side.owner.accessToken)).expect(200);
+        const projects = await dataSource.getRepository(Project).find({ where: { organizationId: side.organizationId } });
+        expect(usage.body.data.strings.used).toBe(projects.reduce((sum, project) => sum + project.localesCount * project.termsCount, 0));
+        expect(usage.body.data.strings.used).toBeGreaterThan(0);
+      }
     });
   });
 
