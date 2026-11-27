@@ -166,12 +166,16 @@ export class OrganizationService {
       relations: ['user'],
       order: { date: { created: 'ASC' }, id: 'ASC' },
     });
-    return memberships.map(membership => ({
-      userId: membership.user.id,
-      name: membership.user.name,
-      email: membership.user.email,
-      role: membership.role,
-    }));
+    // The owner first, then the admins, then the members, each by name
+    const rank = { [OrganizationRole.Owner]: 0, [OrganizationRole.Admin]: 1, [OrganizationRole.Member]: 2 };
+    return memberships
+      .map(membership => ({
+        userId: membership.user.id,
+        name: membership.user.name,
+        email: membership.user.email,
+        role: membership.role,
+      }))
+      .sort((a, b) => (rank[a.role] ?? 3) - (rank[b.role] ?? 3) || a.name.localeCompare(b.name));
   }
 
   /** Changes a member's role to `admin` or `member`. The owner's role changes only by a transfer of ownership. */

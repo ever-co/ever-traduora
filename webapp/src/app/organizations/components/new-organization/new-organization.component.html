@@ -1,4 +1,4 @@
-<div class="h-100 w-100 p-4 container overflow-scroll">
+<div class="h-100 w-100 p-4 container overflow-auto">
   <form class="card org-new" [formGroup]="form" (ngSubmit)="create()" novalidate>
     <h4 class="font-serif mb-1">New organization</h4>
     <p class="text-muted mb-4" *ngIf="(organizations$ | async)?.length === 0; else more">
@@ -18,7 +18,6 @@
         formControlName="name"
         autocomplete="organization"
         maxlength="80"
-        placeholder="Acme Translations"
         [class.is-invalid]="form.controls.name.touched && form.controls.name.invalid"
       />
       <div class="invalid-feedback">2 to 80 characters</div>

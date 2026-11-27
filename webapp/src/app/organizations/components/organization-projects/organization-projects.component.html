@@ -1,5 +1,5 @@
 <div class="d-flex align-items-center justify-content-between section-title-row mb-3">
-  <h5 class="font-serif m-0">Projects</h5>
+  <span class="org-count text-muted" data-test="count">{{ countLine((projects$ | async)?.length) }}</span>
   <button type="button" class="btn btn-sm btn-primary d-flex align-items-center" (click)="open(newProject)">
     <i class="material-icons icon-18 mr-1" aria-hidden="true">add</i>New project
   </button>
@@ -20,7 +20,7 @@
         <span *ngIf="project.description" class="org-row-sub text-muted">{{ project.description }}</span>
       </div>
       <span class="org-figure">
-        <span class="org-figure-value">{{ strings(project) | number }}</span>
+        <span class="org-figure-value">{{ strings(project) | number }} strings</span>
         <span class="org-figure-label">{{ project.termsCount | number }} terms × {{ project.localesCount | number }} locales</span>
       </span>
       <span class="org-role font-mono">{{ project.role }}</span>

@@ -62,6 +62,11 @@ export class OrganizationProjectsComponent implements OnInit {
       });
   }
 
+  /** "2 projects", or nothing while the list loads. */
+  countLine(count: number | undefined): string {
+    return count === undefined ? '' : `${count} ${count === 1 ? 'project' : 'projects'}`;
+  }
+
   /** The strings of a project: what Traduora counts, its terms in each of its locales. */
   strings(project: Project): number {
     return project.termsCount * project.localesCount;

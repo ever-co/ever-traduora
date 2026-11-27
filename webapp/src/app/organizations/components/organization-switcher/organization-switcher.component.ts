@@ -35,7 +35,10 @@ export class OrganizationSwitcherComponent implements OnInit {
   ) {
     const user$ = this.store.select(AuthState.user);
     this.visible$ = combineLatest([saasMode.saas$, user$]).pipe(map(([saas, user]) => saas && !!user));
-    this.organizations$ = this.store.select(OrganizationsState.organizations);
+    // By name, so the list reads the same however the organizations were joined
+    this.organizations$ = this.store
+      .select(OrganizationsState.organizations)
+      .pipe(map(organizations => [...organizations].sort((a, b) => a.name.localeCompare(b.name))));
     this.current$ = this.store.select(OrganizationsState.currentOrganization);
   }
 

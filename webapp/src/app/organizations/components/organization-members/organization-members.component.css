@@ -113,4 +113,9 @@
     max-width: none;
     flex-basis: 100%;
   }
+
+  .org-role,
+  .org-role-select {
+    width: 88px;
+  }
 }
