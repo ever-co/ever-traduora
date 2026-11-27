@@ -5,7 +5,7 @@ import TermController from './term.controller';
 describe('TermController findByLabel', () => {
   function setup(terms: any[] = []) {
     const auth = {
-      getRequestUserOrClient: jest.fn(req => req.user),
+      getRequestUserOrClient: jest.fn(request => request.user),
       authorizeProjectAction: jest.fn().mockResolvedValue({ project: { id: 'project-1' } }),
     };
     const queryBuilder: any = {
