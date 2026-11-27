@@ -92,6 +92,11 @@ const stateDefaults: OrganizationsStateModel = {
 })
 @Injectable({ providedIn: 'root' })
 export class OrganizationsState {
+  /** Bumped by Logout: answers to requests sent before belong to the previous account and are dropped. */
+  private session = 0;
+  /** Bumped by every change made to the list here: a list read before it would undo the change, so it is read again. */
+  private revision = 0;
+
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Selector()
@@ -123,19 +128,38 @@ export class OrganizationsState {
 
   @Action(Logout)
   logout(ctx: StateContext<OrganizationsStateModel>) {
+    this.session++;
     ctx.setState(stateDefaults);
   }
 
   @Action(GetOrganizations)
   getOrganizations(ctx: StateContext<OrganizationsStateModel>) {
+    const session = this.session;
+    const revision = this.revision;
     ctx.patchState({ isLoading: true });
     return this.organizationsService.find().pipe(
-      tap(organizations => ctx.patchState({ organizations, loaded: true })),
+      tap(organizations => {
+        if (session !== this.session) {
+          return;
+        }
+        if (revision !== this.revision) {
+          // Read before a change made here meanwhile: read again rather than undo it
+          ctx.dispatch(new GetOrganizations());
+          return;
+        }
+        ctx.patchState({ organizations, loaded: true });
+      }),
       catchError(error => {
-        ctx.patchState({ errorMessage: organizationErrorMessage(error) });
+        if (session === this.session) {
+          ctx.patchState({ errorMessage: organizationErrorMessage(error) });
+        }
         return throwError(() => error);
       }),
-      finalize(() => ctx.patchState({ isLoading: false })),
+      finalize(() => {
+        if (session === this.session) {
+          ctx.patchState({ isLoading: false });
+        }
+      }),
     );
   }
 
@@ -150,6 +174,7 @@ export class OrganizationsState {
     ctx.patchState({ isLoading: true, errorMessage: undefined });
     return this.organizationsService.create({ name: action.name, ...(action.slug ? { slug: action.slug } : {}) }).pipe(
       tap(organization => {
+        this.revision++;
         ctx.patchState({ organizations: [...ctx.getState().organizations, organization], currentOrganizationId: organization.id });
         rememberOrganization(organization.id);
       }),
@@ -165,7 +190,10 @@ export class OrganizationsState {
   updateOrganization(ctx: StateContext<OrganizationsStateModel>, action: UpdateOrganization) {
     ctx.patchState({ isLoading: true, errorMessage: undefined });
     return this.organizationsService.update(action.id, action.data).pipe(
-      tap(organization => ctx.dispatch(new ReplaceOrganization(organization))),
+      tap(organization => {
+        this.revision++;
+        ctx.dispatch(new ReplaceOrganization(organization));
+      }),
       catchError(error => {
         ctx.patchState({ errorMessage: organizationErrorMessage(error) });
         return throwError(() => error);

@@ -78,6 +78,9 @@ const stateDefaults = {
 })
 @Injectable({ providedIn: 'root' })
 export class ProjectsState implements NgxsOnInit {
+  /** The latest project load (SetCurrentProject), bumped when its page is left. */
+  private projectLoad = 0;
+
   constructor(
     private projectsService: ProjectsService,
     private projectStatsService: ProjectStatsService,
@@ -176,22 +179,33 @@ export class ProjectsState implements NgxsOnInit {
 
   @Action(SetCurrentProject)
   setCurrentProject(ctx: StateContext<ProjectsStateModel>, action: SetCurrentProject) {
+    // A load is applied only while it is the latest and its page was not left (ClearCurrentProject) meanwhile
+    const load = ++this.projectLoad;
+    const current = () => load === this.projectLoad;
     ctx.patchState({ isLoading: true, currentProject: undefined });
     return this.projectsService.findOne(action.id).pipe(
       switchMap(project =>
         this.projectsService.findPlan(action.id).pipe(
           tap(plan => {
-            project.plan = plan;
-            ctx.patchState({ currentProject: project });
+            if (current()) {
+              project.plan = plan;
+              ctx.patchState({ currentProject: project });
+            }
           }),
         ),
       ),
-      tap(() => ctx.dispatch(new RefreshProjectStats())),
-      catchError(error => {
-        if (error.status === 404) {
-          ctx.dispatch(new Navigate(['404']));
+      tap(() => {
+        if (current()) {
+          ctx.dispatch(new RefreshProjectStats());
         }
-        ctx.patchState({ errorMessage: errorToMessage(error) });
+      }),
+      catchError(error => {
+        if (current()) {
+          if (error.status === 404) {
+            ctx.dispatch(new Navigate(['404']));
+          }
+          ctx.patchState({ errorMessage: errorToMessage(error) });
+        }
         return throwError(error);
       }),
       finalize(() => ctx.patchState({ isLoading: false })),
@@ -238,6 +252,8 @@ export class ProjectsState implements NgxsOnInit {
 
   @Action(ClearCurrentProject)
   clearCurrentProject(ctx: StateContext<ProjectsStateModel>) {
+    // A load still under way belongs to the page that was left
+    this.projectLoad++;
     ctx.patchState({ currentProject: undefined, errorMessage: undefined });
   }
 

@@ -54,8 +54,10 @@ export class OrganizationSwitcherComponent implements OnInit {
       .select(ProjectsState.currentProject)
       .pipe(
         map(project => project?.organizationId),
-        filter((id): id is string => !!id),
+        // Before the filter: a project page left (no project) resets the comparison, so coming back to a project of
+        // the organization seen before still sets it
         distinctUntilChanged(),
+        filter((id): id is string => !!id),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(id => this.store.dispatch(new SetCurrentOrganization(id)));

@@ -7,7 +7,7 @@ import { environment } from '../../../../environments/environment';
 import { AuthState } from '../../../auth/stores/auth.state';
 import { ProjectsState } from '../../../projects/stores/projects.state';
 import { Organization } from '../../models/organization';
-import { CURRENT_ORGANIZATION_KEY, OrganizationsState } from '../../stores/organizations.state';
+import { CURRENT_ORGANIZATION_KEY, OrganizationsState, SetCurrentOrganization } from '../../stores/organizations.state';
 import { OrganizationSwitcherComponent } from './organization-switcher.component';
 
 describe('OrganizationSwitcherComponent', () => {
@@ -116,6 +116,29 @@ describe('OrganizationSwitcherComponent', () => {
     });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.org-trigger').textContent).toContain('Globex');
+  });
+
+  it('follows the project again after a round trip through another organization', () => {
+    const fixture = render({ saas: true });
+    const project = (organizationId: string | undefined) =>
+      store.reset({
+        ...store.snapshot(),
+        projects: {
+          ...store.snapshot().projects,
+          currentProject: organizationId ? { id: 'p', name: 'P', role: 'admin', termsCount: 0, localesCount: 0, organizationId } : undefined,
+        },
+      });
+    const shown = () => {
+      fixture.detectChanges();
+      return fixture.nativeElement.querySelector('.org-trigger').textContent;
+    };
+    project('o1');
+    expect(shown()).toContain('Acme Translations');
+    project(undefined);
+    store.dispatch(new SetCurrentOrganization('o2'));
+    expect(shown()).toContain('Globex');
+    project('o1');
+    expect(shown()).toContain('Acme Translations');
   });
 
   it('offers to create an organization to a person who has none', () => {
