@@ -10,6 +10,7 @@ import { Project } from '../src/entity/project.entity';
 import { OrganizationInvite } from '../src/entity/organization-invite.entity';
 import { Invite } from '../src/entity/invite.entity';
 import { User } from '../src/entity/user.entity';
+import AuthorizationService from '../src/services/authorization.service';
 import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
 
 /** Sorts strings, or pairs of strings, by their text. */
@@ -511,6 +512,55 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const read = await request(server()).get(`/api/v1/projects/${theirs.id}`).set(auth(owner)).expect(200);
       expect(read.body.data.role).toBe('admin');
       await request(server()).get(`/api/v1/projects/${theirs.id}/users`).set(auth(owner)).expect(200);
+    });
+
+    describe('an import whose access ends while its upload is read', () => {
+      /** Runs `meanwhile` after the import's access was checked and before it writes (as during a slow upload). */
+      const duringTheUpload = (meanwhile: () => Promise<unknown>) => {
+        const authorization = app.get(AuthorizationService);
+        const checked = authorization.authorizeProjectAction.bind(authorization);
+        return jest.spyOn(authorization, 'authorizeProjectAction').mockImplementationOnce(async (...args: Parameters<typeof checked>) => {
+          const membership = await checked(...args);
+          await meanwhile();
+          return membership;
+        });
+      };
+      const importInto = (projectId: string, user: TestingUser) =>
+        request(server())
+          .post(`/api/v1/projects/${projectId}/imports?locale=de&format=jsonflat`)
+          .set(auth(user))
+          .attach('file', Buffer.from(JSON.stringify({ 'imported.late': 'spät' })), 'de.json');
+      const termsOf = async (projectId: string) => (await dataSource.getRepository(Project).findOneByOrFail({ id: projectId })).termsCount;
+
+      afterEach(() => jest.restoreAllMocks());
+
+      it('writes nothing once the importer was removed from the project', async () => {
+        const owner = await signupTestUser(app, 'late-import-owner@test.com');
+        const editor = await signupTestUser(app, 'late-import-editor@test.com');
+        const organization = await onlyOrganizationOf(owner);
+        await inviteToOrganization(owner, organization.id, editor.email).expect(201);
+        const project = await createProject(owner, organization.id);
+        await addToProject(owner, project.id, editor, 'editor');
+
+        duringTheUpload(() => dataSource.getRepository(ProjectUser).delete({ user: { id: editor.id }, project: { id: project.id } }));
+        await importInto(project.id, editor).expect(404);
+        expect(await termsOf(project.id)).toBe(0);
+      });
+
+      it('writes nothing once the organization was suspended', async () => {
+        const owner = await signupTestUser(app, 'late-import-suspended@test.com');
+        const organization = await onlyOrganizationOf(owner);
+        const project = await createProject(owner, organization.id);
+
+        duringTheUpload(() => dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Suspended }));
+        const res = await importInto(project.id, owner).expect(403);
+        expect(res.body.error.code).toBe('organization_suspended');
+        await dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Active });
+        expect(await termsOf(project.id)).toBe(0);
+        // Back to normal, the same import writes
+        await importInto(project.id, owner).expect(200);
+        expect(await termsOf(project.id)).toBe(1);
+      });
     });
 
     it('locks the members of a suspended organization out of its projects at once', async () => {

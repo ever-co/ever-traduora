@@ -9,6 +9,7 @@ import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import { OrganizationException } from '../errors';
 import AuthorizationService, { assertOrganizationOpen, effectiveProjectRole } from './authorization.service';
+import { membershipOf } from './organization/organization-scope';
 
 const organization = (fields: Partial<Organization> = {}): Organization =>
   Object.assign(new Organization(), { id: 'org-1', status: OrganizationStatus.Active, adminsSeeAllProjects: true, ...fields });
@@ -32,25 +33,24 @@ function service(rows: { project?: Project; projectRole?: ProjectRole; organizat
       rows.project && rows.projectRole ? Object.assign(new ProjectUser(), { id: 'pu-1', role: rows.projectRole, project: rows.project, user }) : null,
     ),
   };
-  const projectRepo = { findOne: jest.fn(async () => rows.project ?? null) };
-  const organizationUserRepo = {
-    findOne: jest.fn(async () =>
-      rows.organizationRole
-        ? Object.assign(new OrganizationUser(), {
-            organizationId: rows.project?.organizationId ?? 'org-1',
-            userId: user.id,
-            role: rows.organizationRole,
-            organization: rows.project?.organization ?? organization(),
-          })
-        : null,
-    ),
-  };
+  const membership = () =>
+    rows.organizationRole
+      ? Object.assign(new OrganizationUser(), {
+          organizationId: rows.project?.organizationId ?? 'org-1',
+          userId: user.id,
+          role: rows.organizationRole,
+          organization: rows.project?.organization ?? organization(),
+        })
+      : null;
+  // The organization scope reads through the entity manager: the project a route names, and memberships
+  const manager = { findOne: jest.fn(async entity => (entity === Project ? (rows.project ?? null) : membership())) };
+  const organizationUserRepo = { manager };
   const projectClientRepo = {
     findOne: jest.fn(async () =>
       rows.client && rows.project ? Object.assign(new ProjectClient(), { id: 'client-1', role: ProjectRole.Viewer, project: rows.project }) : null,
     ),
   };
-  return new AuthorizationService(projectClientRepo as any, projectUserRepo as any, projectRepo as any, organizationUserRepo as any);
+  return new AuthorizationService(projectClientRepo as any, projectUserRepo as any, organizationUserRepo as any);
 }
 
 describe('assertOrganizationOpen', () => {
@@ -163,11 +163,15 @@ describe('AuthorizationService.authorizeOrganizationAction', () => {
 describe('AuthorizationService.authorizeAddingToOrganization', () => {
   /** Members of org-1: the caller with `callerRole`, and `member-1`. */
   const over = (callerRole: OrganizationRole | undefined) => {
-    const organizationUserRepo = {
-      exists: jest.fn(async ({ where }) => where.userId === 'member-1'),
-      findOne: jest.fn(async () => (callerRole ? Object.assign(new OrganizationUser(), { role: callerRole }) : null)),
+    const manager = {
+      findOne: jest.fn(async (_entity, { where }) => {
+        if (where.userId === 'member-1') {
+          return Object.assign(new OrganizationUser(), { role: OrganizationRole.Member });
+        }
+        return where.userId === user.id && callerRole ? Object.assign(new OrganizationUser(), { role: callerRole }) : null;
+      }),
     };
-    return new AuthorizationService({} as any, {} as any, {} as any, organizationUserRepo as any);
+    return new AuthorizationService({} as any, {} as any, { manager } as any);
   };
 
   it('lets anyone allowed to invite to the project add a member of the organization', async () => {
@@ -195,5 +199,25 @@ describe('AuthorizationService.authorizeAddingToOrganization', () => {
     await expect(over(OrganizationRole.Owner).authorizeAddingToOrganization(user, suspended, 'member-1')).rejects.toBeInstanceOf(
       OrganizationException,
     );
+  });
+});
+
+describe('ids that are not ids', () => {
+  it('refuses a missing or empty project id before any read (TypeORM would drop it from the where clause)', async () => {
+    const auth = service({ project: project(organization()), projectRole: ProjectRole.Admin, organizationRole: OrganizationRole.Owner });
+    for (const id of [undefined, '', null, 42]) {
+      await expect(auth.authorizeProjectAction(user, id as any, ProjectAction.ViewProject)).rejects.toBeInstanceOf(ForbiddenException);
+    }
+  });
+
+  it('refuses a missing organization id, here and in the scope', async () => {
+    const auth = service({ organizationRole: OrganizationRole.Owner });
+    await expect(auth.authorizeOrganizationAction(user, undefined as any, OrganizationAction.ViewOrganization)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    const manager = { findOne: jest.fn() };
+    await expect(membershipOf(manager as any, undefined as any, 'user-1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(membershipOf(manager as any, 'org-1', '')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(manager.findOne).not.toHaveBeenCalled();
   });
 });

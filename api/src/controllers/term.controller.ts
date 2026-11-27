@@ -1,5 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards, Query } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProjectAction } from '../domain/actions';
@@ -12,9 +11,9 @@ import { Translation } from '../entity/translation.entity';
 import { lockProject } from '../utils/database-locks';
 import { getLexicalOrderClause } from '../utils/database-type-helper';
 import { ProjectLocale } from '../entity/project-locale.entity';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects/:projectId/terms')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Terms')
 export default class TermController {
@@ -25,6 +24,7 @@ export default class TermController {
     @InjectRepository(ProjectLocale) private projectLocaleRepo: Repository<ProjectLocale>,
   ) {}
 
+  @Access('project:ViewTerm')
   @Get()
   @ApiOperation({ summary: `List a project's terms` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectTermsResponse })
@@ -59,6 +59,7 @@ export default class TermController {
     };
   }
 
+  @Access('project:ViewTerm')
   @Get('/filter-by-label')
   @ApiOperation({ summary: 'Filter terms by a single label' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectTermsResponse })
@@ -106,6 +107,7 @@ export default class TermController {
       data,
     };
   }
+  @Access('project:AddTerm')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a new project term' })
@@ -162,6 +164,7 @@ export default class TermController {
     };
   }
 
+  @Access('project:EditTerm')
   @Patch(':termId')
   @ApiOperation({ summary: `Update a project's term` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectTermResponse })
@@ -191,6 +194,7 @@ export default class TermController {
     };
   }
 
+  @Access('project:DeleteTerm')
   @Delete(':termId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Remove a project's term`, description: `Removes a project's term and all related translations` })

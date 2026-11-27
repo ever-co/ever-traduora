@@ -1,0 +1,13 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testTimeout": 120000,
+  "testRegex": "organization-isolation.e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^(.*/)?organization-scope$": "<rootDir>/mutation/no-organization-scope.ts"
+  }
+}

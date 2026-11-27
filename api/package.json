@@ -27,6 +27,7 @@
     "test": "cross-env NODE_OPTIONS=--max-old-space-size=3000 NODE_ENV=test TR_EVER_STATS_ENABLED=false jest --watchAll=false --maxWorkers=2",
     "test:watch": "cross-env NODE_ENV=test TR_ACCESS_LOGS_ENABLED=false TR_EVER_STATS_ENABLED=false jest --watch",
     "test:e2e": "cross-env NODE_ENV=e2e TR_DEFAULT_PROJECT_PLAN=default TR_ACCESS_LOGS_ENABLED=false TR_EVER_STATS_ENABLED=false TR_DB_DATABASE=data/tr_e2e.sqlite3 jest --config ./test/jest-e2e.json --runInBand --verbose --detectOpenHandles --forceExit",
+    "test:isolation:mutation": "cross-env NODE_ENV=e2e TR_DEFAULT_PROJECT_PLAN=default TR_ACCESS_LOGS_ENABLED=false TR_EVER_STATS_ENABLED=false TR_DB_DATABASE=data/tr_e2e_mutation.sqlite3 node test/mutation/run-isolation-mutation.js",
     "test:ci": "yarn test && yarn test:e2e",
     "typeorm": "ts-node node_modules/.bin/typeorm",
     "seed": "cross-env TR_SEED_DATA=true ts-node -r tsconfig-paths/register src/seeds/seed-cli.ts",

@@ -1,5 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as passwordGenerator from 'generate-password';
@@ -16,9 +15,9 @@ import { ProjectClient } from '../entity/project-client.entity';
 import { User } from '../entity/user.entity';
 import AuthorizationService from '../services/authorization.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiOAuth2 } from '@nestjs/swagger';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Project Clients')
 export default class ProjectClientController {
@@ -28,6 +27,7 @@ export default class ProjectClientController {
     @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
+  @Access('project:ViewProjectClients')
   @Get(':projectId/clients')
   @ApiOperation({ summary: `List a project's clients` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectClientsResponse })
@@ -50,6 +50,7 @@ export default class ProjectClientController {
     };
   }
 
+  @Access('project:AddProjectClient')
   @Post(':projectId/clients')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: `Create a new project client` })
@@ -82,6 +83,7 @@ export default class ProjectClientController {
     };
   }
 
+  @Access('project:EditProjectClients')
   @Patch(':projectId/clients/:clientId')
   @ApiOperation({ summary: `Update a project's client` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectClientResponse })
@@ -114,6 +116,7 @@ export default class ProjectClientController {
     };
   }
 
+  @Access('project:EditProjectClients')
   @Post(':projectId/clients/:clientId/rotate-secret')
   @ApiOperation({ summary: `Rotate a project's client secret key` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectClientWithSecretResponse })
@@ -143,6 +146,7 @@ export default class ProjectClientController {
     };
   }
 
+  @Access('project:DeleteProjectClients')
   @Delete(':projectId/clients/:clientId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Revoke access from a project's client` })

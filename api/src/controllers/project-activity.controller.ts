@@ -1,5 +1,4 @@
-import { BadRequestException, Controller, Get, HttpStatus, NotFoundException, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException, Controller, Get, HttpStatus, NotFoundException, Param, Query, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -10,6 +9,7 @@ import { Term } from '../entity/term.entity';
 import { TranslationHistory } from '../entity/translation-history.entity';
 import AuthorizationService from '../services/authorization.service';
 import { DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, parseHistoryLimit } from './translation.controller';
+import { Access } from '../access/access.decorator';
 
 /**
  * The recent changes made to the translations of a project, across all its terms and locales, newest first:
@@ -17,7 +17,6 @@ import { DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, parseHistoryLimit } from './t
  * `GET /projects/:projectId/translations/:localeCode/history`.
  */
 @Controller('api/v1/projects/:projectId/activity')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Translations')
 export default class ProjectActivityController {
@@ -28,6 +27,7 @@ export default class ProjectActivityController {
     @InjectRepository(TranslationHistory) private historyRepo: Repository<TranslationHistory>,
   ) {}
 
+  @Access('project:ViewTranslation')
   @Get()
   @ApiOperation({ summary: 'List the latest changes made to the translations of a project, newest first' })
   @ApiQuery({ name: 'locale', required: false, description: 'Only the changes made in the locale with this code' })

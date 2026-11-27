@@ -12,6 +12,7 @@ import { EverStatsEnabledRequest } from './ever-stats.dto';
 import { EverStatsCollectorService } from './ever-stats-collector.service';
 import { EverStatsSchedulerService, SendNowRefused } from './ever-stats-scheduler.service';
 import { EverStatsSenderService } from './ever-stats-sender.service';
+import { Access } from '../access/access.decorator';
 
 /** Why the statistics are on or off. */
 export type StatsReason = 'env' | 'ui' | 'cloud-managed' | 'no-destination' | 'no-secret';
@@ -70,6 +71,7 @@ export class EverStatsController {
     private readonly scheduler: EverStatsSchedulerService,
   ) {}
 
+  @Access('public')
   @Get('health')
   @ApiOperation({ summary: 'Whether the anonymous usage statistics module is loaded' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Loaded' })
@@ -77,6 +79,7 @@ export class EverStatsController {
     return { data: { module: 'ever-stats', loaded: true } };
   }
 
+  @Access('operator')
   @Get('status')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -116,6 +119,7 @@ export class EverStatsController {
   }
 
   /** "What is sent": the report built now, checked, never signed, stored or sent. */
+  @Access('operator')
   @Post('preview')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -129,6 +133,7 @@ export class EverStatsController {
     return { data: { valid: built.error === null, error: built.error, payload: built.report } };
   }
 
+  @Access('operator')
   @Get('reports')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -144,6 +149,7 @@ export class EverStatsController {
   }
 
   /** *Send now*: 409 while the switch is off or another report is being sent, 429 more than once per 10 minutes. */
+  @Access('operator')
   @Post('send')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)
@@ -165,6 +171,7 @@ export class EverStatsController {
     }
   }
 
+  @Access('operator')
   @Put('enabled')
   @UseGuards(EverAdminGuard)
   @ApiOAuth2([])
@@ -180,6 +187,7 @@ export class EverStatsController {
   }
 
   /** A new instance id and a new statistics key; the stored report history is cleared. */
+  @Access('operator')
   @Post('reset-identity')
   @HttpCode(HttpStatus.OK)
   @UseGuards(EverAdminGuard)

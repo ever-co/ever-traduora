@@ -115,7 +115,6 @@ describe('TranslationController translation history', () => {
       projectLocaleRepo as any,
       termRepo as any,
       null as any,
-      null as any,
       historyRepo as any,
     );
     return { controller, historyRepo, projectLocaleRepo, termRepo, manager, state };

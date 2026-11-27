@@ -10,9 +10,7 @@ import {
   Patch,
   Req,
   UnprocessableEntityException,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Not, Repository } from 'typeorm';
@@ -21,6 +19,7 @@ import { ListProjectUsersResponse, ProjectUserResponse, UpdateProjectUserRequest
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
 import AuthorizationService from '../services/authorization.service';
 import { lockProjects, readCommittedTransaction } from '../utils/database-locks';
+import { Access } from '../access/access.decorator';
 
 /**
  * Refuses a change that takes the admin role from the project's last admin. Run under the project's lock
@@ -40,7 +39,6 @@ async function keepAnotherAdmin(manager: EntityManager, membership: ProjectUser,
 }
 
 @Controller('api/v1/projects')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Project Users')
 export default class ProjectUserController {
@@ -49,6 +47,7 @@ export default class ProjectUserController {
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
   ) {}
 
+  @Access('project:ViewProjectUsers')
   @Get(':projectId/users')
   @ApiOperation({ summary: 'List all users with access to a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListProjectUsersResponse })
@@ -73,6 +72,7 @@ export default class ProjectUserController {
     };
   }
 
+  @Access('project:EditProjectUsers')
   @Patch(':projectId/users/:userId')
   @ApiOperation({ summary: `Update a project user's role` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectUserResponse })
@@ -120,6 +120,7 @@ export default class ProjectUserController {
     };
   }
 
+  @Access('project:DeleteProjectUsers')
   @Delete(':projectId/users/:userId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Revoke a user's access to a project` })

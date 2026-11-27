@@ -1,56 +1,22 @@
-import { ForbiddenException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, HttpStatus, Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { AllowedEditorActions, AllowedViewerActions, ProjectAction } from '../domain/actions';
-import {
-  isImplicitProjectAdmin,
-  isOrganizationActionAllowed,
-  OrganizationAction,
-  OrganizationRole,
-  OrganizationStatus,
-} from '../domain/organization-actions';
+import { isOrganizationActionAllowed, OrganizationAction } from '../domain/organization-actions';
 import { OrganizationUser } from '../entity/organization-user.entity';
 import { Organization } from '../entity/organization.entity';
 import { ProjectClient } from '../entity/project-client.entity';
 import { ProjectRole, ProjectUser } from '../entity/project-user.entity';
-import { Project } from '../entity/project.entity';
 import { User } from '../entity/user.entity';
 import { OrganizationException, PaymentRequiredException } from '../errors';
+import { assertOrganizationOpen, effectiveProjectRole, membershipOf, projectForAccess } from './organization/organization-scope';
 
-/**
- * Refuses an organization that is not `active`: `deleted` answers 404, `suspended` 403 `organization_suspended`, and a
- * missing one (or any other status) 403, which clients see as not found. Fail closed: only `active` passes.
- */
-export function assertOrganizationOpen(organization: Organization | null | undefined, notFound: string): void {
-  if (!organization) {
-    throw new ForbiddenException(notFound);
-  }
-  switch (organization.status) {
-    case OrganizationStatus.Active:
-      return;
-    case OrganizationStatus.Suspended:
-      throw new OrganizationException(HttpStatus.FORBIDDEN, 'organization_suspended', 'This organization is suspended');
-    case OrganizationStatus.Deleted:
-      throw new NotFoundException(notFound);
-    default:
-      throw new ForbiddenException(notFound);
-  }
-}
+// The organization scope's decisions, as they were exported from here before
+export { assertOrganizationOpen, effectiveProjectRole } from './organization/organization-scope';
 
-/**
- * The project role a person acts with: their own project role, or `admin` for an organization owner or admin where the
- * organization has `adminsSeeAllProjects` (implicit project admin, DESIGN §3.2, OD-T9). The default organization does
- * not: everyone of a self-hosted install shares it, and its owner keeps exactly the projects they had.
- */
-export function effectiveProjectRole(
-  projectRole: ProjectRole | undefined,
-  organizationRole: OrganizationRole | undefined,
-  organization: Pick<Organization, 'adminsSeeAllProjects'> | undefined,
-): ProjectRole | undefined {
-  if (organization?.adminsSeeAllProjects === true && isImplicitProjectAdmin(organizationRole)) {
-    return ProjectRole.Admin;
-  }
-  return projectRole;
+/** A route or body id worth a lookup: a non-empty string. */
+export function isId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
 }
 
 @Injectable()
@@ -58,9 +24,14 @@ export default class AuthorizationService {
   constructor(
     @InjectRepository(ProjectClient) private projectClientRepo: Repository<ProjectClient>,
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
-    @InjectRepository(Project) private projectRepo: Repository<Project>,
     @InjectRepository(OrganizationUser) private organizationUserRepo: Repository<OrganizationUser>,
   ) {}
+
+  /**
+   * The project access already resolved for a caller in this request (the access guard and then the handler ask for
+   * it): keyed by the request's caller object, which lives as long as its request.
+   */
+  private readonly resolved = new WeakMap<object, Map<string, Promise<ProjectUser | ProjectClient>>>();
 
   getRequestUserOrClient(req): User | ProjectClient;
   getRequestUserOrClient(req, options: { mustBeUser: true }): User;
@@ -83,19 +54,47 @@ export default class AuthorizationService {
    * 4. an API key belongs to this very project; its organization is checked as in 2, without the member step.
    * A user's answer carries the effective role; it is not a stored row when the role is implicit.
    */
-  async mustBeProjectUserOrClient(userOrClient: User | ProjectClient, projectId: string): Promise<ProjectUser | ProjectClient> {
+  mustBeProjectUserOrClient(userOrClient: User | ProjectClient, projectId: string): Promise<ProjectUser | ProjectClient> {
+    if (!isId(projectId) || !userOrClient || typeof userOrClient !== 'object') {
+      return this.resolveProjectAccess(userOrClient, projectId);
+    }
+    let byProject = this.resolved.get(userOrClient);
+    if (!byProject) {
+      byProject = new Map();
+      this.resolved.set(userOrClient, byProject);
+    }
+    let access = byProject.get(projectId);
+    if (!access) {
+      access = this.resolveProjectAccess(userOrClient, projectId);
+      byProject.set(projectId, access);
+    }
+    return access;
+  }
+
+  /**
+   * The caller's access to a project, read now (with `manager`, inside the caller's transaction). An id that is not a
+   * non-empty string is refused before any read: TypeORM drops an `undefined` from a where clause, which would match the
+   * caller's first membership of any project.
+   */
+  private async resolveProjectAccess(
+    userOrClient: User | ProjectClient,
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<ProjectUser | ProjectClient> {
+    if (!isId(projectId)) {
+      throw new ForbiddenException('project not found');
+    }
+    const reader = manager ?? this.organizationUserRepo.manager;
     if (userOrClient instanceof User) {
-      const membership = await this.projectUserRepo.findOne({
+      const membership = await (manager ? manager.getRepository(ProjectUser) : this.projectUserRepo).findOne({
         where: { project: { id: projectId }, user: { id: userOrClient.id } },
         relations: ['project', 'project.plan', 'project.organization'],
       });
-      const project = membership?.project ?? (await this.projectRepo.findOne({ where: { id: projectId }, relations: ['plan', 'organization'] }));
+      const project = membership?.project ?? (await projectForAccess(reader, projectId));
       if (!project?.organizationId) {
         throw new ForbiddenException('project not found');
       }
-      const organizationMembership = await this.organizationUserRepo.findOne({
-        where: { organizationId: project.organizationId, userId: userOrClient.id },
-      });
+      const organizationMembership = await membershipOf(reader, project.organizationId, userOrClient.id);
       if (!organizationMembership) {
         throw new ForbiddenException('project not found');
       }
@@ -106,7 +105,7 @@ export default class AuthorizationService {
       }
       return Object.assign(new ProjectUser(), membership ?? { user: userOrClient }, { project, role });
     } else if (userOrClient instanceof ProjectClient) {
-      const membership = await this.projectClientRepo.findOne({
+      const membership = await (manager ? manager.getRepository(ProjectClient) : this.projectClientRepo).findOne({
         where: { project: { id: projectId }, id: userOrClient.id },
         relations: ['project', 'project.plan', 'project.organization'],
       });
@@ -120,6 +119,30 @@ export default class AuthorizationService {
     }
   }
 
+  /**
+   * Whether the caller may take `action` on the project, without the plan's limits (which the handler checks with the
+   * counts it adds): the check of `@Access('project:<Action>')` routes.
+   */
+  async assertProjectAccess(userOrClient: User | ProjectClient, projectId: string, action: ProjectAction): Promise<ProjectUser | ProjectClient> {
+    const membership = await this.mustBeProjectUserOrClient(userOrClient, projectId);
+    if (!this.isAuthorized(membership.role, action)) {
+      throw new ForbiddenException('you are not authorized to perform this action');
+    }
+    return membership;
+  }
+
+  /**
+   * `assertProjectAccess` read again inside the caller's transaction, past the answer kept for the request: for a
+   * request that writes long after its access was checked (an import, whose upload is read after the guard), so that
+   * access ended meanwhile (removed from the project or the organization, organization suspended) stops the write.
+   */
+  async recheckProjectAccess(manager: EntityManager, userOrClient: User | ProjectClient, projectId: string, action: ProjectAction): Promise<void> {
+    const membership = await this.resolveProjectAccess(userOrClient, projectId, manager);
+    if (!this.isAuthorized(membership.role, action)) {
+      throw new ForbiddenException('you are not authorized to perform this action');
+    }
+  }
+
   async authorizeProjectAction(
     userOrClient: User | ProjectClient,
     projectId: string,
@@ -127,10 +150,7 @@ export default class AuthorizationService {
     newTermsCount: number = 0,
     newLocalesCount: number = 0,
   ): Promise<ProjectUser | ProjectClient> {
-    const membership = await this.mustBeProjectUserOrClient(userOrClient, projectId);
-    if (!this.isAuthorized(membership.role, action)) {
-      throw new ForbiddenException('you are not authorized to perform this action');
-    }
+    const membership = await this.assertProjectAccess(userOrClient, projectId, action);
 
     const currentLocalesCount = membership.project.localesCount;
     const currentTermsCount = membership.project.termsCount;
@@ -155,10 +175,10 @@ export default class AuthorizationService {
    * action the role does not have.
    */
   async authorizeOrganizationAction(user: User, organizationId: string, action: OrganizationAction): Promise<OrganizationUser> {
-    const membership = await this.organizationUserRepo.findOne({
-      where: { organizationId, userId: user.id },
-      relations: ['organization'],
-    });
+    if (!isId(organizationId)) {
+      throw new ForbiddenException('organization not found');
+    }
+    const membership = await membershipOf(this.organizationUserRepo.manager, organizationId, user.id, { withOrganization: true });
     if (!membership) {
       throw new ForbiddenException('organization not found');
     }
@@ -186,11 +206,11 @@ export default class AuthorizationService {
       return;
     }
     // Given the transaction that holds the organization lock, the decision reads the memberships as they are then
-    const members = manager ? manager.getRepository(OrganizationUser) : this.organizationUserRepo;
-    if (targetUserId && (await members.exists({ where: { organizationId: organization.id, userId: targetUserId } }))) {
+    const reader = manager ?? this.organizationUserRepo.manager;
+    if (targetUserId && (await membershipOf(reader, organization.id, targetUserId))) {
       return;
     }
-    const membership = await members.findOne({ where: { organizationId: organization.id, userId: caller.id } });
+    const membership = await membershipOf(reader, organization.id, caller.id);
     if (!isOrganizationActionAllowed(membership?.role, OrganizationAction.EditMembers)) {
       throw new OrganizationException(
         HttpStatus.FORBIDDEN,

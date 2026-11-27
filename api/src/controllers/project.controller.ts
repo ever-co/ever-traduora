@@ -12,9 +12,7 @@ import {
   Post,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { config } from '../config';
@@ -28,8 +26,10 @@ import { User } from '../entity/user.entity';
 import { TooManyRequestsException } from '../errors';
 import AuthorizationService, { effectiveProjectRole } from '../services/authorization.service';
 import { activeMemberships, homeOrganizationId } from '../services/organization/organization-membership';
+import { OrganizationScopedProjects } from '../services/organization/organization-scoped-projects.service';
 import { ApiOAuth2, ApiTags, ApiResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { readCommittedTransaction } from '../utils/database-locks';
+import { Access } from '../access/access.decorator';
 
 /** What the API answers for a project: its own fields (never its plan or organization objects) and the caller's role. */
 export function projectView(project: Project, role: ProjectRole) {
@@ -46,16 +46,16 @@ export function projectView(project: Project, role: ProjectRole) {
 }
 
 @Controller('api/v1/projects')
-@UseGuards(AuthGuard())
 @ApiOAuth2([])
 @ApiTags('Projects')
 export default class ProjectController {
   constructor(
     private auth: AuthorizationService,
-    @InjectRepository(Project) private projectRepo: Repository<Project>,
+    private readonly projects: OrganizationScopedProjects,
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
   ) {}
 
+  @Access('user')
   @Get()
   @ApiOperation({
     summary: 'List projects',
@@ -72,7 +72,7 @@ export default class ProjectController {
     }
     // Only organizations the caller is an active member of: a project of any other one is not listed, even with a
     // project membership left from before
-    const organizations = await activeMemberships(this.projectRepo.manager, user.id, organizationId ? [organizationId] : undefined);
+    const organizations = await activeMemberships(this.projects.manager, user.id, organizationId ? [organizationId] : undefined);
     if (organizationId && organizations.length === 0) {
       throw new ForbiddenException('organization not found');
     }
@@ -91,7 +91,7 @@ export default class ProjectController {
       .filter(membership => membership.organization.adminsSeeAllProjects === true && isImplicitProjectAdmin(membership.role))
       .map(membership => membership.organizationId);
     if (administered.length > 0) {
-      for (const project of await this.projectRepo.find({ where: { organizationId: In(administered) } })) {
+      for (const project of await this.projects.ofOrganizations(administered)) {
         if (!projects.has(project.id)) {
           projects.set(project.id, { project, role: undefined });
         }
@@ -107,6 +107,7 @@ export default class ProjectController {
     };
   }
 
+  @Access('user')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -126,12 +127,12 @@ export default class ProjectController {
     }
 
     const { organizationId: requestedOrganizationId, ...fields } = payload;
-    const organizationId = requestedOrganizationId ?? (await homeOrganizationId(this.projectRepo.manager, user));
+    const organizationId = requestedOrganizationId ?? (await homeOrganizationId(this.projects.manager, user));
     // Any member may create a project in their organization (DESIGN §3.2)
     await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.CreateProject);
 
-    const result = await readCommittedTransaction(this.projectRepo.manager, async tx => {
-      let project = this.projectRepo.create({ ...fields, organizationId });
+    const result = await readCommittedTransaction(this.projects.manager, async tx => {
+      let project = this.projects.build(fields, organizationId);
       project = await tx.save(project);
 
       // Create project user as admin
@@ -152,6 +153,7 @@ export default class ProjectController {
     return { data: projectView(result.project, result.role) };
   }
 
+  @Access('project:ViewProject')
   @Get(':projectId')
   @ApiOperation({ summary: 'Get a project by id' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
@@ -165,6 +167,7 @@ export default class ProjectController {
     };
   }
 
+  @Access('project:EditProject')
   @Patch(':projectId')
   @ApiOperation({ summary: 'Update a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ProjectResponse })
@@ -176,12 +179,12 @@ export default class ProjectController {
 
     const membership = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.EditProject);
 
-    await this.projectRepo.update(projectId, payload);
-    const project = await this.projectRepo.findOneByOrFail({ id: projectId });
+    const project = await this.projects.update(membership.project.organizationId, projectId, payload);
 
     return { data: projectView(project, membership.role) };
   }
 
+  @Access('project:DeleteProject')
   @Delete(':projectId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a project' })
@@ -190,10 +193,10 @@ export default class ProjectController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Param('projectId') projectId: string) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteProject);
+    const { project } = await this.auth.authorizeProjectAction(user, projectId, ProjectAction.DeleteProject);
 
-    await this.projectRepo.manager.transaction(async tx => {
-      await tx.delete(Project, { id: projectId });
+    await this.projects.manager.transaction(async tx => {
+      await this.projects.delete(tx, project.organizationId, projectId);
 
       user.numProjectsCreated -= 1;
       if (user.numProjectsCreated < 0) {

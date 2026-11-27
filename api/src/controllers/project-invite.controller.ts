@@ -1,19 +1,4 @@
-import {
-  Body,
-  ConflictException,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  NotFoundException,
-  Param,
-  Patch,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, ConflictException, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -34,9 +19,9 @@ import { ensureMember, lockOrganization } from '../services/organization/organiz
 import MailService from '../services/mail.service';
 import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
 import { readCommittedTransaction } from '../utils/database-locks';
+import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects')
-@UseGuards(AuthGuard())
 @ApiTags('Project Invites')
 export default class ProjectInviteController {
   constructor(
@@ -47,6 +32,7 @@ export default class ProjectInviteController {
     @InjectRepository(ProjectUser) private projectUserRepo: Repository<ProjectUser>,
   ) {}
 
+  @Access('project:ViewProjectInvites')
   @Get(':projectId/invites')
   @ApiOperation({ summary: 'List all invites with access to a project' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListInviteUsersResponse })
@@ -70,6 +56,7 @@ export default class ProjectInviteController {
     };
   }
 
+  @Access('project:InviteProjectUser')
   @Post(':projectId/invites')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add a new project invite' })
@@ -177,6 +164,7 @@ export default class ProjectInviteController {
     }
   }
 
+  @Access('project:EditProjectInvites')
   @Patch(':projectId/invites/:inviteId')
   @ApiOperation({ summary: `Update a project invite's role` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: ProjectInviteResponse })
@@ -210,6 +198,7 @@ export default class ProjectInviteController {
     };
   }
 
+  @Access('project:DeleteProjectInvites')
   @Delete(':projectId/invites/:inviteId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Remove a project invite` })

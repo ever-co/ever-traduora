@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { join } from 'path';
@@ -298,7 +299,11 @@ describe('ImportController labels of the imported translations', () => {
       return found;
     } as any);
 
-    const auth: any = { getRequestUserOrClient: () => ({}), authorizeProjectAction: async () => ({ project }) };
+    const auth: any = {
+      getRequestUserOrClient: () => ({}),
+      authorizeProjectAction: async () => ({ project }),
+      recheckProjectAccess: async () => undefined,
+    };
     const controller = new ImportController(
       auth,
       dataSource.getRepository(Translation),
@@ -327,6 +332,32 @@ describe('ImportController labels of the imported translations', () => {
     expect(labelStatements.filter(statement => /^\s*(DELETE|UPDATE)\b/i.test(statement))).toEqual([]);
   });
 
+  it('answers 403 when the access re-check under the lock refuses (a role lost during the upload)', async () => {
+    const manager = dataSource.manager;
+    const { id: organizationId } = await manager.findOneByOrFail(Organization, { isDefault: true });
+    const project = await manager.save(Project, { name: 'Project', termsCount: 0, localesCount: 0, plan: { code: 'open-source' }, organizationId });
+    const auth: any = {
+      getRequestUserOrClient: () => ({}),
+      authorizeProjectAction: async () => ({ project }),
+      recheckProjectAccess: async () => {
+        throw new ForbiddenException('project not found');
+      },
+    };
+    const controller = new ImportController(
+      auth,
+      dataSource.getRepository(Translation),
+      dataSource.getRepository(Term),
+      dataSource.getRepository(ProjectLocale),
+      dataSource.getRepository(Locale),
+    );
+    const file = { buffer: Buffer.from(JSON.stringify({ 'term.one': 'EINS' })) };
+
+    await expect(controller.import({}, project.id, plainToInstance(ImportQuery, { locale: 'de', format: 'jsonflat' }), file)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(await manager.count(Term, { where: { project: { id: project.id } } })).toBe(0);
+  });
+
   it('keeps a label removed from a term and then from its translation after the import read the first labels', async () => {
     const manager = dataSource.manager;
     const { id: organizationId } = await manager.findOneByOrFail(Organization, { isDefault: true });
@@ -352,7 +383,11 @@ describe('ImportController labels of the imported translations', () => {
       return found;
     } as any);
 
-    const auth: any = { getRequestUserOrClient: () => ({}), authorizeProjectAction: async () => ({ project }) };
+    const auth: any = {
+      getRequestUserOrClient: () => ({}),
+      authorizeProjectAction: async () => ({ project }),
+      recheckProjectAccess: async () => undefined,
+    };
     const controller = new ImportController(
       auth,
       dataSource.getRepository(Translation),
