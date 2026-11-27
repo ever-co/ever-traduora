@@ -18,8 +18,27 @@ const PROVIDER_SIGN_IN_MESSAGES: { [code: string]: string } = {
   last_sign_in_method: 'This is the only way to sign in to your account. Set a password first (e.g. with "Forgot password"), then disconnect it.',
 };
 
+const figures = new Intl.NumberFormat('en-US');
+
+/**
+ * A plan limit of the organization (402 `plan_limit_reached`, SaaS mode): what the plan allows, from the answer. The
+ * project plans of a single-tenant install answer 402 `PaymentRequired` and keep their own message.
+ */
+function planLimitMessage(body: any): string {
+  const limit = Number(get(body, 'limit'));
+  const what = get(body, 'resource') === 'seats' ? 'members' : 'strings';
+  if (!Number.isFinite(limit)) {
+    return `Your plan has no room for more ${what}. Upgrade to add more.`;
+  }
+  return `Your plan allows ${figures.format(limit)} ${what}. Upgrade to add more.`;
+}
+
 export function errorToMessage(error: any, action = ''): string {
   const domainCode = get(error, 'error.error.code');
+
+  if (domainCode === 'plan_limit_reached') {
+    return planLimitMessage(get(error, 'error.error'));
+  }
 
   if (domainCode && Object.prototype.hasOwnProperty.call(PROVIDER_SIGN_IN_MESSAGES, domainCode)) {
     return PROVIDER_SIGN_IN_MESSAGES[domainCode];

@@ -5,7 +5,7 @@ import { provideRouter } from '@angular/router';
 import { NgxsModule, Store } from '@ngxs/store';
 import { environment } from '../../../../environments/environment';
 import { AuthState } from '../../../auth/stores/auth.state';
-import { Organization, OrganizationInvite, OrganizationMember } from '../../models/organization';
+import { Organization, OrganizationInvite, OrganizationMember, OrganizationUsage } from '../../models/organization';
 import { OrganizationsState } from '../../stores/organizations.state';
 import { OrganizationMembersComponent } from './organization-members.component';
 
@@ -24,6 +24,12 @@ describe('OrganizationMembersComponent', () => {
   const owner: OrganizationMember = { userId: 'u1', name: 'Ada', email: 'ada@example.test', role: 'owner' };
   const member: OrganizationMember = { userId: 'u2', name: 'Bo', email: 'bo@example.test', role: 'member' };
   const pending: OrganizationInvite = { id: 'i1', email: 'cy@example.test', role: 'admin', status: 'sent' };
+  const usage: OrganizationUsage = {
+    plan: { code: 'starter', name: 'Starter' },
+    seats: { used: 3, included: 15 },
+    strings: { used: 9_990, limit: 10_000 },
+  };
+  const flushUsage = (data: OrganizationUsage = usage) => http.expectOne(`${endpoint}/organizations/o1/usage`).flush({ data });
 
   let store: Store;
   let http: HttpTestingController;
@@ -39,6 +45,7 @@ describe('OrganizationMembersComponent', () => {
     http.expectOne(`${endpoint}/organizations/o1/members`).flush({ data: [owner, member] });
     if (role !== 'member') {
       http.expectOne(`${endpoint}/organizations/o1/invites`).flush({ data: [pending] });
+      flushUsage();
     }
     fixture.detectChanges();
     return fixture;
@@ -85,10 +92,12 @@ describe('OrganizationMembersComponent', () => {
     const fixture = TestBed.createComponent(OrganizationMembersComponent);
     fixture.detectChanges();
     http.expectOne(`${endpoint}/organizations/o1/members`).flush('down', { status: 503, statusText: 'Unavailable' });
-    http
-      .match(`${endpoint}/organizations/o1/invites`)
-      .filter(req => !req.cancelled)
-      .forEach(req => req.flush({ data: [] }));
+    for (const url of [`${endpoint}/organizations/o1/invites`, `${endpoint}/organizations/o1/usage`]) {
+      http
+        .match(url)
+        .filter(req => !req.cancelled)
+        .forEach(req => req.flush({ data: url.endsWith('usage') ? usage : [] }));
+    }
     fixture.detectChanges();
     const retry = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
       (button: HTMLButtonElement) => button.textContent.trim() === 'Try again',
@@ -97,6 +106,7 @@ describe('OrganizationMembersComponent', () => {
     retry.click();
     http.expectOne(`${endpoint}/organizations/o1/members`).flush({ data: [owner, member] });
     http.expectOne(`${endpoint}/organizations/o1/invites`).flush({ data: [] });
+    flushUsage();
     fixture.detectChanges();
     expect(rows(fixture, 'member').length).toBe(2);
   });
@@ -123,8 +133,11 @@ describe('OrganizationMembersComponent', () => {
 
     (memberRow.querySelector('button[aria-label="Remove Bo"]') as HTMLButtonElement).click();
     http.expectOne(req => req.method === 'DELETE' && req.url === `${endpoint}/organizations/o1/members/u2`).flush(null);
+    // The seat is free again
+    flushUsage({ ...usage, seats: { used: 2, included: 15 } });
     fixture.detectChanges();
     expect(rows(fixture, 'member').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('[data-test="usage-seats"]').textContent).toContain('2 of 15');
   });
 
   it('invites by email and shows the link of a new invite', () => {
@@ -139,13 +152,66 @@ describe('OrganizationMembersComponent', () => {
     post.flush({
       data: { id: 'i2', email: 'dee@example.test', role: 'member', status: 'sent', inviteUrl: 'http://localhost/signup?invite=t&kind=organization' },
     });
+    flushUsage({ ...usage, seats: { used: 4, included: 15 } });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.org-link input').value).toContain('invite=t');
     expect(fixture.nativeElement.querySelector('[data-test="seats"]').textContent.trim()).toBe('2 members · 2 pending invites');
   });
 
+  it('shows the owner and the admins the plan, its seats and its strings', () => {
+    const fixture = render('admin');
+    const panel: HTMLElement = fixture.nativeElement.querySelector('[data-test="usage"]');
+    expect(panel.querySelector('h6').textContent.trim()).toBe('Starter plan');
+    expect(panel.querySelector('[data-test="usage-seats"]').textContent).toContain('3 of 15');
+    expect(panel.querySelector('[data-test="usage-strings"]').textContent).toContain('9,990 of 10,000');
+    const bars = Array.from(panel.querySelectorAll('.org-meter-fill')) as HTMLElement[];
+    expect(bars.map(bar => bar.style.width)).toEqual(['20%', '100%']);
+    expect(bars.map(bar => bar.classList.contains('org-meter-full'))).toEqual([false, false]);
+  });
+
+  it('shows no limit on a plan without one', () => {
+    const fixture = render('owner');
+    fixture.componentInstance.usage = {
+      plan: { code: 'enterprise', name: 'Enterprise' },
+      seats: { used: 40, included: null },
+      strings: { used: 120_000, limit: null },
+    };
+    fixture.detectChanges();
+    const panel: HTMLElement = fixture.nativeElement.querySelector('[data-test="usage"]');
+    expect(panel.querySelector('[data-test="usage-seats"]').textContent).toContain('40, no limit');
+    expect(panel.querySelector('[data-test="usage-strings"]').textContent).toContain('120,000, no limit');
+    expect(Array.from(panel.querySelectorAll('.org-meter-track')).every((track: HTMLElement) => track.classList.contains('invisible'))).toBe(true);
+  });
+
+  it('says what the plan allows when an invite is refused by its limit, and reads the usage again', () => {
+    const fixture = render('owner');
+    fixture.componentInstance.form.setValue({ email: 'dee@example.test', role: 'member' });
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('form.org-invite button[type="submit"]').click();
+    http.expectOne(`${endpoint}/organizations/o1/invites`).flush(
+      {
+        error: {
+          code: 'plan_limit_reached',
+          message: 'Your plan allows 15 members. Upgrade to add more.',
+          resource: 'seats',
+          limit: 15,
+          used: 15,
+          plan: 'starter',
+        },
+      },
+      { status: 402, statusText: 'Payment Required' },
+    );
+    flushUsage({ ...usage, seats: { used: 15, included: 15 } });
+    fixture.detectChanges();
+    const notice: HTMLElement = fixture.nativeElement.querySelector('[data-test="plan-limit"]');
+    expect(notice.textContent.trim()).toBe('Your plan allows 15 members. Upgrade to add more.');
+    expect(notice.classList.contains('alert-danger')).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-test="usage-seats"] .org-meter-fill').classList.contains('org-meter-full')).toBe(true);
+  });
+
   it('shows a member the list without any way to change it, and lets them leave', () => {
     const fixture = render('member', member);
+    expect(fixture.nativeElement.querySelector('[data-test="usage"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('form.org-invite')).toBeNull();
     expect(fixture.nativeElement.querySelector('select')).toBeNull();
     expect(rows(fixture, 'invite').length).toBe(0);
