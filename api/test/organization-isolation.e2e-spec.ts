@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { writeFileSync } from 'fs';
 import * as request from 'supertest';
 import { DataSource, In } from 'typeorm';
 import { parseAccessRule } from '../src/access/access.decorator';
@@ -184,6 +185,7 @@ describe('Organization isolation (e2e)', () => {
     const project = await dataSource.getRepository(Project).findOneBy({ id: projectId });
     const organization = await dataSource.getRepository(Organization).findOneBy({ id: side.organizationId });
     return {
+      projectsOfOrganization: await dataSource.getRepository(Project).count({ where: { organizationId: side.organizationId } }),
       project: project && { name: project.name, description: project.description, organizationId: project.organizationId },
       organization: organization && { name: organization.name, slug: organization.slug, status: organization.status },
       terms: (await dataSource.getRepository(Term).find({ where: { project: { id: projectId } } })).map(t => t.value).sort(byText),
@@ -264,6 +266,11 @@ describe('Organization isolation (e2e)', () => {
       .expect(201);
 
     before = await snapshot(b);
+    // For the mutation check (test/mutation/run-isolation-mutation.js): the fixtures were made, so the failures it counts
+    // are the isolation assertions, never a broken setup
+    if (process.env.ISOLATION_SETUP_MARKER) {
+      writeFileSync(process.env.ISOLATION_SETUP_MARKER, 'ready');
+    }
   });
 
   afterAll(async () => {
@@ -290,6 +297,59 @@ describe('Organization isolation (e2e)', () => {
     it.each(PROJECT_ROUTES.filter(route => /:(termId|labelId|userId|inviteId|clientId)/.test(route.path)))('$name', async route => {
       const res = await call(route.method, urlFor(route.path, b, a), a.owner.accessToken, bodyFor(b));
       expect(res.status).toBeGreaterThanOrEqual(400);
+    });
+  });
+
+  describe('each child of a nested route on its own', () => {
+    const nested = PROJECT_ROUTES.filter(route => route.path.includes(':labelId/terms/:termId'));
+    const urlWith = (path: string, labelId: string, termId: string) =>
+      path.replace(':projectId', a.projectId).replace(':labelId', labelId).replace(':termId', termId).replace(':localeCode', 'de');
+
+    it.each(nested)("A's label with B's term: $name", async route => {
+      const res = await call(route.method, urlWith(route.path, a.labelId, b.termIds[0]), a.owner.accessToken);
+      expect(res.status).toBe(404);
+    });
+
+    it.each(nested)("B's label with A's term: $name", async route => {
+      const res = await call(route.method, urlWith(route.path, b.labelId, a.termIds[0]), a.owner.accessToken);
+      expect(res.status).toBe(404);
+    });
+
+    it("leaves A's own label on A's term", async () => {
+      const labelled = await dataSource.getRepository(Term).findOne({ where: { id: a.termIds[0] }, relations: ['labels'] });
+      expect(labelled.labels.map(label => label.id)).toEqual([a.labelId]);
+    });
+  });
+
+  describe("B's ids in a request body", () => {
+    it("translates none of B's terms through A's own project", async () => {
+      await request(server())
+        .patch(`/api/v1/projects/${a.projectId}/translations/de`)
+        .set(auth(a.owner.accessToken))
+        .send({ termId: b.termIds[1], value: 'taken over' })
+        .expect(404);
+    });
+  });
+
+  describe('creating projects', () => {
+    it.each(['owner', 'admin', 'member'])("refuses a project in B to A's %s", async who => {
+      await request(server())
+        .post('/api/v1/projects')
+        .set(auth(a[who].accessToken))
+        .send({ name: 'Planted', organizationId: b.organizationId })
+        .expect(404);
+      expect(await dataSource.getRepository(Project).count({ where: { organizationId: b.organizationId } })).toBe(before.projectsOfOrganization);
+    });
+
+    it('creates the project of the person in both organizations where they say, in A here, never in B', async () => {
+      const created = await request(server())
+        .post('/api/v1/projects')
+        .set(auth(both.accessToken))
+        .send({ name: 'From both', organizationId: a.organizationId })
+        .expect(201);
+      expect(created.body.data.organizationId).toBe(a.organizationId);
+      expect(await dataSource.getRepository(Project).count({ where: { organizationId: b.organizationId } })).toBe(before.projectsOfOrganization);
+      await request(server()).delete(`/api/v1/projects/${created.body.data.id}`).set(auth(both.accessToken)).expect(204);
     });
   });
 
