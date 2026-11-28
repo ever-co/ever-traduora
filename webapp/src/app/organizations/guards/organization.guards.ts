@@ -2,14 +2,17 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { Store } from '@ngxs/store';
 import { Observable, of } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { catchError, map, switchMap, take } from 'rxjs/operators';
 import { SaasModeService } from '../services/saas-mode.service';
 import { GetOrganizations, OrganizationsState } from '../stores/organizations.state';
 
 /** The organization pages exist only in SaaS mode; a self-hosted install goes to its project list. */
 export const saasGuard: CanActivateFn = (): Observable<boolean | UrlTree> => {
   const router = inject(Router);
-  return inject(SaasModeService).saas$.pipe(map(saas => (saas ? true : router.parseUrl('/projects'))));
+  return inject(SaasModeService).saas$.pipe(
+    take(1),
+    map(saas => (saas ? true : router.parseUrl('/projects'))),
+  );
 };
 
 /**
@@ -20,6 +23,7 @@ export const projectsRedirectGuard: CanActivateFn = (): Observable<boolean | Url
   const router = inject(Router);
   const store = inject(Store);
   return inject(SaasModeService).saas$.pipe(
+    take(1),
     switchMap(saas => {
       if (!saas) {
         return of(true);

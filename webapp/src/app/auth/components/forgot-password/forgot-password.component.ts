@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Select, Store } from '@ngxs/store';
 import { Observable, Subscription } from 'rxjs';
-import { SaasModeService } from '../../../organizations/services/saas-mode.service';
+import { SaasModeService, SettingsState } from '../../../organizations/services/saas-mode.service';
 import { TurnstileComponent } from '../../../shared/components/turnstile/turnstile.component';
 import { ClearMessages, ForgotPassword } from '../../stores/auth.state';
 
@@ -19,6 +19,8 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
 
   /** The Turnstile site key, when the bot check is on */
   turnstileSiteKey: string | undefined;
+  /** Whether the settings (the bot check) are loaded: the form waits for them, and offers "Try again" when they fail */
+  settingsStatus: SettingsState['status'] = 'loading';
   turnstileToken: string | undefined;
 
   @ViewChild(TurnstileComponent) private turnstile?: TurnstileComponent;
@@ -43,7 +45,12 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
   message: string | undefined;
 
   ngOnInit() {
-    this.settingsChanges = this.saasMode.settings$.subscribe(settings => (this.turnstileSiteKey = settings.turnstileSiteKey));
+    this.settingsChanges = this.saasMode.state$.subscribe(state => {
+      this.settingsStatus = state.status;
+      if (state.status === 'loaded') {
+        this.turnstileSiteKey = state.settings.turnstileSiteKey;
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -51,9 +58,13 @@ export class ForgotPasswordComponent implements OnInit, OnDestroy {
     this.store.dispatch(new ClearMessages());
   }
 
-  /** Whether the form may be sent: a valid email, and past the bot check when it is on */
+  /** Whether the form may be sent: the settings loaded, a valid email, and past the bot check when it is on */
   get ready(): boolean {
-    return this.forgotPasswordForm.valid && (!this.turnstileSiteKey || !!this.turnstileToken);
+    return this.settingsStatus === 'loaded' && this.forgotPasswordForm.valid && (!this.turnstileSiteKey || !!this.turnstileToken);
+  }
+
+  retrySettings(): void {
+    this.saasMode.reload();
   }
 
   onSubmit() {

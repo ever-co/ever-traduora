@@ -10,12 +10,19 @@ import { InstallationSettings } from '../../models/account-settings';
 import { ForgotPassword } from '../../stores/auth.state';
 import { ForgotPasswordComponent } from './forgot-password.component';
 
+/** The settings service as a form sees it: loaded (`settings`), still loading or failed */
+const saasMode = (settings: InstallationSettings | 'loading' | 'failed') => ({
+  saas$: of(typeof settings === 'object' && settings.saas),
+  state$: of(typeof settings === 'object' ? { status: 'loaded', settings } : { status: settings }),
+  reload: jasmine.createSpy('reload'),
+});
+
 describe('ForgotPasswordComponent', () => {
   let turnstile: jasmine.SpyObj<TurnstileApi>;
   let onToken: (token: string) => void;
   let dispatch: jasmine.Spy;
 
-  const create = async (settings: InstallationSettings) => {
+  const create = async (settings: InstallationSettings | 'loading' | 'failed') => {
     turnstile = jasmine.createSpyObj<TurnstileApi>('turnstile', ['render', 'reset', 'remove']);
     turnstile.render.and.callFake((_element, options) => {
       onToken = options.callback;
@@ -26,7 +33,7 @@ describe('ForgotPasswordComponent', () => {
       imports: [ReactiveFormsModule, TurnstileComponent, NgxsModule.forRoot([])],
       providers: [
         provideRouter([]),
-        { provide: SaasModeService, useValue: { saas$: of(settings.saas), settings$: of(settings) } },
+        { provide: SaasModeService, useValue: saasMode(settings) },
         { provide: TurnstileLoader, useValue: { load: () => Promise.resolve(turnstile) } },
       ],
       schemas: [NO_ERRORS_SCHEMA],
@@ -46,6 +53,16 @@ describe('ForgotPasswordComponent', () => {
     fixture.componentInstance.onSubmit();
     expect(dispatch).toHaveBeenCalledWith(new ForgotPassword('ada@example.com', 'the-token'));
     expect(turnstile.reset).toHaveBeenCalled();
+  });
+
+  it('sends nothing before the settings say whether the check is on, and offers to load them again (bot review of #679)', async () => {
+    const failed = await create('failed');
+    failed.detectChanges();
+    expect(failed.componentInstance.ready).toBe(false);
+    failed.componentInstance.onSubmit();
+    expect(dispatch).not.toHaveBeenCalledWith(jasmine.any(ForgotPassword));
+    (failed.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.alert-danger button').click();
+    expect(TestBed.inject(SaasModeService).reload).toHaveBeenCalled();
   });
 
   it('sends the email alone when the check is off', async () => {

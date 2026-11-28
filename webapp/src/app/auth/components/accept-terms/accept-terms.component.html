@@ -16,6 +16,10 @@
         </li>
       </ul>
 
+      <div *ngIf="settingsFailed" class="alert alert-danger" role="alert">
+        The documents could not be loaded.
+        <button type="button" class="btn btn-link p-0 align-baseline" (click)="retrySettings()">Try again</button>
+      </div>
       <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
 
       <form [formGroup]="form" (ngSubmit)="accept()" novalidate>

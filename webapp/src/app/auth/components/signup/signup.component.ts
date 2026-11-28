@@ -7,7 +7,7 @@ import { environment } from '../../../../environments/environment';
 import { TurnstileComponent } from '../../../shared/components/turnstile/turnstile.component';
 import { acceptedVersions, InstallationSettings } from '../../models/account-settings';
 import { Provider } from '../../models/provider';
-import { SaasModeService } from '../../../organizations/services/saas-mode.service';
+import { SaasModeService, SettingsState } from '../../../organizations/services/saas-mode.service';
 import { ClearMessages, GetProviders, Signup } from '../../stores/auth.state';
 
 @Component({
@@ -32,6 +32,8 @@ export class SignupComponent implements OnInit, OnDestroy {
 
   /** The terms to accept (SaaS mode) and the Turnstile site key, once known */
   settings: InstallationSettings | undefined;
+  /** Whether those settings are loaded: the form waits for them, and offers "Try again" when they fail */
+  settingsStatus: SettingsState['status'] = 'loading';
 
   /** The token of the Turnstile check, when it is on and passed */
   turnstileToken: string | undefined;
@@ -66,7 +68,12 @@ export class SignupComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.store.dispatch(new GetProviders());
-    this.settingsChanges = this.saasMode.settings$.subscribe(settings => {
+    this.settingsChanges = this.saasMode.state$.subscribe(state => {
+      this.settingsStatus = state.status;
+      if (state.status !== 'loaded') {
+        return;
+      }
+      const settings = state.settings;
       this.settings = settings;
       // The terms are part of the form only when there are terms to accept
       const acceptTerms = this.signupForm.controls.acceptTerms;
@@ -80,9 +87,13 @@ export class SignupComponent implements OnInit, OnDestroy {
     this.store.dispatch(new ClearMessages());
   }
 
-  /** Whether the form may be sent: valid, and past the bot check when it is on */
+  /** Whether the form may be sent: the settings loaded (terms, bot check), the form valid, past the bot check when on */
   get ready(): boolean {
-    return this.signupForm.valid && (!this.settings?.turnstileSiteKey || !!this.turnstileToken);
+    return this.settingsStatus === 'loaded' && this.signupForm.valid && (!this.settings?.turnstileSiteKey || !!this.turnstileToken);
+  }
+
+  retrySettings(): void {
+    this.saasMode.reload();
   }
 
   onSubmit() {

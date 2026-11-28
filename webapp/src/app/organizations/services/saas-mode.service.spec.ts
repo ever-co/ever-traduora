@@ -17,13 +17,23 @@ describe('SaasModeService', () => {
 
   afterEach(() => http.verify());
 
-  it('asks again after a failed request, instead of keeping single-tenant mode', () => {
+  it('asks again after a failed request, instead of keeping single-tenant mode, and tells every subscriber', () => {
     const seen: boolean[] = [];
     service.saas$.subscribe(saas => seen.push(saas));
     http.expectOne(url).flush('down', { status: 503, statusText: 'Unavailable' });
     service.saas$.subscribe(saas => seen.push(saas));
     http.expectOne(url).flush({ data: [], saas: true });
-    expect(seen).toEqual([false, true]);
+    expect(seen).toEqual([false, true, true]);
+  });
+
+  it('keeps a failure apart from a single-tenant answer, and reload() updates an open form', () => {
+    const states: string[] = [];
+    service.state$.subscribe(state => states.push(state.status === 'loaded' ? `loaded saas=${state.settings.saas}` : state.status));
+    http.expectOne(url).flush('down', { status: 503, statusText: 'Unavailable' });
+    expect(states).toEqual(['loading', 'failed']);
+    service.reload();
+    http.expectOne(url).flush({ data: [], saas: false });
+    expect(states).toEqual(['loading', 'failed', 'loading', 'loaded saas=false']);
   });
 
   it('reads the Turnstile site key and the legal documents from the same answer', () => {

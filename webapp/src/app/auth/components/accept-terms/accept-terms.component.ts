@@ -11,7 +11,7 @@ import { errorToMessage } from '../../../shared/util/api-error';
 import { acceptedVersions, LegalDocuments } from '../../models/account-settings';
 import { localReturnPath } from '../../models/identity';
 import { AuthService } from '../../services/auth.service';
-import { GetUserInfo, Logout } from '../../stores/auth.state';
+import { GetUserInfo, Logout, SetUserInfo } from '../../stores/auth.state';
 
 /**
  * /accept-terms: SaaS mode asks an account to accept the terms of service and privacy policy in force before anything
@@ -28,6 +28,8 @@ export class AcceptTermsComponent implements OnInit, OnDestroy {
   readonly returnTo = localReturnPath(this.route.snapshot.queryParamMap.get('returnTo')) ?? '/';
 
   legal: LegalDocuments | undefined;
+  /** The documents could not be loaded: an error with "Try again" instead of a Continue that stays off */
+  settingsFailed = false;
   /** Whether the person accepted an older version before (the terms changed), or none yet */
   changed = false;
   busy = false;
@@ -48,9 +50,16 @@ export class AcceptTermsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.subscriptions.push(
-      this.saasMode.settings$.subscribe(settings => (this.legal = settings.legal)),
+      this.saasMode.state$.subscribe(state => {
+        this.settingsFailed = state.status === 'failed';
+        if (state.status === 'loaded') {
+          this.legal = state.settings.legal;
+        }
+      }),
       this.authService.getUserSelf().subscribe({
         next: user => {
+          // The app bar and the switcher hide for a pending account: they read the stored profile
+          this.store.dispatch(new SetUserInfo(user));
           this.changed = !!user.termsVersion || !!user.privacyVersion;
           if (user.pending !== 'terms_not_accepted') {
             // Nothing to accept (accepted in another tab, or not SaaS mode)
@@ -87,6 +96,10 @@ export class AcceptTermsComponent implements OnInit, OnDestroy {
               ? 'The terms changed again in the meantime. Reload the page to read the current ones.'
               : errorToMessage(error, 'AcceptTerms')),
       });
+  }
+
+  retrySettings(): void {
+    this.saasMode.reload();
   }
 
   signOut(): void {

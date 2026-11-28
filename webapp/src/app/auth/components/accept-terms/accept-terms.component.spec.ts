@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { SaasModeService } from '../../../organizations/services/saas-mode.service';
 import { User } from '../../models/user';
 import { AuthService } from '../../services/auth.service';
+import { SetUserInfo } from '../../stores/auth.state';
 import { AcceptTermsComponent } from './accept-terms.component';
 
 describe('AcceptTermsComponent', () => {
@@ -15,14 +16,14 @@ describe('AcceptTermsComponent', () => {
   let auth: jasmine.SpyObj<AuthService>;
   let navigateByUrl: jasmine.Spy;
 
-  const create = (user: Partial<User>) => {
+  const create = (user: Partial<User>, state: object = { status: 'loaded', settings: { saas: true, legal } }) => {
     auth.getUserSelf.and.returnValue(of({ id: 'u1', name: 'Ada', email: 'ada@example.com', ...user } as User));
     TestBed.configureTestingModule({
       imports: [AcceptTermsComponent, NgxsModule.forRoot([])],
       providers: [
         provideRouter([]),
         { provide: AuthService, useValue: auth },
-        { provide: SaasModeService, useValue: { saas$: of(true), settings$: of({ saas: true, legal }) } },
+        { provide: SaasModeService, useValue: { saas$: of(true), state$: of(state), reload: jasmine.createSpy('reload') } },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ returnTo: '/orgs/acme/projects' }) } } },
       ],
     });
@@ -61,6 +62,20 @@ describe('AcceptTermsComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.alert-danger').textContent).toContain('Reload the page');
     expect(navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('says when the documents cannot be loaded, offers to load them again, and keeps Continue off (bot review of #679)', () => {
+    const fixture = create({ pending: 'terms_not_accepted' }, { status: 'failed' });
+    const page: HTMLElement = fixture.nativeElement;
+    expect(page.querySelector('.alert-danger').textContent).toContain('The documents could not be loaded');
+    expect(page.querySelector<HTMLButtonElement>('button[type="submit"]').disabled).toBe(true);
+    page.querySelector<HTMLButtonElement>('.alert-danger button').click();
+    expect(TestBed.inject(SaasModeService).reload).toHaveBeenCalled();
+  });
+
+  it('stores the fresh profile, so the app bar hides for the pending account', () => {
+    create({ pending: 'terms_not_accepted' });
+    expect(TestBed.inject(Store).dispatch).toHaveBeenCalledWith(jasmine.any(SetUserInfo));
   });
 
   it('goes straight back when there is nothing to accept', () => {

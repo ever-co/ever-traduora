@@ -10,6 +10,13 @@ import { InstallationSettings } from '../../models/account-settings';
 import { Signup } from '../../stores/auth.state';
 import { SignupComponent } from './signup.component';
 
+/** The settings service as a form sees it: loaded (`settings`), still loading or failed */
+const saasMode = (settings: InstallationSettings | 'loading' | 'failed') => ({
+  saas$: of(typeof settings === 'object' && settings.saas),
+  state$: of(typeof settings === 'object' ? { status: 'loaded', settings } : { status: settings }),
+  reload: jasmine.createSpy('reload'),
+});
+
 describe('SignupComponent', () => {
   const legal = {
     terms: { version: '1.1.0', url: 'https://traduora.co/tos' },
@@ -19,7 +26,7 @@ describe('SignupComponent', () => {
   let onToken: (token: string) => void;
   let dispatch: jasmine.Spy;
 
-  const create = async (settings: InstallationSettings, outcome = of(undefined)) => {
+  const create = async (settings: InstallationSettings | 'loading' | 'failed', outcome = of(undefined)) => {
     turnstile = jasmine.createSpyObj<TurnstileApi>('turnstile', ['render', 'reset', 'remove']);
     turnstile.render.and.callFake((_element, options) => {
       onToken = options.callback;
@@ -30,7 +37,7 @@ describe('SignupComponent', () => {
       imports: [ReactiveFormsModule, TurnstileComponent, NgxsModule.forRoot([])],
       providers: [
         provideRouter([]),
-        { provide: SaasModeService, useValue: { saas$: of(settings.saas), settings$: of(settings) } },
+        { provide: SaasModeService, useValue: saasMode(settings) },
         { provide: TurnstileLoader, useValue: { load: () => Promise.resolve(turnstile) } },
       ],
       schemas: [NO_ERRORS_SCHEMA],
@@ -79,6 +86,19 @@ describe('SignupComponent', () => {
     fixture.componentInstance.onSubmit();
     expect(turnstile.reset).toHaveBeenCalledWith('widget');
     expect(fixture.componentInstance.turnstileToken).toBeUndefined();
+  });
+
+  it('waits for the settings, and offers to load them again when they fail (bot review of #679)', async () => {
+    const loading = await create('loading');
+    expect(loading.componentInstance.signupForm.valid).toBe(true);
+    expect(loading.componentInstance.ready).toBe(false);
+    TestBed.resetTestingModule();
+    const failed = await create('failed');
+    expect(failed.componentInstance.ready).toBe(false);
+    const retry = (failed.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.alert-danger button');
+    expect(retry.textContent.trim()).toBe('Try again');
+    retry.click();
+    expect(TestBed.inject(SaasModeService).reload).toHaveBeenCalled();
   });
 
   it('shows neither on a single-tenant install, and signs up as before', async () => {
