@@ -25,7 +25,9 @@ import { OrganizationDataController } from './organization-data.controller';
  * deletion with its hand-overs stays with the user routes (`UserController`, `UserService.deleteAccount`).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([OperatorAudit, Organization, OrganizationUser, Project, ProjectUser, ProjectClient, ProjectLocale, Term, Label])],
+  imports: [
+    TypeOrmModule.forFeature([OperatorAudit, Organization, OrganizationUser, Project, ProjectUser, ProjectClient, ProjectLocale, Term, Label]),
+  ],
   controllers: [OperatorController, OrganizationDataController],
   providers: [
     AuthorizationService,

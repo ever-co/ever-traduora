@@ -73,7 +73,7 @@ export class OperatorController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Suspend an organization, with a reason (operator)',
-    description: "Its members and API keys are refused (403 organization_suspended) from their next request on. Audited.",
+    description: 'Its members and API keys are refused (403 organization_suspended) from their next request on. Audited.',
   })
   @ApiResponse({ status: HttpStatus.OK, description: 'Suspended', type: OperatorOrganizationResponse })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'No reason, or the default organization (default_organization)' })

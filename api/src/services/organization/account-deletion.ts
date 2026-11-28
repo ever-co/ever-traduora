@@ -140,11 +140,7 @@ export async function organizationsDeletedWithAccount(
  * Makes each chosen member an admin of the project, where the person deleting their account is an admin and the chosen
  * one a member. Runs in the deletion's transaction, after its project locks and before it counts the admins.
  */
-export async function handOverProjects(
-  manager: EntityManager,
-  userId: string,
-  choices: AccountDeletionChoices['projectAdmins'] = [],
-): Promise<void> {
+export async function handOverProjects(manager: EntityManager, userId: string, choices: AccountDeletionChoices['projectAdmins'] = []): Promise<void> {
   const memberships = manager.getRepository(ProjectUser);
   for (const choice of choices) {
     const mine = await memberships.findOne({ where: { project: { id: choice.projectId }, user: { id: userId } } });

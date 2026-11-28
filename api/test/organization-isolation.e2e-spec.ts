@@ -405,6 +405,11 @@ describe('Organization isolation (e2e)', () => {
       ['POST', `/api/v1/organizations/${b.organizationId}/invites`],
       ['DELETE', `/api/v1/organizations/${b.organizationId}/invites/${b.organizationInviteId}`],
       ['GET', `/api/v1/organizations/${b.organizationId}/usage`],
+      ['GET', `/api/v1/organizations/${b.organizationId}/export`],
+      ['DELETE', `/api/v1/organizations/${b.organizationId}`],
+      // The operator console is for the installation's operators only, never for an organization's people
+      ['GET', `/api/v1/operator/organizations/${b.organizationId}`],
+      ['POST', `/api/v1/operator/organizations/${b.organizationId}/suspend`],
     ];
 
     it.each(['owner', 'admin', 'member'])("refuses every one to A's %s", async who => {
@@ -427,6 +432,13 @@ describe('Organization isolation (e2e)', () => {
       await request(server()).get(`/api/v1/organizations/${b.organizationId}/members`).set(auth(both.accessToken)).expect(200);
       // The usage is for the owner and the admins: a member of B does not see it, whatever they are in A
       await request(server()).get(`/api/v1/organizations/${b.organizationId}/usage`).set(auth(both.accessToken)).expect(404);
+      // Nor its export, nor its deletion: those are the owner's and the admins'
+      await request(server()).get(`/api/v1/organizations/${b.organizationId}/export`).set(auth(both.accessToken)).expect(404);
+      await request(server())
+        .delete(`/api/v1/organizations/${b.organizationId}`)
+        .set(auth(both.accessToken))
+        .send({ slug: (await dataSource.getRepository(Organization).findOneBy({ id: b.organizationId })).slug })
+        .expect(404);
       await request(server())
         .patch(`/api/v1/organizations/${b.organizationId}/members/${b.member.id}`)
         .set(auth(both.accessToken))
@@ -517,6 +529,40 @@ describe('Organization isolation (e2e)', () => {
         await dataSource.getRepository(Organization).update({ id: b.organizationId }, { status: OrganizationStatus.Active });
       }
       await request(server()).get(`/api/v1/projects/${b.projectId}/terms`).set(auth(b.owner.accessToken)).expect(200);
+    });
+  });
+
+  describe("an operator's suspension", () => {
+    it('locks B out at its next request, API key too, leaves A working, and is audited', async () => {
+      const operator = await signupTestUser(app, config.everPlatform.adminEmails[0]);
+      const operatorCall = (action: string) =>
+        request(server())
+          .post(`/api/v1/operator/organizations/${b.organizationId}/${action}`)
+          .set(auth(operator.accessToken))
+          .send({ reason: `Isolation suite: ${action}` })
+          .expect(200);
+      await operatorCall('suspend');
+      try {
+        for (const token of [b.owner.accessToken, b.admin.accessToken, b.member.accessToken, both.accessToken, b.keyToken]) {
+          const res = await request(server()).get(`/api/v1/projects/${b.projectId}/terms`).set(auth(token)).expect(403);
+          expect(res.body.error.code).toBe('organization_suspended');
+        }
+        await request(server()).get(`/api/v1/organizations/${b.organizationId}/export`).set(auth(b.owner.accessToken)).expect(403);
+        // A is not B: its people and its key keep working
+        await request(server()).get(`/api/v1/projects/${a.projectId}/terms`).set(auth(a.member.accessToken)).expect(200);
+        await request(server()).get(`/api/v1/projects/${a.projectId}/terms`).set(auth(a.keyToken)).expect(200);
+      } finally {
+        await operatorCall('restore');
+      }
+      await request(server()).get(`/api/v1/projects/${b.projectId}/terms`).set(auth(b.member.accessToken)).expect(200);
+      await request(server()).get(`/api/v1/projects/${b.projectId}/terms`).set(auth(b.keyToken)).expect(200);
+      const audit = (
+        await request(server()).get('/api/v1/operator/audit').query({ organizationId: b.organizationId }).set(auth(operator.accessToken)).expect(200)
+      ).body.data;
+      expect(audit.map(row => [row.action, row.reason, row.operator.userId])).toEqual([
+        ['restore', 'Isolation suite: restore', operator.id],
+        ['suspend', 'Isolation suite: suspend', operator.id],
+      ]);
     });
   });
 

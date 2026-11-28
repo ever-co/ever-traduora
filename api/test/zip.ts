@@ -1,3 +1,4 @@
+// tslint:disable:no-bitwise (the ZIP format packs its fields in bits: flags, CRC-32)
 import { inflateRawSync } from 'zlib';
 
 /**

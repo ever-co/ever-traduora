@@ -1,3 +1,4 @@
+// tslint:disable:no-bitwise (MS-DOS times are packed in bits)
 import { PassThrough, Writable } from 'stream';
 import { crc32 as zlibCrc32 } from 'zlib';
 import { readZip } from '../../test/zip';

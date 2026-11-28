@@ -74,7 +74,10 @@ export class OrganizationDataController {
       'tombstone without members. The default organization is never deleted.',
   })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'The slug typed differs (slug_mismatch), or the default organization (default_organization)' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'The slug typed differs (slug_mismatch), or the default organization (default_organization)',
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found, or not SaaS mode' })
   async delete(@Req() req, @Param('organizationId') organizationId: string, @Body() payload: DeleteOrganizationRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });

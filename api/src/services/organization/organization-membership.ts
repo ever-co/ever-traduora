@@ -447,11 +447,11 @@ export async function deleteAccountsWithOrganizations(
       }
       const newOwnerId = choices.newOwners?.get(organizationId);
       if (newOwnerId !== undefined) {
-        const next = leavingOwner ? remaining.find(member => member.userId === newOwnerId) : undefined;
-        if (!next) {
+        const heir = leavingOwner ? remaining.find(member => member.userId === newOwnerId) : undefined;
+        if (!heir) {
           throw invalidTransfer(`Only the owner hands over '${organization?.name}', to one of its members`);
         }
-        await tx.update(OrganizationUser, { id: next.id }, { role: OrganizationRole.Owner });
+        await tx.update(OrganizationUser, { id: heir.id }, { role: OrganizationRole.Owner });
         await tx.update(OrganizationUser, { id: leavingOwner.id }, { role: OrganizationRole.Admin });
         continue;
       }

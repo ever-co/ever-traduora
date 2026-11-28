@@ -81,7 +81,10 @@ export default class UserController {
   })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'A choice that cannot be made (transfer_invalid, slug_mismatch)' })
-  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Cannot delete account: a project or an organization needs a new admin or owner' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Cannot delete account: a project or an organization needs a new admin or owner',
+  })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async delete(@Req() req, @Body() payload?: DeleteAccountRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });

@@ -1,3 +1,4 @@
+// tslint:disable:no-bitwise (the ZIP format packs its fields in bits: CRC-32, MS-DOS times)
 import { Writable } from 'stream';
 import { promisify } from 'util';
 import { deflateRaw as deflateRawCallback } from 'zlib';
@@ -51,8 +52,8 @@ const CRC_TABLE = (() => {
 /** The CRC-32 of ZIP (IEEE 802.3, reflected, as zlib computes it). */
 export function crc32(data: Buffer): number {
   let crc = 0xffffffff;
-  for (let index = 0; index < data.length; index++) {
-    crc = CRC_TABLE[(crc ^ data[index]) & 0xff] ^ (crc >>> 8);
+  for (const byte of data) {
+    crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
