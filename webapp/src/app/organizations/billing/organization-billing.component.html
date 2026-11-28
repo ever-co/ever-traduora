@@ -23,7 +23,7 @@
   <button *ngIf="loadFailed" type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
 </div>
 
-<ng-container *ngIf="billing as b">
+<ng-container *ngIf="canRead && billing as b">
   <section class="card org-usage" data-test="plan" aria-labelledby="billingPlan">
     <div class="billing-plan-row">
       <h6 id="billingPlan" class="org-usage-plan">{{ b.plan.name }} plan</h6>
@@ -63,6 +63,11 @@
   <p *ngIf="b.enabled && !b.canManage" class="text-muted" data-test="read-only">
     Only the owner changes the plan, the seats and the payment details
   </p>
+
+  <div *ngIf="b.enabled && b.canManage && b.offers.length === 0" class="alert org-notice d-flex align-items-center" data-test="no-prices">
+    <span class="flex-1">The prices could not be read from Stripe, so no plan can be ordered right now.</span>
+    <button type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
+  </div>
 
   <form *ngIf="b.enabled && b.canManage" class="card org-panel billing-order" [formGroup]="form" (ngSubmit)="submit()" novalidate data-test="order">
     <h5 class="font-serif org-panel-title">{{ b.subscribed ? 'Change the plan' : 'Upgrade' }}</h5>
@@ -112,7 +117,7 @@
       <span *ngIf="total" class="billing-total" data-test="total">
         <span class="font-mono">{{ total }}</span> {{ per($any(form.controls.interval.value)) }}<span class="text-muted">, plus tax where it applies</span>
       </span>
-      <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || busy || unchanged" data-test="submit">
+      <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || busy || unchanged || !selectedOffer" data-test="submit">
         {{ b.subscribed ? 'Save changes' : 'Continue to Checkout' }}
       </button>
       <output *ngIf="saved && unchanged" class="text-muted billing-saved">Saved</output>

@@ -5,7 +5,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Store } from '@ngxs/store';
 import { BehaviorSubject, combineLatest, EMPTY, Observable, of, timer } from 'rxjs';
-import { catchError, distinctUntilChanged, filter, finalize, map, switchMap, take, takeWhile, tap } from 'rxjs/operators';
+import { catchError, distinctUntilChanged, filter, finalize, map, startWith, switchMap, take, takeWhile, tap } from 'rxjs/operators';
 import { canManage, Organization, usageFigure, usageMeterValue } from '../models/organization';
 import { organizationErrorMessage } from '../models/organization-errors';
 import { GetOrganizations, OrganizationsState } from '../stores/organizations.state';
@@ -124,6 +124,16 @@ export class OrganizationBillingComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Extra seats belong to Small Business: for Enterprise the field is off, so a cleared value never blocks the order
+    this.form.controls.plan.valueChanges.pipe(startWith(this.form.controls.plan.value), takeUntilDestroyed(this.destroyRef)).subscribe(plan => {
+      const seats = this.form.controls.extraSeats;
+      const sells = PAID_PLANS.find(each => each.code === plan)?.sellsSeats ?? false;
+      if (sells && seats.disabled) {
+        seats.enable({ emitEvent: false });
+      } else if (!sells && seats.enabled) {
+        seats.disable({ emitEvent: false });
+      }
+    });
     this.route.queryParamMap.pipe(take(1)).subscribe(params => {
       const checkout = params.get('checkout');
       this.returnedFrom = checkout === 'success' || checkout === 'canceled' ? checkout : undefined;
@@ -139,12 +149,16 @@ export class OrganizationBillingComponent implements OnInit {
           if (this.organization?.id !== organization.id) {
             this.billing = undefined;
             this.saved = false;
+            this.pendingChange = false;
             this.form.markAsPristine();
           }
           this.organization = organization;
           this.errorMessage = undefined;
           this.loadFailed = false;
           if (organization.isDefault || !canManage(organization.role)) {
+            // No longer allowed to read it (a changed role): nothing read before stays on the page
+            this.billing = undefined;
+            this.pendingChange = false;
             return EMPTY;
           }
           return this.read(organization.id);
@@ -161,7 +175,7 @@ export class OrganizationBillingComponent implements OnInit {
   /** Upgrade (no subscription): to Stripe Checkout. Change (a subscription): the new plan, interval or seats */
   submit(): void {
     const organization = this.organization;
-    if (!organization || !this.billing?.canManage || !this.form.valid || this.busy) {
+    if (!organization || !this.billing?.canManage || !this.form.valid || this.busy || !this.selectedOffer) {
       return;
     }
     const order: BillingOrder = {
@@ -219,6 +233,10 @@ export class OrganizationBillingComponent implements OnInit {
   }
 
   private show(billing: OrganizationBilling): void {
+    if (this.loadFailed) {
+      this.errorMessage = undefined;
+      this.loadFailed = false;
+    }
     this.billing = billing;
     if (this.form.pristine || billing.subscribed) {
       const subscribed = billing.subscribed && PAID_PLANS.some(plan => plan.code === billing.subscribedPlan.code);
@@ -246,6 +264,7 @@ export class OrganizationBillingComponent implements OnInit {
           }
           return of(undefined);
         }),
+        takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(answer => {
         if (answer && this.organization?.id === organizationId) {

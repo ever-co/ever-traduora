@@ -245,6 +245,88 @@ describe('OrganizationBillingComponent', () => {
     expect(text(fixture, 'checkout-canceled')).toBe('Checkout was canceled. Nothing was charged.');
   });
 
+  describe('review round 2 (#678)', () => {
+    const asRole = (role: Organization['role'], id = 'o1') =>
+      store.reset({
+        ...store.snapshot(),
+        organizations: {
+          ...store.snapshot().organizations,
+          organizations: [{ ...organization, id, slug: id, role }],
+          loaded: true,
+          currentOrganizationId: id,
+        },
+      });
+
+    it('lets Enterprise be ordered after the extra seats were cleared', () => {
+      const fixture = render('owner', free);
+      fixture.componentInstance.form.patchValue({ extraSeats: null });
+      fixture.detectChanges();
+      expect((find(fixture, 'submit') as HTMLButtonElement).disabled).toBe(true);
+      fixture.componentInstance.form.patchValue({ plan: 'enterprise' });
+      fixture.detectChanges();
+      expect((find(fixture, 'submit') as HTMLButtonElement).disabled).toBe(false);
+      // Back to Small Business: the seats are checked again
+      fixture.componentInstance.form.patchValue({ plan: 'small_business' });
+      fixture.detectChanges();
+      expect((find(fixture, 'submit') as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('orders nothing without prices, and says so with a retry', () => {
+      const fixture = render('owner', { ...free, offers: [] });
+      expect(text(fixture, 'no-prices')).toContain('could not be read from Stripe');
+      expect((find(fixture, 'submit') as HTMLButtonElement).disabled).toBe(true);
+      find(fixture, 'no-prices').querySelector('button').click();
+      http.expectOne(url).flush({ data: free });
+      fixture.detectChanges();
+      expect(find(fixture, 'no-prices')).toBeNull();
+    });
+
+    it('sends nowhere once the page was left', () => {
+      const fixture = render('owner', free);
+      (find(fixture, 'submit') as HTMLButtonElement).click();
+      const req = http.expectOne(`${url}/checkout`);
+      fixture.destroy();
+      // Its request is dropped with the page
+      expect(req.cancelled).toBe(true);
+      expect(fixture.componentInstance.redirect).not.toHaveBeenCalled();
+    });
+
+    it('hides what it read once the role no longer reads billing', () => {
+      const fixture = render('owner', subscribed);
+      expect(find(fixture, 'plan')).not.toBeNull();
+      asRole('member');
+      fixture.detectChanges();
+      expect(find(fixture, 'plan')).toBeNull();
+      expect(find(fixture, 'order')).toBeNull();
+      expect(find(fixture, 'not-allowed')).not.toBeNull();
+    });
+
+    it('drops the pending notice of another organization', () => {
+      const fixture = render('owner', { ...subscribed, status: 'active' });
+      fixture.componentInstance.pendingChange = true;
+      asRole('owner', 'o2');
+      http.expectOne(`${endpoint}/organizations/o2/billing`).flush({ data: free });
+      fixture.detectChanges();
+      expect(find(fixture, 'change-pending')).toBeNull();
+    });
+
+    it('clears a failed read once a later one succeeds', fakeAsync(() => {
+      query = { checkout: 'success' };
+      const fixture = render('owner');
+      tick(0);
+      http.expectOne(url).flush({ error: { code: 'Internal' } }, { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+      expect(find(fixture, 'error')).not.toBeNull();
+      tick(2000);
+      http.expectOne(url).flush({ data: subscribed });
+      http.expectOne(`${endpoint}/organizations`).flush({ data: [organization] });
+      fixture.detectChanges();
+      expect(find(fixture, 'error')).toBeNull();
+      expect(find(fixture, 'plan')).not.toBeNull();
+      discardPeriodicTasks();
+    }));
+  });
+
   describe('the model', () => {
     it('reads the state of a subscription in a few words', () => {
       expect(billingStatusLine({ ...subscribed, status: 'past_due', graceEndsAt: '2026-12-12T00:00:00.000Z' })).toBe(
