@@ -1,7 +1,8 @@
-import { UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import Redis from 'ioredis';
-import { FindOperator, Repository } from 'typeorm';
+import * as moment from 'moment';
+import { EntityNotFoundError, FindOperator, Repository } from 'typeorm';
 import { config } from '../config';
 import { GrantType } from '../domain/http';
 import { User } from '../entity/user.entity';
@@ -40,6 +41,13 @@ class InMemoryUserRepository {
 
   async findOneBy(where: Partial<Record<keyof User, any>>): Promise<User | null> {
     return this.matchesRow(where) ? { ...this.row } : null;
+  }
+
+  async findOneOrFail({ where }: { where: Partial<Record<keyof User, any>> }): Promise<User> {
+    if (!this.matchesRow(where)) {
+      throw new EntityNotFoundError(User, where);
+    }
+    return { ...this.row };
   }
 
   async update(where: Partial<Record<keyof User, any>>, changes: Partial<User>): Promise<{ affected: number }> {
@@ -354,6 +362,93 @@ describe('UserService', () => {
 
       await expect(signIn(publishedPassword)).rejects.toBeInstanceOf(UnprocessableEntityException);
       expect(redis.value(userKey)).toBeUndefined();
+    });
+  });
+
+  describe('forgotPassword', () => {
+    const { cooldownSeconds } = config.passwordReset;
+    // A reset link works for 4 hours: this one was sent the given number of seconds ago
+    const linkSent = async (secondsAgo: number): Promise<Partial<User>> => ({
+      encryptedPasswordResetToken: Buffer.from(await bcrypt.hash('the-link-sent-before', 4), 'utf-8'),
+      passwordResetExpires: moment().add(4, 'hours').subtract(secondsAgo, 'seconds').toDate(),
+    });
+    // Runs an action while a forgot-password makes its token, as a request made at the same time would
+    const duringTokenHash = (action: () => unknown) => {
+      const hash = bcrypt.hash;
+      jest.spyOn(bcrypt, 'hash').mockImplementationOnce((async (data: string, rounds: number) => {
+        await action();
+        return hash(data, rounds);
+      }) as any);
+    };
+
+    beforeEach(async () => {
+      users = new InMemoryUserRepository(await newUser());
+      const loginAttemptsStorage = { getRedisClient: () => null } as unknown as UserLoginAttemptsStorage;
+      service = new UserService(users as unknown as Repository<User>, loginAttemptsStorage);
+    });
+
+    afterEach(() => {
+      config.passwordReset.cooldownSeconds = cooldownSeconds;
+    });
+
+    it('keeps a link sent less than the cooldown ago and gives no token to email', async () => {
+      users.row = { ...users.row, ...(await linkSent(cooldownSeconds - 5)) };
+      const held = users.row.encryptedPasswordResetToken;
+
+      const { user, token } = await service.forgotPassword(email);
+
+      expect(token).toBeNull();
+      expect(user.email).toBe(email);
+      expect(users.row.encryptedPasswordResetToken).toBe(held);
+    });
+
+    it('makes a new link once the cooldown has passed', async () => {
+      users.row = { ...users.row, ...(await linkSent(cooldownSeconds)) };
+
+      const { token } = await service.forgotPassword(email);
+
+      expect(token).toEqual(expect.any(String));
+      expect(await bcrypt.compare(token, users.row.encryptedPasswordResetToken.toString('utf8'))).toBe(true);
+    });
+
+    it('makes a new link on every request when the cooldown is 0', async () => {
+      config.passwordReset.cooldownSeconds = 0;
+
+      const first = await service.forgotPassword(email);
+      const second = await service.forgotPassword(email);
+
+      expect(first.token).toEqual(expect.any(String));
+      expect(second.token).toEqual(expect.any(String));
+      expect(second.token).not.toEqual(first.token);
+    });
+
+    it('makes a new link at once when the one sent was used or has expired', async () => {
+      // A reset empties the token and leaves the expiry
+      users.row = { ...users.row, ...(await linkSent(1)), encryptedPasswordResetToken: Buffer.from('', 'utf-8') };
+      expect((await service.forgotPassword(email)).token).toEqual(expect.any(String));
+
+      users.row = { ...users.row, ...(await linkSent(1)), passwordResetExpires: moment().subtract(1, 'second').toDate() };
+      expect((await service.forgotPassword(email)).token).toEqual(expect.any(String));
+    });
+
+    it('gives no token to a request that another one made at the same time got ahead of', async () => {
+      let other: { token: string };
+      duringTokenHash(async () => {
+        other = await service.forgotPassword(email);
+      });
+
+      const { token } = await service.forgotPassword(email);
+
+      expect(token).toBeNull();
+      expect(other.token).toEqual(expect.any(String));
+      expect(await bcrypt.compare(other.token, users.row.encryptedPasswordResetToken.toString('utf8'))).toBe(true);
+    });
+
+    it('still answers not found when the email changed meanwhile', async () => {
+      duringTokenHash(() => (users.row = { ...users.row, email: 'changed@example.test' }));
+
+      await expect(service.forgotPassword(email)).rejects.toBeInstanceOf(NotFoundException);
+      expect(users.row.encryptedPasswordResetToken).toBeUndefined();
     });
   });
 });

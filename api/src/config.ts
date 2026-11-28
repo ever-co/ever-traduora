@@ -171,6 +171,12 @@ export const config = {
     maxAttempts: getNumberOrDefault(env.TR_LOGIN_ATTEMPTS_MAX, 3),
   },
 
+  passwordReset: {
+    // A forgot-password for an account that was sent a reset link less than this many seconds ago keeps that link and
+    // sends no other email; 0 turns this off
+    cooldownSeconds: getNumberOrDefault(env.TR_PASSWORD_RESET_COOLDOWN, 60),
+  },
+
   defaultAdminCredentialConfig: {
     adminEmail: process.env.TR_ADMIN_EMAIL || `local.admin@ever.co`,
     // No default: the seed creates the admin only when a password is configured

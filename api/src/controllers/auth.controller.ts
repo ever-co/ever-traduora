@@ -401,7 +401,10 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No user with such email found' })
   async forgotPassword(@Body() payload: ForgotPasswordRequest) {
     const { user, token } = await this.userService.forgotPassword(payload.email);
-    this.mailService.passwordResetToken(user, token);
+    // No token while a link sent moments ago still works: the answer is the same, so it does not tell
+    if (token) {
+      this.mailService.passwordResetToken(user, token);
+    }
   }
 
   @Throttle({
