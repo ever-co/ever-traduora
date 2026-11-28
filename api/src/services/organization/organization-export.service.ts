@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
-import { OrganizationRole } from '../../domain/organization-actions';
+import { EntityManager, In, Repository } from 'typeorm';
+import { OrganizationRole, OrganizationStatus } from '../../domain/organization-actions';
 import { Label } from '../../entity/label.entity';
 import { OrganizationUser } from '../../entity/organization-user.entity';
 import { Organization } from '../../entity/organization.entity';
@@ -10,6 +10,7 @@ import { ProjectRole, ProjectUser } from '../../entity/project-user.entity';
 import { Project } from '../../entity/project.entity';
 import { Term } from '../../entity/term.entity';
 import { User } from '../../entity/user.entity';
+import { OrganizationException } from '../../errors';
 import { jsonFlatExporter } from '../../formatters/jsonflat';
 import { byCodeUnits } from '../../utils/database-locks';
 import { localeTranslations } from '../../utils/locale-translations';
@@ -24,15 +25,56 @@ const ROLE_ORDER: Record<string, number> = { [OrganizationRole.Owner]: 0, [Organ
 
 /** A path segment made of a name: lower case ASCII letters, digits and single hyphens, at most 40 characters. */
 export function pathSegment(name: string, fallback: string): string {
-  const segment = (name || '')
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/g, '');
-  return segment || fallback;
+  // One pass over the characters, without a regular expression, so its time is linear on any input
+  const out: string[] = [];
+  for (const char of (name || '').normalize('NFKD').toLowerCase()) {
+    if ((char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+      out.push(char);
+    } else if (out.length > 0 && out[out.length - 1] !== '-' && !isCombiningMark(char)) {
+      out.push('-');
+    }
+  }
+  let segment = out.slice(0, 40);
+  while (segment.length > 0 && segment[segment.length - 1] === '-') {
+    segment = segment.slice(0, -1);
+  }
+  return segment.join('') || fallback;
+}
+
+/** A combining accent (é is e + U+0301), dropped from names */
+function isCombiningMark(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return code >= 0x300 && code <= 0x36f;
+}
+
+/** The terms read per query for `terms.json` */
+export const TERMS_PAGE = 1000;
+
+/**
+ * The organizations being exported now, in this process: one export at a time per organization (a second one answers
+ * 409 `export_running`). Per process: with several replicas, one export per organization per replica.
+ */
+const running = new Set<string>();
+
+/** Claims the organization for an export; the answer releases it. 409 `export_running` while another one runs. */
+export function claimExport(organizationId: string): () => void {
+  if (running.has(organizationId)) {
+    throw new OrganizationException(
+      HttpStatus.CONFLICT,
+      'export_running',
+      'An export of this organization is running already, try again when it is done',
+    );
+  }
+  running.add(organizationId);
+  return () => running.delete(organizationId);
+}
+
+/** The organization was suspended or deleted while its export ran: the download is broken off. */
+export class ExportStoppedError extends Error {
+  constructor(status: string) {
+    super(`the organization became ${status} during its export`);
+    this.name = 'ExportStoppedError';
+  }
 }
 
 /** The folder of a project in the archive: its name and, so that two projects of one name never meet, its id. */
@@ -61,8 +103,12 @@ const person = (user: Pick<User, 'name' | 'email'>, role: string) => ({ name: us
  * - `organization.json`: the organization, its effective plan, its usage, who exported it and when;
  * - `members.json`: its members (name, e-mail, role);
  * - per project, `projects/<name>-<id>/`: `project.json` (name, description, locales, members), `terms.json` (with their
- *   context and labels), `labels.json`, and `translations/<locale>.json`, one file per locale as the project export
- *   writes it in flat JSON (`localeTranslations`, `jsonFlatExporter`).
+ *   context and labels, read and written in pages of {@link TERMS_PAGE}), `labels.json` (with the translations each
+ *   label is on), and `translations/<locale>.json`, one file per locale as the project export writes it in flat JSON
+ *   (`localeTranslations`, `jsonFlatExporter`).
+ *
+ * The organization's status is read again before each project: suspended or deleted meanwhile, the export stops
+ * ({@link ExportStoppedError}) and the caller breaks the download off.
  *
  * The projects are those the exporting person sees: all of them for an owner or an admin where the organization's admins
  * see every project (`effectiveProjectRole`), otherwise their own projects.
@@ -111,9 +157,18 @@ export class OrganizationExport {
     );
 
     for (const project of await this.visibleProjects(membership, exportedBy.id)) {
+      await this.assertStillOpen(organization.id);
       await this.writeProject(project, zip);
     }
+    await this.assertStillOpen(organization.id);
     await zip.finish();
+  }
+
+  private async assertStillOpen(organizationId: string): Promise<void> {
+    const current = await this.manager.findOne(Organization, { where: { id: organizationId }, select: ['id', 'status'] });
+    if (current?.status !== OrganizationStatus.Active) {
+      throw new ExportStoppedError(current?.status ?? 'deleted');
+    }
   }
 
   /** The projects of the organization the person sees, by name. */
@@ -153,26 +208,62 @@ export class OrganizationExport {
       }),
     );
 
-    const terms = await this.manager.find(Term, { where: { project: { id: project.id } }, relations: ['labels'], order: { value: 'ASC' } });
-    await zip.add(
-      `${folder}/terms.json`,
-      json(
-        terms.map(term => ({
-          value: term.value,
-          context: term.context ?? null,
-          labels: (term.labels ?? []).map(label => label.value).sort(byCodeUnits),
-          date: term.date,
-        })),
-      ),
-    );
-
-    const labels = await this.manager.find(Label, { where: { project: { id: project.id } }, order: { value: 'ASC' } });
-    await zip.add(`${folder}/labels.json`, json(labels.map(label => ({ value: label.value, color: label.color }))));
+    await zip.addStream(`${folder}/terms.json`, this.termsJson(project.id));
+    await zip.add(`${folder}/labels.json`, json(await this.labelsOf(project.id, locales)));
 
     for (const projectLocale of locales) {
       const translations = await localeTranslations(this.manager, project.id, projectLocale.id);
       const content = await jsonFlatExporter({ iso: projectLocale.locale.code, translations });
       await zip.add(`${folder}/translations/${localeFile(projectLocale.locale.code)}`, content);
     }
+  }
+
+  /** `terms.json`, a page of terms at a time: an array of { value, context, labels, date }. */
+  private async *termsJson(projectId: string): AsyncGenerator<string> {
+    yield '[';
+    let first = true;
+    for (let skip = 0; ; skip += TERMS_PAGE) {
+      const page = await this.manager.find(Term, {
+        where: { project: { id: projectId } },
+        relations: ['labels'],
+        order: { value: 'ASC', id: 'ASC' },
+        skip,
+        take: TERMS_PAGE,
+      });
+      for (const term of page) {
+        const entry = {
+          value: term.value,
+          context: term.context ?? null,
+          labels: (term.labels ?? []).map(label => label.value).sort(byCodeUnits),
+          date: term.date,
+        };
+        yield `${first ? '' : ','}\n  ${JSON.stringify(entry)}`;
+        first = false;
+      }
+      if (page.length < TERMS_PAGE) {
+        break;
+      }
+    }
+    yield first ? ']' : '\n]';
+  }
+
+  /** The project's labels, each with the translations it is on (term and locale), by value. */
+  private async labelsOf(projectId: string, locales: ProjectLocale[]) {
+    const labels = await this.manager.find(Label, { where: { project: { id: projectId } }, relations: ['translations'], order: { value: 'ASC' } });
+    const termIds = [...new Set(labels.flatMap(label => (label.translations ?? []).map(translation => translation.termId)))];
+    const termValues = new Map<string, string>();
+    for (let index = 0; index < termIds.length; index += 500) {
+      const terms = await this.manager.find(Term, { where: { id: In(termIds.slice(index, index + 500)) }, select: ['id', 'value'] });
+      terms.forEach(term => termValues.set(term.id, term.value));
+    }
+    const localeCodes = new Map(locales.map(projectLocale => [projectLocale.id, projectLocale.locale.code]));
+    return labels.map(label => ({
+      value: label.value,
+      color: label.color,
+      translations: (label.translations ?? [])
+        .map(translation => ({ term: termValues.get(translation.termId), locale: localeCodes.get(translation.projectLocaleId) }))
+        .filter(on => on.term !== undefined && on.locale !== undefined)
+        .sort((a, b) => byCodeUnits(a.term, b.term) || byCodeUnits(a.locale, b.locale)),
+    }));
   }
 }

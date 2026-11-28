@@ -1,13 +1,15 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Req, Res } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApiOAuth2, ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { config } from '../config';
 import { Response } from 'express';
 import { Access } from '../access/access.decorator';
 import { OrganizationAction } from '../domain/organization-actions';
 import { OrganizationException } from '../errors';
 import AuthorizationService from '../services/authorization.service';
 import { OrganizationDeletion } from '../services/organization/organization-deletion.service';
-import { exportFileName, OrganizationExport } from '../services/organization/organization-export.service';
+import { claimExport, exportFileName, OrganizationExport } from '../services/organization/organization-export.service';
 import { assertSaasEnabled } from '../services/organization/organization.service';
 import { ZipWriter } from '../utils/zip-writer';
 import { DeleteOrganizationRequest } from './operator.dto';
@@ -49,12 +51,15 @@ export class OrganizationDataController {
   @ApiProduces('application/zip')
   @ApiResponse({ status: HttpStatus.OK, description: 'The archive' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found, or not SaaS mode' })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Another export of the organization is running (export_running)' })
   async export(@Req() req, @Res() res: Response, @Param('organizationId') organizationId: string) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     const membership = await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.ExportOrganization);
     if (membership.organization.isDefault) {
       throw new OrganizationException(HttpStatus.NOT_FOUND, 'saas_disabled', 'Organizations are not enabled on this installation');
     }
+    // One export of an organization at a time (409 export_running)
+    const release = claimExport(membership.organizationId);
     res.status(HttpStatus.OK);
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${exportFileName(membership.organization)}"`);
@@ -68,11 +73,15 @@ export class OrganizationDataController {
         res.removeHeader('Content-Type');
         throw error;
       }
-      // Part of the archive went out already: break the download off, so that nobody keeps a truncated file as whole
+      // Part of the archive went out already (or the organization was suspended meanwhile): break the download off, so
+      // that nobody keeps a truncated file as whole
       res.destroy(error instanceof Error ? error : undefined);
+    } finally {
+      release();
     }
   }
 
+  @Throttle({ default: { limit: config.organizationChanges.limit, ttl: config.organizationChanges.ttl } })
   @Access('organization:DeleteOrganization', SAAS_ONLY)
   @Delete(':organizationId')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -88,6 +97,7 @@ export class OrganizationDataController {
     description: 'The slug typed differs (slug_mismatch), or the default organization (default_organization)',
   })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found, or not SaaS mode' })
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Too many organizations deleted from here lately' })
   async delete(@Req() req, @Param('organizationId') organizationId: string, @Body() payload: DeleteOrganizationRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
     const membership = await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.DeleteOrganization);

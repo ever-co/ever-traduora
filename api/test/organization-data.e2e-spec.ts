@@ -1,3 +1,6 @@
+// Many deletions from one address in this file: above the rate limit of organization changes (read with the config)
+process.env.TR_ORGANIZATION_CHANGES_LIMIT = '1000';
+
 import { INestApplication, Module, ServiceUnavailableException } from '@nestjs/common';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -19,18 +22,36 @@ import { Term } from '../src/entity/term.entity';
 import { TranslationHistory } from '../src/entity/translation-history.entity';
 import { Translation } from '../src/entity/translation.entity';
 import { User } from '../src/entity/user.entity';
+import { OperatorAudit } from '../src/entity/operator-audit.entity';
+import { BillingCancellationStatus, OrganizationBillingCancellation } from '../src/entity/organization-billing-cancellation.entity';
 import { BILLING_CANCELLATION, BillingCancellation } from '../src/services/organization/billing-cancellation';
+import * as membership from '../src/services/organization/organization-membership';
+import { OrganizationExport } from '../src/services/organization/organization-export.service';
 import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
 import { readZip, zipJson } from './zip';
 
+const byText = (left: string, right: string) => left.localeCompare(right);
+
 /** What the billing module (P4) would be asked: here a fake, registered the way P4 registers its own. */
-const billing: BillingCancellation & { calls: string[]; failNext: boolean } = {
+const billing: BillingCancellation & {
+  calls: string[];
+  /** How many of the next calls fail */
+  failing: number;
+  /** What the call saw: the organization's status as given, and its projects left in the database */
+  seen: Array<{ status: string; projects: number }>;
+  dataSource?: DataSource;
+} = {
   calls: [],
-  failNext: false,
+  failing: 0,
+  seen: [],
   async cancelForDeletion(organization) {
     this.calls.push(organization.id);
-    if (this.failNext) {
-      this.failNext = false;
+    this.seen.push({
+      status: organization.status,
+      projects: await this.dataSource.getRepository(Project).count({ where: { organizationId: organization.id } }),
+    });
+    if (this.failing > 0) {
+      this.failing -= 1;
       throw new ServiceUnavailableException('billing is down');
     }
   },
@@ -42,8 +63,18 @@ class FakeBillingModule {}
 /** Collects a binary response body (supertest leaves application/zip unparsed otherwise). */
 const binary = (res: request.Response, callback: (error: Error | null, body: Buffer) => void) => {
   const chunks: Buffer[] = [];
+  let done = false;
+  const settle = (error: Error | null) => {
+    if (!done) {
+      done = true;
+      callback(error, Buffer.concat(chunks));
+    }
+  };
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
-  res.on('end', () => callback(null, Buffer.concat(chunks)));
+  res.on('end', () => settle(null));
+  // A download broken off by the server
+  res.on('aborted', () => settle(new Error('aborted')));
+  res.on('error', (error: Error) => settle(error));
 };
 
 /**
@@ -56,6 +87,8 @@ describe('Organization export and deletion (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   const saasBefore = config.saasEnabled;
+  const operatorsBefore = process.env.TR_EVER_ADMIN_EMAILS;
+  let operator: TestingUser;
 
   const server = () => app.getHttpServer();
   const as = (user: TestingUser | { accessToken: string }) => ({ Authorization: `Bearer ${user.accessToken}` });
@@ -171,7 +204,7 @@ describe('Organization export and deletion (e2e)', () => {
     const organization = await dataSource.getRepository(Organization).findOneBy({ id: side.organization.id });
     return {
       organization: { name: organization.name, slug: organization.slug, status: organization.status },
-      projects: projects.map(project => project.name).sort(),
+      projects: projects.map(project => project.name).sort(byText),
       terms: ids.length ? await dataSource.getRepository(Term).count({ where: { project: { id: In(ids) } } }) : 0,
       locales: locales.length,
       translations: localeIds.length ? await dataSource.getRepository(Translation).count({ where: { projectLocale: { id: In(localeIds) } } }) : 0,
@@ -200,12 +233,21 @@ describe('Organization export and deletion (e2e)', () => {
     dataSource = app.get(DataSource);
     await dataSource.dropDatabase();
     await dataSource.runMigrations();
+    billing.dataSource = dataSource;
     a = await makeSide('A');
     b = await makeSide('B');
+    process.env.TR_EVER_ADMIN_EMAILS = config.everPlatform.adminEmails[0];
+    operator = await signupTestUser(app, config.everPlatform.adminEmails[0]);
   });
 
   afterAll(async () => {
     config.saasEnabled = saasBefore;
+    if (operatorsBefore === undefined) {
+      delete process.env.TR_EVER_ADMIN_EMAILS;
+    } else {
+      process.env.TR_EVER_ADMIN_EMAILS = operatorsBefore;
+    }
+    jest.restoreAllMocks();
     await app.close();
   });
 
@@ -226,7 +268,7 @@ describe('Organization export and deletion (e2e)', () => {
             .slice(0, 2)
             .join('/'),
         );
-        expect([...entries.keys()].sort()).toEqual(
+        expect([...entries.keys()].sort(byText)).toEqual(
           [
             'organization.json',
             'members.json',
@@ -237,9 +279,9 @@ describe('Organization export and deletion (e2e)', () => {
               `${folder}/translations/de.json`,
               `${folder}/translations/en.json`,
             ]),
-          ].sort(),
+          ].sort(byText),
         );
-        expect(folders.sort()).toEqual([`projects/app-a-${a.projectIds[1]}`, `projects/website-a-${a.projectIds[0]}`].sort());
+        expect(folders.sort(byText)).toEqual([`projects/app-a-${a.projectIds[1]}`, `projects/website-a-${a.projectIds[0]}`].sort(byText));
 
         const organization = zipJson(entries, 'organization.json');
         expect(organization).toMatchObject({
@@ -269,7 +311,10 @@ describe('Organization export and deletion (e2e)', () => {
           ['bye.a', null, []],
           ['hello.a', 'greeting', ['web-a']],
         ]);
-        expect(zipJson(entries, `${website}/labels.json`)).toEqual([{ value: 'web-a', color: '#336699' }]);
+        // With the translations each label is on (the label of the term went to its translations)
+        expect(zipJson(entries, `${website}/labels.json`)).toEqual([{ value: 'web-a', color: '#336699', translations: expect.any(Array) }]);
+        const onTranslations = zipJson(entries, `${website}/labels.json`)[0].translations;
+        expect(onTranslations.every(on => on.term === 'hello.a' && ['de', 'en'].includes(on.locale))).toBe(true);
         expect(zipJson(entries, `${website}/translations/de.json`)).toEqual({ 'bye.a': '', 'hello.a': 'Hallo A' });
         expect(zipJson(entries, `${website}/translations/en.json`)).toEqual({ 'bye.a': '', 'hello.a': 'Hello A' });
 
@@ -299,6 +344,53 @@ describe('Organization export and deletion (e2e)', () => {
       }
       await exportOf(a.organization.id, { accessToken: a.keyToken }).expect(401);
       await request(server()).get(`/api/v1/organizations/${a.organization.id}/export`).expect(401);
+    });
+
+    it('runs one export of an organization at a time', async () => {
+      let release: () => void;
+      const gate = new Promise<void>(resolve => (release = resolve));
+      const original = (OrganizationExport.prototype as any).writeProject;
+      jest.spyOn(OrganizationExport.prototype as any, 'writeProject').mockImplementationOnce(async function (this: unknown, ...args: unknown[]) {
+        await gate;
+        return original.apply(this, args);
+      });
+      const first = exportOf(a.organization.id, a.owner).then(res => res);
+      // The first one waits at its first project; a second one is refused meanwhile, by anyone
+      await new Promise(resolve => setTimeout(resolve, 300));
+      for (const person of [a.owner, a.admin]) {
+        const second = await request(server()).get(`/api/v1/organizations/${a.organization.id}/export`).set(as(person)).expect(409);
+        expect(second.body.error.code).toBe('export_running');
+      }
+      // Another organization's export runs
+      await exportOf(b.organization.id, b.owner).expect(200);
+      release();
+      expect(readZip((await first).body).size).toBeGreaterThan(2);
+      // Once it is done, the next one runs
+      await exportOf(a.organization.id, a.owner).expect(200);
+    });
+
+    it('breaks the download off when the organization is suspended during the export', async () => {
+      const original = (OrganizationExport.prototype as any).writeProject;
+      jest.spyOn(OrganizationExport.prototype as any, 'writeProject').mockImplementationOnce(async function (this: unknown, ...args: unknown[]) {
+        await original.apply(this, args);
+        await dataSource.getRepository(Organization).update({ id: a.organization.id }, { status: OrganizationStatus.Suspended });
+      });
+      try {
+        const outcome = await exportOf(a.organization.id, a.owner).then(
+          res => ({ body: res.body as Buffer }),
+          error => ({ error }),
+        );
+        if ('body' in outcome) {
+          // Ended without the end record: not an archive anyone can take as whole
+          expect(() => readZip(outcome.body)).toThrow();
+        } else {
+          expect(outcome.error).toBeTruthy();
+        }
+      } finally {
+        await dataSource.getRepository(Organization).update({ id: a.organization.id }, { status: OrganizationStatus.Active });
+      }
+      // The claim was released with the broken download
+      await exportOf(a.organization.id, a.owner).expect(200);
     });
 
     it('refuses a suspended organization', async () => {
@@ -340,13 +432,23 @@ describe('Organization export and deletion (e2e)', () => {
       expect(await snapshot(a)).toEqual(before);
     });
 
-    it('deletes nothing when billing cannot cancel the subscription', async () => {
+    it('cancels nothing when the deletion is refused under its locks, after the choice', async () => {
       const before = await snapshot(a);
-      billing.failNext = true;
-      await request(server()).delete(`/api/v1/organizations/${a.organization.id}`).set(as(a.owner)).send({ slug: a.organization.slug }).expect(500);
-      expect(billing.calls).toEqual([a.organization.id]);
+      // Between the request's checks and the deletion's locks, an operator suspends the organization
+      const lock = membership.lockOrganization;
+      jest.spyOn(membership, 'lockOrganization').mockImplementationOnce(async (tx, organizationId) => {
+        await dataSource.getRepository(Organization).update({ id: organizationId }, { status: OrganizationStatus.Suspended });
+        return lock(tx, organizationId);
+      });
+      try {
+        const res = await request(server()).delete(`/api/v1/organizations/${a.organization.id}`).set(as(a.owner)).send({ slug: a.organization.slug });
+        expect([res.status, res.body.error?.code]).toEqual([403, 'organization_suspended']);
+      } finally {
+        await dataSource.getRepository(Organization).update({ id: a.organization.id }, { status: OrganizationStatus.Active });
+      }
+      expect(billing.calls).toEqual([]);
+      expect(await dataSource.getRepository(OrganizationBillingCancellation).count()).toBe(0);
       expect(await snapshot(a)).toEqual(before);
-      billing.calls.length = 0;
     });
 
     it('cancels the subscription, deletes every project with its data, keeps the tombstone, leaves the other organization alone', async () => {
@@ -357,7 +459,14 @@ describe('Organization export and deletion (e2e)', () => {
         .set(as(a.owner))
         .send({ slug: ` ${a.organization.slug.toUpperCase()} ` })
         .expect(204);
+      // Once the deletion committed: the tombstone, without its projects
       expect(billing.calls).toEqual([a.organization.id]);
+      expect(billing.seen).toEqual([{ status: OrganizationStatus.Deleted, projects: 0 }]);
+      expect(await dataSource.getRepository(OrganizationBillingCancellation).findOneBy({ organizationId: a.organization.id })).toMatchObject({
+        status: BillingCancellationStatus.Done,
+        attempts: 1,
+        lastError: null,
+      });
 
       expect(await snapshot(a)).toEqual({
         organization: { name: 'Data A', slug: a.organization.slug, status: OrganizationStatus.Deleted },
@@ -412,6 +521,36 @@ describe('Organization export and deletion (e2e)', () => {
         .expect(401);
       await request(server()).delete(`/api/v1/organizations/${a.organization.id}`).set(as(a.owner)).send({ slug: a.organization.slug }).expect(404);
       await exportOf(a.organization.id, a.owner).expect(404);
+    });
+
+    it('deletes the organization when billing fails, and leaves the cancellation to an operator, who retries it', async () => {
+      const c = await makeSide('C');
+      billing.calls.length = 0;
+      billing.failing = 3;
+      await request(server()).delete(`/api/v1/organizations/${c.organization.id}`).set(as(c.owner)).send({ slug: c.organization.slug }).expect(204);
+      expect(billing.calls).toEqual([c.organization.id, c.organization.id, c.organization.id]);
+      expect((await snapshot(c)).projects).toEqual([]);
+      const failed = (await request(server()).get(`/api/v1/operator/organizations/${c.organization.id}`).set(as(operator)).expect(200)).body.data;
+      expect(failed).toMatchObject({ status: 'deleted', billingCancellation: { status: 'failed', attempts: 3 } });
+      expect(failed.billingCancellation.lastError).toContain('billing is down');
+      const unsettled = await request(server()).get('/api/v1/operator/organizations').query({ billing: 'unsettled' }).set(as(operator)).expect(200);
+      expect(unsettled.body.data.map(row => [row.id, row.billingCancellation])).toEqual([[c.organization.id, 'failed']]);
+
+      // Only operators retry, with a reason
+      await request(server())
+        .post(`/api/v1/operator/organizations/${c.organization.id}/billing-cancellation`)
+        .set(as(c.owner))
+        .send({ reason: 'Retry now' })
+        .expect(404);
+      const retried = await request(server())
+        .post(`/api/v1/operator/organizations/${c.organization.id}/billing-cancellation`)
+        .set(as(operator))
+        .send({ reason: 'Stripe is back' })
+        .expect(200);
+      expect(retried.body.data.billingCancellation).toMatchObject({ status: 'done', attempts: 4, lastError: null });
+      expect(retried.body.data.audit[0]).toMatchObject({ action: 'retry_billing_cancellation', reason: 'Stripe is back' });
+      expect(await dataSource.getRepository(OperatorAudit).count({ where: { organizationId: c.organization.id } })).toBe(1);
+      expect((await request(server()).get('/api/v1/operator/organizations').query({ billing: 'unsettled' }).set(as(operator))).body.data).toEqual([]);
     });
 
     it('never deletes the default organization', async () => {
