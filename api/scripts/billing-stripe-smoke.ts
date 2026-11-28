@@ -1,8 +1,11 @@
 /**
  * A smoke run of billing against Stripe in TEST mode (DESIGN §3.7, §10): the prices by lookup key, a customer, Checkout
  * sessions built exactly as the API builds them (Small Business with extra seats, Small Business with the seat price
- * offered, Enterprise), their line items, and a customer portal session. It prints ids, statuses and quantities only,
- * never a key or a page URL, and expires the sessions it opened.
+ * offered, Enterprise), their line items, and a customer portal session. Then a subscription paid with Stripe's test
+ * card, changed as the API changes it: fewer seats (credited at renewal), then an upgrade whose invoice the test card
+ * `pm_card_chargeCustomerFail` declines (it must stay pending, the items unchanged), and at last the backstop of a
+ * second subscription: canceled, and its paid invoice refunded. It prints ids, statuses and quantities only, never a
+ * key or a page URL, and leaves nothing open.
  *
  *   TR_STRIPE_SECRET_KEY=sk_test_… npx ts-node scripts/billing-stripe-smoke.ts
  *
@@ -10,7 +13,9 @@
  */
 import { randomUUID } from 'crypto';
 import { BillingInterval, planLookupKey, seatLookupKey } from '../src/billing/billing-plans';
-import { checkoutSessionParams } from '../src/billing/billing.service';
+import Stripe = require('stripe');
+import { checkoutSessionParams, pricedItems, refundLatestPayment, subscriptionUpdate } from '../src/billing/billing.service';
+import { subscribedPlan } from '../src/billing/billing-plans';
 import { createStripeClient, isTestModeKey } from '../src/billing/stripe-client';
 import { OrganizationPlanCode } from '../src/domain/organization-actions';
 
@@ -113,6 +118,61 @@ async function main() {
     const expired = await stripe.checkout.sessions.expire(id);
     out('expired', { id: expired.id, status: expired.status });
   }
+
+  // 6. A paid subscription, changed as the API changes it (a full client for the test card and the subscription)
+  const full = new Stripe(key, { maxNetworkRetries: 1, timeout: 10_000 });
+  const plan = (subscription: Stripe.Subscription) => subscribedPlan(pricedItems(subscription));
+  const visa = await full.paymentMethods.attach('pm_card_visa', { customer: customer.id });
+  await full.customers.update(customer.id, { invoice_settings: { default_payment_method: visa.id } });
+  const monthly = {
+    plan: priceOf(planLookupKey(OrganizationPlanCode.SmallBusiness, BillingInterval.Monthly)),
+    seat: priceOf(seatLookupKey(BillingInterval.Monthly)),
+  };
+  let subscription = await full.subscriptions.create(
+    {
+      customer: customer.id,
+      items: [
+        { price: monthly.plan.id, quantity: 1 },
+        { price: monthly.seat.id, quantity: 2 },
+      ],
+      metadata: { smoke_test: 'true' },
+    },
+    { idempotencyKey: `traduora-smoke-${run}-subscription` },
+  );
+  out('subscription (test card)', { id: subscription.id, status: subscription.status, plan: plan(subscription) });
+
+  const fewer = subscriptionUpdate(
+    subscription,
+    { ...monthly, extraSeats: 1 },
+    { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 1 },
+  );
+  subscription = await full.subscriptions.update(subscription.id, fewer);
+  out('fewer seats (create_prorations)', {
+    behavior: fewer.proration_behavior,
+    status: subscription.status,
+    plan: plan(subscription),
+    pending: !!subscription.pending_update,
+  });
+
+  const declining = await full.paymentMethods.attach('pm_card_chargeCustomerFail', { customer: customer.id });
+  await full.customers.update(customer.id, { invoice_settings: { default_payment_method: declining.id } });
+  const enterprise = { plan: priceOf(planLookupKey(OrganizationPlanCode.Enterprise, BillingInterval.Monthly)), seat: null, extraSeats: 0 };
+  const upgrade = subscriptionUpdate(subscription, enterprise, {
+    plan: OrganizationPlanCode.Enterprise,
+    interval: BillingInterval.Monthly,
+    extraSeats: 0,
+  });
+  subscription = await full.subscriptions.update(subscription.id, upgrade);
+  out('upgrade, card declined', {
+    behavior: `${upgrade.proration_behavior} ${upgrade.payment_behavior}`,
+    status: subscription.status,
+    plan: plan(subscription),
+    pending: !!subscription.pending_update,
+  });
+
+  // The backstop of a second subscription: canceled at once, and what it was paid refunded
+  const canceled = await full.subscriptions.cancel(subscription.id, { prorate: false, invoice_now: false });
+  out('canceled + refunded (backstop)', { id: canceled.id, status: canceled.status, refund: await refundLatestPayment(full, canceled.id) });
 }
 
 main().catch(error => {

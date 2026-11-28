@@ -243,16 +243,10 @@ export class BillingService {
     if (idOf(subscription.customer) !== read.stripeCustomerId) {
       throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
     }
-    const items = subscriptionChanges(subscription, prices);
-    if (!items.length) {
+    const params = subscriptionUpdate(subscription, prices, wanted);
+    if (!params) {
       return { pending: false };
     }
-    // A raise is invoiced at once and applies only once that invoice is paid (a declined card leaves the plan as it
-    // was: Stripe keeps the change pending, and the webhook applies it when paid); a decrease is credited at renewal
-    const raise = raisesTheBill(subscribedPlan(pricedItems(subscription)), wanted);
-    const params: Stripe.SubscriptionUpdateParams = raise
-      ? { items, proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' }
-      : { items, proration_behavior: 'create_prorations' };
     const before = (subscription.items?.data ?? []).map(item => [item.id, item.price?.id, item.quantity]);
     const updated = await stripe.subscriptions.update(subscription.id, params, {
       idempotencyKey: idempotencyKey('change', read.id, 0, { subscription: subscription.id, before, params }),
@@ -563,25 +557,7 @@ export class BillingService {
         { ...LOCKED_CALL, idempotencyKey: `traduora-cancel-second-${subscription.id}` },
       );
     }
-    const [invoice] = (await this.stripe.invoices.list({ subscription: subscription.id, status: 'paid', limit: 1 }, LOCKED_CALL)).data;
-    if (!invoice || !invoice.amount_paid) {
-      return `canceled ${subscription.id}, nothing paid`;
-    }
-    const refunds: string[] = [];
-    const payments = await this.stripe.invoicePayments.list({ invoice: invoice.id, status: 'paid', limit: 10 }, LOCKED_CALL);
-    for (const payment of payments.data) {
-      const paymentIntent = idOf(payment.payment?.payment_intent as string | { id: string } | undefined);
-      const charge = idOf(payment.payment?.charge as string | { id: string } | undefined);
-      if (!paymentIntent && !charge) {
-        continue;
-      }
-      const refund = await this.stripe.refunds.create(
-        { ...(paymentIntent ? { payment_intent: paymentIntent } : { charge }), reason: 'duplicate', metadata: { subscription: subscription.id } },
-        { ...LOCKED_CALL, idempotencyKey: `traduora-refund-${invoice.id}-${payment.id}` },
-      );
-      refunds.push(refund.id);
-    }
-    return `canceled ${subscription.id}, refunded ${invoice.id} (${invoice.amount_paid} ${invoice.currency}): ${refunds.join(' ') || 'no payment found'}`;
+    return `canceled ${subscription.id}, ${await refundLatestPayment(this.stripe, subscription.id, LOCKED_CALL)}`;
   }
 
   private async createCustomer(stripe: StripeClient, organization: Organization, owner: User): Promise<string> {
@@ -753,6 +729,52 @@ export function idempotencyKey(kind: string, organizationId: string, attempt: nu
  * The subscription of an invoice: `parent.subscription_details.subscription` since API version 2025-03-31, the top-level
  * `subscription` of an older version (an endpoint pinned to one, or an event replayed from before the upgrade).
  */
+/**
+ * Refunds what the subscription's latest paid invoice took, each payment once (idempotency keys), and answers what was
+ * done for the billing log. Nothing to refund for an invoice of 0 (a trial).
+ */
+export async function refundLatestPayment(stripe: StripeClient, subscriptionId: string, options: Stripe.RequestOptions = {}): Promise<string> {
+  const [invoice] = (await stripe.invoices.list({ subscription: subscriptionId, status: 'paid', limit: 1 }, options)).data;
+  if (!invoice || !invoice.amount_paid) {
+    return 'nothing paid';
+  }
+  const refunds: string[] = [];
+  const payments = await stripe.invoicePayments.list({ invoice: invoice.id, status: 'paid', limit: 10 }, options);
+  for (const payment of payments.data) {
+    const paymentIntent = idOf(payment.payment?.payment_intent as string | { id: string } | undefined);
+    const charge = idOf(payment.payment?.charge as string | { id: string } | undefined);
+    if (!paymentIntent && !charge) {
+      continue;
+    }
+    const refund = await stripe.refunds.create(
+      { ...(paymentIntent ? { payment_intent: paymentIntent } : { charge }), reason: 'duplicate', metadata: { subscription: subscriptionId } },
+      { ...options, idempotencyKey: `traduora-refund-${invoice.id}-${payment.id}` },
+    );
+    refunds.push(refund.id);
+  }
+  return `refunded ${invoice.id} (${invoice.amount_paid} ${invoice.currency}): ${refunds.join(' ') || 'no payment found'}`;
+}
+
+/**
+ * The update that brings the subscription to the order, `null` when it buys that already. A raise of the bill
+ * (`raisesTheBill`) is invoiced at once and applies only once that invoice is paid: a declined card leaves the items,
+ * and so the plan, as they were (Stripe keeps the change pending; the webhook applies it when paid). A decrease is
+ * credited at the renewal.
+ */
+export function subscriptionUpdate(
+  subscription: Stripe.Subscription,
+  prices: OrderPrices,
+  wanted: BillingOrder,
+): Stripe.SubscriptionUpdateParams | null {
+  const items = subscriptionChanges(subscription, prices);
+  if (!items.length) {
+    return null;
+  }
+  return raisesTheBill(subscribedPlan(pricedItems(subscription)), wanted)
+    ? { items, proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' }
+    : { items, proration_behavior: 'create_prorations' };
+}
+
 /** The items of a subscription as the plan is read from them */
 export function pricedItems(subscription: Stripe.Subscription): Array<{ lookupKey: string | null; quantity?: number }> {
   return (subscription.items?.data ?? []).map(item => ({ lookupKey: item.price?.lookup_key ?? null, quantity: item.quantity }));
