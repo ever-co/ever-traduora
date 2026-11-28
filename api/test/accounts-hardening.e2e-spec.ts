@@ -387,6 +387,58 @@ describe('Accounts and hardening (e2e)', () => {
       await forgot('198.51.100.2').expect(404);
     });
 
+    it('puts IPv6 addresses of one /64 in one bucket, for the sign-up limit and the auth limit', async () => {
+      await start(() => {
+        config.saasEnabled = true;
+        config.http.trustProxy = 1;
+        config.throttle.signupsPerHour = 2;
+      });
+      const from = (address: string, email: string) => signup(email).set('X-Forwarded-For', address);
+      await from('2001:db8:1:2::1', 'v6-a1@test.com').expect(200);
+      await from('2001:db8:1:2:ffff::9', 'v6-a2@test.com').expect(200);
+      await from('2001:db8:1:2::3', 'v6-a3@test.com').expect(429);
+      // The next /64 is someone else
+      await from('2001:db8:1:3::1', 'v6-b1@test.com').expect(200);
+
+      const forgot = (address: string) =>
+        request(server()).post('/api/v1/auth/forgot-password').set('X-Forwarded-For', address).send({ email: 'nobody@test.com' });
+      for (let i = 0; i < config.throttle.auth.limit; i++) {
+        await forgot(`2001:db8:9:9::${i + 1}`).expect(404);
+      }
+      await forgot('2001:db8:9:9::ffff').expect(429);
+      await forgot('2001:db8:9:a::1').expect(404);
+    });
+
+    it("counts a sign-up only once it passed the bot check, so refused bots use up nobody's sign-ups", async () => {
+      await start(() => {
+        config.saasEnabled = true;
+        config.throttle.signupsPerHour = 2;
+        config.turnstile.siteKey = '1x00000000000000000000AA';
+        config.turnstile.secretKey = '1x0000000000000000000000000000000AA';
+      });
+      nock.disableNetConnect();
+      nock.enableNetConnect(isLocal);
+      const passed = () => nock(TURNSTILE).post(SITEVERIFY).reply(200, { success: true, action: 'signup', hostname: 'localhost' });
+      // Many refused attempts from the shared address (no token, or a token Cloudflare refuses)
+      for (let i = 0; i < 5; i++) {
+        await signup(`bot-${i}@test.com`).expect(400);
+      }
+      nock(TURNSTILE)
+        .post(SITEVERIFY)
+        .times(3)
+        .reply(200, { success: false, 'error-codes': ['invalid-input-response'] });
+      for (let i = 0; i < 3; i++) {
+        await signup(`bot-token-${i}@test.com`, { turnstileToken: 'refused' }).expect(400);
+      }
+      // People who pass still sign up, up to the limit
+      passed();
+      await signup('person-1@test.com', { turnstileToken: 'good' }).expect(200);
+      passed();
+      await signup('person-2@test.com', { turnstileToken: 'good' }).expect(200);
+      passed();
+      await signup('person-3@test.com', { turnstileToken: 'good' }).expect(429);
+    });
+
     it('ignores X-Forwarded-For without TR_TRUST_PROXY: every request is the proxy', async () => {
       await start(() => {
         config.saasEnabled = true;

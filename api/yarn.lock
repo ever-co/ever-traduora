@@ -533,6 +533,13 @@
     semver "^7.3.4"
     tar "^6.1.0"
 
+"@nest-lab/throttler-storage-redis@^1.2.0":
+  version "1.2.0"
+  resolved "https://registry.npmjs.org/@nest-lab/throttler-storage-redis/-/throttler-storage-redis-1.2.0.tgz#d4b5615da833ca2777ba66049fa78c530fac0ffd"
+  integrity sha512-tMkUyo68NCKTR+zILk+EC35SMYBtDPZY2mCj7ZaCietWGVTnuP4zwq9ERYfvU6kJv6h8teNZrC6MJCmY6/dljw==
+  dependencies:
+    tslib "^2.3.0"
+
 "@nestjs/axios@^0.0.5":
   version "0.0.5"
   resolved "https://registry.yarnpkg.com/@nestjs/axios/-/axios-0.0.5.tgz#a2470cf38f7f29dbd9a6288a234a6ee60588aad6"
@@ -5497,7 +5504,7 @@ tslib@2.3.0:
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.3.0.tgz#803b8cdab3e12ba581a4ca41c8839bbb0dacb09e"
   integrity sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==
 
-tslib@2.3.1, tslib@^2.1.0:
+tslib@2.3.1, tslib@^2.1.0, tslib@^2.3.0:
   version "2.3.1"
   resolved "https://registry.yarnpkg.com/tslib/-/tslib-2.3.1.tgz#e8a335add5ceae51aa261d32a490158ef042ef01"
   integrity sha512-77EbyPPpMz+FRFRuAFlWMtmgUWGe9UOG2Z25NqCwiIjRhOf5iKGuzSe5P2w1laq+FkRy4p+PCuVkJSGkzTEKVw==

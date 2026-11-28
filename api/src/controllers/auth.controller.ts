@@ -79,9 +79,9 @@ import { OrganizationInvite } from '../entity/organization-invite.entity';
 import { byCodeUnits, lockProjectsForShare, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
 import { acceptedTerms, requiredLegalDocuments } from '../accounts/account-policy';
-import { SignupThrottlerGuard } from '../accounts/signup-throttler.guard';
 import { AttemptLimiter, HOUR_MS } from '../accounts/attempt-limiter';
 import { TurnstileService, turnstileSiteKey } from '../accounts/turnstile.service';
+import { addressBucket } from '../utils/client-address';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
 const EVERID = 'everid';
@@ -139,7 +139,6 @@ export class AuthController {
 
   @Access('public')
   @Post('signup')
-  @UseGuards(SignupThrottlerGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create a new user account' })
   @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
@@ -151,9 +150,11 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'The email has a pending invitation and the invite token is missing or invalid' })
   @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'SaaS mode: more than TR_SIGNUPS_PER_HOUR sign-ups from this address' })
   async signup(@Body() payload: SignupRequest, @Ip() ip: string) {
-    // The bot check first, then the terms (SaaS mode): nothing is looked up for a request that fails either
+    // The bot check first, then the terms (SaaS mode): nothing is looked up for a request that fails either. Only then
+    // is the sign-up counted against the address's limit, so refused bots cannot use up the sign-ups of a shared address
     await this.turnstile.assertHuman(payload.turnstileToken, ip);
     const terms = acceptedTerms(payload);
+    await this.countSignup(ip);
     const normalizedEmail = normalizeEmail(payload.email);
     const { inviteToken, organizationName, turnstileToken, termsVersion, privacyVersion, ...signup } = payload;
 
@@ -210,6 +211,14 @@ export class AuthController {
         accessToken: token,
       },
     };
+  }
+
+  /**
+   * SaaS mode: counts a sign-up against TR_SIGNUPS_PER_HOUR per address (an IPv6 /64) and hour, in the throttler's
+   * storage (shared by the replicas with Redis); 429 past it. Called once the request passed the bot check.
+   */
+  private countSignup(ip: string): Promise<void> {
+    return config.saasEnabled ? this.attempts.count('signup', addressBucket(ip), config.throttle.signupsPerHour, HOUR_MS) : Promise.resolve();
   }
 
   private signUserToken(user: User): string {
@@ -768,14 +777,13 @@ export class AuthController {
   })
   @Access('public')
   @Post('everid/signup-confirm')
-  @UseGuards(SignupThrottlerGuard)
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Create the account of an Ever ID sign-in, after the person confirmed it' })
   @ApiResponse({ status: HttpStatus.OK, type: NewUserDTO, description: 'Account created and signed in' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Ever ID sign-in is off, or the record is invalid or expired' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'An account with this email, or for this identity, exists already' })
-  async confirmOidcSignup(@Body() payload: ProviderSignupConfirmRequest) {
+  async confirmOidcSignup(@Body() payload: ProviderSignupConfirmRequest, @Ip() ip: string) {
     const pending = this.everIdSessions.unseal(payload.pending, 'signup');
     if (!pending) {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'pending_invalid', 'The sign-up expired, please sign in again');
@@ -783,6 +791,8 @@ export class AuthController {
     this.assertOidcActive(pending.provider);
     // SaaS mode: the terms ticked on the confirmation screen, when it sent them; otherwise they are asked for next
     const terms = payload.termsVersion || payload.privacyVersion ? acceptedTerms(payload) : undefined;
+    // Counted once the sealed record from a real sign-in at the provider is known good
+    await this.countSignup(ip);
 
     if (await this.everIdSessions.findIdentity(pending.issuer, pending.subject)) {
       throw new AuthProviderException(HttpStatus.CONFLICT, 'subject_linked', 'This identity is connected to an account already');

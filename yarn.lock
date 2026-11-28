@@ -4992,6 +4992,13 @@
   dependencies:
     "@tybys/wasm-util" "^0.10.3"
 
+"@nest-lab/throttler-storage-redis@^1.2.0":
+  version "1.2.0"
+  resolved "https://registry.npmjs.org/@nest-lab/throttler-storage-redis/-/throttler-storage-redis-1.2.0.tgz#d4b5615da833ca2777ba66049fa78c530fac0ffd"
+  integrity sha512-tMkUyo68NCKTR+zILk+EC35SMYBtDPZY2mCj7ZaCietWGVTnuP4zwq9ERYfvU6kJv6h8teNZrC6MJCmY6/dljw==
+  dependencies:
+    tslib "^2.3.0"
+
 "@nestjs/axios@^4.0.1":
   version "4.0.1"
   resolved "https://registry.npmjs.org/@nestjs/axios/-/axios-4.0.1.tgz#7ff73f47727b67dc04410ac6e9b3329401ebbb65"

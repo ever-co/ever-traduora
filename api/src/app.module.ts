@@ -71,6 +71,7 @@ import { everPlatformModules } from './ever-platform/modules';
 import { AccountsModule } from './accounts/accounts.module';
 import { turnstileEnabled } from './accounts/turnstile.service';
 import { applyHttpHardening } from './security/http-hardening';
+import { throttlerModuleOptions } from './redis/shared-throttler-storage';
 
 /**
  * The web app's index.html for every other GET path. Its catch-all route must be registered after every API route,
@@ -91,7 +92,8 @@ export class IndexModule {}
         expiresIn: config.authTokenExpires,
       },
     }),
-    ThrottlerModule.forRoot([{ ttl: config.throttle.global.ttl, limit: config.throttle.global.limit }]),
+    // The global limit (TR_THROTTLE_*), counted in Redis when REDIS_HOST is set, so the replicas share it
+    ThrottlerModule.forRootAsync({ imports: [RedisModule], inject: ['REDIS_CLIENT'], useFactory: throttlerModuleOptions }),
     ConfigModule.forRoot({ isGlobal: true }),
     RedisModule,
     TypeOrmModule.forRootAsync({

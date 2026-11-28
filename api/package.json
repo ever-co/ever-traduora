@@ -36,6 +36,7 @@
   "dependencies": {
     "@ever-co/connect-sdk": "1.0.0-rc.8",
     "@ever-co/legal": "^0.7.1",
+    "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.1.28",
     "@nestjs/config": "^4.0.4",
