@@ -1,0 +1,27 @@
+.op-header {
+  margin: 0 4px 16px;
+}
+
+.op-lead {
+  font-size: 0.875rem;
+}
+
+.op-tabs {
+  margin-bottom: 24px;
+}
+
+.op-tabs .nav-link {
+  color: #6c757d;
+  transition: color 120ms ease-out;
+}
+
+.op-tabs .nav-link:hover,
+.op-tabs .nav-link.active {
+  color: #212529;
+}
+
+@media (max-width: 575.98px) {
+  .op-page {
+    padding: 16px !important;
+  }
+}

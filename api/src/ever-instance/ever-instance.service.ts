@@ -3,9 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
 import { EverInstance } from '../entity/ever-instance.entity';
-import { User } from '../entity/user.entity';
+import { isOperatorAccount } from '../access/operator-check';
 import { EverPlatformException } from '../errors';
-import { normalizeEmail } from '../ever-platform/env';
 import { EVER_INSTANCE_SETTINGS, EverInstanceSettings } from './ever-instance.settings';
 import { EverInstanceKeyError, generateStatsKeyPair, keyIdOf, unwrapStatsKey, wrapStatsKey } from './key-wrap';
 
@@ -64,14 +63,11 @@ export class EverInstanceService implements OnModuleInit {
   /**
    * Whether `user` operates this installation: a user (never an API client; the JWT strategy hands a `User` entity to
    * the request) whose e-mail is in `TR_EVER_ADMIN_EMAILS` and confirmed. An unconfirmed account never qualifies: anyone
-   * could sign up with a listed address that has no account yet.
+   * could sign up with a listed address that has no account yet. The rule is `isOperatorAccount`, shared with the
+   * operator console.
    */
   isOperator(user: unknown): boolean {
-    if (!(user instanceof User) || typeof user.email !== 'string' || user.emailVerified !== true) {
-      return false;
-    }
-    const email = normalizeEmail(user.email);
-    return email.length > 0 && this.settings.adminEmails.includes(email);
+    return isOperatorAccount(user, this.settings.adminEmails);
   }
 
   private newIdentity(now: number, instanceId = randomUUID()) {

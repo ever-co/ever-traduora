@@ -1,0 +1,210 @@
+.op-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 16px;
+  color: #6c757d;
+  font-size: 0.875rem;
+  transition: color 120ms ease-out;
+}
+
+.op-back:hover,
+.op-back:focus-visible {
+  color: #212529;
+  text-decoration: none;
+}
+
+.op-back .material-icons {
+  margin-left: -4px;
+  font-size: 18px;
+}
+
+.op-detail-header {
+  margin: 0 4px 24px;
+}
+
+.op-address {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.op-dot {
+  color: #6c757d;
+}
+
+.op-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.op-panel {
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.op-panel-title {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* The facts: one hairline row each, the label in a fixed column */
+.op-facts {
+  margin: 0;
+}
+
+.op-fact {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 16px;
+  padding: 8px 0;
+  font-size: 0.875rem;
+}
+
+.op-fact + .op-fact {
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.op-fact dt {
+  color: #6c757d;
+  font-weight: 400;
+}
+
+.op-fact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.op-small {
+  font-size: 0.8125rem;
+}
+
+.op-id {
+  color: #6c757d;
+}
+
+/* The live usage: two thin meters, the one place with the accent; a limit reached turns the danger tone */
+.op-meter {
+  display: grid;
+  grid-template-columns: 64px 1fr minmax(120px, auto);
+  align-items: center;
+  gap: 16px;
+  min-height: 32px;
+}
+
+.op-meter-label {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.op-meter-bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 2px;
+  background: rgba(33, 37, 41, 0.08);
+  appearance: none;
+}
+
+.op-meter-bar::-webkit-progress-bar {
+  border-radius: 2px;
+  background: rgba(33, 37, 41, 0.08);
+}
+
+.op-meter-bar::-webkit-progress-value {
+  border-radius: 2px;
+  background: #3b84f8;
+}
+
+.op-meter-bar::-moz-progress-bar {
+  border-radius: 2px;
+  background: #3b84f8;
+}
+
+.op-meter-full::-webkit-progress-value {
+  background: #d14354;
+}
+
+.op-meter-full::-moz-progress-bar {
+  background: #d14354;
+}
+
+.op-meter-figure {
+  text-align: right;
+}
+
+.op-note {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+}
+
+.op-action {
+  max-width: 640px;
+  margin-bottom: 24px;
+}
+
+/* A billing cancellation still to settle: a quiet surface with one hairline, not an alert */
+.op-notice {
+  max-width: 640px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 12px;
+  background: #f5f7f9;
+  color: #212529;
+}
+
+.op-notice .op-note {
+  color: #495057;
+}
+
+.op-notice-facts {
+  margin-top: 12px;
+}
+
+/* On the light surface the muted grey falls under 4.5:1, so the labels take a darker step */
+.op-notice .op-fact dt {
+  color: #545b62;
+}
+
+.op-error {
+  color: #495057;
+}
+
+.op-label {
+  font-size: 0.875rem;
+}
+
+.op-danger {
+  border-color: rgba(209, 67, 84, 0.24);
+}
+
+.op-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.op-link {
+  font-size: 0.875rem;
+}
+
+@media (max-width: 767.98px) {
+  .op-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .op-meter {
+    grid-template-columns: 56px 1fr auto;
+    gap: 12px;
+  }
+}

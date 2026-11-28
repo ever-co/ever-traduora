@@ -68,6 +68,7 @@ import { dataSourceOptions } from './connection/datasource';
 import { serializeTransactions } from './connection/serialize-transactions';
 import { DbType } from './utils/database-type-helper';
 import { everPlatformModules } from './ever-platform/modules';
+import { OperatorModule } from './operator/operator.module';
 
 /**
  * The web app's index.html for every other GET path. Its catch-all route must be registered after every API route,
@@ -122,6 +123,8 @@ export class IndexModule {}
     // Optional Ever Platform modules: the statistics unless TR_EVER_STATS_ENABLED=false, the connection only with
     // TR_EVER_CONNECT_ENABLED=true
     ...everPlatformModules(config.everPlatform),
+    // The operator console and organization export and deletion (P6): their routes answer only in SaaS mode
+    OperatorModule,
     // Keep last (catch-all GET route)
     IndexModule,
   ],

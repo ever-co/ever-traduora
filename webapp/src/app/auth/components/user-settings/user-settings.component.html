@@ -1,4 +1,4 @@
-<div class="h-100 overflow-scroll">
+<div class="h-100 overflow-auto">
   <div class="d-flex flex-1 flex-column justify-content-start align-items-center py-5 mb-5">
     <div class="card w-100" style="max-width: 480px">
       <div class="card-body">
@@ -167,9 +167,8 @@
 
           <hr />
 
-          <button class="btn btn-danger btn-sm float-right" [disabled]="isLoading$ | async" (click)="deleteAccount(user)">
-            Permanently delete my account
-          </button>
+          <!-- Asks the API what stands in the way first, then confirms in the page -->
+          <app-account-deletion [user]="user"></app-account-deletion>
         </div>
       </div>
     </div>

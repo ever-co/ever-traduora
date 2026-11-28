@@ -52,6 +52,23 @@ describe('every route declares who may call it', () => {
     expect(loose).toEqual([]);
   });
 
+  it('puts every /operator route behind the operator rule, and lists the operator console', () => {
+    const operatorRoutes = routes.filter(route => route.path.startsWith('/api/v1/operator'));
+    expect(operatorRoutes.filter(route => route.access?.rule !== 'operator').map(label)).toEqual([]);
+    expect(operatorRoutes.map(route => `${route.method} ${route.path}`).sort((a, b) => a.localeCompare(b))).toEqual(
+      [
+        'GET /api/v1/operator/status',
+        'GET /api/v1/operator/organizations',
+        'GET /api/v1/operator/organizations/:id',
+        'POST /api/v1/operator/organizations/:id/suspend',
+        'POST /api/v1/operator/organizations/:id/restore',
+        'POST /api/v1/operator/organizations/:id/release-slug',
+        'POST /api/v1/operator/organizations/:id/billing-cancellation',
+        'GET /api/v1/operator/audit',
+      ].sort((a, b) => a.localeCompare(b)),
+    );
+  });
+
   it('keeps the routes anyone may call to this reviewed list', () => {
     // Adding a public or webhook route is a decision: it changes this list on purpose
     const open = routes

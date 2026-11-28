@@ -24,6 +24,7 @@ import { SharedModule } from './shared/shared.module';
 import { ProjectInviteState } from './projects/stores/project-invite.state';
 import { OrganizationsState } from './organizations/stores/organizations.state';
 import { saasGuard } from './organizations/guards/organization.guards';
+import { operatorGuard } from './operator/guards/operator.guard';
 
 @NgModule({
   declarations: [AppComponent],
@@ -59,6 +60,12 @@ import { saasGuard } from './organizations/guards/organization.guards';
           path: 'orgs',
           loadChildren: () => import('./organizations/organizations.routes').then(m => m.ORGANIZATION_ROUTES),
           canActivate: [AuthGuard, saasGuard],
+        },
+        {
+          // The operator console, SaaS mode only, for the installation's operators (anyone else gets the 404 page)
+          path: 'operator',
+          loadChildren: () => import('./operator/operator.routes').then(m => m.OPERATOR_ROUTES),
+          canActivate: [AuthGuard, saasGuard, operatorGuard],
         },
         {
           // Ever Platform pages, for the operator of the installation (the API answers nobody else)

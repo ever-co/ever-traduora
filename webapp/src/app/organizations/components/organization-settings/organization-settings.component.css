@@ -26,6 +26,31 @@
   max-width: 360px;
 }
 
+.org-export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.org-progress {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.org-panel-alert {
+  margin: 12px 0 0;
+}
+
+.org-consequences {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.org-transfer input {
+  max-width: 360px;
+}
+
 .org-confirm {
   display: flex;
   flex-wrap: wrap;

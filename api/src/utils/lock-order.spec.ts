@@ -22,6 +22,7 @@ const ORGANIZATION_LOCKS = [
   'createOrganizationWithOwner',
   'deleteAccountsWithOrganizations',
   'assertStillOpen',
+  'lockOrganizationForNewProject',
 ];
 const PROJECT_LOCKS = ['lockProject', 'lockProjects', 'lockProjectForShare', 'lockProjectsForShare', 'lockProjectsOf'];
 const ACCOUNT_LOCKS = ['lockAccount', 'lockAccounts', 'lockAccountRow', 'lockAccountForShare'];

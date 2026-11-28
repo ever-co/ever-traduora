@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
+import { isOrganizationActionAllowed, OrganizationAction } from '../../domain/organization-actions';
+import { Organization } from '../../entity/organization.entity';
 import { Project } from '../../entity/project.entity';
-import { projectsOfOrganizations } from './organization-scope';
+import { lockOrganization } from './organization-membership';
+import { assertOrganizationOpen, membershipOf, projectsOfOrganizations } from './organization-scope';
 
 /**
  * The projects as the controllers reach them (DESIGN §3.4, layer 3): reads always name the organizations they look in,
@@ -22,6 +25,26 @@ export class OrganizationScopedProjects {
   /** Every project of these organizations (an owner's or admin's list). */
   ofOrganizations(organizationIds: string[]): Promise<Project[]> {
     return projectsOfOrganizations(this.projects.manager, organizationIds);
+  }
+
+  /**
+   * In the transaction that creates a project, after the account's lock (the global order): locks the organization, so
+   * that a deletion of it (which holds the lock while it deletes the projects) never misses a project created meanwhile,
+   * and checks again under the lock that it is open and that the person may still create projects there. The default
+   * organization is never deleted nor suspended, so it is left out: its row is no queue for a self-hosted install's
+   * project creations.
+   */
+  async lockOrganizationForNewProject(tx: EntityManager, organizationId: string, userId: string): Promise<void> {
+    const known = await tx.findOne(Organization, { where: { id: organizationId }, select: { id: true, isDefault: true } });
+    if (known?.isDefault) {
+      return;
+    }
+    const organization = await lockOrganization(tx, organizationId);
+    assertOrganizationOpen(organization, 'organization not found');
+    const membership = await membershipOf(tx, organizationId, userId);
+    if (!isOrganizationActionAllowed(membership?.role, OrganizationAction.CreateProject)) {
+      throw new ForbiddenException('organization not found');
+    }
   }
 
   /** A new project of the organization, not saved yet. */

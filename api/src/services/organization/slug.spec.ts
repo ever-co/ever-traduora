@@ -41,3 +41,13 @@ describe('organization slugs', () => {
     expect(isAllowedSlug(withSuffix('abc-def-', 'x1y2z3'))).toBe(true);
   });
 });
+
+describe('released addresses', () => {
+  it('are never the slug of a new organization, and names that start like one get another', () => {
+    expect(isAllowedSlug('deleted-0123456789abcdef0123456789abcdef')).toBe(false);
+    expect(isAllowedSlug('deleted-things')).toBe(false);
+    expect(isAllowedSlug('undeleted-things')).toBe(true);
+    expect(slugFromName('Deleted Things Ltd')).toBe('org-deleted-things-ltd');
+    expect(isAllowedSlug(slugFromName('Deleted '.repeat(10)))).toBe(true);
+  });
+});

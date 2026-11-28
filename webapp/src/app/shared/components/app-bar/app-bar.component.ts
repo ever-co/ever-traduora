@@ -5,6 +5,7 @@ import { map } from 'rxjs/operators';
 import { User } from '../../../auth/models/user';
 import { AuthState, Logout } from '../../../auth/stores/auth.state';
 import { EverPlatformService } from '../../../ever-platform/services/ever-platform.service';
+import { OperatorService } from '../../../operator/services/operator.service';
 
 @Component({
   standalone: false,
@@ -19,11 +20,16 @@ export class AppBarComponent {
   /** The Ever Platform page is listed only for the operator of the installation, when an Ever Platform module is loaded. */
   everPlatform$: Observable<boolean>;
 
+  /** The operator console is listed only for the installation's operators, in SaaS mode. */
+  operator$: Observable<boolean>;
+
   constructor(
     private store: Store,
     everPlatform: EverPlatformService,
+    operator: OperatorService,
   ) {
     this.everPlatform$ = everPlatform.pages().pipe(map(pages => !!pages));
+    this.operator$ = operator.isOperator();
   }
 
   logout() {

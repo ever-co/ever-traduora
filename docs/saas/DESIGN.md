@@ -215,9 +215,11 @@ OD-T1 default: Traduora bills its own organizations.
 - **Audit:** every operator action is written to `operator_audit` (who, what, which organization, when, why).
 - **Organization export** (owner/admin): a zip with every project's terms and translations (JSON, one file per locale), labels, members and plan. It is built on the fly from the existing export code.
 - **Organization deletion** (owner only, confirmed by typing the slug):
-  1. Cancel the subscription.
+  1. Cancel the subscription (P6: queued in the deletion's transaction and tried after it commits, with retries; a
+     failed one waits for an operator).
   2. Delete the projects (CASCADE).
-  3. Mark the organization `deleted` and keep a tombstone row 30 days for billing records.
+  3. Mark the organization `deleted` and keep a tombstone row 30 days for billing records (P6 keeps it; the purge after
+     30 days is not built yet, see HANDOVER).
 - **Account deletion for the last admin** (`DELETE /users/me`, blocked today):
   - a shared project offers to transfer the project admin role to another member;
   - an organization the person owns offers to transfer ownership, or to delete the organization when they are its only member.
@@ -275,7 +277,9 @@ A FK to `organization`, CASCADE, with an index.
 
 - P4: `billing_event` (`id` = Stripe event id, primary key; `type`; `organization_id`; `date_processed`).
 - P5: on `user`, `terms_version`, `privacy_version`, `terms_accepted_at`.
-- P6: `operator_audit`.
+- P6: `operator_audit`: `id`, `operator_user_id`, `operator_email` (as it was then), `action` (`suspend`, `restore`),
+  `organization_id`, `reason` (3–500 characters), `date_created`. No foreign keys, so a row outlives the operator's
+  account; indexes on `organization_id` and `date_created`.
 
 ### 4.6 Migrations (P1)
 
@@ -316,13 +320,15 @@ New, all under `/api/v1`:
 | `POST /organizations/:id/billing/checkout`, `POST …/billing/portal` | owner only (P4) |
 | `POST /billing/webhook` | webhook (P4) |
 | `GET /organizations/:id/export` | owner/admin (P6) |
-| `GET /operator/organizations`, `GET/POST …/:id`, `POST …/:id/suspend`, `POST …/:id/restore` | operator (P6) |
+| `GET /operator/status`, `GET /operator/organizations`, `GET …/:id`, `POST …/:id/suspend`, `POST …/:id/restore`, `POST …/:id/release-slug`, `POST …/:id/billing-cancellation`, `GET /operator/audit` | operator (P6), SaaS mode only, operators named by `TR_EVER_ADMIN_EMAILS` or `TR_ADMIN_EMAIL` |
+| `GET /users/me/deletion` | user (P6): what stands in the way of deleting the account, and the choices |
 
 Changed:
 
 - `GET /projects` adds `organizationId` to each project and accepts `?organizationId=`.
 - `POST /projects` takes `organizationId`.
 - `GET /auth/providers` also returns `saas: boolean` and the Turnstile site key, so the web app knows what to show.
+- `DELETE /users/me` takes an optional body (P6): `projectAdmins`, `organizationOwners`, `deleteOrganizations` (with the slug typed).
 
 ## 6. Web app
 

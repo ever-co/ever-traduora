@@ -18,6 +18,17 @@ const PROVIDER_SIGN_IN_MESSAGES: { [code: string]: string } = {
   last_sign_in_method: 'This is the only way to sign in to your account. Set a password first (e.g. with "Forgot password"), then disconnect it.',
 };
 
+/**
+ * The answers of the account deletion (`DELETE /users/me` with the choices of the person), by their code.
+ * `owner_required` means here that an organization still needs a new owner.
+ */
+const ACCOUNT_DELETION_MESSAGES: { [code: string]: string } = {
+  owner_required: 'Choose a new owner for every organization you own with other members.',
+  transfer_invalid: 'A person you chose is no longer a member there. Check again and choose someone else.',
+  slug_mismatch: 'An address you typed does not match its organization. Type each one exactly as shown.',
+  organization_suspended: 'An organization you own is suspended. Contact support before deleting your account.',
+};
+
 const figures = new Intl.NumberFormat('en-US');
 
 /**
@@ -52,6 +63,10 @@ export function errorToMessage(error: any, action = ''): string {
 
   if (domainCode && Object.prototype.hasOwnProperty.call(PROVIDER_SIGN_IN_MESSAGES, domainCode)) {
     return PROVIDER_SIGN_IN_MESSAGES[domainCode];
+  }
+
+  if (action === 'DeleteAccount' && domainCode && Object.prototype.hasOwnProperty.call(ACCOUNT_DELETION_MESSAGES, domainCode)) {
+    return ACCOUNT_DELETION_MESSAGES[domainCode];
   }
 
   if (error.status === 429) {

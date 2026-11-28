@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { UpdateUserDataRequest, UserInfoResponse } from '../domain/http';
+import { AccountDeletionPlanResponse, DeleteAccountRequest } from '../operator/operator.dto';
 import AuthorizationService from '../services/authorization.service';
 import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
@@ -55,14 +56,38 @@ export default class UserController {
   }
 
   @Access('user')
+  @Get('me/deletion')
+  @ApiOperation({
+    summary: `What stands in the way of deleting the current user's account`,
+    description:
+      'Projects they are the last admin of while others use them, and organizations they own: the choices DELETE /users/me ' +
+      'takes (a new project admin, a new owner, or deleting an organization they are alone in).',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: AccountDeletionPlanResponse })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async deletionPlan(@Req() req) {
+    const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
+    return { data: await this.userService.deletionPlan(user) };
+  }
+
+  @Access('user')
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: `Delete the current user's account` })
+  @ApiOperation({
+    summary: `Delete the current user's account`,
+    description:
+      'Without a body, as before. The body hands the admin role of projects and the ownership of organizations to other ' +
+      'members, and deletes organizations the user is alone in, confirmed with their slug (see GET /users/me/deletion).',
+  })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Deleted' })
-  @ApiResponse({ status: HttpStatus.UNPROCESSABLE_ENTITY, description: 'Cannot delete account' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'A choice that cannot be made (transfer_invalid, slug_mismatch)' })
+  @ApiResponse({
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    description: 'Cannot delete account: a project or an organization needs a new admin or owner',
+  })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
-  async delete(@Req() req) {
+  async delete(@Req() req, @Body() payload?: DeleteAccountRequest) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    await this.userService.deleteAccount(user);
+    await this.userService.deleteAccount(user, payload ?? {});
   }
 }

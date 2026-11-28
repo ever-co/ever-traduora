@@ -83,13 +83,19 @@ describe('Upgrade to organizations (e2e)', () => {
   async function undoAndMigrate(): Promise<void> {
     const executed: Array<{ name: string }> = await dataSource.query(`SELECT ${c('name')} AS ${q('name')} FROM ${q('migrations')}`);
     expect(executed.map(row => row.name)).toContain('addOrganizations1795478400000');
-    await dataSource.undoLastMigration();
+    // The migrations of later phases first (they come after it), then the organizations
+    const undone: string[] = [];
+    while (undone[0] !== 'addOrganizations1795478400000') {
+      const [last] = await dataSource.query(`SELECT ${c('name')} AS ${q('name')} FROM ${q('migrations')} ORDER BY ${c('timestamp')} DESC`);
+      await dataSource.undoLastMigration();
+      undone.unshift(last.name);
+    }
     // The schema of the previous release: no organizations, no project.organization_id
     expect(await tableExists('organization')).toBe(false);
     expect(await tableExists('organization_user')).toBe(false);
     await expect(dataSource.query(`SELECT ${c('organization_id')} FROM ${q('project')}`)).rejects.toBeTruthy();
     const ran = await dataSource.runMigrations();
-    expect(ran.map(migration => migration.name)).toEqual(['addOrganizations1795478400000']);
+    expect(ran.map(migration => migration.name)).toEqual(undone);
   }
 
   const memberships = () => dataSource.getRepository(OrganizationUser).find({ relations: ['organization'] });

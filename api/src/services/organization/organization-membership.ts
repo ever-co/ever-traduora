@@ -7,10 +7,12 @@ import { InviteStatus } from '../../entity/invite.entity';
 import { OrganizationInvite } from '../../entity/organization-invite.entity';
 import { OrganizationUser } from '../../entity/organization-user.entity';
 import { Organization } from '../../entity/organization.entity';
+import { Project } from '../../entity/project.entity';
 import { OrganizationException } from '../../errors';
 import { DbType, isDbType } from '../../utils/database-type-helper';
 import { activeMemberships } from './organization-scope';
 import { recountSeats, usesOrganizationPlan } from './organization-usage';
+import { queueBillingCancellation } from './billing-cancellation';
 import { isAllowedSlug, randomSuffix, slugFromName, withSuffix } from './slug';
 import { byCodeUnits, readCommittedTransaction } from '../../utils/database-locks';
 
@@ -333,30 +335,148 @@ export async function organizationDeletionHold(manager: EntityManager, userIds: 
 }
 
 /**
+ * Deletes everything an organization holds and keeps its row as a tombstone (DESIGN §3.9): every project with what it
+ * holds (terms, locales, translations and their history, labels, project members, invitations and API keys go with it,
+ * ON DELETE CASCADE), the organization's invitations and its memberships; the organization becomes `deleted`, so nobody
+ * reaches it again, with its counters at 0. Its subscription's cancellation is queued in the same transaction
+ * (`queueBillingCancellation`): the caller settles it once the transaction committed (`settleBillingCancellations`).
+ * Answers the number of projects deleted.
+ *
+ * Needs, in the caller's transaction, the global lock order (see `lockOrganization`): the projects locked first
+ * (`projectIdsOfOrganizations`, then `lockProjects`), then the organization. The caller decides who may do this.
+ */
+export async function deleteOrganizationData(tx: EntityManager, organizationId: string): Promise<number> {
+  const projects = await tx.count(Project, { where: { organizationId } });
+  await tx.delete(Project, { organizationId });
+  await tx.delete(OrganizationInvite, { organizationId });
+  await tx.delete(OrganizationUser, { organizationId });
+  await tx.update(Organization, { id: organizationId }, { status: OrganizationStatus.Deleted, seatsUsed: 0, stringsUsed: 0 });
+  await queueBillingCancellation(tx, organizationId);
+  return projects;
+}
+
+/** The ids of the projects of these organizations, to be locked before an organization deletion takes its lock. */
+export async function projectIdsOfOrganizations(manager: EntityManager, organizationIds: ReadonlyArray<string>): Promise<string[]> {
+  if (organizationIds.length === 0) {
+    return [];
+  }
+  const projects = await manager.find(Project, { where: { organizationId: In([...organizationIds]) }, select: ['id'] });
+  return projects.map(project => project.id);
+}
+
+/**
+ * The confirmation of an organization's deletion: never the default organization (400 `default_organization`), and
+ * only with its slug typed (400 `slug_mismatch`; spaces around it and upper case do not count).
+ */
+export function assertDeletionConfirmed(organization: Pick<Organization, 'isDefault' | 'slug'>, typedSlug: unknown): void {
+  if (organization.isDefault) {
+    throw new OrganizationException(HttpStatus.BAD_REQUEST, 'default_organization', 'The default organization cannot be deleted');
+  }
+  if (typeof typedSlug !== 'string' || typedSlug.trim().toLowerCase() !== organization.slug) {
+    throw new OrganizationException(HttpStatus.BAD_REQUEST, 'slug_mismatch', `Type the organization's address to confirm its deletion`);
+  }
+}
+
+/**
+ * Whether the organization can go with its owner's account: active (a suspended one stays for the operators, 403
+ * `organization_suspended`), owned by the account and with nobody else in it, its slug typed.
+ */
+function assertDeletableWithAccount(organization: Organization | null, ownsIt: boolean, others: number, typedSlug: string): void {
+  if (!organization || organization.status === OrganizationStatus.Deleted) {
+    throw invalidTransfer('This organization is not yours to delete');
+  }
+  if (organization.status !== OrganizationStatus.Active) {
+    throw new OrganizationException(HttpStatus.FORBIDDEN, 'organization_suspended', 'This organization is suspended');
+  }
+  assertDeletionConfirmed(organization, typedSlug);
+  if (!ownsIt || others > 0) {
+    throw invalidTransfer(`Only the owner deletes '${organization.name}' with their account, once nobody else is in it`);
+  }
+}
+
+/**
+ * An account deletion never changes what an operator decided: the owner of a suspended organization, or its last
+ * member, cannot delete their account (403 `organization_suspended`) while it is suspended, since that would hand the
+ * organization to someone else or close it. Its other members leave it as usual; its status stays.
+ */
+function assertOperatorStateKept(organization: Organization | null, ownerLeaves: boolean, others: number): void {
+  if (organization?.status === OrganizationStatus.Suspended && (ownerLeaves || others === 0)) {
+    throw new OrganizationException(
+      HttpStatus.FORBIDDEN,
+      'organization_suspended',
+      `'${organization.name}' is suspended: contact support before deleting your account`,
+    );
+  }
+}
+
+/** A choice the person deleting their account cannot make: not their organization, or not a member to hand it to. */
+export function invalidTransfer(message: string): OrganizationException {
+  return new OrganizationException(HttpStatus.BAD_REQUEST, 'transfer_invalid', message);
+}
+
+/** What the person deleting their account decided for the organizations they own (`UserService.deleteAccount`). */
+export interface OrganizationChoices {
+  /** Organization id → the member who becomes its owner. */
+  newOwners?: ReadonlyMap<string, string>;
+  /**
+   * Organization id → its slug as the person typed it: the organization is deleted with the account
+   * (`deleteOrganizationData`). Only an active organization other than the default one, which the account owns and is
+   * the only member of; its projects must be locked by the caller before this runs.
+   */
+  deleteOrganizations?: ReadonlyMap<string, string>;
+}
+
+/**
  * Deletes accounts (`remove`, given the transaction) together with what their organizations need, in one transaction
  * that holds each organization's lock until the accounts are gone (memberships take the same lock, see `ensureMember`):
- * - an owner of an organization where someone not being deleted remains: the default organization (single-tenant
- *   mode, where nobody can transfer by hand) passes to its earliest admin, else its earliest member; another
- *   organization refuses with 422 `owner_required`, its owner transfers the ownership first;
+ * - the owner or the last member of a suspended organization is refused (403 `organization_suspended`): the operator's
+ *   decision stays as it is;
+ * - an organization in `choices.deleteOrganizations` is deleted (`deleteOrganizationData`), once checked under its lock;
+ * - an owner of an organization where someone not being deleted remains: the member of `choices.newOwners` becomes its
+ *   owner; without one, the default organization (single-tenant mode, where nobody can transfer by hand) passes to its
+ *   earliest admin, else its earliest member, and another organization refuses with 422 `owner_required`;
  * - after the deletion each organization's seats are recounted, and one with nobody left is closed (`closeIfEmpty`;
  *   never the default one).
- * Memberships are read after the locks, so a transfer that committed meanwhile is seen.
+ * Memberships are read after the locks, so a transfer that committed meanwhile is seen. A choice about an organization
+ * the accounts are not in, or naming someone who is not a member there, answers 400 `transfer_invalid`.
  */
 export async function deleteAccountsWithOrganizations(
   manager: EntityManager,
   userIds: ReadonlyArray<string>,
   remove: (tx: EntityManager) => Promise<void>,
+  choices: OrganizationChoices = {},
 ): Promise<void> {
   const deleting = new Set(userIds);
   await inTransaction(manager, async tx => {
     const touched = await tx.find(OrganizationUser, { where: { userId: In([...deleting]) }, select: ['id', 'organizationId'] });
     // One order for the locks, so two deletions never wait on each other in a cycle
     const organizationIds = [...new Set(touched.map(membership => membership.organizationId))].sort(byCodeUnits);
+    const chosen = [...(choices.newOwners?.keys() ?? []), ...(choices.deleteOrganizations?.keys() ?? [])];
+    if (chosen.some(organizationId => !organizationIds.includes(organizationId))) {
+      throw invalidTransfer('This organization is not yours to hand over or delete');
+    }
     for (const organizationId of organizationIds) {
       const organization = await lockOrganization(tx, organizationId);
       const members = await tx.find(OrganizationUser, { where: { organizationId }, order: { date: { created: 'ASC' }, id: 'ASC' } });
       const leavingOwner = members.find(member => deleting.has(member.userId) && member.role === OrganizationRole.Owner);
       const remaining = members.filter(member => !deleting.has(member.userId));
+      assertOperatorStateKept(organization, !!leavingOwner, remaining.length);
+      const typedSlug = choices.deleteOrganizations?.get(organizationId);
+      if (typedSlug !== undefined) {
+        assertDeletableWithAccount(organization, !!leavingOwner, remaining.length, typedSlug);
+        await deleteOrganizationData(tx, organizationId);
+        continue;
+      }
+      const newOwnerId = choices.newOwners?.get(organizationId);
+      if (newOwnerId !== undefined) {
+        const heir = leavingOwner ? remaining.find(member => member.userId === newOwnerId) : undefined;
+        if (!heir) {
+          throw invalidTransfer(`Only the owner hands over '${organization?.name}', to one of its members`);
+        }
+        await tx.update(OrganizationUser, { id: heir.id }, { role: OrganizationRole.Owner });
+        await tx.update(OrganizationUser, { id: leavingOwner.id }, { role: OrganizationRole.Admin });
+        continue;
+      }
       if (!leavingOwner || remaining.length === 0) {
         continue;
       }

@@ -133,6 +133,10 @@ export default class ProjectController {
     await this.auth.authorizeOrganizationAction(user, organizationId, OrganizationAction.CreateProject);
 
     const result = await readCommittedTransaction(this.projects.manager, async tx => {
+      // The global lock order: the account (its project count changes below), then the organization, which its deletion
+      // holds while it deletes the projects: a project is never created into an organization being deleted
+      await lockAccounts(tx, [user.id]);
+      await this.projects.lockOrganizationForNewProject(tx, organizationId, user.id);
       let project = this.projects.build(fields, organizationId);
       project = await tx.save(project);
 

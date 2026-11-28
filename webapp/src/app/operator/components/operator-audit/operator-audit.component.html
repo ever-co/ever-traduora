@@ -1,0 +1,57 @@
+<div class="op-toolbar">
+  <span *ngIf="organizationId" class="op-scope text-muted" data-test="scope">
+    One organization ·
+    <a routerLink="/operator/audit">Show every action</a>
+  </span>
+  <output class="op-count" data-test="count">{{ countLine }}</output>
+</div>
+
+<div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center" data-test="error">
+  <span class="flex-1">{{ errorMessage }}</span>
+  <button type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
+</div>
+
+<div *ngIf="rows && rows.length === 0" class="op-empty text-muted" data-test="empty">No operator action yet</div>
+
+<div *ngIf="rows?.length" class="card op-list">
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th scope="col">When</th>
+        <th scope="col">Action</th>
+        <th scope="col">Organization</th>
+        <th scope="col" class="d-none d-md-table-cell">Reason</th>
+        <th scope="col" class="d-none d-lg-table-cell">Operator</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let entry of rows; trackBy: trackById" data-test="audit">
+        <td class="op-mono op-muted op-nowrap">{{ entry.date.created | date: 'd MMM y, HH:mm' }}</td>
+        <td class="op-mono op-nowrap">{{ auditActionLabel(entry.action) }}</td>
+        <td class="op-cell-name">
+          <ng-container *ngIf="entry.organization; else gone">
+            <a class="op-name" [routerLink]="['/operator/organizations', entry.organization.id]">{{ entry.organization.name }}</a>
+            <span class="op-sub op-mono">/orgs/{{ entry.organization.slug }}</span>
+          </ng-container>
+          <ng-template #gone><span class="op-muted">No longer found</span></ng-template>
+          <span class="op-sub d-md-none">{{ entry.reason }}</span>
+        </td>
+        <td class="d-none d-md-table-cell op-reason">{{ entry.reason }}</td>
+        <td class="d-none d-lg-table-cell op-muted">{{ entry.operator.email }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<nav *ngIf="total > pageSize" class="op-pagination" aria-label="Pages of the audit log">
+  <ngb-pagination
+    size="sm"
+    [collectionSize]="total"
+    [pageSize]="pageSize"
+    [page]="page"
+    [maxSize]="5"
+    [rotate]="true"
+    [ellipses]="false"
+    (pageChange)="goTo($event)"
+  ></ngb-pagination>
+</nav>

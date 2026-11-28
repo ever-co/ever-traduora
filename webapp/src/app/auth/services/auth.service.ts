@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Payload } from 'src/app/shared/models/http';
+import { AccountDeletionChoices, AccountDeletionPreflight } from '../models/account-deletion';
 import { Identity, IdentityConnection, localReturnPath, PendingAuthorization } from '../models/identity';
 import { Provider } from '../models/provider';
 import { User } from '../models/user';
@@ -196,8 +197,15 @@ export class AuthService {
     return pending;
   }
 
-  deleteAccount(): Observable<any> {
-    return this.http.delete<any>(`${this.endpoint}/users/me`);
+  /** What stands in the way of deleting the account, and the person's choices. */
+  accountDeletion(): Observable<AccountDeletionPreflight> {
+    return this.http.get<Payload<AccountDeletionPreflight>>(`${this.endpoint}/users/me/deletion`).pipe(map(res => res.data));
+  }
+
+  /** Without choices, the request is sent as before: no body. */
+  deleteAccount(choices?: AccountDeletionChoices): Observable<void> {
+    const url = `${this.endpoint}/users/me`;
+    return choices ? this.http.delete<void>(url, { body: choices }) : this.http.delete<void>(url);
   }
 
   forgotPassword(email: string): Observable<any> {
