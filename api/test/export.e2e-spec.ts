@@ -7,6 +7,7 @@ import { propertiesParser } from '../src/formatters/properties';
 import { csvParser } from '../src/formatters/csv';
 import { androidXmlParser } from '../src/formatters/android-xml';
 import { resXParser } from '../src/formatters/resx';
+import { xliffParser } from '../src/formatters/xliff';
 
 describe('ExportController (e2e)', () => {
   let app: INestApplication;
@@ -472,6 +473,25 @@ describe('ExportController (e2e)', () => {
       const parsed = await parser(payload);
       expect(parsed.translations.find(t => t.term === 'term.one')).toEqual({ term: 'term.one', translation });
     }
+  });
+
+  it('/api/v1/projects/:projectId/exports (GET) should keep "&amp;" in a translation exported as XLIFF 1.2', async () => {
+    const translation = 'Use &amp; for an ampersand';
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termOneId, value: translation })
+      .expect(200);
+
+    const exported = await request(app.getHttpServer())
+      .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=xliff12&untranslated=false`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .expect(200);
+    const payload = Buffer.from(exported.body).toString('utf-8');
+    expect(payload).toContain('<target>Use &amp;amp; for an ampersand</target>');
+    const parsed = await xliffParser({ version: '1.2' })(payload);
+    expect(parsed.translations.find(t => t.term === 'term.one')).toEqual({ term: 'term.one', translation });
+    expect(parsed.translations.find(t => t.term === 'term.two')).toEqual({ term: 'term.two', translation: 'zwei' });
   });
 
   it('/api/v1/projects/:projectId/exports?format=jsonflat (GET) should not export if locale does not exist for project', async () => {

@@ -1,6 +1,6 @@
-import { createxliff12 } from 'xliff';
 import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
+import { xmlTexts } from './xml-text';
 
 export const xliffParser: (options: { version: string }) => Parser = options => async (data: string) => {
   if (options.version !== '1.2') {
@@ -133,17 +133,42 @@ export const xliffExporter: (options: { version: string }) => Exporter = options
     throw new Error('Only XLIFF 1.2 is supported');
   }
 
-  const indexed = data.translations.reduce((a, b) => ({ ...a, [b.term]: b.translation }), {});
+  const indexed: { [term: string]: string } = data.translations.reduce((a, b) => ({ ...a, [b.term]: b.translation }), {});
 
-  const xml = await new Promise((resolve, reject) => {
-    // source, target, sourceKeys, targetKeys, namespace
-    return createxliff12(data.iso, data.iso, indexed, indexed, data.iso, (err, res) => {
-      if (err != null) {
-        return reject(err);
-      }
-      return resolve(res);
-    });
+  // The same document as the xliff library wrote, element for element, except that every source and target text is
+  // given to xml-js through xmlTexts and escaped by escapeXmlText: xml-js on its own wrote the translation "&amp;" as
+  // "&amp;", which reads back as "&"
+  const texts = xmlTexts();
+  const units = Object.keys(indexed).map(term => {
+    const value = indexed[term] || '';
+    return makeElement('trans-unit', { id: escapeUnitId(term) }, [
+      makeElement('source', undefined, [{ type: 'text', text: texts.text(value) }]),
+      makeElement('target', undefined, [{ type: 'text', text: texts.text(value) }]),
+    ]);
   });
+  const file = makeElement('file', { original: data.iso, datatype: 'plaintext', 'source-language': data.iso, 'target-language': data.iso }, [
+    makeElement('body', undefined, units),
+  ]);
+  const root = makeElement(
+    'xliff',
+    {
+      'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+      'xsi:schemaLocation': 'urn:oasis:names:tc:xliff:document:1.2 http://docs.oasis-open.org/xliff/v1.2/os/xliff-core-1.2-strict.xsd',
+      xmlns: 'urn:oasis:names:tc:xliff:document:1.2',
+      version: '1.2',
+    },
+    [file],
+  );
 
+  const xml = xmlJs.js2xml({ elements: [root] }, { spaces: 2, textFn: texts.textFn });
   return `<?xml version="1.0" encoding="UTF-8" ?>\n${xml}`;
 };
+
+function makeElement(name: string, attributes: xmlJs.Attributes | undefined, elements: xmlJs.Element[]): xmlJs.Element {
+  return attributes === undefined ? { type: 'element', name, elements } : { type: 'element', name, attributes, elements };
+}
+
+/** A trans-unit id escaped as the xliff library escaped it: & " ' < and > become entities, xml-js then writes it as it is */
+function escapeUnitId(term: string): string {
+  return term.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}

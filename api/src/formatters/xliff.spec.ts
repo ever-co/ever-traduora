@@ -375,3 +375,30 @@ test('should export xliff 1.2 files', async () => {
   const expected = loadFixture('simple.xliff');
   expect(result).toEqual(expected);
 });
+
+test('should keep "&amp;" in a translation exported as xliff 1.2', async () => {
+  const translations = [
+    { term: 'entity', translation: 'Use &amp; for an ampersand' },
+    { term: 'double-entity', translation: 'a &amp;amp; b' },
+    { term: 'ampersand', translation: 'Tom & Jerry' },
+    { term: 'other-entity', translation: '&lt;b&gt;' },
+  ];
+
+  const result = (await xliffExporter({ version: '1.2' })({ iso: 'en', translations })) as string;
+
+  expect(result).toContain('<source>Use &amp;amp; for an ampersand</source>');
+  expect(result).toContain('<target>Use &amp;amp; for an ampersand</target>');
+  expect(result).toContain('<target>a &amp;amp;amp; b</target>');
+  expect(result).toContain('<target>Tom &amp; Jerry</target>');
+  expect(result).toContain('<target>&amp;lt;b&amp;gt;</target>');
+  expect(await xliffParser({ version: '1.2' })(result)).toEqual({ iso: 'en', translations });
+});
+
+test('should write a term with & < > and quotes as an escaped trans-unit id in xliff 1.2', async () => {
+  const translations = [{ term: `a&b <c> "d" 'e'`, translation: 'x' }];
+
+  const result = (await xliffExporter({ version: '1.2' })({ iso: 'en', translations })) as string;
+
+  expect(result).toContain('<trans-unit id="a&amp;b &lt;c&gt; &quot;d&quot; &apos;e&apos;">');
+  expect(await xliffParser({ version: '1.2' })(result)).toEqual({ iso: 'en', translations });
+});
