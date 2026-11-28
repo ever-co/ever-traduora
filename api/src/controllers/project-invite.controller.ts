@@ -160,6 +160,9 @@ export default class ProjectInviteController {
       }
       // The account of the address as it is now, under the lock: a copy read before could have changed its e-mail
       const account = await tx.findOne(User, { where: { email }, select: ['id'] });
+      // Decided again under the lock from the locked rows, as the direct add does: a caller who stopped being an owner
+      // or admin of the organization since the check before the transaction brings no one new into it
+      await this.auth.authorizeAddingToOrganization(user, locked, account?.id, tx);
       await assertSeatAvailable(tx, locked, { email, userId: account?.id }, 'invite', user.id);
 
       // Inviting the same email again sends a new link and invalidates the previous one

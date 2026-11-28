@@ -514,6 +514,36 @@ describe('Organizations in SaaS mode (e2e)', () => {
       await request(server()).get(`/api/v1/projects/${theirs.id}/users`).set(auth(owner)).expect(200);
     });
 
+    describe('a project invite whose caller stops being an organization admin meanwhile', () => {
+      afterEach(() => jest.restoreAllMocks());
+
+      it('invites no one new: the organization role is checked again under its lock', async () => {
+        const owner = await signupTestUser(app, 'demoted-owner@test.com');
+        const admin = await signupTestUser(app, 'demoted-admin@test.com');
+        const organization = await onlyOrganizationOf(owner);
+        await inviteToOrganization(owner, organization.id, admin.email, 'admin').expect(201);
+        const project = await createProject(owner, organization.id);
+        await addToProject(owner, project.id, admin, 'admin');
+
+        // After the check before the transaction, and before the organization lock, the admin becomes a member
+        const authorization = app.get(AuthorizationService);
+        const checked = authorization.authorizeAddingToOrganization.bind(authorization);
+        jest.spyOn(authorization, 'authorizeAddingToOrganization').mockImplementationOnce(async (...args: Parameters<typeof checked>) => {
+          await checked(...args);
+          await dataSource
+            .getRepository(OrganizationUser)
+            .update({ organizationId: organization.id, userId: admin.id }, { role: OrganizationRole.Member });
+        });
+
+        const res = await request(server())
+          .post(`/api/v1/projects/${project.id}/invites`)
+          .set(auth(admin))
+          .send({ email: 'demoted-outsider@test.com', role: 'viewer' });
+        expect([res.status, res.body.error?.code]).toEqual([403, 'organization_admin_required']);
+        expect(await dataSource.getRepository(Invite).count({ where: { email: 'demoted-outsider@test.com' } })).toBe(0);
+      });
+    });
+
     describe('an import whose access ends while its upload is read', () => {
       /** Runs `meanwhile` after the import's access was checked and before it writes (as during a slow upload). */
       const duringTheUpload = (meanwhile: () => Promise<unknown>) => {
