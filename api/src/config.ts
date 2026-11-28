@@ -203,6 +203,8 @@ export const config = {
     global: globalThrottle({ ttl: env.TR_THROTTLE_TTL, limit: env.TR_THROTTLE_LIMIT, saas: getBoolOrDefault(env.TR_SAAS_ENABLED, false) }),
     // SaaS mode: sign-ups (password, Ever ID confirmation) per address and hour; 0 turns the limit off
     signupsPerHour: getNumberOrDefault(env.TR_SIGNUPS_PER_HOUR, 10),
+    // Confirmation emails per account and hour: e-mail changes and resends of the link; 0 turns the limit off
+    verificationEmailsPerHour: getNumberOrDefault(env.TR_VERIFICATION_EMAILS_PER_HOUR, 5),
     auth: {
       ttl: getNumberOrDefault(env.TR_AUTH_THROTTLE_TTL, 60000),
       limit: getNumberOrDefault(env.TR_AUTH_THROTTLE_LIMIT, env.NODE_ENV === 'production' ? 100 : 10),

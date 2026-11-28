@@ -80,6 +80,7 @@ import { byCodeUnits, lockProjectsForShare, readCommittedTransaction } from '../
 import { Access } from '../access/access.decorator';
 import { acceptedTerms, requiredLegalDocuments } from '../accounts/account-policy';
 import { SignupThrottlerGuard } from '../accounts/signup-throttler.guard';
+import { AttemptLimiter, HOUR_MS } from '../accounts/attempt-limiter';
 import { TurnstileService, turnstileSiteKey } from '../accounts/turnstile.service';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
@@ -106,6 +107,7 @@ export class AuthController {
     private everIdSessions: EverIdSessionService,
     private organizations: OrganizationService,
     private turnstile: TurnstileService,
+    private attempts: AttemptLimiter,
   ) {}
 
   @Access('public')
@@ -521,12 +523,18 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Email a new verification link for the current user's email` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Sent, or nothing to do because the email is verified already' })
+  @ApiResponse({
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    description: 'Too many requests, or TR_VERIFICATION_EMAILS_PER_HOUR reached for this account',
+  })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async resendVerificationEmail(@Req() req) {
     const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     if (requestingUser.emailVerified) {
       return;
     }
+    // The same budget per account as e-mail changes: the address may be one the caller typed into the profile
+    await this.attempts.count('verification-email', requestingUser.id, config.throttle.verificationEmailsPerHour, HOUR_MS);
     // Replaces the previous link, which stops working
     const token = await this.userService.startEmailVerification(requestingUser);
     if (token) {

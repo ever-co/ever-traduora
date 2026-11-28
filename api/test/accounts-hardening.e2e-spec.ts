@@ -469,6 +469,34 @@ describe('Accounts and hardening (e2e)', () => {
     });
   });
 
+  describe('confirmation emails (review of #679)', () => {
+    beforeEach(() => start(() => (config.saasEnabled = true)));
+
+    it('sends at most TR_VERIFICATION_EMAILS_PER_HOUR per account, for e-mail changes and resends alike', async () => {
+      const verifyEmail = jest.spyOn(app.get(MailService), 'verifyEmail').mockResolvedValue(undefined);
+      const person = await signupTestUser(app, 'changer@test.com');
+      const limit = config.throttle.verificationEmailsPerHour;
+      expect(limit).toBe(5);
+      for (let i = 1; i <= limit; i++) {
+        await request(server())
+          .patch('/api/v1/users/me')
+          .set(auth(person))
+          .send({ email: `changer-${i}@test.com` })
+          .expect(200);
+      }
+      const refused = await request(server()).patch('/api/v1/users/me').set(auth(person)).send({ email: 'changer-more@test.com' }).expect(429);
+      expect(refused.body.error.code).toBe('TooManyRequests');
+      await request(server()).post('/api/v1/auth/resend-verification-email').set(auth(person)).expect(429);
+      expect(verifyEmail).toHaveBeenCalledTimes(limit);
+      // The address stays the last one accepted, and a change of name alone sends nothing and still works
+      const me = await request(server()).patch('/api/v1/users/me').set(auth(person)).send({ name: 'Still Me' }).expect(200);
+      expect(me.body.data).toMatchObject({ email: `changer-${limit}@test.com`, name: 'Still Me' });
+      // Another account has its own budget
+      const other = await signupTestUser(app, 'other-changer@test.com');
+      await request(server()).patch('/api/v1/users/me').set(auth(other)).send({ email: 'other-changed@test.com' }).expect(200);
+    });
+  });
+
   describe("a member's e-mail change and the seats (P3 follow-up)", () => {
     beforeEach(() => start(() => (config.saasEnabled = true)));
 

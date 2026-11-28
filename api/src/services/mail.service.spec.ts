@@ -90,10 +90,11 @@ describe('MailService plain-text emails', () => {
     expectNoHtmlEntities(text);
   });
 
-  it('verifyEmail shows the name and email as typed and keeps the link', async () => {
+  it('verifyEmail carries no name (the address may be one someone typed for another person), only the email as typed and the link', async () => {
     const text = await emailText(service => service.verifyEmail(user, link));
 
-    expect(text).toContain(`Hi ${name},`);
+    expect(text).not.toContain(name);
+    expect(text.startsWith('Hello,')).toBe(true);
     expect(text).toContain(`confirm that ${email} is your email address`);
     expect(text).toContain(link);
     expectNoHtmlEntities(text);

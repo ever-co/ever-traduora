@@ -1,4 +1,4 @@
-Hi {{user.name}},
+Hello,
 
 Please confirm that {{user.email}} is your email address for Traduora by opening this link (sign in if asked):
 

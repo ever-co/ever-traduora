@@ -2,6 +2,7 @@ import { Injectable, Module, OnApplicationBootstrap } from '@nestjs/common';
 import { config } from '../config';
 import { currentLegalDocuments } from './legal-documents';
 import { TurnstileService } from './turnstile.service';
+import { AttemptLimiter } from './attempt-limiter';
 
 /**
  * Refuses to start in SaaS mode when no version is known for the terms or the privacy policy: sign-ups would have
@@ -18,9 +19,9 @@ export class LegalDocumentsBootCheck implements OnApplicationBootstrap {
   }
 }
 
-/** Accounts and hardening (DESIGN §3.8): the bot check and the legal documents' boot check. */
+/** Accounts and hardening (DESIGN §3.8): the bot check, the attempt limits and the legal documents' boot check. */
 @Module({
-  providers: [TurnstileService, LegalDocumentsBootCheck],
-  exports: [TurnstileService],
+  providers: [TurnstileService, LegalDocumentsBootCheck, AttemptLimiter],
+  exports: [TurnstileService, AttemptLimiter],
 })
 export class AccountsModule {}
