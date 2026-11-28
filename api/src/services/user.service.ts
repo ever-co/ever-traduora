@@ -36,7 +36,7 @@ import {
   handOverProjects,
   organizationsDeletedWithAccount,
 } from './organization/account-deletion';
-import { cancelSubscriptions } from './organization/billing-cancellation';
+import { settleBillingCancellations } from './organization/billing-cancellation';
 import { ModuleRef } from '@nestjs/core';
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
@@ -301,22 +301,25 @@ export class UserService {
    * counts what this one left.
    *
    * `choices` (DESIGN §3.9) hand the admin role of a project to one of its members, hand an owned organization to one of
-   * its members, or delete with the account an organization the person is alone in. Those organizations' subscriptions
-   * are cancelled first, outside the transaction; then, in it, their projects are locked with the account's (one order),
+   * its members, or delete with the account an organization the person is alone in. All of it runs in the one transaction,
+   * which any refusal rolls back whole: the projects of those organizations are locked with the account's (one order),
    * the project admins are handed over before the admins are counted, and the organizations are handed over or deleted
-   * under their locks.
+   * under their locks, the cancellations of their subscriptions queued. Only once it committed are the subscriptions
+   * cancelled: a refusal anywhere cancels nothing.
    */
   async deleteAccount(user: User, choices: AccountDeletionChoices = {}) {
-    const deletedOrganizations = await organizationsDeletedWithAccount(this.userRepo.manager, user.id, choices.deleteOrganizations);
-    await cancelSubscriptions(this.moduleRef, deletedOrganizations);
+    const deleteOrganizations = choices.deleteOrganizations ?? [];
     await readCommittedTransaction(this.userRepo.manager, async manager => {
       await lockAccount(manager, user.id);
+      // Read only, before any write: the organizations to delete with the account, as they are now (each is checked
+      // again under its own lock below)
+      const deletedOrganizations = await organizationsDeletedWithAccount(manager, user.id, deleteOrganizations);
       const deletedProjectIds = await projectIdsOfOrganizations(
         manager,
         deletedOrganizations.map(organization => organization.id),
       );
       await lockProjectsOf(manager, [user.id], deletedProjectIds);
-      await handOverProjects(manager, user.id, choices.projectAdmins);
+      await handOverProjects(manager, user.id, choices.projectAdmins ?? []);
       const memberships = manager.getRepository(ProjectUser);
       const ownedProjects = await memberships.find({
         where: { user: { id: user.id }, role: ProjectRole.Admin },
@@ -350,10 +353,16 @@ export class UserService {
         },
         {
           newOwners: new Map((choices.organizationOwners ?? []).map(choice => [choice.organizationId, choice.userId])),
-          deleteOrganizations: new Map((choices.deleteOrganizations ?? []).map(choice => [choice.organizationId, choice.slug])),
+          deleteOrganizations: new Map(deleteOrganizations.map(choice => [choice.organizationId, choice.slug])),
         },
       );
     });
+    // After the commit only: the organizations deleted with the account take their subscriptions with them
+    await settleBillingCancellations(
+      this.moduleRef,
+      this.userRepo.manager,
+      deleteOrganizations.map(choice => choice.organizationId),
+    );
   }
 
   async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<User> {

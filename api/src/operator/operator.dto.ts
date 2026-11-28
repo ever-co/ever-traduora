@@ -1,6 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString, Length, Matches, MaxLength, Validate, ValidateNested } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+  MaxLength,
+  Validate,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator';
 import {
   AccessDatesDTO,
   OrganizationMemberDTO,
@@ -11,12 +24,16 @@ import {
 } from '../domain/http';
 import { OrganizationPlanCode, OrganizationStatus } from '../domain/organization-actions';
 import { OperatorAuditAction } from '../entity/operator-audit.entity';
+import { BillingCancellationStatus } from '../entity/organization-billing-cancellation.entity';
 import { IsNotOnlyWhitespace } from '../validators/IsNotOnlyWhitespace';
 import { REASON_MAX, REASON_MIN } from '../services/organization/organization-operator.service';
 
 /** The requests and answers of P6 (DESIGN §3.9, §5): the operator console, organization export and deletion, account deletion. */
 
-const PAGE_NUMBER = /^[1-9][0-9]{0,5}$/;
+const PAGE_NUMBER = /^[1-9]\d{0,5}$/;
+
+/** Present (`null` too, which is refused): an omitted list is no choice, a `null` one is a malformed request. */
+const unlessOmitted = ValidateIf((_object, value) => value !== undefined);
 
 // Requests
 
@@ -43,13 +60,17 @@ export class OperatorOrganizationsQuery extends OperatorPageQuery {
   @IsOptional()
   @IsIn(Object.values(OrganizationStatus))
   status?: OrganizationStatus;
+
+  @ApiPropertyOptional({ enum: ['unsettled'], description: "Only deleted organizations whose subscription's cancellation is pending or failed" })
+  @IsOptional()
+  @IsIn(['unsettled'])
+  billing?: 'unsettled';
 }
 
 export class OperatorAuditQuery extends OperatorPageQuery {
   @ApiPropertyOptional({ description: 'Only the actions on this organization' })
   @IsOptional()
-  @IsString()
-  @Length(1, 64)
+  @IsUUID('all')
   organizationId?: string;
 }
 
@@ -70,32 +91,27 @@ export class DeleteOrganizationRequest {
 
 export class ProjectAdminChoice {
   @ApiProperty()
-  @IsString()
-  @Length(1, 64)
+  @IsUUID('all')
   projectId: string;
 
   @ApiProperty({ description: 'A member of the project, who becomes its admin' })
-  @IsString()
-  @Length(1, 64)
+  @IsUUID('all')
   userId: string;
 }
 
 export class OrganizationOwnerChoice {
   @ApiProperty()
-  @IsString()
-  @Length(1, 64)
+  @IsUUID('all')
   organizationId: string;
 
   @ApiProperty({ description: 'A member of the organization, who becomes its owner' })
-  @IsString()
-  @Length(1, 64)
+  @IsUUID('all')
   userId: string;
 }
 
 export class OrganizationDeletionChoice {
   @ApiProperty()
-  @IsString()
-  @Length(1, 64)
+  @IsUUID('all')
   organizationId: string;
 
   @ApiProperty({ description: "The organization's slug, typed to confirm" })
@@ -106,7 +122,7 @@ export class OrganizationDeletionChoice {
 
 export class DeleteAccountRequest {
   @ApiPropertyOptional({ type: ProjectAdminChoice, isArray: true })
-  @IsOptional()
+  @unlessOmitted
   @IsArray()
   @ArrayMaxSize(500)
   @ValidateNested({ each: true })
@@ -114,7 +130,7 @@ export class DeleteAccountRequest {
   projectAdmins?: ProjectAdminChoice[];
 
   @ApiPropertyOptional({ type: OrganizationOwnerChoice, isArray: true })
-  @IsOptional()
+  @unlessOmitted
   @IsArray()
   @ArrayMaxSize(100)
   @ValidateNested({ each: true })
@@ -122,7 +138,7 @@ export class DeleteAccountRequest {
   organizationOwners?: OrganizationOwnerChoice[];
 
   @ApiPropertyOptional({ type: OrganizationDeletionChoice, isArray: true })
-  @IsOptional()
+  @unlessOmitted
   @IsArray()
   @ArrayMaxSize(100)
   @ValidateNested({ each: true })
@@ -141,7 +157,8 @@ export class OperatorPersonDTO {
   email: string;
 }
 
-export class OperatorOrganizationDTO {
+/** What a row and the detail share */
+export class OperatorOrganizationBaseDTO {
   @ApiProperty()
   id: string;
   @ApiProperty()
@@ -164,6 +181,22 @@ export class OperatorOrganizationDTO {
   seatsUsed: number;
   @ApiProperty({ description: 'The cached counter' })
   stringsUsed: number;
+  @ApiProperty()
+  date: AccessDatesDTO;
+}
+
+export class OperatorOrganizationDTO extends OperatorOrganizationBaseDTO {
+  @ApiProperty({ enum: BillingCancellationStatus, nullable: true, description: "A deleted organization's subscription cancellation" })
+  billingCancellation: BillingCancellationStatus | null;
+}
+
+export class BillingCancellationDTO {
+  @ApiProperty({ enum: BillingCancellationStatus })
+  status: BillingCancellationStatus;
+  @ApiProperty()
+  attempts: number;
+  @ApiProperty({ nullable: true, type: String })
+  lastError: string | null;
   @ApiProperty()
   date: AccessDatesDTO;
 }
@@ -211,7 +244,9 @@ export class OperatorUsageDTO {
   strings: OrganizationStringsDTO;
 }
 
-export class OperatorOrganizationDetailDTO extends OperatorOrganizationDTO {
+export class OperatorOrganizationDetailDTO extends OperatorOrganizationBaseDTO {
+  @ApiProperty({ type: BillingCancellationDTO, nullable: true, description: 'Tried after the deletion committed; a failed one needs an operator' })
+  billingCancellation: BillingCancellationDTO | null;
   @ApiProperty({ description: 'The effective plan' })
   plan: OrganizationPlanDTO;
   @ApiProperty({ description: 'Counted now' })

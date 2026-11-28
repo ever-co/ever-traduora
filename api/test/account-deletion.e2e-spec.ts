@@ -1,7 +1,12 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Module, ServiceUnavailableException } from '@nestjs/common';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
+import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { DataSource, In } from 'typeorm';
+import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { config } from '../src/config';
+import { BillingCancellationStatus, OrganizationBillingCancellation } from '../src/entity/organization-billing-cancellation.entity';
+import { BILLING_CANCELLATION, BillingCancellation } from '../src/services/organization/billing-cancellation';
 import { OrganizationRole, OrganizationStatus } from '../src/domain/organization-actions';
 import { OrganizationUser } from '../src/entity/organization-user.entity';
 import { Organization } from '../src/entity/organization.entity';
@@ -17,6 +22,27 @@ import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
  * member who becomes owner of an organization they own, or the deletion of an organization they are alone in (its slug
  * typed). Without a body it behaves as before.
  */
+/** Billing (P4) as the deletion sees it: here a fake, registered the way P4 registers its own. */
+const billing: BillingCancellation & {
+  calls: Array<{ id: string; status: string; accountGone: boolean }>;
+  failing: number;
+  dataSource?: DataSource;
+} = {
+  calls: [],
+  failing: 0,
+  async cancelForDeletion(organization) {
+    const owners = await this.dataSource.getRepository(OrganizationUser).count({ where: { organizationId: organization.id } });
+    this.calls.push({ id: organization.id, status: organization.status, accountGone: owners === 0 });
+    if (this.failing > 0) {
+      this.failing -= 1;
+      throw new ServiceUnavailableException('billing is down');
+    }
+  },
+};
+
+@Module({ providers: [{ provide: BILLING_CANCELLATION, useValue: billing }] })
+class FakeBillingModule {}
+
 describe('Account deletion with hand-overs (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
@@ -46,8 +72,19 @@ describe('Account deletion with hand-overs (e2e)', () => {
 
   beforeAll(async () => {
     config.saasEnabled = true;
-    app = await createAndMigrateApp();
+    const moduleFixture = await Test.createTestingModule({ imports: [AppModule, FakeBillingModule] }).compile();
+    app = moduleFixture.createNestApplication<NestExpressApplication>(new ExpressAdapter());
+    addPipesAndFilters(app as NestExpressApplication);
+    await app.init();
     dataSource = app.get(DataSource);
+    await dataSource.dropDatabase();
+    await dataSource.runMigrations();
+    billing.dataSource = dataSource;
+  });
+
+  beforeEach(() => {
+    billing.calls.length = 0;
+    billing.failing = 0;
   });
 
   afterAll(async () => {
@@ -94,7 +131,9 @@ describe('Account deletion with hand-overs (e2e)', () => {
       },
     ]);
     expect(decided.organizations).toEqual([expect.objectContaining({ id: organization.id, onlyMember: false, projectsCount: 1 })]);
-    expect(decided.organizations[0].members.map(m => m.userId).sort()).toEqual([editor.id, viewer.id].sort());
+    expect(decided.organizations[0].members.map(m => m.userId).sort((x, y) => x.localeCompare(y))).toEqual(
+      [editor.id, viewer.id].sort((x, y) => x.localeCompare(y)),
+    );
 
     // As before without a choice: refused, nothing changed
     await deleteAccount(owner).expect(422);
@@ -121,9 +160,13 @@ describe('Account deletion with hand-overs (e2e)', () => {
     }).expect(204);
     expect(await exists(owner)).toBe(false);
     const roles = await dataSource.getRepository(ProjectUser).find({ where: { project: { id: project.id } }, relations: ['user'] });
-    expect(roles.map(m => `${m.user.id}:${m.role}`).sort()).toEqual([`${editor.id}:admin`, `${viewer.id}:viewer`].sort());
+    expect(roles.map(m => `${m.user.id}:${m.role}`).sort((x, y) => x.localeCompare(y))).toEqual(
+      [`${editor.id}:admin`, `${viewer.id}:viewer`].sort((x, y) => x.localeCompare(y)),
+    );
     const members = await dataSource.getRepository(OrganizationUser).find({ where: { organizationId: organization.id } });
-    expect(members.map(m => `${m.userId}:${m.role}`).sort()).toEqual([`${editor.id}:owner`, `${viewer.id}:member`].sort());
+    expect(members.map(m => `${m.userId}:${m.role}`).sort((x, y) => x.localeCompare(y))).toEqual(
+      [`${editor.id}:owner`, `${viewer.id}:member`].sort((x, y) => x.localeCompare(y)),
+    );
     await request(server()).get(`/api/v1/projects/${project.id}/terms`).set(as(editor)).expect(200);
     await request(server()).get(`/api/v1/organizations/${organization.id}/members`).set(as(editor)).expect(200);
   });
@@ -144,8 +187,21 @@ describe('Account deletion with hand-overs (e2e)', () => {
       const res = await deleteAccount(owner, body).expect(400);
       expect(res.body.error.code).toBe('transfer_invalid');
     }
-    for (const body of [{ projectAdmins: 'all' }, { deleteOrganizations: [{ organizationId: organization.id }] }, { organizationOwners: [{}] }]) {
-      await deleteAccount(owner, body).expect(400);
+    for (const body of [
+      { projectAdmins: 'all' },
+      { deleteOrganizations: [{ organizationId: organization.id }] },
+      { organizationOwners: [{}] },
+      // Lists are omitted, never null
+      { projectAdmins: null },
+      { organizationOwners: null },
+      { deleteOrganizations: null },
+      // Ids are uuids
+      { projectAdmins: [{ projectId: 'not-a-uuid', userId: other.id }] },
+      { deleteOrganizations: [{ organizationId: 'not-a-uuid', slug: organization.slug }] },
+      { organizationOwners: [{ organizationId: organization.id, userId: '1' }] },
+    ]) {
+      const res = await deleteAccount(owner, body);
+      expect([JSON.stringify(body), res.status]).toEqual([JSON.stringify(body), 400]);
     }
     expect(await exists(owner)).toBe(true);
     expect((await dataSource.getRepository(Organization).findOneBy({ id: otherOrganization.id })).status).toBe(OrganizationStatus.Active);
@@ -168,8 +224,11 @@ describe('Account deletion with hand-overs (e2e)', () => {
     expect(mismatch.body.error.code).toBe('slug_mismatch');
     expect(await exists(owner)).toBe(true);
 
+    expect(billing.calls).toEqual([]);
     await deleteAccount(owner, { deleteOrganizations: [{ organizationId: organization.id, slug: organization.slug }] }).expect(204);
     expect(await exists(owner)).toBe(false);
+    // Cancelled once, after the commit: the organization a tombstone, the account gone
+    expect(billing.calls).toEqual([{ id: organization.id, status: OrganizationStatus.Deleted, accountGone: true }]);
     expect(await dataSource.getRepository(Project).count({ where: { id: In(projects.map(p => p.id)) } })).toBe(0);
     expect(await dataSource.getRepository(Term).count({ where: { value: 'solo.term' } })).toBe(0);
     expect(await dataSource.getRepository(Organization).findOneBy({ id: organization.id })).toMatchObject({ status: OrganizationStatus.Deleted });
@@ -177,6 +236,77 @@ describe('Account deletion with hand-overs (e2e)', () => {
     expect(await dataSource.getRepository(Project).count({ where: { id: bystanderProject.id } })).toBe(1);
     expect((await dataSource.getRepository(Organization).findOneBy({ id: bystanderOrganization.id })).status).toBe(OrganizationStatus.Active);
     await request(server()).get(`/api/v1/projects/${bystanderProject.id}`).set(as(bystander)).expect(200);
+  });
+
+  it('cancels nothing when the deletion is refused after the choice: a hand-over, a last admin, an owner', async () => {
+    const owner = await person('refused');
+    const organization = await ownOrganization(owner);
+    const other = await person('other-org');
+    const otherOrganization = await ownOrganization(other);
+    const elsewhere = await newProject(other, otherOrganization.id, 'Elsewhere');
+    await invite(other, otherOrganization.id, owner);
+    await request(server()).post(`/api/v1/projects/${elsewhere.id}/invites`).set(as(other)).send({ email: owner.email, role: 'admin' }).expect(201);
+    const sole = { deleteOrganizations: [{ organizationId: organization.id, slug: organization.slug }] };
+
+    // A hand-over to someone who is not in the project
+    const stranger = await person('stranger');
+    const handOver = await deleteAccount(owner, { ...sole, projectAdmins: [{ projectId: elsewhere.id, userId: stranger.id }] }).expect(400);
+    expect(handOver.body.error.code).toBe('transfer_invalid');
+    // A new owner for an organization the person does not own
+    const notOwned = await deleteAccount(owner, { ...sole, organizationOwners: [{ organizationId: otherOrganization.id, userId: other.id }] }).expect(
+      400,
+    );
+    expect(notOwned.body.error.code).toBe('transfer_invalid');
+
+    // The last admin of a project another one uses, in the other organization
+    await request(server()).patch(`/api/v1/projects/${elsewhere.id}/users/${other.id}`).set(as(owner)).send({ role: 'viewer' }).expect(200);
+    const lastAdmin = await deleteAccount(owner, sole).expect(422);
+    expect(lastAdmin.body.error.code).toBe('UnprocessableEntity');
+
+    expect(billing.calls).toEqual([]);
+    expect(await dataSource.getRepository(OrganizationBillingCancellation).count({ where: { organizationId: organization.id } })).toBe(0);
+    expect(await exists(owner)).toBe(true);
+    expect((await dataSource.getRepository(Organization).findOneBy({ id: organization.id })).status).toBe(OrganizationStatus.Active);
+    expect(await dataSource.getRepository(Project).count({ where: { id: elsewhere.id } })).toBe(1);
+  });
+
+  it('deletes the account and the organization when billing fails, and leaves the cancellation to an operator', async () => {
+    const owner = await person('billing-down');
+    const organization = await ownOrganization(owner);
+    billing.failing = 3;
+    await deleteAccount(owner, { deleteOrganizations: [{ organizationId: organization.id, slug: organization.slug }] }).expect(204);
+    expect(await exists(owner)).toBe(false);
+    expect(billing.calls).toHaveLength(3);
+    expect(await dataSource.getRepository(OrganizationBillingCancellation).findOneBy({ organizationId: organization.id })).toMatchObject({
+      status: BillingCancellationStatus.Failed,
+      attempts: 3,
+    });
+  });
+
+  it('keeps what an operator decided: no deletion of the owner or the last member of a suspended organization', async () => {
+    const owner = await person('suspended-owner');
+    const organization = await ownOrganization(owner);
+    const colleague = await person('suspended-colleague');
+    const member = await person('suspended-member');
+    await invite(owner, organization.id, colleague);
+    await invite(owner, organization.id, member);
+    await dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Suspended });
+    try {
+      expect((await plan(owner)).organizations).toEqual([expect.objectContaining({ id: organization.id, status: 'suspended', onlyMember: false })]);
+      for (const body of [undefined, { organizationOwners: [{ organizationId: organization.id, userId: colleague.id }] }]) {
+        const res = await deleteAccount(owner, body).expect(403);
+        expect(res.body.error.code).toBe('organization_suspended');
+      }
+      // A member leaves it as usual
+      await deleteAccount(member).expect(204);
+      const members = await dataSource.getRepository(OrganizationUser).find({ where: { organizationId: organization.id } });
+      expect(members.map(m => `${m.userId}:${m.role}`).sort((x, y) => x.localeCompare(y))).toEqual(
+        [`${owner.id}:owner`, `${colleague.id}:member`].sort((x, y) => x.localeCompare(y)),
+      );
+      expect((await dataSource.getRepository(Organization).findOneBy({ id: organization.id })).status).toBe(OrganizationStatus.Suspended);
+    } finally {
+      await dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Active });
+    }
   });
 
   it('refuses to delete an organization with other members, or a suspended one, with the account', async () => {
@@ -196,6 +326,8 @@ describe('Account deletion with hand-overs (e2e)', () => {
       deleteOrganizations: [{ organizationId: soloOrganization.id, slug: soloOrganization.slug }],
     }).expect(403);
     expect(suspended.body.error.code).toBe('organization_suspended');
+    // Without a choice too: the account would close it, which the operator did not decide
+    expect((await deleteAccount(solo).expect(403)).body.error.code).toBe('organization_suspended');
     expect(await exists(owner)).toBe(true);
     expect(await exists(solo)).toBe(true);
     expect((await dataSource.getRepository(Organization).findOneBy({ id: soloOrganization.id })).status).toBe(OrganizationStatus.Suspended);

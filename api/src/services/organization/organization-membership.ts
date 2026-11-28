@@ -12,6 +12,7 @@ import { OrganizationException } from '../../errors';
 import { DbType, isDbType } from '../../utils/database-type-helper';
 import { activeMemberships } from './organization-scope';
 import { recountSeats, usesOrganizationPlan } from './organization-usage';
+import { queueBillingCancellation } from './billing-cancellation';
 import { isAllowedSlug, randomSuffix, slugFromName, withSuffix } from './slug';
 import { byCodeUnits, readCommittedTransaction } from '../../utils/database-locks';
 
@@ -337,7 +338,9 @@ export async function organizationDeletionHold(manager: EntityManager, userIds: 
  * Deletes everything an organization holds and keeps its row as a tombstone (DESIGN §3.9): every project with what it
  * holds (terms, locales, translations and their history, labels, project members, invitations and API keys go with it,
  * ON DELETE CASCADE), the organization's invitations and its memberships; the organization becomes `deleted`, so nobody
- * reaches it again, with its counters at 0. Answers the number of projects deleted.
+ * reaches it again, with its counters at 0. Its subscription's cancellation is queued in the same transaction
+ * (`queueBillingCancellation`): the caller settles it once the transaction committed (`settleBillingCancellations`).
+ * Answers the number of projects deleted.
  *
  * Needs, in the caller's transaction, the global lock order (see `lockOrganization`): the projects locked first
  * (`projectIdsOfOrganizations`, then `lockProjects`), then the organization. The caller decides who may do this.
@@ -348,6 +351,7 @@ export async function deleteOrganizationData(tx: EntityManager, organizationId: 
   await tx.delete(OrganizationInvite, { organizationId });
   await tx.delete(OrganizationUser, { organizationId });
   await tx.update(Organization, { id: organizationId }, { status: OrganizationStatus.Deleted, seatsUsed: 0, stringsUsed: 0 });
+  await queueBillingCancellation(tx, organizationId);
   return projects;
 }
 
@@ -390,6 +394,21 @@ function assertDeletableWithAccount(organization: Organization | null, ownsIt: b
   }
 }
 
+/**
+ * An account deletion never changes what an operator decided: the owner of a suspended organization, or its last
+ * member, cannot delete their account (403 `organization_suspended`) while it is suspended, since that would hand the
+ * organization to someone else or close it. Its other members leave it as usual; its status stays.
+ */
+function assertOperatorStateKept(organization: Organization | null, ownerLeaves: boolean, others: number): void {
+  if (organization?.status === OrganizationStatus.Suspended && (ownerLeaves || others === 0)) {
+    throw new OrganizationException(
+      HttpStatus.FORBIDDEN,
+      'organization_suspended',
+      `'${organization.name}' is suspended: contact support before deleting your account`,
+    );
+  }
+}
+
 /** A choice the person deleting their account cannot make: not their organization, or not a member to hand it to. */
 export function invalidTransfer(message: string): OrganizationException {
   return new OrganizationException(HttpStatus.BAD_REQUEST, 'transfer_invalid', message);
@@ -410,6 +429,8 @@ export interface OrganizationChoices {
 /**
  * Deletes accounts (`remove`, given the transaction) together with what their organizations need, in one transaction
  * that holds each organization's lock until the accounts are gone (memberships take the same lock, see `ensureMember`):
+ * - the owner or the last member of a suspended organization is refused (403 `organization_suspended`): the operator's
+ *   decision stays as it is;
  * - an organization in `choices.deleteOrganizations` is deleted (`deleteOrganizationData`), once checked under its lock;
  * - an owner of an organization where someone not being deleted remains: the member of `choices.newOwners` becomes its
  *   owner; without one, the default organization (single-tenant mode, where nobody can transfer by hand) passes to its
@@ -439,6 +460,7 @@ export async function deleteAccountsWithOrganizations(
       const members = await tx.find(OrganizationUser, { where: { organizationId }, order: { date: { created: 'ASC' }, id: 'ASC' } });
       const leavingOwner = members.find(member => deleting.has(member.userId) && member.role === OrganizationRole.Owner);
       const remaining = members.filter(member => !deleting.has(member.userId));
+      assertOperatorStateKept(organization, !!leavingOwner, remaining.length);
       const typedSlug = choices.deleteOrganizations?.get(organizationId);
       if (typedSlug !== undefined) {
         assertDeletableWithAccount(organization, !!leavingOwner, remaining.length, typedSlug);
