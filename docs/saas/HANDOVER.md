@@ -354,13 +354,21 @@ pending project invites, and every refusal showed as a red error.
 - API e2e on SQLite, the whole suite: 35 suites, 419 passed, 10 skipped, 0 failed (27 in the plans suite). Parallel requests are serialized on
   SQLite; CI proves them on Postgres and MySQL.
 - Mutation check: 64 of 97 (66.0 %), see the table.
-- Web app Karma: 238 of 238 (after review round 2). `ng lint`: no finding in the files P3 changed (the 61 `prefer-standalone` errors elsewhere
+- Web app Karma: 243 of 243 (after review round 3). `ng lint`: no finding in the files P3 changed (the 61 `prefer-standalone` errors elsewhere
   predate it). Prettier clean. `tslint` on the API clean.
 - `ng build --configuration=production` succeeds.
 
 ### Left
 
 - CI (Postgres 15, MySQL 5.7) for the parallel tests at the edge of a limit.
+- **A member's e-mail change can add a seat (review of #674, round 3, not fixed in P3).** A pending invitation to a
+  member's address takes no seat, since that person holds one already. If the member then changes e-mail (`PATCH /me`,
+  a plain update of the account row that takes no organization lock), the invitation belongs to nobody in the
+  organization and counts as a seat, so the organization can end one over its limit. Nothing is deleted, and adds are
+  refused until it is back under (OD-T13). No lock in the invite transaction closes this, because the change can come
+  any time after the invitation commits. The fix belongs to the e-mail change. After the account lock (the global
+  order), it locks the account's organizations and either drops their pending invitations to the old address or
+  recounts their seats.
 - P4: the billing fields on `organization` (`billing_status`, `past_due_since`, `extra_seats`), which `effectivePlan`
   already reads; a link to billing from the 402 notice and the plan card.
 
