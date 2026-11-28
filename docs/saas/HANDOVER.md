@@ -206,6 +206,7 @@ Fixes after the checklist (rendered in SaaS mode at 1024 px and 390 px):
 | 2026-11-27 | `452225e` | 64 of 96 (the suite passes all 96 as it is, fixtures confirmed) | 66.7 % | ≥ 60 % ✅ |
 | 2026-11-27 | `79fb2ff` (P3) | 64 of 97 (B's `/usage` added; the new check that each usage counts only its own projects passes against the double, as each side asks for its own) | 66.0 % | ≥ 60 % ✅ |
 | 2026-11-28 | P5 branch `feat/saas-p5-hardening` (before and after the review of #679) | 64 of 97 (the suite runs with e-mails confirmed and terms accepted, the SaaS defaults of P5) | 66.0 % | ≥ 60 % ✅ |
+| 2026-11-28 | `db05654` (P4) | 70 of 103 (B's billing routes for A's people, the person in both and A's key; B's billing fields in the snapshot) | 68.0 % | ≥ 60 % ✅ |
 
 What still passes against the double, by design: the checks that do not rest on the organization scope (B's child ids
 through A's own project are scoped by the project id; an API key is tied to its project; invitation tokens are tied to
@@ -729,16 +730,17 @@ the danger text tone only (meaning); motion only as 120 ms background and 200 ms
 - API unit (`--runInBand`): 534 of 534 tests pass in 51 suites (new: `billing-plans.spec.ts`, `stripe-client.spec.ts`,
   `billing.service.spec.ts` with Stripe mocked, the action table). The 13 `src/formatters/*` suites cannot start on this
   PC (EPERM), as before.
-- API e2e on SQLite, the whole suite: E2E_RESULT. New: `test/billing.e2e-spec.ts` (28: the page for owner, admin and
+- API e2e on SQLite, the whole suite: 36 suites, 461 passed, 10 skipped (the SQLite-only skips, as before), 0 failed. New: `test/billing.e2e-spec.ts` (28: the page for owner, admin and
   member, Checkout and its refusals, one Checkout for parallel clicks, another order expiring the open session, a
   missing price, the portal, and through signed events: subscribe, add seats, change seats, upgrade, downgrade, a
   replay, a failed payment through the grace to Starter and back, an old failure, a foreign customer and a forged
   Checkout, a non-Traduora subscription, the other mode, a second subscription canceled, cancel, a new subscription
   after the old one).
 - Isolation suite: 103 tests (B's billing routes for A's owner, admin, member and API key, for the person in both, and
-  B's billing fields in the final snapshot). Mutation check: see the table in P2.
+  B's billing fields in the final snapshot). Mutation check: 70 of 103 fail with the scope removed, 68.0 % (table in P2).
 - `yarn --cwd api lint`, prettier on the changed files: clean. `ng lint`: no finding in the files P4 changed.
-- Web app Karma: KARMA_RESULT. `build:prod` succeeds.
+- Web app Karma: 256 of 256 (13 new for the billing page, the members spec now checks the link). `build:prod` succeeds
+  (the organizations chunk is 65.5 kB raw).
 - Postgres 15 and MySQL 5.7: CI only (the migration's `ALTER TABLE … ADD` per engine, the unique index, `FOR NO KEY
   UPDATE` under the webhook).
 
