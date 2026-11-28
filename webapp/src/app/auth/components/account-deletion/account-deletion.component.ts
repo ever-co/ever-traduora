@@ -84,7 +84,8 @@ export class AccountDeletionComponent implements OnDestroy {
       next: preflight => {
         this.preflight = preflight;
         this.ownedWithOthers = preflight.organizations.filter(organization => !organization.onlyMember);
-        this.ownedAlone = preflight.organizations.filter(organization => organization.onlyMember);
+        // A suspended organization stays for the operators: it is closed with the account, its data kept, as before
+        this.ownedAlone = preflight.organizations.filter(organization => organization.onlyMember && organization.status === 'active');
         this.form = this.buildForm(preflight);
         this.step = 'confirm';
       },
@@ -163,7 +164,7 @@ export class AccountDeletionComponent implements OnDestroy {
         () => Validators.required,
       ),
       slugs: choices(
-        organizations.filter(organization => organization.onlyMember).map(organization => organization.id),
+        organizations.filter(organization => organization.onlyMember && organization.status === 'active').map(organization => organization.id),
         id => typedExactly(slugOf.get(id) ?? ''),
       ),
     });

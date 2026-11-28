@@ -1,16 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OPERATOR_CHECK } from '../access/operator-check';
-import { Label } from '../entity/label.entity';
-import { OperatorAudit } from '../entity/operator-audit.entity';
-import { OrganizationUser } from '../entity/organization-user.entity';
 import { Organization } from '../entity/organization.entity';
-import { ProjectClient } from '../entity/project-client.entity';
-import { ProjectLocale } from '../entity/project-locale.entity';
-import { ProjectUser } from '../entity/project-user.entity';
-import { Project } from '../entity/project.entity';
-import { Term } from '../entity/term.entity';
-import AuthorizationService from '../services/authorization.service';
 import { OrganizationDeletion } from '../services/organization/organization-deletion.service';
 import { OrganizationExport } from '../services/organization/organization-export.service';
 import { OperatorOrganizations } from '../services/organization/organization-operator.service';
@@ -25,12 +16,10 @@ import { OrganizationDataController } from './organization-data.controller';
  * deletion with its hand-overs stays with the user routes (`UserController`, `UserService.deleteAccount`).
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([OperatorAudit, Organization, OrganizationUser, Project, ProjectUser, ProjectClient, ProjectLocale, Term, Label]),
-  ],
+  // The services read through the organization repository's entity manager
+  imports: [TypeOrmModule.forFeature([Organization])],
   controllers: [OperatorController, OrganizationDataController],
   providers: [
-    AuthorizationService,
     OperatorOrganizations,
     OrganizationExport,
     OrganizationDeletion,

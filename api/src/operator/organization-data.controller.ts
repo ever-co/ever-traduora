@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Req, Res } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ApiOAuth2, ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Access } from '../access/access.decorator';
@@ -24,10 +25,18 @@ const SAAS_ONLY = { enabled: () => assertSaasEnabled() };
 @ApiTags('Organizations')
 export class OrganizationDataController {
   constructor(
-    private readonly auth: AuthorizationService,
+    private readonly moduleRef: ModuleRef,
     private readonly exports: OrganizationExport,
     private readonly deletion: OrganizationDeletion,
   ) {}
+
+  /**
+   * The application's one authorization service (the access guard's), found across modules: this module does not
+   * provide a second one.
+   */
+  private get auth(): AuthorizationService {
+    return this.moduleRef.get(AuthorizationService, { strict: false });
+  }
 
   @Access('organization:ExportOrganization', SAAS_ONLY)
   @Get(':organizationId/export')
