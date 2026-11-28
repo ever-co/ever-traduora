@@ -51,6 +51,8 @@ The API server can be configured via the following environment variables:
 | TR_STRIPE_LIVE_MODE          | Set to 'true' to accept a live-mode Stripe key (go-live only). Anything else keeps billing in test mode | false                 |
 | TR_BILLING_AUTOMATIC_TAX     | Stripe Tax on Checkout and the subscriptions (needs Stripe Tax set up on the account) | true                  |
 | TR_STRIPE_PORTAL_CONFIGURATION | A Stripe customer portal configuration of this installation's own (`bpc_…`); unset uses the account's default one | not set               |
+| TR_BILLING_THROTTLE_LIMIT    | Requests per minute and organization to each billing change route (Checkout, the portal, a change of the subscription) | 20                    |
+| TR_BILLING_READ_THROTTLE_LIMIT | Requests per minute and organization to the billing page (`GET /organizations/:id/billing`) | 120                   |
 | TR_MAX_PROJECTS_PER_USER     | The max number of projects that can be created per user                                                                                                                                | 100                   |
 | TR_DEFAULT_PROJECT_PLAN      | The default project plan, by default set to _open-source_ and is limited to 100,000 strings (you are free to change it)                                                                | open-source           |
 | TR_DB_AUTOMIGRATE            | If enabled, on startup the server will ensure that all DB migrations have been applied                                                                                                 | true                  |

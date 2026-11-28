@@ -143,6 +143,12 @@ export const config = {
     automaticTax: getBoolOrDefault(env.TR_BILLING_AUTOMATIC_TAX, true),
     // A customer portal configuration of Traduora's own (bpc_…); the account's default one when unset
     portalConfiguration: (env.TR_STRIPE_PORTAL_CONFIGURATION || '').trim(),
+    // Requests per minute and organization, per billing route: Checkout, the portal and changes; the billing page
+    throttle: {
+      ttl: 60_000,
+      changes: getNumberOrDefault(env.TR_BILLING_THROTTLE_LIMIT, 20),
+      reads: getNumberOrDefault(env.TR_BILLING_READ_THROTTLE_LIMIT, 120),
+    },
   },
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),

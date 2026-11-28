@@ -41,8 +41,9 @@ export function createStripeClient(settings: StripeSettings): StripeClient | nul
   }
   stripeKeyMode(settings.stripeSecretKey, settings.stripeLiveMode);
   return new Stripe(settings.stripeSecretKey, {
-    maxNetworkRetries: 2,
-    timeout: 20_000,
+    // Calls outside a lock: one retry, 10 s each (the calls made under the webhook's lock pass 5 s and no retry)
+    maxNetworkRetries: 1,
+    timeout: 10_000,
     appInfo: { name: 'Ever Traduora', url: 'https://traduora.co' },
   });
 }

@@ -241,6 +241,51 @@ describe('BillingService', () => {
       expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
     });
 
+    it('calls Stripe outside the lock: two transactions, the session stored by the second', async () => {
+      const stripe = mockStripe();
+      const { tx, dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1' }));
+      await new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+        plan: OrganizationPlanCode.Enterprise,
+        interval: BillingInterval.Monthly,
+      });
+      expect(dataSource.manager.transaction).toHaveBeenCalledTimes(2);
+      // The session was made between the two: the first transaction wrote nothing
+      expect(tx.update).toHaveBeenCalledTimes(1);
+      expect(stripe.checkout.sessions.create.mock.invocationCallOrder[0]).toBeLessThan(tx.update.mock.invocationCallOrder[0]);
+    });
+
+    it('expires its session and answers checkout_busy when another Checkout was stored meanwhile', async () => {
+      const stripe = mockStripe();
+      let reads = 0;
+      const { tx, dataSource } = mockDataSource(() =>
+        organization({ stripeCustomerId: 'cus_1', checkoutAttempt: reads++ === 0 ? 0 : 1, checkoutSessionId: reads > 1 ? 'cs_other' : null }),
+      );
+      stripe.checkout.sessions.retrieve.mockResolvedValue({ id: 'cs_test_1', status: 'expired' });
+      await expect(
+        new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Monthly,
+        }),
+      ).rejects.toMatchObject({ code: 'checkout_busy' });
+      expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith('cs_test_1');
+      expect(tx.update).not.toHaveBeenCalled();
+    });
+
+    it('hands out the session a parallel click for the same order stored', async () => {
+      const stripe = mockStripe();
+      let reads = 0;
+      const { tx, dataSource } = mockDataSource(() =>
+        organization({ stripeCustomerId: 'cus_1', checkoutAttempt: reads++ === 0 ? 0 : 1, checkoutSessionId: reads > 1 ? 'cs_test_1' : null }),
+      );
+      const result = await new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+        plan: OrganizationPlanCode.Enterprise,
+        interval: BillingInterval.Monthly,
+      });
+      expect(result).toEqual({ url: 'https://checkout.stripe.test/1' });
+      expect(stripe.checkout.sessions.expire).not.toHaveBeenCalled();
+      expect(tx.update).not.toHaveBeenCalled();
+    });
+
     it('is off without a key, or outside SaaS mode', async () => {
       const { dataSource } = mockDataSource(() => organization());
       await expect(
@@ -309,7 +354,7 @@ describe('BillingService', () => {
       const { payload, signature } = signed(event('customer.subscription.created', { id: 'sub_1', customer: 'cus_1' }));
 
       expect(await service.handleWebhook(payload, signature)).toBe('applied');
-      expect(stripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_1');
+      expect(stripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_1', {}, { timeout: 5000, maxNetworkRetries: 0 });
       expect(tx.update).toHaveBeenCalledWith(
         Organization,
         { id: ORG_ID },

@@ -4,7 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import Stripe = require('stripe');
 import { config } from '../config';
 import { OrganizationPlanCode, OrganizationRole } from '../domain/organization-actions';
-import { isLiveStatus } from '../domain/billing-status';
+import { hasLiveSubscription, isLiveStatus } from '../domain/billing-status';
 import { planOf } from '../domain/organization-plans';
 import { BillingEvent } from '../entity/billing-event.entity';
 import { Organization } from '../entity/organization.entity';
@@ -41,6 +41,16 @@ import { isTestModeKey, STRIPE_CLIENT, StripeClient } from './stripe-client';
 const GRANTING_STATUSES: ReadonlySet<string> = new Set(['trialing', 'active', 'past_due', 'unpaid']);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** How long an invoice preview of the billing page is kept, and how many organizations' previews at most */
+const PREVIEW_CACHE_MS = 60 * 1000;
+const PREVIEW_CACHE_SIZE = 1000;
+
+/**
+ * Options of a Stripe call made while the organization's row is locked (the webhook): a short timeout and no retry, so
+ * the lock is never held long. A failure answers 500, and Stripe sends the event again.
+ */
+const LOCKED_CALL: Stripe.RequestOptions = { timeout: 5_000, maxNetworkRetries: 0 };
 
 /** How long the prices of the lookup keys are kept before they are read again */
 const PRICE_CACHE_MS = 10 * 60 * 1000;
@@ -97,6 +107,8 @@ const fromEpochSeconds = (seconds: number | null | undefined): Date | null =>
 export class BillingService {
   private readonly logger = new Logger('Billing');
   private prices: { readAt: number; byKey: Map<string, Stripe.Price> } | undefined;
+  /** The invoice previews of the billing page, by organization and subscription, kept a minute */
+  private readonly previews = new Map<string, { readAt: number; value: BillingView['nextInvoice'] }>();
 
   constructor(
     @Inject(STRIPE_CLIENT) private readonly stripe: StripeClient | null,
@@ -148,68 +160,140 @@ export class BillingService {
 
   /**
    * A Checkout session for the order (owner). Refused while a live subscription exists (409 `subscription_exists`: the
-   * subscription is changed instead). One Checkout at a time: the organization's row is locked; an open session for the
-   * same order is handed out again, one for another order is expired first; the Stripe call carries an idempotency key
-   * from the organization, the prices and the stored attempt counter.
+   * subscription is changed instead). One Checkout at a time, without holding the organization's lock over a call to
+   * Stripe (the shared Ever account bills other products too):
+   * 1. under the lock, the organization is read and the decision taken;
+   * 2. outside it, Stripe: the stored session (handed out again, or expired), the customer's live subscriptions, the
+   *    customer, the new session, each with an idempotency key, so two parallel clicks for one order get one session;
+   * 3. under the lock again, the session is stored only if nothing changed meanwhile; otherwise it is expired and the
+   *    request answers 409 `checkout_busy`.
    */
   async checkout(organizationId: string, owner: User, order: BillingOrderInput): Promise<{ url: string }> {
     const stripe = this.client();
     const wanted = this.validOrder(order);
     const prices = await this.pricesFor(wanted);
-    return readCommittedTransaction(this.dataSource.manager, async tx => {
+    const read = await readCommittedTransaction(this.dataSource.manager, async tx => {
       const organization = await this.locked(tx, organizationId);
-      if (isLiveStatus(organization.billingStatus) && organization.stripeSubscriptionId) {
+      if (hasLiveSubscription(organization)) {
         throw new OrganizationException(HttpStatus.CONFLICT, 'subscription_exists', 'The organization has a subscription: change it instead');
       }
-      const reused = await this.openSession(stripe, organization, wanted);
-      if (reused) {
-        return { url: reused };
-      }
-      if (organization.stripeCustomerId) {
-        await this.assertNoLiveSubscription(stripe, organization.stripeCustomerId);
-      }
-      const customer = organization.stripeCustomerId || (await this.createCustomer(stripe, organization, owner));
-      const attempt = (organization.checkoutAttempt || 0) + 1;
-      const trialDays = this.trialDays(organization);
-      const params = checkoutSessionParams(organization, customer, prices, wanted, trialDays, config.billing.automaticTax);
-      const session = await stripe.checkout.sessions.create(params, {
-        idempotencyKey: idempotencyKey('checkout', organization.id, attempt, params),
-      });
-      if (!session.url) {
-        throw new OrganizationException(HttpStatus.SERVICE_UNAVAILABLE, 'billing_unavailable', 'Stripe did not open a Checkout page');
-      }
-      await writeBillingFields(tx, organization.id, {
-        stripeCustomerId: customer,
-        checkoutSessionId: session.id,
-        checkoutExpiresAt: fromEpochSeconds(session.expires_at),
-        checkoutAttempt: attempt,
-      });
-      return { url: session.url };
+      return organization;
     });
+
+    const reused = await this.openSession(stripe, read, wanted);
+    if (reused) {
+      return { url: reused };
+    }
+    if (read.stripeCustomerId) {
+      await this.assertNoLiveSubscription(stripe, read.stripeCustomerId);
+    }
+    const customer = read.stripeCustomerId || (await this.createCustomer(stripe, read, owner));
+    const attempt = (read.checkoutAttempt || 0) + 1;
+    const params = checkoutSessionParams(read, customer, prices, wanted, this.trialDays(read), config.billing.automaticTax);
+    const session = await stripe.checkout.sessions.create(params, { idempotencyKey: idempotencyKey('checkout', read.id, attempt, params) });
+    if (!session.url) {
+      throw new OrganizationException(HttpStatus.SERVICE_UNAVAILABLE, 'billing_unavailable', 'Stripe did not open a Checkout page');
+    }
+
+    const stored = await readCommittedTransaction(this.dataSource.manager, async tx => {
+      const organization = await this.locked(tx, organizationId);
+      if (organization.checkoutSessionId === session.id) {
+        // A parallel click for the same order stored this very session (same idempotency key)
+        return true;
+      }
+      const unchanged =
+        !hasLiveSubscription(organization) &&
+        (organization.checkoutAttempt || 0) === (read.checkoutAttempt || 0) &&
+        (organization.stripeCustomerId || customer) === customer;
+      if (unchanged) {
+        await writeBillingFields(tx, organization.id, {
+          stripeCustomerId: customer,
+          checkoutSessionId: session.id,
+          checkoutExpiresAt: fromEpochSeconds(session.expires_at),
+          checkoutAttempt: attempt,
+        });
+      }
+      return unchanged;
+    });
+    if (!stored) {
+      await this.expireSession(stripe, session.id);
+      throw new OrganizationException(HttpStatus.CONFLICT, 'checkout_busy', 'The billing of this organization changed meanwhile. Try again.');
+    }
+    return { url: session.url };
   }
 
   /**
    * Changes the live subscription to the order (owner): the plan or its interval (the plan price is swapped), and the
-   * extra seats (the seat price's quantity, added or removed). Stripe prorates; a trial keeps running. The state Stripe
-   * answers is written at once, as the webhook would.
+   * extra seats (the seat price's quantity, added or removed). Stripe prorates; a trial keeps running. Read under the
+   * lock, changed on Stripe outside it (idempotency key over the subscription as it was and the change), and the state
+   * Stripe answers written under the lock again, as the webhook would; the webhook reconciles any race after.
    */
-  async changeSubscription(organizationId: string, order: BillingOrderInput): Promise<void> {
+  async changeSubscription(organizationId: string, order: BillingOrderInput): Promise<{ pending: boolean }> {
     const stripe = this.client();
     const wanted = this.validOrder(order);
     const prices = await this.pricesFor(wanted);
+    const read = await readCommittedTransaction(this.dataSource.manager, async tx => this.locked(tx, organizationId));
+    if (!hasLiveSubscription(read)) {
+      throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
+    }
+    const subscription = await stripe.subscriptions.retrieve(read.stripeSubscriptionId);
+    if (idOf(subscription.customer) !== read.stripeCustomerId) {
+      throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
+    }
+    const items = subscriptionChanges(subscription, prices);
+    if (!items.length) {
+      return { pending: false };
+    }
+    const params: Stripe.SubscriptionUpdateParams = { items, proration_behavior: 'create_prorations' };
+    const before = (subscription.items?.data ?? []).map(item => [item.id, item.price?.id, item.quantity]);
+    const updated = await stripe.subscriptions.update(subscription.id, params, {
+      idempotencyKey: idempotencyKey('change', read.id, 0, { subscription: subscription.id, before, params }),
+    });
+    await this.applyLatest(updated);
+    return { pending: !!updated.pending_update };
+  }
+
+  /**
+   * Cancels the organization's live subscription at once, without proration or a final invoice: for the organization's
+   * deletion (P6), which must not leave Stripe charging an organization nobody can reach. Answers whether there was one
+   * to cancel. The state is written as the webhook would; a subscription Stripe had canceled already is just written.
+   */
+  async cancelSubscription(organizationId: string): Promise<boolean> {
+    if (!this.enabled) {
+      return false;
+    }
+    const read = await readCommittedTransaction(this.dataSource.manager, async tx => this.locked(tx, organizationId));
+    if (!hasLiveSubscription(read)) {
+      return false;
+    }
+    let canceled: Stripe.Subscription;
+    try {
+      canceled = await this.stripe.subscriptions.cancel(
+        read.stripeSubscriptionId,
+        { prorate: false, invoice_now: false },
+        { idempotencyKey: `traduora-cancel-${read.stripeSubscriptionId}` },
+      );
+    } catch (error) {
+      canceled = await this.stripe.subscriptions.retrieve(read.stripeSubscriptionId);
+      if (canceled.status !== 'canceled') {
+        throw error;
+      }
+    }
+    await this.applyLatest(canceled);
+    return true;
+  }
+
+  /** Writes a subscription Stripe answered to its organization, under the lock, when it is still that organization's */
+  private async applyLatest(subscription: Stripe.Subscription): Promise<void> {
+    const customerId = idOf(subscription.customer);
+    const organizationId = customerId ? await organizationOfCustomer(this.dataSource.manager, customerId) : null;
+    if (!organizationId) {
+      return;
+    }
     await readCommittedTransaction(this.dataSource.manager, async tx => {
-      const organization = await this.locked(tx, organizationId);
-      if (!isLiveStatus(organization.billingStatus) || !organization.stripeSubscriptionId) {
-        throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
-      }
-      const subscription = await stripe.subscriptions.retrieve(organization.stripeSubscriptionId);
-      if (idOf(subscription.customer) !== organization.stripeCustomerId) {
-        throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
-      }
-      const items = subscriptionChanges(subscription, prices);
-      if (items.length) {
-        const updated = await stripe.subscriptions.update(subscription.id, { items, proration_behavior: 'create_prorations' });
-        await this.applySubscription(tx, organization, updated, new Date());
+      const organization = await lockOrganizationForBilling(tx, organizationId);
+      if (organization && organization.stripeSubscriptionId === subscription.id) {
+        await this.applySubscription(tx, organization, subscription, new Date());
       }
     });
   }
@@ -296,7 +380,7 @@ export class BillingService {
       if (!subscriptionId) {
         return 'no_subscription';
       }
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, {}, LOCKED_CALL);
       return this.applySubscription(tx, { ...organization, ...fields } as Organization, subscription, at);
     });
   }
@@ -304,7 +388,8 @@ export class BillingService {
   /**
    * A subscription event, or an invoice of a subscription: the organization is the one whose customer it is, and the
    * subscription is read again from Stripe under the organization's lock, so events that arrive out of order still
-   * leave the latest state.
+   * leave the latest state. That one call is made under the lock on purpose, with a short timeout and no retry
+   * (`LOCKED_CALL`): a slow Stripe fails the delivery (500), and Stripe sends it again later.
    */
   private async onSubscription(
     stripe: StripeClient,
@@ -321,7 +406,7 @@ export class BillingService {
       if (organization.stripeCustomerId !== customerId) {
         return 'foreign_customer';
       }
-      return this.applySubscription(tx, organization, await stripe.subscriptions.retrieve(subscriptionId), at);
+      return this.applySubscription(tx, organization, await stripe.subscriptions.retrieve(subscriptionId, {}, LOCKED_CALL), at);
     });
   }
 
@@ -396,6 +481,7 @@ export class BillingService {
       return { outcome: 'second_subscription_canceled', detail };
     }
     await writeBillingFields(tx, organization.id, subscriptionState(organization, subscription, bought, at));
+    this.forgetPreviews(organization.id);
     return 'applied';
   }
 
@@ -424,8 +510,20 @@ export class BillingService {
     if (same) {
       return session.url;
     }
-    await stripe.checkout.sessions.expire(session.id);
+    await this.expireSession(stripe, session.id);
     return null;
+  }
+
+  /** Expires a Checkout session; one that is no longer open (a parallel request expired it, or it was paid) is fine */
+  private async expireSession(stripe: StripeClient, sessionId: string): Promise<void> {
+    try {
+      await stripe.checkout.sessions.expire(sessionId);
+    } catch (error) {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      if (session.status === 'open') {
+        throw error;
+      }
+    }
   }
 
   /**
@@ -454,15 +552,15 @@ export class BillingService {
       await this.stripe.subscriptions.cancel(
         subscription.id,
         { prorate: false, invoice_now: false },
-        { idempotencyKey: `traduora-cancel-second-${subscription.id}` },
+        { ...LOCKED_CALL, idempotencyKey: `traduora-cancel-second-${subscription.id}` },
       );
     }
-    const [invoice] = (await this.stripe.invoices.list({ subscription: subscription.id, status: 'paid', limit: 1 })).data;
+    const [invoice] = (await this.stripe.invoices.list({ subscription: subscription.id, status: 'paid', limit: 1 }, LOCKED_CALL)).data;
     if (!invoice || !invoice.amount_paid) {
       return `canceled ${subscription.id}, nothing paid`;
     }
     const refunds: string[] = [];
-    const payments = await this.stripe.invoicePayments.list({ invoice: invoice.id, status: 'paid', limit: 10 });
+    const payments = await this.stripe.invoicePayments.list({ invoice: invoice.id, status: 'paid', limit: 10 }, LOCKED_CALL);
     for (const payment of payments.data) {
       const paymentIntent = idOf(payment.payment?.payment_intent as string | { id: string } | undefined);
       const charge = idOf(payment.payment?.charge as string | { id: string } | undefined);
@@ -471,7 +569,7 @@ export class BillingService {
       }
       const refund = await this.stripe.refunds.create(
         { ...(paymentIntent ? { payment_intent: paymentIntent } : { charge }), reason: 'duplicate', metadata: { subscription: subscription.id } },
-        { idempotencyKey: `traduora-refund-${invoice.id}-${payment.id}` },
+        { ...LOCKED_CALL, idempotencyKey: `traduora-refund-${invoice.id}-${payment.id}` },
       );
       refunds.push(refund.id);
     }
@@ -576,6 +674,29 @@ export class BillingService {
 
   /** The next invoice of the live subscription, as Stripe previews it; its date alone when the preview fails */
   private async nextInvoice(organization: Organization): Promise<BillingView['nextInvoice']> {
+    const key = `${organization.id}:${organization.stripeSubscriptionId}:${organization.billingStatus}`;
+    const cached = this.previews.get(key);
+    if (cached && Date.now() - cached.readAt < PREVIEW_CACHE_MS) {
+      return cached.value;
+    }
+    const value = await this.previewInvoice(organization);
+    if (this.previews.size >= PREVIEW_CACHE_SIZE) {
+      this.previews.delete(this.previews.keys().next().value);
+    }
+    this.previews.set(key, { readAt: Date.now(), value });
+    return value;
+  }
+
+  /** Drops the organization's cached invoice previews: its subscription changed */
+  private forgetPreviews(organizationId: string): void {
+    for (const key of [...this.previews.keys()]) {
+      if (key.startsWith(`${organizationId}:`)) {
+        this.previews.delete(key);
+      }
+    }
+  }
+
+  private async previewInvoice(organization: Organization): Promise<BillingView['nextInvoice']> {
     const date = iso(
       organization.billingStatus === 'trialing' && organization.trialEndsAt ? organization.trialEndsAt : organization.currentPeriodEnd,
     );

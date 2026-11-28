@@ -487,7 +487,8 @@ describe('Billing (e2e)', () => {
       expect(stripe.callsTo('subscriptions.cancel').map(call => call.args[0])).toEqual(['sub_third']);
       const [refund] = stripe.callsTo('refunds.create');
       expect(refund.args[0]).toMatchObject({ payment_intent: 'pi_in_third', reason: 'duplicate' });
-      expect(refund.args[1]).toEqual({ idempotencyKey: 'traduora-refund-in_third-inpay_in_third' });
+      // Under the organization's lock: a short timeout, no retry
+      expect(refund.args[1]).toEqual({ idempotencyKey: 'traduora-refund-in_third-inpay_in_third', timeout: 5000, maxNetworkRetries: 0 });
       expect(await billingState()).toEqual(state);
       const logged = await dataSource
         .getRepository(BillingEvent)
@@ -516,6 +517,43 @@ describe('Billing (e2e)', () => {
     it('lets a new subscription take over once the old one ended', async () => {
       await subscribe(organizationId, { subscription: 'sub_new', status: 'active', plan: 'small_business' });
       expect(await billingState()).toMatchObject({ subscription: 'sub_new', status: 'active', planCode: 'small_business' });
+    });
+  });
+
+  describe('limits on the shared Stripe account', () => {
+    it('throttles each billing route per organization', async () => {
+      const { owner: busy, organizationId: busyId } = await newOwner('busy-owner');
+      const statuses: number[] = [];
+      for (let i = 0; i <= config.billing.throttle.changes; i++) {
+        statuses.push((await portal(busy, busyId)).status);
+      }
+      expect(statuses.slice(0, -1).every(status => status === 409)).toBe(true);
+      expect(statuses[statuses.length - 1]).toBe(429);
+      // Another organization, and another route of the same one, keep their own count
+      await portal(owner).expect(200);
+      await billingOf(busy, busyId).expect(200);
+    });
+
+    it('keeps the invoice preview of the billing page a minute', async () => {
+      stripe.reset();
+      await billingOf(owner).expect(200);
+      await billingOf(owner).expect(200);
+      expect(stripe.callsTo('invoices.createPreview').length).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe('cancellation for the organization deletion (P6)', () => {
+    it('cancels the live subscription at once, without proration, and writes Starter', async () => {
+      const { owner: leaving, organizationId: leavingId } = await newOwner('leaving-owner');
+      await checkout(leaving, { plan: 'small_business', interval: 'monthly' }, leavingId).expect(200);
+      await subscribe(leavingId, { subscription: 'sub_leaving', status: 'active' });
+      stripe.reset();
+      expect(await app.get(BillingService).cancelSubscription(leavingId)).toBe(true);
+      const [cancel] = stripe.callsTo('subscriptions.cancel');
+      expect(cancel.args.slice(0, 2)).toEqual(['sub_leaving', { prorate: false, invoice_now: false }]);
+      expect(await billingState(leavingId)).toMatchObject({ planCode: 'starter', status: 'canceled' });
+      // Nothing left to cancel
+      expect(await app.get(BillingService).cancelSubscription(leavingId)).toBe(false);
     });
   });
 
