@@ -80,43 +80,49 @@ async function main() {
     { label: 'checkout enterprise monthly', plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Monthly, extraSeats: 0, trial: 0 },
   ];
   const opened: string[] = [];
-  for (const order of orders) {
-    const seat = order.plan === OrganizationPlanCode.SmallBusiness ? priceOf(seatLookupKey(order.interval)) : null;
-    const params = checkoutSessionParams(
-      organization,
-      customer.id,
-      { plan: priceOf(planLookupKey(order.plan, order.interval)), seat },
-      { plan: order.plan, interval: order.interval, extraSeats: order.extraSeats },
-      order.trial,
-      true,
-    );
-    const session = await stripe.checkout.sessions.create(params, { idempotencyKey: `traduora-smoke-${run}-${order.label.replace(/\W+/g, '-')}` });
-    opened.push(session.id);
-    const items = await stripe.checkout.sessions.listLineItems(session.id, { limit: 10 });
-    out(order.label, {
-      id: session.id,
-      status: session.status,
-      mode: session.mode,
-      livemode: session.livemode,
-      hasUrl: !!session.url,
-      automaticTax: session.automatic_tax?.enabled,
-      lineItems: items.data.map(item => `${item.price?.lookup_key} x${item.quantity}`),
-      // Stripe accepts the optional seat item, but does not echo optional items back in this API version
-      seatOffered: !!params.optional_items?.length,
+  try {
+    for (const order of orders) {
+      const seat = order.plan === OrganizationPlanCode.SmallBusiness ? priceOf(seatLookupKey(order.interval)) : null;
+      const params = checkoutSessionParams(
+        organization,
+        customer.id,
+        { plan: priceOf(planLookupKey(order.plan, order.interval)), seat },
+        { plan: order.plan, interval: order.interval, extraSeats: order.extraSeats },
+        order.trial,
+        true,
+      );
+      const session = await stripe.checkout.sessions.create(params, { idempotencyKey: `traduora-smoke-${run}-${order.label.replace(/\W+/g, '-')}` });
+      opened.push(session.id);
+      const items = await stripe.checkout.sessions.listLineItems(session.id, { limit: 10 });
+      out(order.label, {
+        id: session.id,
+        status: session.status,
+        mode: session.mode,
+        livemode: session.livemode,
+        hasUrl: !!session.url,
+        automaticTax: session.automatic_tax?.enabled,
+        lineItems: items.data.map(item => `${item.price?.lookup_key} x${item.quantity}`),
+        // Stripe accepts the optional seat item, but does not echo optional items back in this API version
+        seatOffered: !!params.optional_items?.length,
+      });
+    }
+
+    // 4. The customer portal on that customer
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customer.id,
+      return_url: 'https://app-dev.traduora.co/orgs/smoke-test/billing',
     });
-  }
-
-  // 4. The customer portal on that customer
-  const portal = await stripe.billingPortal.sessions.create({
-    customer: customer.id,
-    return_url: 'https://app-dev.traduora.co/orgs/smoke-test/billing',
-  });
-  out('portal session', { id: portal.id, livemode: portal.livemode, hasUrl: !!portal.url });
-
-  // 5. Nothing stays open
-  for (const id of opened) {
-    const expired = await stripe.checkout.sessions.expire(id);
-    out('expired', { id: expired.id, status: expired.status });
+    out('portal session', { id: portal.id, livemode: portal.livemode, hasUrl: !!portal.url });
+  } finally {
+    // 5. Nothing stays open, even after a failure above (each session on its own; the first failure is kept)
+    for (const id of opened) {
+      try {
+        const expired = await stripe.checkout.sessions.expire(id);
+        out('expired', { id: expired.id, status: expired.status });
+      } catch (error) {
+        out('expire failed', { id, code: error?.code ?? error?.message });
+      }
+    }
   }
 
   // 6. A paid subscription, changed as the API changes it (a full client for the test card and the subscription)
@@ -128,51 +134,60 @@ async function main() {
     plan: priceOf(planLookupKey(OrganizationPlanCode.SmallBusiness, BillingInterval.Monthly)),
     seat: priceOf(seatLookupKey(BillingInterval.Monthly)),
   };
-  let subscription = await full.subscriptions.create(
-    {
-      customer: customer.id,
-      items: [
-        { price: monthly.plan.id, quantity: 1 },
-        { price: monthly.seat.id, quantity: 2 },
-      ],
-      metadata: { smoke_test: 'true' },
-    },
-    { idempotencyKey: `traduora-smoke-${run}-subscription` },
-  );
-  out('subscription (test card)', { id: subscription.id, status: subscription.status, plan: plan(subscription) });
+  let subscription: Stripe.Subscription | undefined;
+  try {
+    subscription = await full.subscriptions.create(
+      {
+        customer: customer.id,
+        items: [
+          { price: monthly.plan.id, quantity: 1 },
+          { price: monthly.seat.id, quantity: 2 },
+        ],
+        metadata: { smoke_test: 'true' },
+      },
+      { idempotencyKey: `traduora-smoke-${run}-subscription` },
+    );
+    out('subscription (test card)', { id: subscription.id, status: subscription.status, plan: plan(subscription) });
 
-  const fewer = subscriptionUpdate(
-    subscription,
-    { ...monthly, extraSeats: 1 },
-    { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 1 },
-  );
-  subscription = await full.subscriptions.update(subscription.id, fewer);
-  out('fewer seats (create_prorations)', {
-    behavior: fewer.proration_behavior,
-    status: subscription.status,
-    plan: plan(subscription),
-    pending: !!subscription.pending_update,
-  });
+    const fewer = subscriptionUpdate(
+      subscription,
+      { ...monthly, extraSeats: 1 },
+      { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 1 },
+    );
+    subscription = await full.subscriptions.update(subscription.id, fewer);
+    out('fewer seats (create_prorations)', {
+      behavior: fewer.proration_behavior,
+      status: subscription.status,
+      plan: plan(subscription),
+      pending: !!subscription.pending_update,
+    });
 
-  const declining = await full.paymentMethods.attach('pm_card_chargeCustomerFail', { customer: customer.id });
-  await full.customers.update(customer.id, { invoice_settings: { default_payment_method: declining.id } });
-  const enterprise = { plan: priceOf(planLookupKey(OrganizationPlanCode.Enterprise, BillingInterval.Monthly)), seat: null, extraSeats: 0 };
-  const upgrade = subscriptionUpdate(subscription, enterprise, {
-    plan: OrganizationPlanCode.Enterprise,
-    interval: BillingInterval.Monthly,
-    extraSeats: 0,
-  });
-  subscription = await full.subscriptions.update(subscription.id, upgrade);
-  out('upgrade, card declined', {
-    behavior: `${upgrade.proration_behavior} ${upgrade.payment_behavior}`,
-    status: subscription.status,
-    plan: plan(subscription),
-    pending: !!subscription.pending_update,
-  });
-
-  // The backstop of a second subscription: canceled at once, and what it was paid refunded
-  const canceled = await full.subscriptions.cancel(subscription.id, { prorate: false, invoice_now: false });
-  out('canceled + refunded (backstop)', { id: canceled.id, status: canceled.status, refund: await refundLatestPayment(full, canceled.id) });
+    const declining = await full.paymentMethods.attach('pm_card_chargeCustomerFail', { customer: customer.id });
+    await full.customers.update(customer.id, { invoice_settings: { default_payment_method: declining.id } });
+    const enterprise = { plan: priceOf(planLookupKey(OrganizationPlanCode.Enterprise, BillingInterval.Monthly)), seat: null, extraSeats: 0 };
+    const upgrade = subscriptionUpdate(subscription, enterprise, {
+      plan: OrganizationPlanCode.Enterprise,
+      interval: BillingInterval.Monthly,
+      extraSeats: 0,
+    });
+    subscription = await full.subscriptions.update(subscription.id, upgrade);
+    out('upgrade, card declined', {
+      behavior: `${upgrade.proration_behavior} ${upgrade.payment_behavior}`,
+      status: subscription.status,
+      plan: plan(subscription),
+      pending: !!subscription.pending_update,
+    });
+  } finally {
+    // The backstop's calls (cancel at once, refund what was paid), also as the clean-up after a failure above
+    if (subscription && subscription.status !== 'canceled') {
+      try {
+        const canceled = await full.subscriptions.cancel(subscription.id, { prorate: false, invoice_now: false });
+        out('canceled + refunded (backstop)', { id: canceled.id, status: canceled.status, refund: await refundLatestPayment(full, canceled.id) });
+      } catch (error) {
+        out('clean-up failed', { id: subscription.id, code: error?.code ?? error?.message });
+      }
+    }
+  }
 }
 
 main().catch(error => {
