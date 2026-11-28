@@ -43,9 +43,14 @@ export async function organizationOfCustomer(manager: EntityManager, customerId:
   return organization?.id ?? null;
 }
 
-/** Whether an organization with this id exists, read without a lock */
-export async function organizationExists(manager: EntityManager, organizationId: string): Promise<boolean> {
-  if (typeof organizationId !== 'string' || !organizationId) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Whether an organization with this id exists, read without a lock. Anything that is no uuid is none (another product's
+ * reference in a Stripe event): PostgreSQL would refuse to compare it with the uuid column.
+ */
+export async function organizationExists(manager: EntityManager, organizationId: unknown): Promise<boolean> {
+  if (typeof organizationId !== 'string' || !UUID.test(organizationId)) {
     return false;
   }
   return manager.exists(Organization, { where: { id: organizationId } });

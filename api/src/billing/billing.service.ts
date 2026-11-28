@@ -22,6 +22,8 @@ import {
   BillingInterval,
   isInterval,
   isPaidPlan,
+  isPlanLookupKey,
+  isSeatLookupKey,
   MAX_EXTRA_SEATS,
   planLookupKey,
   seatLookupKey,
@@ -233,7 +235,7 @@ export class BillingService {
       if (idOf(subscription.customer) !== organization.stripeCustomerId) {
         throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
       }
-      const items = this.changedItems(subscription, prices);
+      const items = subscriptionChanges(subscription, prices);
       if (items.length) {
         const updated = await stripe.subscriptions.update(subscription.id, { items, proration_behavior: 'create_prorations' });
         await this.applySubscription(tx, organization, updated, new Date());
@@ -407,32 +409,6 @@ export class BillingService {
     return 'applied';
   }
 
-  /** The items of a subscription update that bring it to the order: the plan price swapped, the seat price set */
-  private changedItems(subscription: Stripe.Subscription, prices: OrderPrices): Stripe.SubscriptionUpdateParams.Item[] {
-    const items = subscription.items?.data ?? [];
-    const changes: Stripe.SubscriptionUpdateParams.Item[] = [];
-    const planItem = items.find(item => /^ever_traduora_cloud_/.test(item.price?.lookup_key ?? ''));
-    if (!planItem) {
-      throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
-    }
-    if (planItem.price.id !== prices.plan.id) {
-      changes.push({ id: planItem.id, price: prices.plan.id, quantity: 1 });
-    }
-    const seatItems = items.filter(item => /^seat_ever_traduora_cloud_/.test(item.price?.lookup_key ?? ''));
-    const [seatItem, ...extra] = seatItems;
-    extra.forEach(item => changes.push({ id: item.id, deleted: true }));
-    if (prices.seat && prices.extraSeats > 0) {
-      if (!seatItem) {
-        changes.push({ price: prices.seat.id, quantity: prices.extraSeats });
-      } else if (seatItem.price.id !== prices.seat.id || seatItem.quantity !== prices.extraSeats) {
-        changes.push({ id: seatItem.id, price: prices.seat.id, quantity: prices.extraSeats });
-      }
-    } else if (seatItem) {
-      changes.push({ id: seatItem.id, deleted: true });
-    }
-    return changes;
-  }
-
   /** The open session of the organization for this order, handed out again; one for another order is expired */
   private async openSession(stripe: StripeClient, organization: Organization, order: BillingOrder): Promise<string | null> {
     if (!organization.checkoutSessionId) {
@@ -536,7 +512,7 @@ export class BillingService {
   }
 }
 
-interface OrderPrices {
+export interface OrderPrices {
   plan: Stripe.Price;
   seat: Stripe.Price | null;
   extraSeats: number;
@@ -574,4 +550,29 @@ export function subscriptionState(organization: Organization, subscription: Stri
     // A live subscription needs no Checkout any more
     ...(grants ? { checkoutSessionId: null, checkoutExpiresAt: null } : {}),
   };
+}
+
+/** The items of a subscription update that bring it to the order: the plan price swapped, the seat price set or removed */
+export function subscriptionChanges(subscription: Stripe.Subscription, prices: OrderPrices): Stripe.SubscriptionUpdateParams.Item[] {
+  const items = subscription.items?.data ?? [];
+  const planItem = items.find(item => isPlanLookupKey(item.price?.lookup_key));
+  if (!planItem) {
+    throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
+  }
+  const changes: Stripe.SubscriptionUpdateParams.Item[] = [];
+  if (planItem.price.id !== prices.plan.id) {
+    changes.push({ id: planItem.id, price: prices.plan.id, quantity: 1 });
+  }
+  const [seatItem, ...others] = items.filter(item => isSeatLookupKey(item.price?.lookup_key));
+  others.forEach(item => changes.push({ id: item.id, deleted: true }));
+  if (prices.seat && prices.extraSeats > 0) {
+    if (!seatItem) {
+      changes.push({ price: prices.seat.id, quantity: prices.extraSeats });
+    } else if (seatItem.price.id !== prices.seat.id || seatItem.quantity !== prices.extraSeats) {
+      changes.push({ id: seatItem.id, price: prices.seat.id, quantity: prices.extraSeats });
+    }
+  } else if (seatItem) {
+    changes.push({ id: seatItem.id, deleted: true });
+  }
+  return changes;
 }
