@@ -20,7 +20,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
 import { Throttle } from '@nestjs/throttler';
 import { config } from '../config';
 import {
@@ -584,44 +584,59 @@ export class AuthController {
       );
       const accepted: Invite[] = [];
       for (const invite of [...invites].sort((a, b) => byCodeUnits(a.project.organizationId, b.project.organizationId))) {
-        if (current?.email !== invite.email) {
-          continue;
+        if (current?.email === invite.email && (await this.acceptOneInvite(entityManager, invite, user, options))) {
+          accepted.push(invite);
         }
-        // Under the organization lock that a member removal takes, so the two cannot interleave (the user row is
-        // locked first and a removal never locks it, so the order cannot deadlock). Only into an organization that is
-        // open: an invite of a suspended or closed one stays as it is
-        const organization = await lockOrganization(entityManager, invite.project.organizationId);
-        if (!organization || !(await isOpenForMembers(entityManager, invite.project.organizationId))) {
-          continue;
-        }
-        const refusal = await seatRefusal(entityManager, organization, { email: invite.email, userId: user.id }, 'member', user.id);
-        if (refusal) {
-          if (options.onLimit === 'refuse') {
-            throw refusal;
-          }
-          continue;
-        }
-        const { affected } = await entityManager.update(
-          Invite,
-          { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() },
-          { status: InviteStatus.Accepted, tokenHash: null },
-        );
-        if (!affected) {
-          continue;
-        }
-        // The organization membership first, then the project's (DESIGN §4.3): a project membership alone gives no
-        // access outside the project's organization
-        await ensureMember(entityManager, invite.project.organizationId, user.id);
-        const membership = await entityManager.findOne(ProjectUser, {
-          where: { project: { id: invite.project.id }, user: { id: user.id } },
-        });
-        if (!membership) {
-          await entityManager.save(entityManager.create(ProjectUser, { project: { id: invite.project.id }, user, role: invite.role }));
-        }
-        accepted.push(invite);
       }
       return accepted;
     });
+  }
+
+  /** One invitation of {@link acceptInvites}: whether it was accepted. */
+  private async acceptOneInvite(
+    entityManager: EntityManager,
+    invite: Invite,
+    user: User,
+    options: { onLimit?: 'skip' | 'refuse' },
+  ): Promise<boolean> {
+    // Under the organization lock that a member removal takes, so the two cannot interleave (the user row is
+    // locked first and a removal never locks it, so the order cannot deadlock). Only into an organization that is
+    // open: an invite of a suspended or closed one stays as it is
+    const organization = await lockOrganization(entityManager, invite.project.organizationId);
+    if (!organization || !(await isOpenForMembers(entityManager, invite.project.organizationId))) {
+      return false;
+    }
+    // Still exactly as the caller read it, and locked, still pending, while its seat is counted: a stale link answers
+    // as no invitation (404), never as a full organization
+    const currentInvite = { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() };
+    const stillCurrent = await entityManager.findOne(Invite, {
+      where: currentInvite,
+      ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+    });
+    if (!stillCurrent) {
+      return false;
+    }
+    const refusal = await seatRefusal(entityManager, organization, { email: invite.email, userId: user.id }, 'member', user.id);
+    if (refusal) {
+      if (options.onLimit === 'refuse') {
+        throw refusal;
+      }
+      return false;
+    }
+    const { affected } = await entityManager.update(Invite, currentInvite, { status: InviteStatus.Accepted, tokenHash: null });
+    if (!affected) {
+      return false;
+    }
+    // The organization membership first, then the project's (DESIGN §4.3): a project membership alone gives no
+    // access outside the project's organization
+    await ensureMember(entityManager, invite.project.organizationId, user.id);
+    const membership = await entityManager.findOne(ProjectUser, {
+      where: { project: { id: invite.project.id }, user: { id: user.id } },
+    });
+    if (!membership) {
+      await entityManager.save(entityManager.create(ProjectUser, { project: { id: invite.project.id }, user, role: invite.role }));
+    }
+    return true;
   }
 
   // Sign-in with an OpenID Connect provider (e.g. Ever ID). Accounts are found by the provider's issuer and subject

@@ -418,45 +418,76 @@ export class OrganizationService {
       const accepted: AcceptedInvite[] = [];
       // The organizations in the order of their ids, after the account: the global lock order (see lockOrganization)
       for (const invite of [...invites].sort((a, b) => byCodeUnits(a.organizationId, b.organizationId))) {
-        if (current?.email !== invite.email) {
-          continue;
+        // Invitations belong to the e-mail they were sent to, so only while the account still has it
+        const result = current?.email === invite.email ? await this.acceptOne(tx, invite, user, options) : null;
+        if (result) {
+          accepted.push(result);
         }
-        const organization = await lockOrganization(tx, invite.organizationId);
-        // Only into an active organization that has its owner (a closed one has no pending invites left anyway)
-        if (!organization || !(await isOpenForMembers(tx, invite.organizationId))) {
-          continue;
-        }
-        const refusal = await seatRefusal(tx, organization, { email: invite.email, userId: user.id }, 'member', user.id);
-        if (refusal) {
-          if (options.onLimit === 'refuse') {
-            throw refusal;
-          }
-          continue;
-        }
-        const { affected } = await tx.update(
-          OrganizationInvite,
-          { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() },
-          { status: InviteStatus.Accepted, tokenHash: null },
-        );
-        if (!affected) {
-          continue;
-        }
-        const existing = await tx.findOne(OrganizationUser, { where: { organizationId: invite.organizationId, userId: user.id } });
-        let role = invite.role;
-        if (!existing) {
-          await tx.save(tx.create(OrganizationUser, { organizationId: invite.organizationId, userId: user.id, role }));
-        } else if (outranks(invite.role, existing.role)) {
-          // A membership made first by a project invite (as a member) gets the role this invitation grants
-          await tx.update(OrganizationUser, { id: existing.id }, { role });
-        } else {
-          // Never lowered: a higher role stays
-          role = existing.role;
-        }
-        await recountSeats(tx, invite.organizationId);
-        accepted.push({ invite, role });
       }
       return accepted;
     });
+  }
+
+  /** One invitation of {@link acceptInvites}, under its organization's lock: `null` when it is not accepted. */
+  private async acceptOne(
+    tx: EntityManager,
+    invite: OrganizationInvite,
+    user: User,
+    options: { onLimit?: 'skip' | 'refuse' },
+  ): Promise<AcceptedInvite | null> {
+    const organization = await lockOrganization(tx, invite.organizationId);
+    // Only into an active organization that has its owner (a closed one has no pending invites left anyway)
+    if (!organization || !(await isOpenForMembers(tx, invite.organizationId))) {
+      return null;
+    }
+    // Still exactly as the caller read it (an admin may have sent a new link, changed the role or revoked it), and
+    // locked, still pending, while its seat is counted: a stale link answers as no invitation, never as a full
+    // organization
+    if (!(await this.lockCurrentInvite(tx, invite))) {
+      return null;
+    }
+    const refusal = await seatRefusal(tx, organization, { email: invite.email, userId: user.id }, 'member', user.id);
+    if (refusal) {
+      if (options.onLimit === 'refuse') {
+        throw refusal;
+      }
+      return null;
+    }
+    const { affected } = await tx.update(OrganizationInvite, this.currentInvite(invite), { status: InviteStatus.Accepted, tokenHash: null });
+    if (!affected) {
+      return null;
+    }
+    const role = await this.joinWith(tx, invite, user.id);
+    await recountSeats(tx, invite.organizationId);
+    return { invite, role };
+  }
+
+  /** The criteria of an invitation still exactly as it was read: pending, same role, same link */
+  private currentInvite(invite: OrganizationInvite) {
+    return { id: invite.id, status: InviteStatus.Sent, role: invite.role, tokenHash: invite.tokenHash ?? IsNull() };
+  }
+
+  private lockCurrentInvite(tx: EntityManager, invite: OrganizationInvite): Promise<OrganizationInvite | null> {
+    return tx.findOne(OrganizationInvite, {
+      where: this.currentInvite(invite),
+      ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+    });
+  }
+
+  /** Makes the person a member with the invitation's role, or raises their role to it; answers the role they hold. */
+  private async joinWith(tx: EntityManager, invite: OrganizationInvite, userId: string): Promise<OrganizationRole> {
+    const existing = await tx.findOne(OrganizationUser, { where: { organizationId: invite.organizationId, userId } });
+    if (!existing) {
+      await tx.save(tx.create(OrganizationUser, { organizationId: invite.organizationId, userId, role: invite.role }));
+      return invite.role;
+    }
+    if (outranks(invite.role, existing.role)) {
+      // A membership made first by a project invite (as a member) gets the role this invitation grants
+      await tx.update(OrganizationUser, { id: existing.id }, { role: invite.role });
+      return invite.role;
+    }
+    // Never lowered: a higher role stays
+    return existing.role;
   }
 
   /**
