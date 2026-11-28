@@ -1,6 +1,6 @@
 import Stripe = require('stripe');
 import { config } from '../config';
-import { OrganizationPlanCode } from '../domain/organization-actions';
+import { OrganizationPlanCode, OrganizationStatus } from '../domain/organization-actions';
 import { Organization } from '../entity/organization.entity';
 import { User } from '../entity/user.entity';
 import { BillingInterval } from './billing-plans';
@@ -9,6 +9,7 @@ import {
   checkoutSessionParams,
   idempotencyKey,
   invoiceSubscriptionId,
+  raisesTheBillOf,
   subscriptionChanges,
   subscriptionState,
 } from './billing.service';
@@ -37,6 +38,7 @@ function organization(overrides: Partial<Organization> = {}): Organization {
     id: ORG_ID,
     name: 'Acme',
     slug: 'acme',
+    status: OrganizationStatus.Active,
     planCode: OrganizationPlanCode.Starter,
     isDefault: false,
     stripeCustomerId: null,
@@ -87,12 +89,20 @@ function mockDataSource(row: () => Organization | null) {
     exists: jest.fn(async () => false),
     insert: jest.fn(async () => undefined),
   };
+  const state = { inTransaction: false };
   const manager = {
-    transaction: jest.fn(async (...args: any[]) => args[args.length - 1](tx)),
+    transaction: jest.fn(async (...args: any[]) => {
+      state.inTransaction = true;
+      try {
+        return await args[args.length - 1](tx);
+      } finally {
+        state.inTransaction = false;
+      }
+    }),
     findOne: jest.fn(async () => null),
     exists: jest.fn(async () => false),
   };
-  return { tx, dataSource: { manager } as any };
+  return { tx, state, dataSource: { manager } as any };
 }
 
 describe('BillingService', () => {
@@ -243,7 +253,15 @@ describe('BillingService', () => {
 
     it('calls Stripe outside the lock: two transactions, the session stored by the second', async () => {
       const stripe = mockStripe();
-      const { tx, dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1' }));
+      const { tx, state, dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1' }));
+      const insideAtCall: boolean[] = [];
+      for (const call of [stripe.checkout.sessions.create, stripe.subscriptions.list, stripe.prices.list]) {
+        const original = call.getMockImplementation();
+        call.mockImplementation(async (...args: any[]) => {
+          insideAtCall.push(state.inTransaction);
+          return original(...args);
+        });
+      }
       await new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
         plan: OrganizationPlanCode.Enterprise,
         interval: BillingInterval.Monthly,
@@ -252,6 +270,38 @@ describe('BillingService', () => {
       // The session was made between the two: the first transaction wrote nothing
       expect(tx.update).toHaveBeenCalledTimes(1);
       expect(stripe.checkout.sessions.create.mock.invocationCallOrder[0]).toBeLessThan(tx.update.mock.invocationCallOrder[0]);
+      // No Stripe call while a transaction (the organization's lock) is open
+      expect(insideAtCall.length).toBeGreaterThanOrEqual(2);
+      expect(insideAtCall.every(inside => !inside)).toBe(true);
+    });
+
+    it('expires the session it made when storing it fails, and answers the error', async () => {
+      const stripe = mockStripe();
+      const { tx, dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1' }));
+      tx.update.mockRejectedValue(new Error('connection lost'));
+      await expect(
+        new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Monthly,
+        }),
+      ).rejects.toThrow('connection lost');
+      expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith('cs_test_1');
+    });
+
+    it('hands out no session for an organization closed meanwhile', async () => {
+      const stripe = mockStripe();
+      let reads = 0;
+      const { tx, dataSource } = mockDataSource(() =>
+        organization({ stripeCustomerId: 'cus_1', status: reads++ === 0 ? OrganizationStatus.Active : OrganizationStatus.Deleted }),
+      );
+      await expect(
+        new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Monthly,
+        }),
+      ).rejects.toMatchObject({ code: 'checkout_busy' });
+      expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith('cs_test_1');
+      expect(tx.update).not.toHaveBeenCalled();
     });
 
     it('expires its session and answers checkout_busy when another Checkout was stored meanwhile', async () => {
@@ -405,6 +455,62 @@ describe('BillingService', () => {
     });
   });
 
+  describe('raisesTheBillOf', () => {
+    const priced = (lookupKey: string, amount: number, interval: 'month' | 'year' = 'month') =>
+      ({ id: `price_${lookupKey}`, lookup_key: lookupKey, unit_amount: amount, recurring: { interval } }) as unknown as Stripe.Price;
+    const sbMonthly = priced('ever_traduora_cloud_small_business_monthly', 4900);
+    const seatMonthly = priced('seat_ever_traduora_cloud_small_business_monthly', 500);
+    const entMonthly = priced('ever_traduora_cloud_enterprise_monthly', 49900);
+    const holding = (...items: Array<[Stripe.Price, number]>) =>
+      subscription({ items: { data: items.map(([itemPrice, quantity], index) => ({ id: `si_${index}`, price: itemPrice, quantity })) } });
+
+    it('compares the bills: Enterprise to Small Business with 100 seats is a raise ($549 against $499)', () => {
+      expect(
+        raisesTheBillOf(
+          holding([entMonthly, 1]),
+          { plan: sbMonthly, seat: seatMonthly, extraSeats: 100 },
+          { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 100 },
+        ),
+      ).toBe(true);
+      expect(
+        raisesTheBillOf(
+          holding([entMonthly, 1]),
+          { plan: sbMonthly, seat: seatMonthly, extraSeats: 2 },
+          { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 2 },
+        ),
+      ).toBe(false);
+      expect(
+        raisesTheBillOf(
+          holding([sbMonthly, 1], [seatMonthly, 120]),
+          { plan: entMonthly, seat: null, extraSeats: 0 },
+          { plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Monthly, extraSeats: 0 },
+        ),
+      ).toBe(false);
+    });
+
+    it('takes monthly to yearly as a raise always, and falls back to the plan rule without amounts', () => {
+      const sbAnnual = priced('ever_traduora_cloud_small_business_annual', 40800, 'year');
+      expect(
+        raisesTheBillOf(
+          holding([sbMonthly, 1]),
+          { plan: sbAnnual, seat: null, extraSeats: 0 },
+          { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Annual, extraSeats: 0 },
+        ),
+      ).toBe(true);
+      expect(
+        raisesTheBillOf(
+          subscription(),
+          { plan: price('ever_traduora_cloud_enterprise_monthly'), seat: null, extraSeats: 0 },
+          {
+            plan: OrganizationPlanCode.Enterprise,
+            interval: BillingInterval.Monthly,
+            extraSeats: 0,
+          },
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe('idempotency keys', () => {
     const prices = { plan: price('ever_traduora_cloud_small_business_monthly'), seat: price('seat_ever_traduora_cloud_small_business_monthly') };
     const order = { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 2 };
@@ -444,6 +550,12 @@ describe('BillingService', () => {
       expect(subscriptionState(organization(), subscription({ trial_end: 1_850_000_000 }), bought, at).trialEndsAt).toEqual(
         new Date(1_850_000_000 * 1000),
       );
+    });
+
+    it('dates the past due from the current delinquency when Stripe tells it, over any event and any stored date', () => {
+      const delinquent = new Date('2026-11-27T09:00:00Z');
+      const pastDue = organization({ billingStatus: 'past_due', pastDueSince: new Date('2026-10-01T00:00:00Z') });
+      expect(subscriptionState(pastDue, subscription({ status: 'past_due' }), bought, at, delinquent).pastDueSince).toEqual(delinquent);
     });
 
     it('starts the past due at the event, and keeps its first date', () => {
@@ -496,6 +608,21 @@ describe('BillingService', () => {
       expect(subscriptionChanges(planOnly, prices('ever_traduora_cloud_small_business_monthly', 2))).toEqual([
         { price: 'price_seat_ever_traduora_cloud_small_business_monthly', quantity: 2 },
       ]);
+    });
+
+    it('leaves one plan item, for the plan ordered, when a subscription holds several', () => {
+      const two = subscription({
+        items: {
+          data: [
+            { id: 'si_sb', price: price('ever_traduora_cloud_small_business_monthly'), quantity: 1 },
+            { id: 'si_ent', price: price('ever_traduora_cloud_enterprise_monthly'), quantity: 1 },
+            { id: 'si_other', price: price('ever_gauzy_cloud_enterprise_monthly'), quantity: 1 },
+          ],
+        },
+      });
+      // It reads as Enterprise; a Small Business order keeps the Small Business item and drops the Enterprise one
+      expect(subscriptionChanges(two, prices('ever_traduora_cloud_small_business_monthly', 0))).toEqual([{ id: 'si_ent', deleted: true }]);
+      expect(subscriptionChanges(two, prices('ever_traduora_cloud_enterprise_monthly', 0, null))).toEqual([{ id: 'si_sb', deleted: true }]);
     });
 
     it('refuses a subscription without a Traduora plan price', () => {

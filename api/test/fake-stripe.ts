@@ -80,6 +80,10 @@ export class FakeStripe {
   declineInvoices = false;
   /** The paid invoice of a subscription (`invoices.list` with `status: paid`), with the amount it took */
   readonly paidInvoices = new Map<string, { id: string; amount_paid: number; currency: string }>();
+  /** The open (unpaid) invoices of a subscription, with when Stripe finalized them (epoch seconds) */
+  readonly openInvoices = new Map<string, Array<{ id: string; finalizedAt: number }>>();
+  /** Refunds made so far, as `refunds.list` answers them */
+  readonly refundsMade: any[] = [];
 
   private record(method: string, ...args: any[]) {
     this.calls.push({ method, args });
@@ -183,6 +187,8 @@ export class FakeStripe {
         subscription.pending_update = { items: params.items, expires_at: Math.floor(Date.now() / 1000) + 23 * 3600 };
         return JSON.parse(JSON.stringify(subscription));
       }
+      // A change that applies replaces any change still waiting for its invoice
+      subscription.pending_update = null;
       const items: any[] = subscription.items.data;
       for (const change of params.items ?? []) {
         const lookupKey = change.price ? String(change.price).replace(/^price_/, '') : undefined;
@@ -234,6 +240,7 @@ export class FakeStripe {
       const subscription = this.subscriptionsById.get(id);
       if (subscription) {
         subscription.status = 'canceled';
+        subscription.cancellation_details = { comment: params?.cancellation_details?.comment ?? null };
       }
       return JSON.parse(JSON.stringify(subscription ?? { id, status: 'canceled' }));
     },
@@ -242,6 +249,19 @@ export class FakeStripe {
   readonly invoices = {
     list: async (params: any) => {
       this.record('invoices.list', params);
+      if (params.status === 'open') {
+        const open = this.openInvoices.get(params.subscription) ?? [];
+        return {
+          object: 'list',
+          data: open.map(each => ({
+            object: 'invoice',
+            id: each.id,
+            status: 'open',
+            created: each.finalizedAt,
+            status_transitions: { finalized_at: each.finalizedAt },
+          })),
+        };
+      }
       const paid = this.paidInvoices.get(params.subscription);
       return { object: 'list', data: paid && params.status === 'paid' ? [{ object: 'invoice', status: 'paid', ...paid }] : [] };
     },
@@ -272,9 +292,16 @@ export class FakeStripe {
   };
 
   readonly refunds = {
+    list: async (params: any) => {
+      this.record('refunds.list', params);
+      const target = params.payment_intent ?? params.charge;
+      return { object: 'list', data: this.refundsMade.filter(refund => refund.payment_intent === target || refund.charge === target) };
+    },
     create: async (params: any, options?: any) => {
       this.record('refunds.create', params, options);
-      return { id: `re_${params.payment_intent ?? params.charge}`, object: 'refund', status: 'succeeded' };
+      const refund = { id: `re_${params.payment_intent ?? params.charge}`, object: 'refund', status: 'succeeded', ...params };
+      this.refundsMade.push(refund);
+      return refund;
     },
   };
 }

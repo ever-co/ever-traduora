@@ -1,9 +1,9 @@
 import { BadRequestException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import Stripe = require('stripe');
 import { config } from '../config';
-import { OrganizationPlanCode, OrganizationRole } from '../domain/organization-actions';
+import { OrganizationPlanCode, OrganizationRole, OrganizationStatus } from '../domain/organization-actions';
 import { hasLiveSubscription, isLiveStatus } from '../domain/billing-status';
 import { planOf } from '../domain/organization-plans';
 import { BillingEvent } from '../entity/billing-event.entity';
@@ -19,7 +19,8 @@ import {
 } from '../services/organization/organization-billing';
 import { isDuplicateKey } from '../services/organization/organization-membership';
 import { countSeats, limitsOf } from '../services/organization/organization-usage';
-import { readCommittedTransaction } from '../utils/database-locks';
+import { readCommittedTransaction, withEditLock } from '../utils/database-locks';
+import { DbType, isDbType } from '../utils/database-type-helper';
 import {
   BillingInterval,
   isInterval,
@@ -46,6 +47,22 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long an invoice preview of the billing page is kept, and how many organizations' previews at most */
 const PREVIEW_CACHE_MS = 60 * 1000;
 const PREVIEW_CACHE_SIZE = 1000;
+
+/** The comment of a cancellation by the backstop (a second subscription, or one of a closed organization) */
+const DUPLICATE_CANCELLATION = 'Traduora: canceled at once, the organization has another subscription or was closed';
+
+/** Whether this backstop canceled the subscription (its refund is then finished on a later delivery) */
+function isOurDuplicate(subscription: Stripe.Subscription): boolean {
+  return subscription.status === 'canceled' && subscription.cancellation_details?.comment === DUPLICATE_CANCELLATION;
+}
+
+/**
+ * Runs Checkout or a change of one organization after the previous one finished, on SQLite only: its transactions
+ * share one connection, so the organization's row lock (PostgreSQL, MySQL) does not order two requests there.
+ */
+function perOrganization<T>(organizationId: string, work: () => Promise<T>): Promise<T> {
+  return isDbType(DbType.BETTER_SQLITE3) ? withEditLock(`billing:${organizationId.toLowerCase()}`, work) : work();
+}
 
 /**
  * Options of a Stripe call made while the organization's row is locked (the webhook): a short timeout and no retry, so
@@ -85,6 +102,7 @@ export type EventOutcome =
   | 'not_traduora'
   | 'other_subscription'
   | 'second_subscription_canceled'
+  | 'closed_organization'
   | 'no_subscription';
 
 const idOf = (value: string | { id: string } | null | undefined): string | null => (typeof value === 'string' ? value : (value?.id ?? null));
@@ -110,6 +128,8 @@ export class BillingService {
   private prices: { readAt: number; byKey: Map<string, Stripe.Price> } | undefined;
   /** The invoice previews of the billing page, by organization and subscription, kept a minute */
   private readonly previews = new Map<string, { readAt: number; value: BillingView['nextInvoice'] }>();
+  /** Bumped by every write of an organization's subscription, so a preview that started before it is not kept */
+  private readonly previewGenerations = new Map<string, number>();
 
   constructor(
     @Inject(STRIPE_CLIENT) private readonly stripe: StripeClient | null,
@@ -173,6 +193,16 @@ export class BillingService {
     const stripe = this.client();
     const wanted = this.validOrder(order);
     const prices = await this.pricesFor(wanted);
+    return perOrganization(organizationId, () => this.openCheckout(stripe, organizationId, owner, wanted, prices));
+  }
+
+  private async openCheckout(
+    stripe: StripeClient,
+    organizationId: string,
+    owner: User,
+    wanted: BillingOrder,
+    prices: OrderPrices,
+  ): Promise<{ url: string }> {
     const read = await readCommittedTransaction(this.dataSource.manager, async tx => {
       const organization = await this.locked(tx, organizationId);
       if (hasLiveSubscription(organization)) {
@@ -196,26 +226,39 @@ export class BillingService {
       throw new OrganizationException(HttpStatus.SERVICE_UNAVAILABLE, 'billing_unavailable', 'Stripe did not open a Checkout page');
     }
 
-    const stored = await readCommittedTransaction(this.dataSource.manager, async tx => {
-      const organization = await this.locked(tx, organizationId);
-      if (organization.checkoutSessionId === session.id) {
-        // A parallel click for the same order stored this very session (same idempotency key)
-        return true;
-      }
-      const unchanged =
-        !hasLiveSubscription(organization) &&
-        (organization.checkoutAttempt || 0) === (read.checkoutAttempt || 0) &&
-        (organization.stripeCustomerId || customer) === customer;
-      if (unchanged) {
-        await writeBillingFields(tx, organization.id, {
-          stripeCustomerId: customer,
-          checkoutSessionId: session.id,
-          checkoutExpiresAt: fromEpochSeconds(session.expires_at),
-          checkoutAttempt: attempt,
-        });
-      }
-      return unchanged;
-    });
+    let stored: boolean;
+    try {
+      stored = await readCommittedTransaction(this.dataSource.manager, async tx => {
+        const organization = await this.locked(tx, organizationId);
+        if (organization.status !== OrganizationStatus.Active) {
+          // Closed (or suspended) while the session was made: it is not handed out
+          return false;
+        }
+        if (organization.checkoutSessionId === session.id) {
+          // A parallel click for the same order stored this very session (same idempotency key)
+          return true;
+        }
+        const unchanged =
+          !hasLiveSubscription(organization) &&
+          (organization.checkoutAttempt || 0) === (read.checkoutAttempt || 0) &&
+          (organization.stripeCustomerId || customer) === customer;
+        if (unchanged) {
+          await writeBillingFields(tx, organization.id, {
+            stripeCustomerId: customer,
+            checkoutSessionId: session.id,
+            checkoutExpiresAt: fromEpochSeconds(session.expires_at),
+            checkoutAttempt: attempt,
+          });
+        }
+        return unchanged;
+      });
+    } catch (error) {
+      // A session that could not be stored must not stay open: it would be a second way to subscribe
+      await this.expireSession(stripe, session.id).catch(expireError =>
+        this.logger.warn(`Could not expire Checkout session ${session.id}: ${expireError?.code ?? expireError?.message}`),
+      );
+      throw error;
+    }
     if (!stored) {
       await this.expireSession(stripe, session.id);
       throw new OrganizationException(HttpStatus.CONFLICT, 'checkout_busy', 'The billing of this organization changed meanwhile. Try again.');
@@ -235,6 +278,10 @@ export class BillingService {
     const stripe = this.client();
     const wanted = this.validOrder(order);
     const prices = await this.pricesFor(wanted);
+    return perOrganization(organizationId, () => this.changeTo(stripe, organizationId, wanted, prices));
+  }
+
+  private async changeTo(stripe: StripeClient, organizationId: string, wanted: BillingOrder, prices: OrderPrices): Promise<{ pending: boolean }> {
     const read = await readCommittedTransaction(this.dataSource.manager, async tx => this.locked(tx, organizationId));
     if (!hasLiveSubscription(read)) {
       throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
@@ -245,13 +292,13 @@ export class BillingService {
     }
     const params = subscriptionUpdate(subscription, prices, wanted);
     if (!params) {
-      return { pending: false };
+      // Stripe buys this already (a retry after a local write failed, say): the organization is brought in line
+      await this.reconcile(read.id, subscription.id);
+      return { pending: !!subscription.pending_update };
     }
-    const before = (subscription.items?.data ?? []).map(item => [item.id, item.price?.id, item.quantity]);
-    const updated = await stripe.subscriptions.update(subscription.id, params, {
-      idempotencyKey: idempotencyKey('change', read.id, 0, { subscription: subscription.id, before, params }),
-    });
-    await this.applyLatest(updated);
+    // A key of its own per request: two changes to the same quantities (2 → 3 → 2 → 3) are two updates for Stripe
+    const updated = await stripe.subscriptions.update(subscription.id, params, { idempotencyKey: `traduora-change-${read.id}-${randomUUID()}` });
+    await this.reconcile(read.id, updated.id);
     return { pending: !!updated.pending_update };
   }
 
@@ -281,23 +328,26 @@ export class BillingService {
         throw error;
       }
     }
-    await this.applyLatest(canceled);
+    await this.reconcile(read.id, read.stripeSubscriptionId);
     return true;
   }
 
-  /** Writes a subscription Stripe answered to its organization, under the lock, when it is still that organization's */
-  private async applyLatest(subscription: Stripe.Subscription): Promise<void> {
-    const customerId = idOf(subscription.customer);
-    const organizationId = customerId ? await organizationOfCustomer(this.dataSource.manager, customerId) : null;
-    if (!organizationId) {
-      return;
+  /**
+   * Writes the subscription's state to the organization after a change made here, from a fresh read under the lock, as
+   * the webhook does: never Stripe's answer to the change itself, which a later change and its webhook may have
+   * overtaken. A read that fails is left to the webhook, which reconciles the same way.
+   */
+  private async reconcile(organizationId: string, subscriptionId: string): Promise<void> {
+    try {
+      await readCommittedTransaction(this.dataSource.manager, async tx => {
+        const organization = await lockOrganizationForBilling(tx, organizationId);
+        if (organization && organization.stripeSubscriptionId === subscriptionId) {
+          await this.applySubscription(tx, organization, await this.stripe.subscriptions.retrieve(subscriptionId, {}, LOCKED_CALL), new Date());
+        }
+      });
+    } catch (error) {
+      this.logger.warn(`Organization ${organizationId} left to the webhook: ${error?.code ?? error?.message ?? 'error'}`);
     }
-    await readCommittedTransaction(this.dataSource.manager, async tx => {
-      const organization = await lockOrganizationForBilling(tx, organizationId);
-      if (organization && organization.stripeSubscriptionId === subscription.id) {
-        await this.applySubscription(tx, organization, subscription, new Date());
-      }
-    });
   }
 
   /** The customer portal (owner): payment methods, invoices, the billing address, cancellation */
@@ -472,17 +522,25 @@ export class BillingService {
     if (!bought) {
       return 'not_traduora';
     }
+    if (organization.status === OrganizationStatus.Deleted && (isLiveStatus(subscription.status) || isOurDuplicate(subscription))) {
+      // A Checkout paid after the organization was closed: nobody can reach it, so nothing is kept
+      const detail = await this.cancelAndRefund(subscription);
+      this.logger.warn(`Subscription of closed organization ${organization.id}: ${detail}`);
+      return { outcome: 'closed_organization', detail };
+    }
     const current = organization.stripeSubscriptionId;
     if (current && current !== subscription.id && isLiveStatus(organization.billingStatus)) {
-      if (!isLiveStatus(subscription.status)) {
-        // The end of a subscription that is not the organization's (the second one, canceled)
+      if (!isLiveStatus(subscription.status) && !isOurDuplicate(subscription)) {
+        // The end of a subscription that is not the organization's, which ended on its own
         return 'other_subscription';
       }
+      // A second one, or one this backstop canceled on an earlier delivery whose refund did not finish
       const detail = await this.cancelAndRefund(subscription);
       this.logger.warn(`Second subscription of organization ${organization.id} (it has ${current}): ${detail}`);
       return { outcome: 'second_subscription_canceled', detail };
     }
-    await writeBillingFields(tx, organization.id, subscriptionState(organization, subscription, bought, at));
+    const delinquentSince = subscription.status === 'past_due' ? await this.delinquentSince(subscription.id) : null;
+    await writeBillingFields(tx, organization.id, subscriptionState(organization, subscription, bought, at, delinquentSince));
     this.forgetPreviews(organization.id);
     return 'applied';
   }
@@ -533,14 +591,21 @@ export class BillingService {
    * arrived yet (a session completed in another tab, a subscription made on the Dashboard).
    */
   private async assertNoLiveSubscription(stripe: StripeClient, customerId: string): Promise<void> {
-    const subscriptions = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 });
-    const live = subscriptions.data.find(
-      subscription =>
-        isLiveStatus(subscription.status) &&
-        !!subscribedPlan((subscription.items?.data ?? []).map(item => ({ lookupKey: item.price?.lookup_key, quantity: item.quantity }))),
-    );
-    if (live) {
-      throw new OrganizationException(HttpStatus.CONFLICT, 'subscription_exists', 'The organization has a subscription: change it instead');
+    let startingAfter: string | undefined;
+    for (;;) {
+      const page = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      });
+      if (page.data.some(subscription => isLiveStatus(subscription.status) && !!subscribedPlan(pricedItems(subscription)))) {
+        throw new OrganizationException(HttpStatus.CONFLICT, 'subscription_exists', 'The organization has a subscription: change it instead');
+      }
+      if (!page.has_more || page.data.length === 0) {
+        return;
+      }
+      startingAfter = page.data[page.data.length - 1].id;
     }
   }
 
@@ -551,9 +616,10 @@ export class BillingService {
    */
   private async cancelAndRefund(subscription: Stripe.Subscription): Promise<string> {
     if (subscription.status !== 'canceled') {
+      // The comment marks the cancellation as this backstop's: a later delivery finishes its refund
       await this.stripe.subscriptions.cancel(
         subscription.id,
-        { prorate: false, invoice_now: false },
+        { prorate: false, invoice_now: false, cancellation_details: { comment: DUPLICATE_CANCELLATION } },
         { ...LOCKED_CALL, idempotencyKey: `traduora-cancel-second-${subscription.id}` },
       );
     }
@@ -644,7 +710,8 @@ export class BillingService {
       for (const plan of PAID_PLANS) {
         for (const interval of Object.values(BillingInterval)) {
           const price = amountOf(planLookupKey(plan, interval));
-          if (price) {
+          // An order of Small Business needs its seat price too (`pricesFor`): no offer that Checkout would refuse
+          if (price && (!sellsSeats(plan) || amountOf(seatLookupKey(interval)))) {
             offers.push({ plan, interval, ...price, seatAmount: sellsSeats(plan) ? (amountOf(seatLookupKey(interval))?.amount ?? null) : null });
           }
         }
@@ -663,7 +730,12 @@ export class BillingService {
     if (cached && Date.now() - cached.readAt < PREVIEW_CACHE_MS) {
       return cached.value;
     }
+    const generation = this.previewGenerations.get(organization.id) ?? 0;
     const value = await this.previewInvoice(organization);
+    if ((this.previewGenerations.get(organization.id) ?? 0) !== generation) {
+      // The subscription changed while Stripe answered: this preview may be of the state before
+      return value;
+    }
     if (this.previews.size >= PREVIEW_CACHE_SIZE) {
       this.previews.delete(this.previews.keys().next().value);
     }
@@ -671,8 +743,20 @@ export class BillingService {
     return value;
   }
 
+  /**
+   * When the subscription's current delinquency began: the oldest of its open invoices, as Stripe finalized it. The
+   * grace (OD-T14) counts from there, not from whichever event made the webhook read the subscription (Stripe does not
+   * keep their order), so an old event never shortens the grace of a newer failure. `null` when Stripe lists none.
+   */
+  private async delinquentSince(subscriptionId: string): Promise<Date | null> {
+    const open = await this.stripe.invoices.list({ subscription: subscriptionId, status: 'open', limit: 100 }, LOCKED_CALL);
+    const starts = open.data.map(invoice => invoice.status_transitions?.finalized_at ?? invoice.created).filter(value => typeof value === 'number');
+    return starts.length ? fromEpochSeconds(Math.min(...starts)) : null;
+  }
+
   /** Drops the organization's cached invoice previews: its subscription changed */
   private forgetPreviews(organizationId: string): void {
+    this.previewGenerations.set(organizationId, (this.previewGenerations.get(organizationId) ?? 0) + 1);
     for (const key of [...this.previews.keys()]) {
       if (key.startsWith(`${organizationId}:`)) {
         this.previews.delete(key);
@@ -746,8 +830,23 @@ export async function refundLatestPayment(stripe: StripeClient, subscriptionId: 
     if (!paymentIntent && !charge) {
       continue;
     }
+    const target = paymentIntent ? { payment_intent: paymentIntent } : { charge };
+    // Refunded already by an earlier delivery (past the idempotency key's 24 hours, Stripe would refuse a second one)
+    const earlier = (await stripe.refunds.list({ ...target, limit: 100 }, options)).data.find(
+      made => made.metadata?.invoicePayment === payment.id && made.status !== 'failed' && made.status !== 'canceled',
+    );
+    if (earlier) {
+      refunds.push(earlier.id);
+      continue;
+    }
+    // Only what this payment put toward the invoice: one payment can pay several invoices
     const refund = await stripe.refunds.create(
-      { ...(paymentIntent ? { payment_intent: paymentIntent } : { charge }), reason: 'duplicate', metadata: { subscription: subscriptionId } },
+      {
+        ...target,
+        ...(typeof payment.amount_paid === 'number' && payment.amount_paid > 0 ? { amount: payment.amount_paid } : {}),
+        reason: 'duplicate',
+        metadata: { subscription: subscriptionId, invoicePayment: payment.id },
+      },
       { ...options, idempotencyKey: `traduora-refund-${invoice.id}-${payment.id}` },
     );
     refunds.push(refund.id);
@@ -770,9 +869,34 @@ export function subscriptionUpdate(
   if (!items.length) {
     return null;
   }
-  return raisesTheBill(subscribedPlan(pricedItems(subscription)), wanted)
+  return raisesTheBillOf(subscription, prices, wanted)
     ? { items, proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' }
     : { items, proration_behavior: 'create_prorations' };
+}
+
+/**
+ * Whether the change raises the bill: by the amounts when Stripe's prices are known (the plan and its seats now, against
+ * the order's; yearly instead of monthly always counts, being invoiced at once), else by `raisesTheBill`'s plan rule.
+ * Small Business with many seats can cost more than Enterprise, so the rank of the plans alone is not enough.
+ */
+export function raisesTheBillOf(subscription: Stripe.Subscription, prices: OrderPrices, wanted: BillingOrder): boolean {
+  const current = subscribedPlan(pricedItems(subscription));
+  if (current && current.interval === BillingInterval.Monthly && wanted.interval === BillingInterval.Annual) {
+    return true;
+  }
+  const items = subscription.items?.data ?? [];
+  const traduora = items.filter(item => isPlanLookupKey(item.price?.lookup_key) || isSeatLookupKey(item.price?.lookup_key));
+  const known = traduora.every(item => typeof item.price?.unit_amount === 'number') && typeof prices.plan.unit_amount === 'number';
+  if (!current || !known || (wanted.extraSeats > 0 && typeof prices.seat?.unit_amount !== 'number')) {
+    return raisesTheBill(current, wanted);
+  }
+  // Per year, so that yearly to monthly compares the same thing
+  const perYear = (amount: number, interval: string | undefined) => (interval === 'year' ? amount : amount * 12);
+  const now = traduora.reduce((sum, item) => sum + perYear(item.price.unit_amount * (item.quantity ?? 1), item.price.recurring?.interval), 0);
+  const next =
+    perYear(prices.plan.unit_amount, prices.plan.recurring?.interval) +
+    (wanted.extraSeats > 0 ? perYear(prices.seat.unit_amount * wanted.extraSeats, prices.seat.recurring?.interval) : 0);
+  return next > now;
 }
 
 /** The items of a subscription as the plan is read from them */
@@ -792,7 +916,13 @@ function billingPageUrl(organization: Pick<Organization, 'slug'>, query?: string
 }
 
 /** The billing fields for a subscription's state (see `applySubscription`) */
-export function subscriptionState(organization: Organization, subscription: Stripe.Subscription, bought: SubscribedPlan, at: Date): BillingFields {
+export function subscriptionState(
+  organization: Organization,
+  subscription: Stripe.Subscription,
+  bought: SubscribedPlan,
+  at: Date,
+  delinquentSince: Date | null = null,
+): BillingFields {
   const status = subscription.status;
   const grants = GRANTING_STATUSES.has(status);
   const periodEnds = (subscription.items?.data ?? []).map(item => item.current_period_end).filter(value => typeof value === 'number');
@@ -805,7 +935,10 @@ export function subscriptionState(organization: Organization, subscription: Stri
     extraSeats: grants ? bought.extraSeats : 0,
     trialEndsAt: fromEpochSeconds(subscription.trial_end) ?? organization.trialEndsAt ?? null,
     currentPeriodEnd: periodEnds.length ? fromEpochSeconds(Math.max(...periodEnds)) : null,
-    pastDueSince: pastDue ? (organization.billingStatus === 'past_due' && organization.pastDueSince ? organization.pastDueSince : at) : null,
+    // The start of the current delinquency (its oldest open invoice); without one, the first time it was seen past due
+    pastDueSince: pastDue
+      ? (delinquentSince ?? (organization.billingStatus === 'past_due' && organization.pastDueSince ? organization.pastDueSince : at))
+      : null,
     // A live subscription needs no Checkout any more
     ...(grants ? { checkoutSessionId: null, checkoutExpiresAt: null } : {}),
   };
@@ -814,14 +947,18 @@ export function subscriptionState(organization: Organization, subscription: Stri
 /** The items of a subscription update that bring it to the order: the plan price swapped, the seat price set or removed */
 export function subscriptionChanges(subscription: Stripe.Subscription, prices: OrderPrices): Stripe.SubscriptionUpdateParams.Item[] {
   const items = subscription.items?.data ?? [];
-  const planItem = items.find(item => isPlanLookupKey(item.price?.lookup_key));
-  if (!planItem) {
+  const planItems = items.filter(item => isPlanLookupKey(item.price?.lookup_key));
+  if (!planItems.length) {
     throw new OrganizationException(HttpStatus.CONFLICT, 'no_subscription', 'The organization has no subscription: start one with Checkout');
   }
+  // One plan item stays, for the plan ordered (the one with its price, else the first); any other plan item goes, so
+  // the plan read from the subscription (its highest plan item) is the one ordered
   const changes: Stripe.SubscriptionUpdateParams.Item[] = [];
-  if (planItem.price.id !== prices.plan.id) {
+  const planItem = planItems.find(item => item.price.id === prices.plan.id) ?? planItems[0];
+  if (planItem.price.id !== prices.plan.id || (planItem.quantity ?? 1) !== 1) {
     changes.push({ id: planItem.id, price: prices.plan.id, quantity: 1 });
   }
+  planItems.filter(item => item !== planItem).forEach(item => changes.push({ id: item.id, deleted: true }));
   const [seatItem, ...others] = items.filter(item => isSeatLookupKey(item.price?.lookup_key));
   others.forEach(item => changes.push({ id: item.id, deleted: true }));
   if (prices.seat && prices.extraSeats > 0) {

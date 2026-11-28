@@ -264,7 +264,10 @@ describe('Billing (e2e)', () => {
     });
 
     it('subscribes: Checkout completes, the trial starts, the plan and seats apply', async () => {
+      // The order completed here: Small Business monthly with 2 seats (the previous test left an annual one open)
+      await checkout(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 2 }).expect(200);
       const session = (await organization()).checkoutSessionId;
+      expect(stripe.sessionsById.get(session).metadata).toMatchObject({ plan: PLAN_KEY('small_business', 'monthly'), extraSeats: '2' });
       const customer = (await organization()).stripeCustomerId;
       const trialEnd = Math.floor(Date.now() / 1000) + 90 * 86400;
       stripe.putSubscription({ id: 'sub_main', customer, status: 'trialing', plan: 'small_business', extraSeats: 2, trialEnd });
@@ -440,13 +443,34 @@ describe('Billing (e2e)', () => {
       expect((await usage(lateId, late)).plan.code).toBe('small_business');
       const customer = (await organization(lateId)).stripeCustomerId;
       stripe.putSubscription({ id: 'sub_late', customer, status: 'past_due', plan: 'small_business' });
-      await deliver(
-        'invoice.payment_failed',
-        { id: 'in_late', object: 'invoice', customer, parent: { subscription_details: { subscription: 'sub_late' } } },
-        { created: Math.floor(Date.now() / 1000) - 20 * 86400 },
-      );
+      // Its unpaid invoice is 20 days old: the delinquency, and so the grace, began then
+      stripe.openInvoices.set('sub_late', [{ id: 'in_late', finalizedAt: Math.floor(Date.now() / 1000) - 20 * 86400 }]);
+      await deliver('invoice.payment_failed', {
+        id: 'in_late',
+        object: 'invoice',
+        customer,
+        parent: { subscription_details: { subscription: 'sub_late' } },
+      });
       expect(await billingState(lateId)).toMatchObject({ status: 'past_due', pastDue: true, planCode: 'small_business' });
       expect((await usage(lateId, late)).plan.code).toBe('starter');
+    });
+
+    it('counts the grace of the current delinquency, whatever old event makes the webhook read it', async () => {
+      const { owner: again, organizationId: againId } = await newOwner('late-again');
+      await checkout(again, { plan: 'small_business', interval: 'monthly' }, againId).expect(200);
+      await subscribe(againId, { subscription: 'sub_again', status: 'active' });
+      const customer = (await organization(againId)).stripeCustomerId;
+      // An invoice failed 20 days ago and was paid; another failed yesterday. The 20-day-old failure is delivered now
+      stripe.putSubscription({ id: 'sub_again', customer, status: 'past_due', plan: 'small_business' });
+      stripe.openInvoices.set('sub_again', [{ id: 'in_new', finalizedAt: Math.floor(Date.now() / 1000) - 86400 }]);
+      await deliver(
+        'invoice.payment_failed',
+        { id: 'in_old', object: 'invoice', customer, parent: { subscription_details: { subscription: 'sub_again' } } },
+        { created: Math.floor(Date.now() / 1000) - 20 * 86400 },
+      );
+      const since = (await organization(againId)).pastDueSince;
+      expect(Math.abs(new Date(since).getTime() - (Date.now() - 86400 * 1000))).toBeLessThan(5000);
+      expect((await usage(againId, again)).plan.code).toBe('small_business');
     });
 
     it('ignores a customer that is no organization’s (the other products of the shared account)', async () => {
@@ -498,7 +522,12 @@ describe('Billing (e2e)', () => {
       stripe.reset();
       await subscribe(organizationId, { subscription: 'sub_second', status: 'trialing', plan: 'enterprise' });
       const [cancel] = stripe.callsTo('subscriptions.cancel');
-      expect(cancel.args.slice(0, 2)).toEqual(['sub_second', { prorate: false, invoice_now: false }]);
+      expect(cancel.args[0]).toBe('sub_second');
+      expect(cancel.args[1]).toMatchObject({
+        prorate: false,
+        invoice_now: false,
+        cancellation_details: { comment: expect.stringContaining('Traduora') },
+      });
       expect(stripe.callsTo('refunds.create')).toEqual([]);
       expect(await billingState()).toEqual(state);
       const logged = await dataSource.getRepository(BillingEvent).findOneByOrFail({ outcome: 'second_subscription_canceled' });
@@ -551,6 +580,72 @@ describe('Billing (e2e)', () => {
     });
   });
 
+  describe('review round 2 (#678)', () => {
+    it('brings the organization in line when a change has nothing left to send (a retry after a failed write)', async () => {
+      const { owner: retry, organizationId: retryId } = await newOwner('retry-owner');
+      await checkout(retry, { plan: 'small_business', interval: 'monthly' }, retryId).expect(200);
+      await subscribe(retryId, { subscription: 'sub_retry', status: 'active', extraSeats: 3 });
+      // Stripe has 3 seats; the local write of an earlier change failed and left 1
+      await dataSource.getRepository(Organization).update({ id: retryId }, { extraSeats: 1 });
+      stripe.reset();
+      const res = await change(retry, { plan: 'small_business', interval: 'monthly', extraSeats: 3 }, retryId);
+      expect([res.status, res.body]).toEqual([200, { data: { pending: false } }]);
+      expect(res.body.data).toEqual({ pending: false });
+      expect(stripe.callsTo('subscriptions.update')).toEqual([]);
+      expect((await billingState(retryId)).extraSeats).toBe(3);
+    });
+
+    it('cancels and refunds a Checkout paid after its organization was closed', async () => {
+      const { owner: gone, organizationId: goneId } = await newOwner('gone-owner');
+      await checkout(gone, { plan: 'small_business', interval: 'monthly' }, goneId).expect(200);
+      const { checkoutSessionId: session, stripeCustomerId: customer } = await organization(goneId);
+      // The account is deleted while its Checkout page is still open: the organization closes
+      await request(server())
+        .delete('/api/v1/users/me')
+        .set(auth(gone))
+        .expect(res => expect(res.status).toBeLessThan(300));
+      expect((await organization(goneId)).status).toBe('deleted');
+      stripe.reset();
+      stripe.paidInvoices.set('sub_gone', { id: 'in_gone', amount_paid: 4900, currency: 'usd' });
+      stripe.putSubscription({ id: 'sub_gone', customer, status: 'active', plan: 'small_business' });
+      await deliver('checkout.session.completed', {
+        id: session,
+        mode: 'subscription',
+        client_reference_id: goneId,
+        customer,
+        subscription: 'sub_gone',
+      });
+      expect(stripe.callsTo('subscriptions.cancel').map(call => call.args[0])).toEqual(['sub_gone']);
+      expect(stripe.callsTo('refunds.create')).toHaveLength(1);
+      expect(await billingState(goneId)).toMatchObject({ planCode: 'starter', subscription: null });
+      const logged = await dataSource.getRepository(BillingEvent).findOneByOrFail({ outcome: 'closed_organization' });
+      expect(logged.detail).toContain('refunded in_gone');
+    });
+
+    it('finishes the refund of a second subscription on a later delivery, once', async () => {
+      const { owner: twice, organizationId: twiceId } = await newOwner('twice-owner');
+      await checkout(twice, { plan: 'small_business', interval: 'monthly' }, twiceId).expect(200);
+      await subscribe(twiceId, { subscription: 'sub_twice_first', status: 'active' });
+      const customer = (await organization(twiceId)).stripeCustomerId;
+      // The backstop canceled the second one, then its refund failed: Stripe has it canceled, with the backstop's comment
+      const second = stripe.putSubscription({ id: 'sub_twice_second', customer, status: 'active', plan: 'small_business' });
+      await stripe.subscriptions.cancel('sub_twice_second', { cancellation_details: { comment: 'x' } });
+      stripe.subscriptionsById.get('sub_twice_second').cancellation_details = {
+        comment: 'Traduora: canceled at once, the organization has another subscription or was closed',
+      };
+      stripe.paidInvoices.set('sub_twice_second', { id: 'in_twice', amount_paid: 4900, currency: 'usd' });
+      stripe.reset();
+      await deliver('customer.subscription.deleted', stripe.subscriptionsById.get('sub_twice_second'));
+      await deliver('customer.subscription.updated', stripe.subscriptionsById.get('sub_twice_second'));
+      expect(stripe.callsTo('subscriptions.cancel')).toEqual([]);
+      // Refunded on the first delivery; the second finds that refund and makes none
+      expect(stripe.callsTo('refunds.create')).toHaveLength(1);
+      expect(stripe.callsTo('refunds.create')[0].args[0]).toMatchObject({ payment_intent: 'pi_in_twice', amount: 4900 });
+      expect((await billingState(twiceId)).subscription).toBe('sub_twice_first');
+      expect(second.id).toBe('sub_twice_second');
+    });
+  });
+
   describe('limits on the shared Stripe account', () => {
     it('throttles each billing route per organization', async () => {
       const { owner: busy, organizationId: busyId } = await newOwner('busy-owner');
@@ -566,10 +661,23 @@ describe('Billing (e2e)', () => {
     });
 
     it('keeps the invoice preview of the billing page a minute', async () => {
+      const { owner: fresh, organizationId: freshId } = await newOwner('preview-owner');
+      await checkout(fresh, { plan: 'small_business', interval: 'monthly' }, freshId).expect(200);
+      await subscribe(freshId, { subscription: 'sub_preview', status: 'active' });
       stripe.reset();
-      await billingOf(owner).expect(200);
-      await billingOf(owner).expect(200);
-      expect(stripe.callsTo('invoices.createPreview').length).toBeLessThanOrEqual(1);
+      expect((await billingOf(fresh, freshId).expect(200)).body.data.nextInvoice).toMatchObject({ amount: 4900, currency: 'usd' });
+      expect(stripe.callsTo('invoices.createPreview')).toHaveLength(1);
+      await billingOf(fresh, freshId).expect(200);
+      expect(stripe.callsTo('invoices.createPreview')).toHaveLength(1);
+    });
+
+    it('counts a billing request only once its access rule let it through', async () => {
+      const { owner: quota, organizationId: quotaId } = await newOwner('quota-owner');
+      // Someone of another organization, refused every time, uses none of this organization's count
+      for (let i = 0; i < config.billing.throttle.changes + 5; i++) {
+        await portal(owner, quotaId).expect(404);
+      }
+      await portal(quota, quotaId).expect(409);
     });
   });
 
