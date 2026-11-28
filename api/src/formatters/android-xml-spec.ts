@@ -87,3 +87,36 @@ test('should export a term with &, < and > as well-formed XML and read it back',
   const result = await androidXmlParser(exported as string);
   expect(result.translations).toEqual([{ term: 'Terms & <Conditions> "q"', translation: 'x' }]);
 });
+
+const ampersands = [
+  { term: 'entity', translation: '&amp;' },
+  { term: 'double', translation: 'a &amp;amp; b' },
+  { term: 'plain', translation: 'Tom & Jerry' },
+];
+
+test('should export a translation holding "&amp;" with every & escaped and read it back unchanged', async () => {
+  const exported = (await androidXmlExporter({ iso: 'en', translations: ampersands })) as string;
+  expect(exported).toContain('<string name="entity">&amp;amp;</string>');
+  expect(exported).toContain('<string name="double">a &amp;amp;amp; b</string>');
+  expect(exported).toContain('<string name="plain">Tom &amp; Jerry</string>');
+  const result = await androidXmlParser(exported);
+  expect(result.translations).toEqual(ampersands);
+});
+
+test('should still export an empty translation as an empty string element', async () => {
+  const exported = await androidXmlExporter({ iso: 'en', translations: [{ term: 'empty', translation: '' }] });
+  expect(exported).toEqual('<?xml version="1.0" encoding="utf-8"?><resources><string name="empty"></string></resources>');
+});
+
+test('should export a term with a tab, a line break and a carriage return as character references and read it back', async () => {
+  const term = 'a\tb\nc\rd';
+  const exported = (await androidXmlExporter({ iso: 'en', translations: [{ term, translation: 'x' }] })) as string;
+  expect(exported).toContain('<string name="a&#9;b&#10;c&#13;d">x</string>');
+  const result = await androidXmlParser(exported);
+  expect(result.translations).toEqual([{ term, translation: 'x' }]);
+});
+
+test('should keep an escaped "&amp;" inside an inline tag when parsing', async () => {
+  const result = await androidXmlParser('<?xml version="1.0" encoding="utf-8"?><resources><string name="b"><b>&amp;amp;</b></string></resources>');
+  expect(result.translations).toEqual([{ term: 'b', translation: '<b>&amp;amp;</b>' }]);
+});

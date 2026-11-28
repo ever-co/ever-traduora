@@ -8,6 +8,14 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Android XML and RESX export: a translation with `&amp;` in it (`Use &amp; for an ampersand`) is written with every
+  `&` escaped (`Use &amp;amp; for an ampersand`) and reads back as it was saved. Before, the export wrote
+  `Use &amp; for an ampersand`, which Android, .NET and Traduora's own import read as `Use & for an ampersand`, so
+  importing the file back changed the translation. Android XML import keeps `&amp;amp;` inside an inline tag the same
+  way: `<b>&amp;amp;</b>` is stored as `<b>&amp;amp;</b>`, where it was stored as `<b>&amp;</b>`. A term with a tab or
+  a line break is written as `&#9;`, `&#10;` or `&#13;` in the `name` attribute. Before, the character was written as
+  it is, a .NET reader saw a space instead, and the key no longer matched the term. Other values are written as before
+
 - Password reset emails: an account is sent one reset email per `TR_PASSWORD_RESET_COOLDOWN` seconds (60 by default,
   `0` turns this off), whoever asks for it. A `POST /api/v1/auth/forgot-password` for an account that was sent a link
   less than that ago keeps that link working, sends no email and is answered 200 as before, so the caller cannot tell;

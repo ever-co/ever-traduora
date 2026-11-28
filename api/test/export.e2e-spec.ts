@@ -451,6 +451,29 @@ describe('ExportController (e2e)', () => {
     }
   });
 
+  it('/api/v1/projects/:projectId/exports (GET) should keep "&amp;" in a translation exported as Android XML and RESX', async () => {
+    const translation = 'Use &amp; for an ampersand';
+    await request(app.getHttpServer())
+      .patch(`/api/v1/projects/${testProject.id}/translations/de_DE`)
+      .set('Authorization', `Bearer ${testingUser.accessToken}`)
+      .send({ termId: termOneId, value: translation })
+      .expect(200);
+
+    for (const [format, parser] of [
+      ['androidxml', androidXmlParser],
+      ['resx', resXParser],
+    ] as const) {
+      const exported = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${testProject.id}/exports?locale=de_DE&format=${format}&untranslated=false`)
+        .set('Authorization', `Bearer ${testingUser.accessToken}`)
+        .expect(200);
+      const payload = Buffer.from(exported.body).toString('utf-8');
+      expect(payload).toContain('Use &amp;amp; for an ampersand');
+      const parsed = await parser(payload);
+      expect(parsed.translations.find(t => t.term === 'term.one')).toEqual({ term: 'term.one', translation });
+    }
+  });
+
   it('/api/v1/projects/:projectId/exports?format=jsonflat (GET) should not export if locale does not exist for project', async () => {
     await request(app.getHttpServer())
       .get(`/api/v1/projects/${testProject.id}/exports?locale=es&format=jsonflat&untranslated=false`)
