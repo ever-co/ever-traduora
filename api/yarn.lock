@@ -317,6 +317,11 @@
     "@ever-co/connect-contracts" "1.0.0-rc.8"
     ajv "8.20.0"
 
+"@ever-co/legal@^0.7.1":
+  version "0.7.1"
+  resolved "https://registry.npmjs.org/@ever-co/legal/-/legal-0.7.1.tgz#bd1cea8a577cae90aad843175f11a7cba24c5357"
+  integrity sha512-Ucbe5GeszADVY8khlnj/x98Rw7Ju8z/lb8CE6tvJk6RW+zk/VxSCGiWRI8n3uDunH1IdJqQzzlTn7AKpHYWR8w==
+
 "@istanbuljs/load-nyc-config@^1.0.0":
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@istanbuljs/load-nyc-config/-/load-nyc-config-1.1.0.tgz#fd3db1d59ecf7cf121e80650bb86712f9b55eced"
@@ -2744,6 +2749,11 @@ he@1.2.0, he@^1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/he/-/he-1.2.0.tgz#84ae65fa7eafb165fddb61566ae14baf05664f0f"
   integrity sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==
+
+helmet@^8.3.0:
+  version "8.3.0"
+  resolved "https://registry.npmjs.org/helmet/-/helmet-8.3.0.tgz#3842eea921e7c7015d11f217910c710c434efb26"
+  integrity sha512-Qgpiaws3Sm30Av8Eah6sjMCZZwjlBu+E68rhpCWBshY1lb09HtLwj5GviX0OyQIn+ulUS0iX0AxN5n3tLZzz1w==
 
 hexoid@1.0.0:
   version "1.0.0"
