@@ -72,6 +72,7 @@ describe('every route declares who may call it', () => {
         'public POST /api/v1/auth/reset-password',
         'public POST /api/v1/auth/everid/signup-confirm',
         'webhook POST /api/v1/auth/everid/backchannel-logout',
+        'webhook POST /api/v1/billing/webhook',
         'public GET /api/v1/ever-connect/health',
         'public GET /api/v1/ever-stats/health',
         'public POST /api/v1/ever-connect/provision/intent',

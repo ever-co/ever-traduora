@@ -72,6 +72,8 @@ import { AccountsModule } from './accounts/accounts.module';
 import { turnstileEnabled } from './accounts/turnstile.service';
 import { applyHttpHardening } from './security/http-hardening';
 import { throttlerModuleOptions } from './redis/shared-throttler-storage';
+import { BillingModule } from './billing/billing.module';
+import { mountBillingWebhookBody } from './billing/billing-webhook-body';
 
 /**
  * The web app's index.html for every other GET path. Its catch-all route must be registered after every API route,
@@ -126,6 +128,8 @@ export class IndexModule {}
     HttpModule,
     // Accounts and hardening (P5): the bot check, the legal documents' boot check
     AccountsModule,
+    // Stripe Billing of the organizations (SaaS mode; off without TR_STRIPE_SECRET_KEY)
+    BillingModule,
     // Optional Ever Platform modules: the statistics unless TR_EVER_STATS_ENABLED=false, the connection only with
     // TR_EVER_CONNECT_ENABLED=true
     ...everPlatformModules(config.everPlatform),
@@ -228,6 +232,9 @@ export const addPipesAndFilters = (app: NestExpressApplication): void => {
       whitelist: true,
     }),
   );
+
+  // Stripe's webhook keeps its raw body for the signature: mounted before Nest adds its JSON parser at init
+  mountBillingWebhookBody(app);
 
   // Before the static files: a tagged index.html (demo install, Ever app links) must go through IndexController
   app.use(redirectTaggedIndexFile);
