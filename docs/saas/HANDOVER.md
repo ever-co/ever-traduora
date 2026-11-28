@@ -799,6 +799,17 @@ sessions `cs_test_b0PV3HBlIf…`, `cs_test_a03ZoM667Q…`, `cs_test_a0V88oKt5P�
 `create_prorations`, the declined upgrade `pending` with the plan unchanged), canceled and refunded with the amount
 cap and the earlier-refund check: `re_3UgkKVDdBrwbGEir2n3RhfEd` (5,900 usd of `in_1UgkKUDdBrwbGEiriJXbjD2y`).
 
+### CI on `7bed204`: a parallel-request flake (2026-11-28)
+
+The in-cluster CI failed one SQLite test, `billing.e2e-spec.ts` › "two clicks and two tabs make one Checkout", with
+`read ECONNRESET` (supertest opening a listener per request; P3 had the same). Fixed as P3's
+`organization-plans.e2e-spec.ts` (`593a02d`): the suite listens once (`app.listen(0, '127.0.0.1')`), every request
+goes there through one keep-alive `http.Agent` (8 sockets), and the parallel Checkouts go through `atOnce`, which fails
+with a clear message when a request gets no answer. Run 3 times in a row locally: 41 of 41 each time. The cancelled
+Postgres job and the jobs still starting were the matrix's fail-fast. `test/e2e-env.ts` now sets `TR_TRUST_PROXY=1`, so
+SaaS-mode suites stop logging the boot error at every app start; the one test about no proxy
+(`accounts-hardening` › "ignores X-Forwarded-For without TR_TRUST_PROXY") clears it itself.
+
 ### Rebase on P5 (`2c346ca`, 2026-11-28)
 
 - `app.module.ts`: P5's `AccountsModule` and `applyHttpHardening` kept with `BillingModule` and
