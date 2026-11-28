@@ -48,6 +48,17 @@ export class User {
   @Column(NumberColumnType.integer(0))
   numProjectsCreated: number;
 
+  // SaaS mode: the versions of the terms of service and of the privacy policy the person accepted, and when (DESIGN
+  // §3.8). A newer version asks them to accept again before anything else works
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  termsVersion: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  privacyVersion: string | null;
+
+  @Column({ ...TimeColumnType.date(), nullable: true })
+  termsAcceptedAt: Date | null;
+
   @Column(type => AccessTimestamps)
   date: AccessTimestamps;
 }

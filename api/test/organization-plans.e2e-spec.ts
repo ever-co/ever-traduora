@@ -11,7 +11,7 @@ import { Project } from '../src/entity/project.entity';
 import { Invite } from '../src/entity/invite.entity';
 import { User } from '../src/entity/user.entity';
 import { ProjectRole } from '../src/entity/project-user.entity';
-import { createAndMigrateApp, createTestProjectClient, signupTestUser, TestingProject, TestingUser } from './util';
+import { createAndMigrateApp, createTestProjectClient, signupTestUser, TestingProject, TestingUser, currentTerms } from './util';
 
 /**
  * The plans of DESIGN §3.6 in SaaS mode: seats (members plus pending invitations) and strings (locales × terms over
@@ -41,6 +41,11 @@ describe('Organization plans in SaaS mode (e2e)', () => {
   const agent = new Agent({ keepAlive: true, maxSockets: 10, timeout: 10_000 });
   const call = (method: 'get' | 'post' | 'patch' | 'delete', path: string) => request(base)[method](path).agent(agent);
   const auth = (user: TestingUser) => ({ Authorization: `Bearer ${user.accessToken}` });
+  /** Marks the account's e-mail as confirmed (SaaS mode opens nothing else before), without the acceptances its link makes */
+  const confirmEmail = async <T extends { id: string }>(user: T): Promise<T> => {
+    await dataSource.getRepository(User).update({ id: user.id }, { emailVerified: true });
+    return user;
+  };
   const ownOrganizationOf = async (user: TestingUser): Promise<Org> => {
     const organizations = (await call('get', '/api/v1/organizations').set(auth(user)).expect(200)).body.data;
     expect(organizations).toHaveLength(1);
@@ -206,9 +211,9 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       const token = tokenOf(await invite(full.owner, full.organization.id, 'join-new@test.com').expect(201));
       expect((await usageOf(full.owner, full.organization.id)).seats).toEqual({ used: 15, included: 15 });
       const res = await call('post', '/api/v1/auth/signup')
-        .send({ name: 'Joiner', email: 'join-new@test.com', password: 'mysupersecretpassword', inviteToken: token })
+        .send({ name: 'Joiner', email: 'join-new@test.com', password: 'mysupersecretpassword', ...currentTerms(), inviteToken: token })
         .expect(200);
-      const joined = res.body.data as TestingUser;
+      const joined = await confirmEmail(res.body.data as TestingUser);
       expect((await call('get', '/api/v1/organizations').set(auth(joined)).expect(200)).body.data.map(each => each.id)).toEqual([
         full.organization.id,
       ]);
@@ -397,6 +402,9 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       lateToken = tokenOf(await invite(owner, organization.id, late.email).expect(201));
       signupToken = tokenOf(await invite(owner, organization.id, 'downgrade-signup@test.com').expect(201));
       projectLateToken = tokenOf(await projectInvite(owner, projectId, projectLate.email).expect(201));
+      // Invited while unconfirmed, confirmed before they accept
+      await confirmEmail(late);
+      await confirmEmail(projectLate);
       expect((await usageOf(owner, organization.id)).seats).toEqual({ used: seats, included: 25 });
       await setPlan(organization.id, OrganizationPlanCode.Starter);
     });
@@ -433,9 +441,15 @@ describe('Organization plans in SaaS mode (e2e)', () => {
 
     it('still makes the account of a sign-up with an invitation, in its own organization', async () => {
       const res = await call('post', '/api/v1/auth/signup')
-        .send({ name: 'Downgrade signup', email: 'downgrade-signup@test.com', password: 'mysupersecretpassword', inviteToken: signupToken })
+        .send({
+          name: 'Downgrade signup',
+          email: 'downgrade-signup@test.com',
+          password: 'mysupersecretpassword',
+          ...currentTerms(),
+          inviteToken: signupToken,
+        })
         .expect(200);
-      const own = await ownOrganizationOf(res.body.data);
+      const own = await ownOrganizationOf(await confirmEmail(res.body.data));
       expect(own.id).not.toBe(organization.id);
       expect((await pendingInvites(owner, organization.id)).map(each => each.email)).toContain('downgrade-signup@test.com');
       expect((await usageOf(owner, organization.id)).seats.used).toBe(seats);

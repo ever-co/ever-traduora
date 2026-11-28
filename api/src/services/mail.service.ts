@@ -11,6 +11,7 @@ import { join } from 'path';
 import { fstat, readFileSync } from 'fs';
 import * as previewEmail from 'preview-email';
 import { passwordResetUrl } from '../utils/password-reset-url';
+import { requiresVerifiedEmail } from '../accounts/account-policy';
 
 // For the debug preview only: it shows the plain text inside HTML, where '<' and '&' would be read as markup
 const escapeHtml = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -65,6 +66,7 @@ export default class MailService {
         user: user,
         virtualHost: config.virtualHost,
         verifyEmailUrl: verifyEmailUrl,
+        verificationRequired: requiresVerifiedEmail(),
       }),
     });
   }
@@ -125,6 +127,7 @@ export default class MailService {
         invite: invite,
         inviteUrl: inviteUrl,
         virtualHost: config.virtualHost,
+        verificationRequired: requiresVerifiedEmail(),
       }),
     });
   }
@@ -139,6 +142,7 @@ export default class MailService {
         organization,
         inviteUrl,
         virtualHost: config.virtualHost,
+        verificationRequired: requiresVerifiedEmail(),
       }),
     });
   }

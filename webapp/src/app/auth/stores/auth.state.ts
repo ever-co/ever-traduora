@@ -15,6 +15,12 @@ export class GetUserInfo {
   static readonly type = '[Auth] Get user info';
 }
 
+/** A fresh profile read elsewhere (`GET /users/me`), e.g. by a page that found the account pending */
+export class SetUserInfo {
+  static readonly type = '[Auth] Set user info';
+  constructor(public user: User) {}
+}
+
 export class CheckAuth {
   static readonly type = '[Auth] Check auth';
 }
@@ -36,6 +42,11 @@ export class Signup {
     public inviteToken?: string,
     // SaaS mode: the name of the person's own organization
     public organizationName?: string,
+    // SaaS mode: the versions of the terms and privacy policy accepted
+    public termsVersion?: string,
+    public privacyVersion?: string,
+    // Cloudflare Turnstile, when it is on
+    public turnstileToken?: string,
   ) {}
 }
 
@@ -119,7 +130,10 @@ export const ACCOUNT_EXISTS_MESSAGE =
 
 export class ForgotPassword {
   static readonly type = '[Auth] Forgot password';
-  constructor(public email: string) {}
+  constructor(
+    public email: string,
+    public turnstileToken?: string,
+  ) {}
 }
 
 export class ResetPassword {
@@ -258,11 +272,24 @@ export class AuthState implements NgxsOnInit {
 
   @Action(GetUserInfo)
   getUserInfo(ctx: StateContext<AuthStateModel>) {
+    // The answer belongs to the session that asked: a sign-out (or another sign-in) meanwhile must not be undone
+    const token = this.tokenService.getToken();
     return this.authService.getUserSelf().pipe(
       tap(user => {
-        ctx.patchState({ user: user, isAuthenticated: true });
+        if (token && this.tokenService.getToken() === token) {
+          ctx.patchState({ user: user, isAuthenticated: true });
+        }
       }),
     );
+  }
+
+  @Action(SetUserInfo)
+  setUserInfo(ctx: StateContext<AuthStateModel>, action: SetUserInfo) {
+    // Only the profile of the account signed in now: not one read before a sign-out, nor before another tab signed in
+    // someone else (the token is shared by the tabs)
+    if (ctx.getState().isAuthenticated && !!action.user?.id && this.tokenService.userId() === action.user.id) {
+      ctx.patchState({ user: action.user });
+    }
   }
 
   @Action(GetProviders)
@@ -311,8 +338,13 @@ export class AuthState implements NgxsOnInit {
     return this.authService.updateUserSelf(action.updates).pipe(
       map(user => {
         const emailChanged = ctx.getState().user?.email !== user.email;
+        if (emailChanged) {
+          // A new address waits for its confirmation (SaaS mode): what the account still has to do comes from /users/me
+          ctx.dispatch(new GetUserInfo());
+        }
         ctx.patchState({
-          user: user,
+          // The update answers the profile only: keep what /users/me said besides it
+          user: { ...ctx.getState().user, ...user },
           errorMessage: undefined,
           statusMessage: emailChanged
             ? 'Successfully updated your information. Please confirm your new email with the link we sent to it.'
@@ -520,7 +552,7 @@ export class AuthState implements NgxsOnInit {
   @Action(ForgotPassword)
   forgotPassword(ctx: StateContext<AuthStateModel>, action: ForgotPassword) {
     ctx.patchState({ isLoading: true });
-    return this.authService.forgotPassword(action.email).pipe(
+    return this.authService.forgotPassword(action.email, action.turnstileToken).pipe(
       tap(() => {
         const statusMessage =
           'A password reset token has been sent to your email. ' +

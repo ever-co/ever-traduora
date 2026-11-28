@@ -30,6 +30,13 @@ export interface AccessOptions {
    * in or not, as if the route were not there. Throws to refuse; given the module reference to find its settings.
    */
   enabled?: (moduleRef: ModuleRef) => void;
+  /**
+   * Whether the route works for a person whose account is still pending (DESIGN §3.8): an e-mail not confirmed yet
+   * (TR_REQUIRE_VERIFIED_EMAIL) or, in SaaS mode, terms not accepted yet. Every other route answers them 403
+   * `email_not_verified` / `terms_not_accepted`. Only the sign-in and account routes, `users/me`, verify, resend and the
+   * acceptance itself declare it; `access.spec.ts` keeps that list.
+   */
+  whilePending?: true;
 }
 
 export interface AccessMetadata {

@@ -24,6 +24,7 @@ import { SharedModule } from './shared/shared.module';
 import { ProjectInviteState } from './projects/stores/project-invite.state';
 import { OrganizationsState } from './organizations/stores/organizations.state';
 import { saasGuard } from './organizations/guards/organization.guards';
+import { accountReadyGuard } from './auth/guards/account-ready.guard';
 
 @NgModule({
   declarations: [AppComponent],
@@ -37,6 +38,8 @@ import { saasGuard } from './organizations/guards/organization.guards';
       [AuthState, TermsState, ProjectsState, TranslationsState, ProjectUserState, ProjectInviteState, ProjectClientState, OrganizationsState],
       {
         developmentMode: !environment.production,
+        // The API's Content-Security-Policy allows no eval: NGXS reads state without compiling getters (new Function)
+        compatibility: { strictContentSecurityPolicy: true },
       },
     ),
     NgxsRouterPluginModule.forRoot(),
@@ -52,19 +55,19 @@ import { saasGuard } from './organizations/guards/organization.guards';
         {
           path: 'projects',
           loadChildren: () => import('./projects/projects.module').then(m => m.ProjectsModule),
-          canActivate: [AuthGuard],
+          canActivate: [AuthGuard, accountReadyGuard],
         },
         {
           // Organization pages, SaaS mode only: /orgs/new, /orgs/:slug/{projects,members,settings}
           path: 'orgs',
           loadChildren: () => import('./organizations/organizations.routes').then(m => m.ORGANIZATION_ROUTES),
-          canActivate: [AuthGuard, saasGuard],
+          canActivate: [AuthGuard, accountReadyGuard, saasGuard],
         },
         {
           // Ever Platform pages, for the operator of the installation (the API answers nobody else)
           path: 'ever-platform',
           loadChildren: () => import('./ever-platform/ever-platform.module').then(m => m.EverPlatformModule),
-          canActivate: [AuthGuard],
+          canActivate: [AuthGuard, accountReadyGuard],
         },
         {
           // The hand-off from app.ever.co to create an organization's project: the page asks to sign in with Ever ID itself

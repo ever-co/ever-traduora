@@ -14,7 +14,9 @@ import { normalizeEmail } from '../../domain/validators';
  * The seats and strings of an organization against its plan (DESIGN §3.6).
  *
  * - **Seats**: its members, plus the people with a pending invitation who are not members yet: an organization
- *   invitation, or a project invitation to one of its projects (OD-T10). A person counts once, whatever they hold.
+ *   invitation, or a project invitation to one of its projects (OD-T10). A person counts once, whatever they hold. An
+ *   invitation is a member's only when it goes to the member's **confirmed** e-mail: an address someone merely typed
+ *   into their profile (`PATCH /users/me`) frees no seat (review of #679).
  * - **Strings**: the sum over its projects of locales × terms.
  *
  * Only an organization of SaaS mode other than the default one is limited this way; a single-tenant install and the
@@ -34,7 +36,7 @@ export function limitsOf(organization: Organization): EffectivePlan {
 
 const SENT = InviteStatus.Sent;
 
-/** The e-mails of the organization's members (`:organizationId`), as a subquery */
+/** The confirmed e-mails of the organization's members (`:organizationId`, `:confirmed`), as a subquery */
 function memberEmails(manager: EntityManager): string {
   return manager
     .createQueryBuilder()
@@ -43,6 +45,7 @@ function memberEmails(manager: EntityManager): string {
     .from(OrganizationUser, 'member')
     .innerJoin('member.user', 'member_user')
     .where('member.organizationId = :organizationId')
+    .andWhere('member_user.emailVerified = :confirmed')
     .getQuery();
 }
 
@@ -59,11 +62,11 @@ function invitedEmails(manager: EntityManager): string {
 }
 
 /**
- * The seats, counted in the database: the members, plus the distinct e-mails of the pending invitations of people who
- * are not members, the organization's own and then those to its projects that are not among them.
+ * The seats, counted in the database: the members, plus the distinct e-mails of the pending invitations that are not a
+ * member's confirmed e-mail, the organization's own and then those to its projects that are not among them.
  */
 export async function countSeats(manager: EntityManager, organizationId: string): Promise<number> {
-  const parameters = { organizationId, sent: SENT };
+  const parameters = { organizationId, sent: SENT, confirmed: true };
   const members = await manager.count(OrganizationUser, { where: { organizationId } });
   const invited = await manager
     .createQueryBuilder(OrganizationInvite, 'invite')
@@ -104,6 +107,11 @@ async function isMember(manager: EntityManager, organizationId: string, userId: 
     return true;
   }
   return !!email && manager.exists(OrganizationUser, { where: { organizationId, user: { email } } });
+}
+
+/** Whether the e-mail is the confirmed address of a member: an invitation to it takes no seat (`countSeats`) */
+function isMemberConfirmedEmail(manager: EntityManager, organizationId: string, email: string | null): Promise<boolean> {
+  return email ? manager.exists(OrganizationUser, { where: { organizationId, user: { email, emailVerified: true } } }) : Promise.resolve(false);
 }
 
 /** Whether the e-mail has a pending invitation of the organization or of one of its projects */
@@ -188,7 +196,12 @@ export async function seatRefusal(
     return null;
   }
   const email = person.email ? normalizeEmail(person.email) : null;
-  const member = await isMember(tx, organization.id, person.userId ?? null, email);
+  // A new invitation is free only for a member's confirmed address, as `countSeats` counts it; someone who joins is
+  // free when they are a member already
+  const member =
+    becomes === 'invite'
+      ? await isMemberConfirmedEmail(tx, organization.id, email)
+      : await isMember(tx, organization.id, person.userId ?? null, email);
   const invited = !member && (await isInvited(tx, organization.id, email));
   if (member || (invited && becomes === 'invite')) {
     return null;

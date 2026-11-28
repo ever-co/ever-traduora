@@ -1,5 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
-import { FormatCannotHoldTermsException, PaymentRequiredException, PlanLimitException } from '../errors';
+import { BadRequestException, HttpStatus } from '@nestjs/common';
+import { AccountException, FormatCannotHoldTermsException, PaymentRequiredException, PlanLimitException } from '../errors';
 import { CustomExceptionFilter } from './exception.filter';
 
 describe('CustomExceptionFilter', () => {
@@ -50,6 +50,18 @@ describe('CustomExceptionFilter', () => {
     expect(respond(new PaymentRequiredException('request would exceed plan limit')).body).toEqual({
       error: { code: 'PaymentRequired', message: 'You seem to have reached your plan limit' },
     });
+  });
+
+  it("answers an account's pending step and the bot check with their status and code", () => {
+    for (const [status, code] of [
+      [HttpStatus.FORBIDDEN, 'email_not_verified'],
+      [HttpStatus.FORBIDDEN, 'terms_not_accepted'],
+      [HttpStatus.BAD_REQUEST, 'turnstile_failed'],
+      [HttpStatus.SERVICE_UNAVAILABLE, 'turnstile_unavailable'],
+    ] as Array<[HttpStatus, string]>) {
+      const response = respond(new AccountException(status, code, 'the message'));
+      expect([response.statusCode, response.body]).toEqual([status, { error: { code, message: 'the message' } }]);
+    }
   });
 
   it('still answers a duplicate with 409', () => {

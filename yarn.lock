@@ -3842,6 +3842,24 @@
   resolved "https://registry.yarnpkg.com/@eslint/js/-/js-8.57.1.tgz#de633db3ec2ef6a3c89e2f19038063e8a122e2c2"
   integrity sha512-d9zaMRSTIKDLhctzH12MtXvJKSSUhaHcjV+2Z+GK+EEY7XKpP5yR4x+N3TAcHTcu963nIr+TMcCb4DBCYX1z6Q==
 
+"@ever-co/connect-contracts@1.0.0-rc.8":
+  version "1.0.0-rc.8"
+  resolved "https://registry.npmjs.org/@ever-co/connect-contracts/-/connect-contracts-1.0.0-rc.8.tgz#64dac6283adbc09b2ff96c2b3e5b96462d4ecae0"
+  integrity sha512-WmBcFC0mRxKWcTAWeb0YVFPAwovxnxf/FyUib0UDJgu+EdDIj5eVYSRQ6iwCO1FojRcA3Pnc8ZkG++R3ju0A4w==
+
+"@ever-co/connect-sdk@1.0.0-rc.8":
+  version "1.0.0-rc.8"
+  resolved "https://registry.npmjs.org/@ever-co/connect-sdk/-/connect-sdk-1.0.0-rc.8.tgz#b6c95510e3eace5f0f8a5d6ce9455d91284163cf"
+  integrity sha512-vbJy0CpKJNGxkwyZh+OVFw18otpA03wMRJU31HCcqSg5s4hTbOvCKfYWoN4vu/Qk03QdLSs+PQoxmWnzGwjAEw==
+  dependencies:
+    "@ever-co/connect-contracts" "1.0.0-rc.8"
+    ajv "8.20.0"
+
+"@ever-co/legal@^0.7.1":
+  version "0.7.1"
+  resolved "https://registry.npmjs.org/@ever-co/legal/-/legal-0.7.1.tgz#bd1cea8a577cae90aad843175f11a7cba24c5357"
+  integrity sha512-Ucbe5GeszADVY8khlnj/x98Rw7Ju8z/lb8CE6tvJk6RW+zk/VxSCGiWRI8n3uDunH1IdJqQzzlTn7AKpHYWR8w==
+
 "@gar/promisify@^1.0.1":
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/@gar/promisify/-/promisify-1.1.2.tgz#30aa825f11d438671d585bd44e7fd564535fc210"
@@ -4973,6 +4991,13 @@
   integrity sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==
   dependencies:
     "@tybys/wasm-util" "^0.10.3"
+
+"@nest-lab/throttler-storage-redis@^1.2.0":
+  version "1.2.0"
+  resolved "https://registry.npmjs.org/@nest-lab/throttler-storage-redis/-/throttler-storage-redis-1.2.0.tgz#d4b5615da833ca2777ba66049fa78c530fac0ffd"
+  integrity sha512-tMkUyo68NCKTR+zILk+EC35SMYBtDPZY2mCj7ZaCietWGVTnuP4zwq9ERYfvU6kJv6h8teNZrC6MJCmY6/dljw==
+  dependencies:
+    tslib "^2.3.0"
 
 "@nestjs/axios@^4.0.1":
   version "4.0.1"
@@ -8517,6 +8542,16 @@ ajv@8.18.0:
     json-schema-traverse "^1.0.0"
     require-from-string "^2.0.2"
 
+ajv@8.20.0, ajv@^8.17.1:
+  version "8.20.0"
+  resolved "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz#304b3636add88ba7d936760dd50ece006dea95f9"
+  integrity sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==
+  dependencies:
+    fast-deep-equal "^3.1.3"
+    fast-uri "^3.0.1"
+    json-schema-traverse "^1.0.0"
+    require-from-string "^2.0.2"
+
 ajv@^6.12.3, ajv@^6.12.4, ajv@^6.12.5:
   version "6.12.6"
   resolved "https://registry.yarnpkg.com/ajv/-/ajv-6.12.6.tgz#baf5a62e802b07d977034586f8c3baf5adf26df4"
@@ -9469,7 +9504,7 @@ bser@2.1.1:
   dependencies:
     node-int64 "^0.4.0"
 
-buffer-equal-constant-time@1.0.1, buffer-equal-constant-time@^1.0.1:
+buffer-equal-constant-time@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/buffer-equal-constant-time/-/buffer-equal-constant-time-1.0.1.tgz#f8e71132f7ffe6e01a5c9697a4c6f3e48d5cc819"
   integrity sha1-+OcRMvf/5uAaXJaXpMbz5I1cyBk=
@@ -14621,6 +14656,11 @@ he@1.2.0, he@^1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/he/-/he-1.2.0.tgz#84ae65fa7eafb165fddb61566ae14baf05664f0f"
   integrity sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==
+
+helmet@^8.3.0:
+  version "8.3.0"
+  resolved "https://registry.npmjs.org/helmet/-/helmet-8.3.0.tgz#3842eea921e7c7015d11f217910c710c434efb26"
+  integrity sha512-Qgpiaws3Sm30Av8Eah6sjMCZZwjlBu+E68rhpCWBshY1lb09HtLwj5GviX0OyQIn+ulUS0iX0AxN5n3tLZzz1w==
 
 highlight.js@^10.7.1:
   version "10.7.3"

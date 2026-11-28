@@ -19,7 +19,7 @@ import { ProjectUser } from '../src/entity/project-user.entity';
 import { Project } from '../src/entity/project.entity';
 import { Term } from '../src/entity/term.entity';
 import { Translation } from '../src/entity/translation.entity';
-import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
+import { createAndMigrateApp, signupTestUser, TestingUser, currentTerms } from './util';
 
 /**
  * DESIGN §10, the isolation suite. Organizations A and B each have an owner, an admin, a member, a project with
@@ -79,7 +79,7 @@ describe('Organization isolation (e2e)', () => {
     }
     const res = await request(server())
       .post('/api/v1/auth/signup')
-      .send({ name: email, email, password: 'mysupersecretpassword', organizationName })
+      .send({ name: email, email, password: 'mysupersecretpassword', ...currentTerms(), organizationName })
       .expect(200);
     await dataSource.getRepository('User').update({ id: res.body.data.id }, { emailVerified: true });
     return res.body.data;

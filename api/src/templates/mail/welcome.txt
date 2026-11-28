@@ -6,11 +6,17 @@ You're one step closer to bringing your project to a wider audience.
 To get started, go to {{virtualHost}}/login and login with your email and password.
 {{#if verifyEmailUrl}}
 
+{{#if verificationRequired}}
+First, please confirm that this is your email address by opening this link (sign in if asked). Your projects open once it is confirmed:
+{{else}}
 Please also confirm that this is your email address by opening this link (sign in if asked):
+{{/if}}
 
 {{{verifyEmailUrl}}}
+{{#unless verificationRequired}}
 
 Project admins can then add you to their projects directly when they invite this email.
+{{/unless}}
 {{/if}}
 
 Traduora's Team

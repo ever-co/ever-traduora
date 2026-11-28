@@ -81,6 +81,21 @@ export class OrganizationException extends HttpException {
   }
 }
 
+/**
+ * An answer about the caller's own account that the web app acts on (DESIGN §3.8): its own status and a stable `code`,
+ * such as `email_not_verified` (403, confirm the e-mail first), `terms_not_accepted` (accept the current terms first) or
+ * `turnstile_failed` (the bot check did not pass).
+ */
+export class AccountException extends HttpException {
+  constructor(
+    status: HttpStatus,
+    readonly code: string,
+    message: string,
+  ) {
+    super(message, status);
+  }
+}
+
 /** A route without an access rule (`@Access`), or with one the guard does not know: 403 `access_undeclared`. */
 export class AccessUndeclaredException extends HttpException {
   readonly code = 'access_undeclared';

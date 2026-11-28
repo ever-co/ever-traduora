@@ -11,7 +11,7 @@ import { OrganizationInvite } from '../src/entity/organization-invite.entity';
 import { Invite } from '../src/entity/invite.entity';
 import { User } from '../src/entity/user.entity';
 import AuthorizationService from '../src/services/authorization.service';
-import { createAndMigrateApp, signupTestUser, TestingUser } from './util';
+import { createAndMigrateApp, signupTestUser, TestingUser, currentTerms } from './util';
 
 /** Sorts strings, or pairs of strings, by their text. */
 const byText = (left: unknown, right: unknown) => String(left).localeCompare(String(right));
@@ -32,6 +32,24 @@ describe('Organizations in SaaS mode (e2e)', () => {
 
   const server = () => app.getHttpServer();
   const auth = (user: TestingUser) => ({ Authorization: `Bearer ${user.accessToken}` });
+  /**
+   * Marks the account's e-mail as confirmed, as its link would, but without the acceptances the link also makes: SaaS
+   * mode opens nothing but the account to a person who has not confirmed it (DESIGN §3.8).
+   */
+  const confirmEmail = async <T extends { id: string }>(user: T): Promise<T> => {
+    await dataSource.getRepository(User).update({ id: user.id }, { emailVerified: true });
+    return user;
+  };
+  /** Runs `work` with TR_REQUIRE_VERIFIED_EMAIL=false, for the flows of an account that keeps an unconfirmed e-mail. */
+  const withoutVerificationGate = async (work: () => Promise<void>) => {
+    const before = config.accounts.requireVerifiedEmail;
+    config.accounts.requireVerifiedEmail = false;
+    try {
+      await work();
+    } finally {
+      config.accounts.requireVerifiedEmail = before;
+    }
+  };
   const organizationsOf = async (user: TestingUser): Promise<Org[]> =>
     (await request(server()).get('/api/v1/organizations').set(auth(user)).expect(200)).body.data;
   const onlyOrganizationOf = async (user: TestingUser): Promise<Org> => {
@@ -92,9 +110,9 @@ describe('Organizations in SaaS mode (e2e)', () => {
     it('names the organization as the sign-up asks', async () => {
       const res = await request(server())
         .post('/api/v1/auth/signup')
-        .send({ name: 'Zed', email: 'zed@test.com', password: 'mysupersecretpassword', organizationName: 'Zed Translations' })
+        .send({ name: 'Zed', email: 'zed@test.com', password: 'mysupersecretpassword', ...currentTerms(), organizationName: 'Zed Translations' })
         .expect(200);
-      const zed = res.body.data as TestingUser;
+      const zed = await confirmEmail(res.body.data as TestingUser);
       const organization = await onlyOrganizationOf(zed);
       expect(organization).toMatchObject({ name: 'Zed Translations', slug: 'zed-translations', role: 'owner' });
     });
@@ -167,9 +185,9 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
       const signup = await request(server())
         .post('/api/v1/auth/signup')
-        .send({ name: 'Newcomer', email: 'Newcomer@test.com', password: 'mysupersecretpassword', inviteToken: token })
+        .send({ name: 'Newcomer', email: 'Newcomer@test.com', password: 'mysupersecretpassword', ...currentTerms(), inviteToken: token })
         .expect(200);
-      const newcomer = signup.body.data as TestingUser;
+      const newcomer = await confirmEmail(signup.body.data as TestingUser);
       expect((await organizationsOf(newcomer)).map(o => [o.id, o.role])).toEqual([[organization.id, 'member']]);
       const after = await request(server()).get(`/api/v1/organizations/${organization.id}/invites`).set(auth(owner)).expect(200);
       expect(after.body.data).toEqual([]);
@@ -179,7 +197,7 @@ describe('Organizations in SaaS mode (e2e)', () => {
       await inviteToOrganization(owner, organization.id, 'tokenless@test.com').expect(201);
       await request(server())
         .post('/api/v1/auth/signup')
-        .send({ name: 'Tokenless', email: 'tokenless@test.com', password: 'mysupersecretpassword' })
+        .send({ name: 'Tokenless', email: 'tokenless@test.com', password: 'mysupersecretpassword', ...currentTerms() })
         .expect(401);
     });
 
@@ -188,6 +206,8 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const other = await signupTestUser(app, 'other@test.com');
       const invited = await inviteToOrganization(owner, organization.id, existing.email).expect(201);
       const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
+      // Unconfirmed when invited (a pending invitation, not a direct add), confirmed before it accepts
+      await confirmEmail(existing);
 
       await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(other)).send({ inviteToken: token }).expect(404);
       const accepted = await request(server())
@@ -204,10 +224,11 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const invited = await inviteToOrganization(owner, organization.id, 'revoked@test.com').expect(201);
       await request(server()).delete(`/api/v1/organizations/${organization.id}/invites/${invited.body.data.id}`).set(auth(owner)).expect(204);
       const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
-      await request(server())
+      const signedUp = await request(server())
         .post('/api/v1/auth/signup')
-        .send({ name: 'Revoked', email: 'revoked@test.com', password: 'mysupersecretpassword', inviteToken: token })
+        .send({ name: 'Revoked', email: 'revoked@test.com', password: 'mysupersecretpassword', ...currentTerms(), inviteToken: token })
         .expect(200);
+      await confirmEmail(signedUp.body.data);
       const revoked = (
         await request(server())
           .post('/api/v1/auth/token')
@@ -315,25 +336,27 @@ describe('Organizations in SaaS mode (e2e)', () => {
       expect([hidden.status, hidden.body.error?.code]).toEqual([404, 'NotFound']);
     });
 
-    it('ends the pending project invitations of a removed member, so none brings them back', async () => {
-      const removed = await signupTestUser(app, 'stale-invite@test.com', false);
-      const invited = await inviteToOrganization(owner, organization.id, removed.email).expect(201);
-      const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
-      await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(removed)).send({ inviteToken: token }).expect(200);
-      const project = await createProject(owner, organization.id);
-      // An unverified account gets a pending project invitation
-      const projectInvite = await request(server())
-        .post(`/api/v1/projects/${project.id}/invites`)
-        .set(auth(owner))
-        .send({ email: removed.email, role: 'editor' })
-        .expect(201);
-      const projectToken = new URL(projectInvite.body.data.inviteUrl).searchParams.get('invite');
+    it('ends the pending project invitations of a removed member, so none brings them back', () =>
+      // An account that keeps an unconfirmed e-mail, which is what makes the project invitation pending
+      withoutVerificationGate(async () => {
+        const removed = await signupTestUser(app, 'stale-invite@test.com', false);
+        const invited = await inviteToOrganization(owner, organization.id, removed.email).expect(201);
+        const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
+        await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(removed)).send({ inviteToken: token }).expect(200);
+        const project = await createProject(owner, organization.id);
+        // An unverified account gets a pending project invitation
+        const projectInvite = await request(server())
+          .post(`/api/v1/projects/${project.id}/invites`)
+          .set(auth(owner))
+          .send({ email: removed.email, role: 'editor' })
+          .expect(201);
+        const projectToken = new URL(projectInvite.body.data.inviteUrl).searchParams.get('invite');
 
-      await request(server()).delete(`/api/v1/organizations/${organization.id}/members/${removed.id}`).set(auth(owner)).expect(204);
-      expect(await dataSource.getRepository(Invite).count({ where: { project: { id: project.id } } })).toBe(0);
-      await request(server()).post('/api/v1/auth/accept-invite').set(auth(removed)).send({ inviteToken: projectToken }).expect(404);
-      expect((await organizationsOf(removed)).map(o => o.id)).not.toContain(organization.id);
-    });
+        await request(server()).delete(`/api/v1/organizations/${organization.id}/members/${removed.id}`).set(auth(owner)).expect(204);
+        expect(await dataSource.getRepository(Invite).count({ where: { project: { id: project.id } } })).toBe(0);
+        await request(server()).post('/api/v1/auth/accept-invite').set(auth(removed)).send({ inviteToken: projectToken }).expect(404);
+        expect((await organizationsOf(removed)).map(o => o.id)).not.toContain(organization.id);
+      }));
 
     it('keeps the seat counter: members plus pending invites', async () => {
       // Its own pending invite, so the count holds without the tests before
@@ -407,9 +430,9 @@ describe('Organizations in SaaS mode (e2e)', () => {
       // The invitee signs up on their own (no pending invite holds them back) and the old link joins nothing
       const signup = await request(server())
         .post('/api/v1/auth/signup')
-        .send({ name: 'Late Invitee', email: 'closing-invitee@test.com', password: 'mysupersecretpassword', inviteToken: token })
+        .send({ name: 'Late Invitee', email: 'closing-invitee@test.com', password: 'mysupersecretpassword', ...currentTerms(), inviteToken: token })
         .expect(200);
-      const invitee = signup.body.data as TestingUser;
+      const invitee = await confirmEmail(signup.body.data as TestingUser);
       await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(invitee)).send({ inviteToken: token }).expect(404);
       expect((await organizationsOf(invitee)).map(o => o.id)).not.toContain(organization.id);
     });
@@ -437,6 +460,7 @@ describe('Organizations in SaaS mode (e2e)', () => {
         .expect(201);
       const organizationInvite = await inviteToOrganization(owner, organization.id, person.email, 'admin').expect(201);
       const tokenOf = (res: request.Response) => new URL(res.body.data.inviteUrl).searchParams.get('invite');
+      await confirmEmail(person);
 
       // The project invite first: the person joins as a member
       await request(server())
@@ -461,6 +485,7 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const organization = await onlyOrganizationOf(owner);
       const invited = await inviteToOrganization(owner, organization.id, invitee.email).expect(201);
       const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
+      await confirmEmail(invitee);
       await dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Suspended });
       await request(server()).post('/api/v1/auth/accept-organization-invite').set(auth(invitee)).send({ inviteToken: token }).expect(404);
       await dataSource.getRepository(Organization).update({ id: organization.id }, { status: OrganizationStatus.Active });
@@ -618,9 +643,15 @@ describe('Organizations in SaaS mode (e2e)', () => {
       const token = new URL(invited.body.data.inviteUrl).searchParams.get('invite');
       const signup = await request(server())
         .post('/api/v1/auth/signup')
-        .send({ name: 'Project Invitee', email: 'project-invitee@test.com', password: 'mysupersecretpassword', inviteToken: token })
+        .send({
+          name: 'Project Invitee',
+          email: 'project-invitee@test.com',
+          password: 'mysupersecretpassword',
+          ...currentTerms(),
+          inviteToken: token,
+        })
         .expect(200);
-      const invitee = signup.body.data as TestingUser;
+      const invitee = await confirmEmail(signup.body.data as TestingUser);
       expect((await organizationsOf(invitee)).map(o => [o.id, o.role])).toEqual([[organization.id, 'member']]);
       expect(await projectIds(invitee)).toEqual([project.id]);
     });

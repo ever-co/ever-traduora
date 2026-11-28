@@ -18,6 +18,14 @@ const PROVIDER_SIGN_IN_MESSAGES: { [code: string]: string } = {
   last_sign_in_method: 'This is the only way to sign in to your account. Set a password first (e.g. with "Forgot password"), then disconnect it.',
 };
 
+/** Messages about the caller's own account (SaaS mode), by the API's error code. */
+const ACCOUNT_MESSAGES: { [code: string]: string } = {
+  email_not_verified: 'Please confirm your email address first, with the link we sent to it.',
+  terms_not_accepted: 'Please accept the current terms of service and privacy policy to continue.',
+  turnstile_failed: 'The bot check did not pass. Please try it again.',
+  turnstile_unavailable: 'The bot check is unavailable right now. Please try again in a moment.',
+};
+
 const figures = new Intl.NumberFormat('en-US');
 
 /**
@@ -52,6 +60,10 @@ export function errorToMessage(error: any, action = ''): string {
 
   if (domainCode && Object.prototype.hasOwnProperty.call(PROVIDER_SIGN_IN_MESSAGES, domainCode)) {
     return PROVIDER_SIGN_IN_MESSAGES[domainCode];
+  }
+
+  if (domainCode && Object.prototype.hasOwnProperty.call(ACCOUNT_MESSAGES, domainCode)) {
+    return ACCOUNT_MESSAGES[domainCode];
   }
 
   if (error.status === 429) {

@@ -1,0 +1,22 @@
+.terms-documents {
+  margin-bottom: 20px;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 4px;
+}
+
+.terms-documents li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.terms-documents li + li {
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.terms-documents .font-mono {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}

@@ -3,6 +3,7 @@ import { InjectThrottlerStorage, ThrottlerStorage } from '@nestjs/throttler';
 import { createHash } from 'node:crypto';
 import { config } from '../config';
 import { TooManyRequestsException } from '../errors';
+import { addressBucket } from '../utils/client-address';
 
 /**
  * Applies the auth rate limit (TR_AUTH_THROTTLE_*) to sign-ins with an OpenID Connect provider (e.g. Ever ID) on a
@@ -19,7 +20,9 @@ export class OidcSignInThrottlerGuard implements CanActivate {
     if (!provider || provider === 'google' || !limit || !ttl) {
       return true;
     }
-    const key = createHash('sha256').update(`oidc-sign-in:${request.ip}`).digest('hex');
+    const key = createHash('sha256')
+      .update(`oidc-sign-in:${addressBucket(request.ip)}`)
+      .digest('hex');
     const { isBlocked } = await this.storage.increment(key, ttl, limit, ttl, 'oidc-sign-in');
     if (isBlocked) {
       throw new TooManyRequestsException('You have made too many requests. Please try again later.');

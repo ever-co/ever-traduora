@@ -8,6 +8,7 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Ip,
   Logger,
   NotFoundException,
   Param,
@@ -26,6 +27,7 @@ import { config } from '../config';
 import {
   AcceptInviteRequest,
   AcceptInviteResponse,
+  AcceptTermsRequest,
   AcceptOrganizationInviteRequest,
   AcceptOrganizationInviteResponse,
   AccessTokenDTO,
@@ -76,6 +78,10 @@ import { assertSaasEnabled, OrganizationService } from '../services/organization
 import { OrganizationInvite } from '../entity/organization-invite.entity';
 import { byCodeUnits, lockProjectsForShare, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
+import { acceptedTerms, requiredLegalDocuments } from '../accounts/account-policy';
+import { AttemptLimiter, HOUR_MS } from '../accounts/attempt-limiter';
+import { TurnstileService, turnstileSiteKey } from '../accounts/turnstile.service';
+import { addressBucket } from '../utils/client-address';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
 const EVERID = 'everid';
@@ -100,6 +106,8 @@ export class AuthController {
     private oidcProviders: OidcProviderService,
     private everIdSessions: EverIdSessionService,
     private organizations: OrganizationService,
+    private turnstile: TurnstileService,
+    private attempts: AttemptLimiter,
   ) {}
 
   @Access('public')
@@ -108,9 +116,15 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.OK, type: ListAuthProvidersResponse, description: 'Success' })
   @HttpCode(HttpStatus.OK)
   async getProviders(): Promise<ServiceApiResponse<AuthProviderDTO[]> & { saas: boolean }> {
+    const legal = requiredLegalDocuments();
+    const turnstile = turnstileSiteKey();
     return {
       // The web app shows organizations only in SaaS mode
       saas: config.saasEnabled,
+      // The bot check of sign-up and forgot-password, when it is on
+      ...(turnstile ? { turnstileSiteKey: turnstile } : {}),
+      // SaaS mode: the documents a sign-up accepts (their versions are sent back with it), with where to read them
+      ...(legal ? { legal } : {}),
       data: Object.keys(config.providers).reduce((acc, provider) => {
         // An OpenID Connect provider (e.g. Ever ID) is listed once it is on and its discovery succeeded
         if (this.oidcProviders.handles(provider)) {
@@ -128,12 +142,21 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create a new user account' })
   @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request; turnstile_failed (bot check), terms_not_accepted (SaaS mode: the current terms versions are required)',
+  })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'A user with this email already exists' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'The email has a pending invitation and the invite token is missing or invalid' })
-  async signup(@Body() payload: SignupRequest) {
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'SaaS mode: more than TR_SIGNUPS_PER_HOUR sign-ups from this address' })
+  async signup(@Body() payload: SignupRequest, @Ip() ip: string) {
+    // The bot check first, then the terms (SaaS mode): nothing is looked up for a request that fails either. Only then
+    // is the sign-up counted against the address's limit, so refused bots cannot use up the sign-ups of a shared address
+    await this.turnstile.assertHuman(payload.turnstileToken, ip, 'signup');
+    const terms = acceptedTerms(payload);
+    await this.countSignup(ip);
     const normalizedEmail = normalizeEmail(payload.email);
-    const { inviteToken, organizationName, ...signup } = payload;
+    const { inviteToken, organizationName, turnstileToken, termsVersion, privacyVersion, ...signup } = payload;
 
     // check for invite
     const invites = await this.inviteRepo.find({
@@ -164,6 +187,7 @@ export class AuthController {
       grantType: GrantType.Password,
       ...signup,
       ownOrganization: config.saasEnabled && !accepting ? { name: organizationName } : undefined,
+      terms,
     });
 
     await this.acceptInvites(acceptedInvites, user);
@@ -187,6 +211,14 @@ export class AuthController {
         accessToken: token,
       },
     };
+  }
+
+  /**
+   * SaaS mode: counts a sign-up against TR_SIGNUPS_PER_HOUR per address (an IPv6 /64) and hour, in the throttler's
+   * storage (shared by the replicas with Redis); 429 past it. Called once the request passed the bot check.
+   */
+  private countSignup(ip: string): Promise<void> {
+    return config.saasEnabled ? this.attempts.count('signup', addressBucket(ip), config.throttle.signupsPerHour, HOUR_MS) : Promise.resolve();
   }
 
   private signUserToken(user: User): string {
@@ -399,8 +431,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request reset password email' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Email sent' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request; turnstile_failed (bot check)' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No user with such email found' })
-  async forgotPassword(@Body() payload: ForgotPasswordRequest) {
+  async forgotPassword(@Body() payload: ForgotPasswordRequest, @Ip() ip: string) {
+    // Before the account is looked up: a request that fails the bot check learns nothing about the email
+    await this.turnstile.assertHuman(payload.turnstileToken, ip, 'forgot-password');
     const { user, token } = await this.userService.forgotPassword(payload.email);
     // No token while a link sent moments ago still works: the answer is the same, so it does not tell
     if (token) {
@@ -429,7 +464,7 @@ export class AuthController {
     this.mailService.passwordChanged(user);
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('change-password')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -444,7 +479,7 @@ export class AuthController {
     this.mailService.passwordChanged(user);
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('verify-email')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -491,22 +526,46 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('resend-verification-email')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Email a new verification link for the current user's email` })
   @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Sent, or nothing to do because the email is verified already' })
+  @ApiResponse({
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    description: 'Too many requests, or TR_VERIFICATION_EMAILS_PER_HOUR reached for this account',
+  })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async resendVerificationEmail(@Req() req) {
     const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
     if (requestingUser.emailVerified) {
       return;
     }
+    // The same budget per account as e-mail changes: the address may be one the caller typed into the profile
+    await this.attempts.count('verification-email', requestingUser.id, config.throttle.verificationEmailsPerHour, HOUR_MS);
     // Replaces the previous link, which stops working
     const token = await this.userService.startEmailVerification(requestingUser);
     if (token) {
       void this.mailService.verifyEmail(requestingUser, verifyEmailUrl(token));
+    }
+  }
+
+  @Access('user', { whilePending: true })
+  @Post('accept-terms')
+  @ApiOAuth2([])
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Accept the current terms of service and privacy policy (SaaS mode), e.g. after a new version' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Recorded' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'terms_not_accepted: the versions sent are not the ones in force' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not in SaaS mode: there is nothing to accept' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async acceptTerms(@Req() req, @Body() payload: AcceptTermsRequest) {
+    assertSaasEnabled();
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+    const accepted = acceptedTerms(payload);
+    if (accepted) {
+      await this.userService.acceptTerms(requestingUser.id, accepted);
     }
   }
 
@@ -724,12 +783,16 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.OK, type: NewUserDTO, description: 'Account created and signed in' })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Ever ID sign-in is off, or the record is invalid or expired' })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'An account with this email, or for this identity, exists already' })
-  async confirmOidcSignup(@Body() payload: ProviderSignupConfirmRequest) {
+  async confirmOidcSignup(@Body() payload: ProviderSignupConfirmRequest, @Ip() ip: string) {
     const pending = this.everIdSessions.unseal(payload.pending, 'signup');
     if (!pending) {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'pending_invalid', 'The sign-up expired, please sign in again');
     }
     this.assertOidcActive(pending.provider);
+    // SaaS mode: the terms ticked on the confirmation screen, when it sent them; otherwise they are asked for next
+    const terms = payload.termsVersion || payload.privacyVersion ? acceptedTerms(payload) : undefined;
+    // Counted once the sealed record from a real sign-in at the provider is known good
+    await this.countSignup(ip);
 
     if (await this.everIdSessions.findIdentity(pending.issuer, pending.subject)) {
       throw new AuthProviderException(HttpStatus.CONFLICT, 'subject_linked', 'This identity is connected to an account already');
@@ -757,6 +820,7 @@ export class AuthController {
       name: pending.name,
       email: pending.email,
       ownOrganization: config.saasEnabled && tickedInvites.length + tickedOrganizationInvites.length === 0 ? {} : undefined,
+      terms,
     });
     if (!isNewUser) {
       // Created by someone else since the check above: never signed in to
@@ -799,7 +863,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('identities/connect')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -839,7 +903,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('identities/connect/confirm')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -872,7 +936,7 @@ export class AuthController {
     return { data: identities.find(item => item.id === identity.id) };
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Get('identities')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -886,7 +950,7 @@ export class AuthController {
     return { data: await this.everIdSessions.listForUser(requestingUser.id) };
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Delete('identities/:id')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)

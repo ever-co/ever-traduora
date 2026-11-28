@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { EntityManager, In } from 'typeorm';
 import { config } from '../../config';
 import { OrganizationPlanCode, OrganizationRole, OrganizationStatus } from '../../domain/organization-actions';
-import { InviteStatus } from '../../entity/invite.entity';
+import { Invite, InviteStatus } from '../../entity/invite.entity';
 import { OrganizationInvite } from '../../entity/organization-invite.entity';
 import { OrganizationUser } from '../../entity/organization-user.entity';
 import { Organization } from '../../entity/organization.entity';
@@ -330,6 +330,50 @@ export async function organizationDeletionHold(manager: EntityManager, userIds: 
     }
   }
   return null;
+}
+
+/**
+ * After a member's **confirmed** e-mail changed (`PATCH /users/me`), in the same transaction, which locked the account
+ * first: drops the pending invitations to the former address in every organization with its own plan the person is a
+ * member of, and recounts their seats (review of #674, round 3). The caller calls it only when the former address was
+ * confirmed: an address someone merely typed into their profile may be anyone's, and its invitations stay (review of
+ * #679: a member who sets a victim's address and then her own again must not delete the victim's invitations).
+ *
+ * An invitation to a member's confirmed address takes no seat, since that person holds one already (`countSeats`). Once the
+ * address is no longer theirs, the invitation would belong to nobody in the organization and take a seat of its own, so
+ * a full organization would end up over its limit without anyone adding someone. The invitations were addressed to
+ * someone who is in already; they go rather than the count rising. (Recounting alone would keep the counter right but
+ * the organization over its limit; refusing the change would hold a person's own account hostage to a plan.) The
+ * person can be invited again at the new address.
+ *
+ * Lock order: the account (by the caller), then these organizations in the order of their ids (`lockOrganization`);
+ * removing a project invitation takes no lock on its project. The default organization and a single-tenant install
+ * count no seats, so nothing changes there.
+ */
+export async function releaseFormerEmailInvites(tx: EntityManager, userId: string, formerEmail: string): Promise<void> {
+  if (!config.saasEnabled) {
+    return;
+  }
+  const memberships = await tx.find(OrganizationUser, { where: { userId }, relations: ['organization'] });
+  const organizationIds = [
+    ...new Set(memberships.filter(membership => usesOrganizationPlan(membership.organization)).map(membership => membership.organizationId)),
+  ].sort(byCodeUnits);
+  for (const organizationId of organizationIds) {
+    await lockOrganization(tx, organizationId);
+    // Still a member under the lock: a removal that committed meanwhile already counts the invitations as seats
+    if (!(await tx.exists(OrganizationUser, { where: { organizationId, userId }, ...latestRows(tx) }))) {
+      continue;
+    }
+    await tx.delete(OrganizationInvite, { organizationId, email: formerEmail, status: InviteStatus.Sent });
+    const projectInvites = await tx.find(Invite, {
+      where: { email: formerEmail, status: InviteStatus.Sent, project: { organizationId } },
+      select: { id: true },
+    });
+    if (projectInvites.length > 0) {
+      await tx.delete(Invite, { id: In(projectInvites.map(invite => invite.id)) });
+    }
+    await recountSeats(tx, organizationId);
+  }
 }
 
 /**
