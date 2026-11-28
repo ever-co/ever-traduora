@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { Select } from '@ngxs/store';
+import { Component, inject } from '@angular/core';
+import { Select, Store } from '@ngxs/store';
 import { combineLatest, Observable } from 'rxjs';
 import { delay, map } from 'rxjs/operators';
 import { AuthState } from './auth/stores/auth.state';
@@ -36,6 +36,13 @@ export class AppComponent {
 
   @Select(ProjectClientState.isLoading)
   projectClientLoading$!: Observable<boolean>;
+
+  /** The app bar, for a signed-in account that is not pending (an e-mail to confirm, terms to accept: SaaS mode) */
+  private readonly store = inject(Store);
+
+  showBar$ = combineLatest([this.store.select(AuthState.isAuthenticated), this.store.select(AuthState.user)]).pipe(
+    map(([authenticated, user]) => authenticated && !user?.pending),
+  );
 
   isLoading$ = combineLatest([
     this.authLoading$,

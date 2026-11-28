@@ -200,8 +200,17 @@ export class AuthService {
     return this.http.delete<any>(`${this.endpoint}/users/me`);
   }
 
-  forgotPassword(email: string): Observable<any> {
-    return this.http.post(`${this.endpoint}/auth/forgot-password`, { email: email }, { responseType: 'text' });
+  forgotPassword(email: string, turnstileToken?: string): Observable<any> {
+    return this.http.post(
+      `${this.endpoint}/auth/forgot-password`,
+      { email, ...(turnstileToken ? { turnstileToken } : {}) },
+      { responseType: 'text' },
+    );
+  }
+
+  /** SaaS mode: accepts the terms of service and privacy policy in force (after a new version). */
+  acceptTerms(versions: { termsVersion: string; privacyVersion: string }): Observable<any> {
+    return this.http.post(`${this.endpoint}/auth/accept-terms`, versions, { responseType: 'text' });
   }
 
   resetPassword(data: { email: string; newPassword: string; token: string }): Observable<any> {

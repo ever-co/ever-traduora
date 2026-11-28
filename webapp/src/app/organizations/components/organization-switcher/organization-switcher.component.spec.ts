@@ -12,7 +12,7 @@ import { OrganizationSwitcherComponent } from './organization-switcher.component
 
 describe('OrganizationSwitcherComponent', () => {
   const endpoint = environment.apiEndpoint;
-  const user = { id: 'u1', name: 'Ada', email: 'ada@example.test', emailVerified: true };
+  const user = { id: 'u1', name: 'Ada', email: 'ada@example.test', emailVerified: true, pending: null };
   const acme: Organization = {
     id: 'o1',
     name: 'Acme Translations',

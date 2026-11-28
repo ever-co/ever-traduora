@@ -4,6 +4,11 @@ export interface UserSignup {
   password: string;
   inviteToken?: string;
   organizationName?: string;
+  // SaaS mode: the versions of the terms and privacy policy accepted with the sign-up
+  termsVersion?: string;
+  privacyVersion?: string;
+  // Cloudflare Turnstile, when it is on
+  turnstileToken?: string;
 }
 
 export interface UserSignupWithProvider {

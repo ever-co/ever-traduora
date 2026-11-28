@@ -18,6 +18,9 @@ import { AuthState } from './stores/auth.state';
 import { SignInWithComponent } from './components/sign-in-with/sign-in-with.component';
 import { EverIdConfirmComponent } from './components/everid-confirm/everid-confirm.component';
 import { ProviderCallbackGuard } from './guards/provider-callback.guard';
+import { TurnstileComponent } from '../shared/components/turnstile/turnstile.component';
+import { CheckInboxComponent } from './components/check-inbox/check-inbox.component';
+import { AcceptTermsComponent } from './components/accept-terms/accept-terms.component';
 
 @NgModule({
   declarations: [
@@ -37,6 +40,8 @@ import { ProviderCallbackGuard } from './guards/provider-callback.guard';
     CommonModule,
     SharedModule,
     NgxsModule.forFeature([AuthState]),
+    // Cloudflare's bot check on sign-up and forgot-password
+    TurnstileComponent,
     RouterModule.forChild([
       {
         path: 'signup',
@@ -63,6 +68,18 @@ import { ProviderCallbackGuard } from './guards/provider-callback.guard';
         // Signed-out users sign in first and come back to the link
         path: 'verify-email',
         component: VerifyEmailComponent,
+        canActivate: [AuthGuard],
+      },
+      {
+        // SaaS mode: an account confirms its e-mail before anything else
+        path: 'check-inbox',
+        component: CheckInboxComponent,
+        canActivate: [AuthGuard],
+      },
+      {
+        // SaaS mode: the terms in force are accepted before anything else
+        path: 'accept-terms',
+        component: AcceptTermsComponent,
         canActivate: [AuthGuard],
       },
       {

@@ -26,6 +26,18 @@ describe('SaasModeService', () => {
     expect(seen).toEqual([false, true]);
   });
 
+  it('reads the Turnstile site key and the legal documents from the same answer', () => {
+    const legal = { terms: { version: '1.1.0', url: 'https://traduora.co/tos' }, privacy: { version: '1.0.2', url: 'https://traduora.co/privacy' } };
+    const seen: unknown[] = [];
+    service.settings$.subscribe(settings => seen.push(settings));
+    http.expectOne(url).flush({ data: [], saas: true, turnstileSiteKey: 'site-key', legal });
+    service.settings$.subscribe(settings => seen.push(settings));
+    expect(seen).toEqual([
+      { saas: true, turnstileSiteKey: 'site-key', legal },
+      { saas: true, turnstileSiteKey: 'site-key', legal },
+    ]);
+  });
+
   it('keeps an answer, single-tenant included, for the page', () => {
     const seen: boolean[] = [];
     service.saas$.subscribe(saas => seen.push(saas));

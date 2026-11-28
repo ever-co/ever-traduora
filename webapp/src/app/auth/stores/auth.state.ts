@@ -36,6 +36,11 @@ export class Signup {
     public inviteToken?: string,
     // SaaS mode: the name of the person's own organization
     public organizationName?: string,
+    // SaaS mode: the versions of the terms and privacy policy accepted
+    public termsVersion?: string,
+    public privacyVersion?: string,
+    // Cloudflare Turnstile, when it is on
+    public turnstileToken?: string,
   ) {}
 }
 
@@ -119,7 +124,10 @@ export const ACCOUNT_EXISTS_MESSAGE =
 
 export class ForgotPassword {
   static readonly type = '[Auth] Forgot password';
-  constructor(public email: string) {}
+  constructor(
+    public email: string,
+    public turnstileToken?: string,
+  ) {}
 }
 
 export class ResetPassword {
@@ -311,8 +319,13 @@ export class AuthState implements NgxsOnInit {
     return this.authService.updateUserSelf(action.updates).pipe(
       map(user => {
         const emailChanged = ctx.getState().user?.email !== user.email;
+        if (emailChanged) {
+          // A new address waits for its confirmation (SaaS mode): what the account still has to do comes from /users/me
+          ctx.dispatch(new GetUserInfo());
+        }
         ctx.patchState({
-          user: user,
+          // The update answers the profile only: keep what /users/me said besides it
+          user: { ...ctx.getState().user, ...user },
           errorMessage: undefined,
           statusMessage: emailChanged
             ? 'Successfully updated your information. Please confirm your new email with the link we sent to it.'
@@ -520,7 +533,7 @@ export class AuthState implements NgxsOnInit {
   @Action(ForgotPassword)
   forgotPassword(ctx: StateContext<AuthStateModel>, action: ForgotPassword) {
     ctx.patchState({ isLoading: true });
-    return this.authService.forgotPassword(action.email).pipe(
+    return this.authService.forgotPassword(action.email, action.turnstileToken).pipe(
       tap(() => {
         const statusMessage =
           'A password reset token has been sent to your email. ' +

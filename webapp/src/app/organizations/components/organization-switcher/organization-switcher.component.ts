@@ -34,7 +34,8 @@ export class OrganizationSwitcherComponent implements OnInit {
     saasMode: SaasModeService,
   ) {
     const user$ = this.store.select(AuthState.user);
-    this.visible$ = combineLatest([saasMode.saas$, user$]).pipe(map(([saas, user]) => saas && !!user));
+    // Only for an account that is ready (`pending` of GET /users/me is null): a pending one reaches no organization yet
+    this.visible$ = combineLatest([saasMode.saas$, user$]).pipe(map(([saas, user]) => saas && !!user && user.pending === null));
     // By name, so the list reads the same however the organizations were joined
     this.organizations$ = this.store
       .select(OrganizationsState.organizations)

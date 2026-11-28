@@ -164,3 +164,14 @@ body {
     display: none !important;
   }
 }
+
+/* A sign-in page: its card centered, and from the top when it is taller than the screen (nothing cut off above) */
+.auth-page {
+  justify-content: safe center;
+}
+
+/* The single card of a sign-in page: full width on a phone, 380 px from there */
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+}

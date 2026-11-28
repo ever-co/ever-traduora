@@ -1,0 +1,19 @@
+.inbox-address {
+  font-size: 1rem;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  background-color: #f5f7f9;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  overflow-wrap: anywhere;
+}
+
+.inbox-notice {
+  background-color: #f5f7f9;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  color: #212529;
+}
+
+.inbox-row {
+  gap: 16px;
+}

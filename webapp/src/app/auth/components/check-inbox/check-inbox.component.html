@@ -1,0 +1,41 @@
+<div class="d-flex flex-column align-items-center h-100 px-3 py-4 auth-page">
+  <app-logo class="mb-4"></app-logo>
+  <div class="card auth-card">
+    <div class="card-body">
+      <h4 class="card-title font-serif">Check your inbox</h4>
+      <p class="card-text mb-1">We sent a confirmation link to</p>
+      <p class="inbox-address font-mono" data-test="address">{{ email || '…' }}</p>
+      <p class="card-text text-muted">Open it to confirm that this address is yours. Your projects open once it is confirmed.</p>
+
+      <div *ngIf="message" class="alert" [ngClass]="message.kind === 'error' ? 'alert-danger' : 'inbox-notice'" role="status">{{ message.text }}</div>
+
+      <form *ngIf="changing; else actions" [formGroup]="emailForm" (ngSubmit)="saveEmail()" novalidate>
+        <div class="form-group">
+          <label for="newEmailInput">New email address</label>
+          <input
+            id="newEmailInput"
+            class="form-control"
+            type="email"
+            formControlName="email"
+            autocomplete="email"
+            [class.is-invalid]="emailForm.controls.email.touched && emailForm.controls.email.invalid"
+          />
+          <div class="invalid-feedback">Must be a valid email</div>
+        </div>
+        <div class="d-flex justify-content-end inbox-row">
+          <button type="button" class="btn btn-link no-underline" (click)="changing = false">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="emailForm.invalid || busy">Send the link there</button>
+        </div>
+      </form>
+
+      <ng-template #actions>
+        <button type="button" class="btn btn-primary w-100" (click)="resend()" [disabled]="busy">Resend the link</button>
+        <button type="button" class="btn btn-link w-100 mt-2" (click)="confirmed()" [disabled]="busy">I have confirmed it</button>
+      </ng-template>
+    </div>
+  </div>
+  <div class="mt-3 text-center text-sm inbox-row justify-content-center d-flex">
+    <button *ngIf="!changing" type="button" class="btn btn-link text-sm p-0" (click)="startChange()">Use another address</button>
+    <button type="button" class="btn btn-link text-sm p-0" (click)="signOut()">Sign out</button>
+  </div>
+</div>
