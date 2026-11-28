@@ -7,6 +7,7 @@ import { AccessUndeclaredException } from '../errors';
 import AuthorizationService, { isId } from '../services/authorization.service';
 import { ACCESS_METADATA, AccessMetadata, parseAccessRule } from './access.decorator';
 import { OPERATOR_CHECK, OperatorCheck } from './operator-check';
+import { pendingAccountException, pendingAccountStep } from '../accounts/account-policy';
 
 /** The JWT sign-in check of `@nestjs/passport`, run here for every route that needs a caller. */
 const JwtAuthGuard = AuthGuard('jwt');
@@ -21,6 +22,9 @@ const JwtAuthGuard = AuthGuard('jwt');
  * - `organization:<Action>`: `AuthorizationService.authorizeOrganizationAction` on the route's `:organizationId`;
  * - `operator`: the installation's operator, else 404, as the Ever Platform pages answer;
  * - `public`, `webhook`: no caller needed (a webhook verifies its call itself).
+ * Before the rule, a signed-in person whose account is still pending gets 403 `email_not_verified` (e-mail to confirm,
+ * TR_REQUIRE_VERIFIED_EMAIL) or `terms_not_accepted` (SaaS mode), except on the routes that declare `whilePending`
+ * (DESIGN §3.8). API keys have no account to finish.
  * Handlers keep their own checks: this guard is the floor, not a replacement.
  */
 @Injectable()
@@ -50,6 +54,13 @@ export class AccessGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const caller = await this.signedIn(context, request);
+    // A person whose account is still pending (e-mail to confirm, terms to accept) reaches only the routes that say so
+    if (caller instanceof User && !metadata.options.whilePending) {
+      const pending = pendingAccountStep(caller);
+      if (pending) {
+        throw pendingAccountException(pending);
+      }
+    }
     switch (rule.kind) {
       case 'user':
         if (metadata.options.apiKeys !== 'allowed') {

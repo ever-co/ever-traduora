@@ -8,6 +8,7 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Ip,
   Logger,
   NotFoundException,
   Param,
@@ -26,6 +27,7 @@ import { config } from '../config';
 import {
   AcceptInviteRequest,
   AcceptInviteResponse,
+  AcceptTermsRequest,
   AcceptOrganizationInviteRequest,
   AcceptOrganizationInviteResponse,
   AccessTokenDTO,
@@ -76,6 +78,9 @@ import { assertSaasEnabled, OrganizationService } from '../services/organization
 import { OrganizationInvite } from '../entity/organization-invite.entity';
 import { byCodeUnits, lockProjectsForShare, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
+import { acceptedTerms, requiredLegalDocuments } from '../accounts/account-policy';
+import { SignupThrottlerGuard } from '../accounts/signup-throttler.guard';
+import { TurnstileService, turnstileSiteKey } from '../accounts/turnstile.service';
 
 /** The webapp sends Ever ID sign-ins with this provider slug. */
 const EVERID = 'everid';
@@ -100,6 +105,7 @@ export class AuthController {
     private oidcProviders: OidcProviderService,
     private everIdSessions: EverIdSessionService,
     private organizations: OrganizationService,
+    private turnstile: TurnstileService,
   ) {}
 
   @Access('public')
@@ -108,9 +114,15 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.OK, type: ListAuthProvidersResponse, description: 'Success' })
   @HttpCode(HttpStatus.OK)
   async getProviders(): Promise<ServiceApiResponse<AuthProviderDTO[]> & { saas: boolean }> {
+    const legal = requiredLegalDocuments();
+    const turnstile = turnstileSiteKey();
     return {
       // The web app shows organizations only in SaaS mode
       saas: config.saasEnabled,
+      // The bot check of sign-up and forgot-password, when it is on
+      ...(turnstile ? { turnstileSiteKey: turnstile } : {}),
+      // SaaS mode: the documents a sign-up accepts (their versions are sent back with it), with where to read them
+      ...(legal ? { legal } : {}),
       data: Object.keys(config.providers).reduce((acc, provider) => {
         // An OpenID Connect provider (e.g. Ever ID) is listed once it is on and its discovery succeeded
         if (this.oidcProviders.handles(provider)) {
@@ -125,15 +137,23 @@ export class AuthController {
 
   @Access('public')
   @Post('signup')
+  @UseGuards(SignupThrottlerGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Create a new user account' })
   @ApiResponse({ status: HttpStatus.OK, type: SignupResponse, description: 'User account created' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request; turnstile_failed (bot check), terms_not_accepted (SaaS mode: the current terms versions are required)',
+  })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'A user with this email already exists' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'The email has a pending invitation and the invite token is missing or invalid' })
-  async signup(@Body() payload: SignupRequest) {
+  @ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'SaaS mode: more than TR_SIGNUPS_PER_HOUR sign-ups from this address' })
+  async signup(@Body() payload: SignupRequest, @Ip() ip: string) {
+    // The bot check first, then the terms (SaaS mode): nothing is looked up for a request that fails either
+    await this.turnstile.assertHuman(payload.turnstileToken, ip);
+    const terms = acceptedTerms(payload);
     const normalizedEmail = normalizeEmail(payload.email);
-    const { inviteToken, organizationName, ...signup } = payload;
+    const { inviteToken, organizationName, turnstileToken, termsVersion, privacyVersion, ...signup } = payload;
 
     // check for invite
     const invites = await this.inviteRepo.find({
@@ -164,6 +184,7 @@ export class AuthController {
       grantType: GrantType.Password,
       ...signup,
       ownOrganization: config.saasEnabled && !accepting ? { name: organizationName } : undefined,
+      terms,
     });
 
     await this.acceptInvites(acceptedInvites, user);
@@ -399,8 +420,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request reset password email' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Email sent' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request; turnstile_failed (bot check)' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No user with such email found' })
-  async forgotPassword(@Body() payload: ForgotPasswordRequest) {
+  async forgotPassword(@Body() payload: ForgotPasswordRequest, @Ip() ip: string) {
+    // Before the account is looked up: a request that fails the bot check learns nothing about the email
+    await this.turnstile.assertHuman(payload.turnstileToken, ip);
     const { user, token } = await this.userService.forgotPassword(payload.email);
     // No token while a link sent moments ago still works: the answer is the same, so it does not tell
     if (token) {
@@ -429,7 +453,7 @@ export class AuthController {
     this.mailService.passwordChanged(user);
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('change-password')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -444,7 +468,7 @@ export class AuthController {
     this.mailService.passwordChanged(user);
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('verify-email')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -491,7 +515,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('resend-verification-email')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -507,6 +531,24 @@ export class AuthController {
     const token = await this.userService.startEmailVerification(requestingUser);
     if (token) {
       void this.mailService.verifyEmail(requestingUser, verifyEmailUrl(token));
+    }
+  }
+
+  @Access('user', { whilePending: true })
+  @Post('accept-terms')
+  @ApiOAuth2([])
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Accept the current terms of service and privacy policy (SaaS mode), e.g. after a new version' })
+  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Recorded' })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'terms_not_accepted: the versions sent are not the ones in force' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not in SaaS mode: there is nothing to accept' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  async acceptTerms(@Req() req, @Body() payload: AcceptTermsRequest) {
+    assertSaasEnabled();
+    const requestingUser = this.authorizationService.getRequestUserOrClient(req, { mustBeUser: true });
+    const accepted = acceptedTerms(payload);
+    if (accepted) {
+      await this.userService.acceptTerms(requestingUser.id, accepted);
     }
   }
 
@@ -718,6 +760,7 @@ export class AuthController {
   })
   @Access('public')
   @Post('everid/signup-confirm')
+  @UseGuards(SignupThrottlerGuard)
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Create the account of an Ever ID sign-in, after the person confirmed it' })
@@ -730,6 +773,8 @@ export class AuthController {
       throw new AuthProviderException(HttpStatus.BAD_REQUEST, 'pending_invalid', 'The sign-up expired, please sign in again');
     }
     this.assertOidcActive(pending.provider);
+    // SaaS mode: the terms ticked on the confirmation screen, when it sent them; otherwise they are asked for next
+    const terms = payload.termsVersion || payload.privacyVersion ? acceptedTerms(payload) : undefined;
 
     if (await this.everIdSessions.findIdentity(pending.issuer, pending.subject)) {
       throw new AuthProviderException(HttpStatus.CONFLICT, 'subject_linked', 'This identity is connected to an account already');
@@ -757,6 +802,7 @@ export class AuthController {
       name: pending.name,
       email: pending.email,
       ownOrganization: config.saasEnabled && tickedInvites.length + tickedOrganizationInvites.length === 0 ? {} : undefined,
+      terms,
     });
     if (!isNewUser) {
       // Created by someone else since the check above: never signed in to
@@ -799,7 +845,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('identities/connect')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -839,7 +885,7 @@ export class AuthController {
       ttl: config.throttle.auth.ttl,
     },
   })
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Post('identities/connect/confirm')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -872,7 +918,7 @@ export class AuthController {
     return { data: identities.find(item => item.id === identity.id) };
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Get('identities')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.OK)
@@ -886,7 +932,7 @@ export class AuthController {
     return { data: await this.everIdSessions.listForUser(requestingUser.id) };
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Delete('identities/:id')
   @ApiOAuth2([])
   @HttpCode(HttpStatus.NO_CONTENT)

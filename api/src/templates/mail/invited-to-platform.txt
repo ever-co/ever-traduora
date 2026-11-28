@@ -7,6 +7,9 @@ To accept, sign up with your email and a password using this link:
 {{{inviteUrl}}}
 
 If you already have an account with this email, sign in and then open the link.
+{{#if verificationRequired}}
+A new account is then asked to confirm this email address, with a link we send to it.
+{{/if}}
 
 The link only works for {{invite.email}}. Please do not share it.
 

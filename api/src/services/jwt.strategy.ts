@@ -46,7 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       case 'user': {
         const found = await this.userRepository.findOne({
           where: { id: payload.sub },
-          select: ['id', 'name', 'email', 'emailVerified', 'numProjectsCreated', 'sessionVersion'],
+          select: ['id', 'name', 'email', 'emailVerified', 'numProjectsCreated', 'sessionVersion', 'termsVersion', 'privacyVersion'],
         });
         // Tokens of an ended session version no longer work, e.g. after a password reset
         if (found && (payload.sv ?? 0) !== found.sessionVersion) {

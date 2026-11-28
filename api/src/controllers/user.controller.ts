@@ -6,6 +6,7 @@ import MailService from '../services/mail.service';
 import { UserService } from '../services/user.service';
 import { verifyEmailUrl } from '../utils/email-verification-token';
 import { Access } from '../access/access.decorator';
+import { pendingAccountStep } from '../accounts/account-policy';
 
 @Controller('api/v1/users')
 @ApiOAuth2([])
@@ -17,17 +18,18 @@ export default class UserController {
     private mail: MailService,
   ) {}
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Get('me')
   @ApiOperation({ summary: `Get the current user's profile` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: UserInfoResponse })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async me(@Req() req) {
     const user = this.auth.getRequestUserOrClient(req, { mustBeUser: true });
-    return { data: user };
+    // What the account must still do before the app works for it (confirm the e-mail, accept the terms), or null
+    return { data: { ...user, pending: pendingAccountStep(user) ?? null } };
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Patch('me')
   @ApiOperation({ summary: `Update the current user's profile` })
   @ApiResponse({ status: HttpStatus.OK, description: 'Updated', type: UserInfoResponse })
@@ -54,7 +56,7 @@ export default class UserController {
     };
   }
 
-  @Access('user')
+  @Access('user', { whilePending: true })
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: `Delete the current user's account` })

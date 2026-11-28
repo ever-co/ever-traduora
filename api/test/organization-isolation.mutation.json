@@ -2,6 +2,7 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
+  "setupFiles": ["<rootDir>/e2e-env.ts"],
   "testTimeout": 120000,
   "testRegex": "organization-isolation.e2e-spec.ts$",
   "transform": {

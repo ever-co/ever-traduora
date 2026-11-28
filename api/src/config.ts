@@ -64,6 +64,48 @@ export const resolveSecret = (secret: string | undefined, nodeEnv: string | unde
   return secret || randomBytes(32).toString('hex');
 };
 
+/** `'true'` or `'false'`; anything else (unset, a typo) is `undefined`, so the caller's default applies. */
+const getOptionalBool = (value: string | undefined): boolean | undefined => (value === 'true' ? true : value === 'false' ? false : undefined);
+
+/**
+ * Express `trust proxy` from TR_TRUST_PROXY (DESIGN §3.8): a hop count (`1` behind one ingress), `true`/`false`, or a
+ * comma list of proxy addresses, subnets or Express names (`loopback`, `10.0.0.0/8`). Unset: not set, as before, so
+ * every visitor behind a proxy shares the proxy's address. `true` trusts any `X-Forwarded-For`, so each request could
+ * choose its own rate-limit bucket: prefer a hop count.
+ */
+export const parseTrustProxy = (value: string | undefined): boolean | number | string[] | undefined => {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (trimmed === 'true' || trimmed === 'false') {
+    return trimmed === 'true';
+  }
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+  return getListOrDefault(trimmed);
+};
+
+/**
+ * The global rate limit (TR_THROTTLE_TTL ms, TR_THROTTLE_LIMIT requests per address). In SaaS mode the default is 600
+ * requests per minute; elsewhere it stays off (ttl 0), as before. An explicit value always wins.
+ */
+export const globalThrottle = (values: { ttl?: string; limit?: string; saas: boolean }): { ttl: number; limit: number } => ({
+  ttl: getNumberOrDefault(values.ttl, values.saas ? 60000 : 0),
+  limit: getNumberOrDefault(values.limit, values.saas ? 600 : 0),
+});
+
+/** Allowed CORS origins (TR_CORS_ORIGINS), each as an origin (`https://app.example.com`, no path or trailing slash). */
+export const parseCorsOrigins = (value: string | undefined): string[] =>
+  getListOrDefault(value).map(origin => {
+    try {
+      return new URL(origin).origin;
+    } catch {
+      return origin;
+    }
+  });
+
 export const config = {
   env: env.NODE_ENV || 'dev',
   port: parseInt(env.TR_PORT, 10) || 8080,
@@ -158,10 +200,9 @@ export const config = {
   },
 
   throttle: {
-    global: {
-      ttl: getNumberOrDefault(env.TR_THROTTLE_TTL, 0),
-      limit: getNumberOrDefault(env.TR_THROTTLE_LIMIT, 0),
-    },
+    global: globalThrottle({ ttl: env.TR_THROTTLE_TTL, limit: env.TR_THROTTLE_LIMIT, saas: getBoolOrDefault(env.TR_SAAS_ENABLED, false) }),
+    // SaaS mode: sign-ups (password, Ever ID confirmation) per address and hour; 0 turns the limit off
+    signupsPerHour: getNumberOrDefault(env.TR_SIGNUPS_PER_HOUR, 10),
     auth: {
       ttl: getNumberOrDefault(env.TR_AUTH_THROTTLE_TTL, 60000),
       limit: getNumberOrDefault(env.TR_AUTH_THROTTLE_LIMIT, env.NODE_ENV === 'production' ? 100 : 10),
@@ -184,6 +225,33 @@ export const config = {
     // No default: the seed creates the admin only when a password is configured
     adminPassword: process.env.TR_ADMIN_PASSWORD || '',
     adminName: process.env.TR_ADMIN_NAME || 'Admin',
+  },
+
+  // Accounts and hardening (DESIGN §3.8, P5)
+  accounts: {
+    // Whether a person must confirm their e-mail before anything but their account works (403 email_not_verified).
+    // Unset: on in SaaS mode, off otherwise (`requiresVerifiedEmail`, read on every request)
+    requireVerifiedEmail: getOptionalBool(env.TR_REQUIRE_VERIFIED_EMAIL),
+    // SaaS mode: the terms and privacy policy accepted at sign-up. The versions come from @ever-co/legal unless set here
+    terms: {
+      version: (env.TR_TERMS_VERSION || '').trim() || undefined,
+      url: (env.TR_TERMS_URL || '').trim() || 'https://traduora.co/tos',
+    },
+    privacy: {
+      version: (env.TR_PRIVACY_VERSION || '').trim() || undefined,
+      url: (env.TR_PRIVACY_URL || '').trim() || 'https://traduora.co/privacy',
+    },
+  },
+  // Cloudflare Turnstile on sign-up and forgot-password: on only when both keys are set
+  turnstile: {
+    siteKey: (env.TR_TURNSTILE_SITE_KEY || '').trim() || undefined,
+    secretKey: (env.TR_TURNSTILE_SECRET_KEY || '').trim() || undefined,
+    verifyUrl: 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+  },
+  http: {
+    trustProxy: parseTrustProxy(env.TR_TRUST_PROXY),
+    // Replaces `*` of TR_CORS_ENABLED when set
+    corsOrigins: parseCorsOrigins(env.TR_CORS_ORIGINS),
   },
 
   // Optional Ever Platform modules. The anonymous usage statistics are on unless TR_EVER_STATS_ENABLED is exactly

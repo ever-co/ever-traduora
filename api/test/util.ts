@@ -6,6 +6,7 @@ import { addPipesAndFilters, AppModule } from '../src/app.module';
 import { ProjectRole } from '../src/entity/project-user.entity';
 import { User } from '../src/entity/user.entity';
 import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
+import { currentLegalDocuments } from '../src/accounts/legal-documents';
 
 export interface TestingUser {
   id: string;
@@ -29,8 +30,17 @@ export interface TestingProjectClient {
 }
 
 /**
- * Signs up a user. Their email counts as verified unless `verifyEmail` is false, as if they had opened the link from
- * the welcome email, so that invites add them to projects directly.
+ * The versions of the terms of service and privacy policy in force, as a sign-up form sends them back (SaaS mode
+ * requires them; elsewhere they are ignored).
+ */
+export function currentTerms(): { termsVersion?: string; privacyVersion?: string } {
+  const documents = currentLegalDocuments();
+  return documents ? { termsVersion: documents.terms.version, privacyVersion: documents.privacy.version } : {};
+}
+
+/**
+ * Signs up a user, with the current terms accepted. Their email counts as verified unless `verifyEmail` is false, as if
+ * they had opened the link from the welcome email, so that invites add them to projects directly.
  */
 export async function signupTestUser(app: INestApplication, email: string = 'e2e@test.com', verifyEmail = true): Promise<TestingUser> {
   const res = await request(app.getHttpServer())
@@ -39,6 +49,7 @@ export async function signupTestUser(app: INestApplication, email: string = 'e2e
       name: `End to End Tester (${email})`,
       email,
       password: 'mysupersecretpassword',
+      ...currentTerms(),
     });
   const result = res.body.data as TestingUser;
   if (!result.id || !result.name || !result.email || !result.accessToken) {

@@ -68,6 +68,9 @@ import { dataSourceOptions } from './connection/datasource';
 import { serializeTransactions } from './connection/serialize-transactions';
 import { DbType } from './utils/database-type-helper';
 import { everPlatformModules } from './ever-platform/modules';
+import { AccountsModule } from './accounts/accounts.module';
+import { turnstileEnabled } from './accounts/turnstile.service';
+import { applyHttpHardening } from './security/http-hardening';
 
 /**
  * The web app's index.html for every other GET path. Its catch-all route must be registered after every API route,
@@ -119,6 +122,8 @@ export class IndexModule {}
       OrganizationInvite,
     ]),
     HttpModule,
+    // Accounts and hardening (P5): the bot check, the legal documents' boot check
+    AccountsModule,
     // Optional Ever Platform modules: the statistics unless TR_EVER_STATS_ENABLED=false, the connection only with
     // TR_EVER_CONNECT_ENABLED=true
     ...everPlatformModules(config.everPlatform),
@@ -202,9 +207,15 @@ export const addPipesAndFilters = (app: NestExpressApplication): void => {
   // (qs-based) behavior so existing query-string parsing keeps working.
   app.set('query parser', 'extended');
 
-  if (config.corsEnabled) {
-    app.enableCors({ origin: '*' });
-  }
+  // Hardening (DESIGN §3.8): trust proxy, helmet (CSP, HSTS on https), CORS; before every route and static file
+  applyHttpHardening(app, {
+    virtualHost: config.virtualHost,
+    turnstile: turnstileEnabled(),
+    everIdIssuer: config.providers.everid.active ? config.providers.everid.issuer : undefined,
+    trustProxy: config.http.trustProxy,
+    corsEnabled: config.corsEnabled,
+    corsOrigins: config.http.corsOrigins,
+  });
 
   app.useGlobalFilters(new CustomExceptionFilter());
 

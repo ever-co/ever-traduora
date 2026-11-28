@@ -12,6 +12,8 @@ import { EverStatsModule } from '../ever-stats/ever-stats.module';
 import { Access, ACCESS_METADATA, parseAccessRule } from './access.decorator';
 import { AccessGuard } from './access.guard';
 import { controllersOf, routesOf } from './routes';
+import { config } from '../config';
+import { currentLegalDocuments } from '../accounts/legal-documents';
 
 /** Every route of the app, the optional Ever Platform modules included (they are loaded by configuration). */
 const routes = routesOf(controllersOf([AppModule, EverInstanceModule, EverStatsModule, EverConnectModule]));
@@ -74,6 +76,29 @@ describe('every route declares who may call it', () => {
         'public GET /api/v1/ever-stats/health',
         'public POST /api/v1/ever-connect/provision/intent',
         'public POST /api/v1/ever-connect/provision/intents/:jti/reject',
+      ].sort((a, b) => a.localeCompare(b)),
+    );
+  });
+
+  it('keeps the routes a pending account may call to this reviewed list', () => {
+    // An account whose e-mail is not confirmed, or whose terms are not accepted, reaches only these (DESIGN §3.8)
+    const pending = routes
+      .filter(route => route.access?.options.whilePending)
+      .map(route => `${route.access.rule} ${route.method} ${route.path}`)
+      .sort((a, b) => a.localeCompare(b));
+    expect(pending).toEqual(
+      [
+        'user DELETE /api/v1/auth/identities/:id',
+        'user DELETE /api/v1/users/me',
+        'user GET /api/v1/auth/identities',
+        'user GET /api/v1/users/me',
+        'user PATCH /api/v1/users/me',
+        'user POST /api/v1/auth/accept-terms',
+        'user POST /api/v1/auth/change-password',
+        'user POST /api/v1/auth/identities/connect',
+        'user POST /api/v1/auth/identities/connect/confirm',
+        'user POST /api/v1/auth/resend-verification-email',
+        'user POST /api/v1/auth/verify-email',
       ].sort((a, b) => a.localeCompare(b)),
     );
   });
@@ -170,6 +195,65 @@ describe('AccessGuard', () => {
     await expect(guard.canActivate(context(access('organization:ViewOrganization'), client, { organizationId: 'o1' }))).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  describe('a pending account (DESIGN §3.8)', () => {
+    const saved = { saas: config.saasEnabled, requireVerifiedEmail: config.accounts.requireVerifiedEmail };
+    const documents = () => currentLegalDocuments();
+    const person = (changes: Partial<User>) =>
+      Object.assign(new User(), {
+        id: 'u2',
+        email: 'p@test.com',
+        emailVerified: true,
+        termsVersion: documents().terms.version,
+        privacyVersion: documents().privacy.version,
+        ...changes,
+      });
+    const codeOf = async (promise: Promise<unknown>) => {
+      try {
+        await promise;
+        return 'passed';
+      } catch (error) {
+        return `${error.getStatus()} ${error.code ?? ''}`.trim();
+      }
+    };
+
+    beforeEach(() => {
+      config.saasEnabled = true;
+      config.accounts.requireVerifiedEmail = undefined;
+    });
+    afterEach(() => {
+      config.saasEnabled = saved.saas;
+      config.accounts.requireVerifiedEmail = saved.requireVerifiedEmail;
+    });
+
+    it('answers 403 email_not_verified, then terms_not_accepted, on every rule that signs in, before the rule is checked', async () => {
+      const { guard, authorization } = make({ operator: true });
+      for (const [rule, params] of [
+        ['user', {}],
+        ['project:ViewTerm', { projectId: 'p1' }],
+        ['organization:ViewOrganization', { organizationId: 'o1' }],
+        ['operator', {}],
+      ] as Array<[Parameters<typeof Access>[0], Record<string, string>]>) {
+        expect(await codeOf(guard.canActivate(context(access(rule), person({ emailVerified: false }), params)))).toBe('403 email_not_verified');
+        expect(await codeOf(guard.canActivate(context(access(rule), person({ termsVersion: '0.0.1' }), params)))).toBe('403 terms_not_accepted');
+        expect(await codeOf(guard.canActivate(context(access(rule), person({}), params)))).toBe('passed');
+      }
+      expect(authorization.assertProjectAccess).toHaveBeenCalledTimes(1);
+      expect(authorization.authorizeOrganizationAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets a pending account through the routes that declare whilePending, and never asks an API key', async () => {
+      const { guard } = make();
+      expect(await codeOf(guard.canActivate(context(access('user', { whilePending: true }), person({ emailVerified: false }))))).toBe('passed');
+      expect(await codeOf(guard.canActivate(context(access('user', { apiKeys: 'allowed' }), client)))).toBe('passed');
+    });
+
+    it('asks nothing of a single-tenant install', async () => {
+      config.saasEnabled = false;
+      const { guard } = make();
+      expect(await codeOf(guard.canActivate(context(access('user'), person({ emailVerified: false, termsVersion: null }))))).toBe('passed');
+    });
   });
 
   it('keeps operator routes to the operator, and to nobody without the Ever Platform modules', async () => {

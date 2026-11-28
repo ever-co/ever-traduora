@@ -19,7 +19,7 @@ import { PublishedPasswordException, TooManyRequestsException } from '../errors'
 import { UserLoginAttemptsStorage } from '../redis/user-login-attempts.storage';
 import { config } from '../config';
 import { isPublishedPassword } from '../utils/published-passwords';
-import { lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
+import { lockAccountRow, lockProjectsOf, readCommittedTransaction } from '../utils/database-locks';
 import { lockAccount } from './ever-id-session.service';
 import { EMAIL_VERIFICATION_VALID_DAYS, generateEmailVerificationToken, hashEmailVerificationToken } from '../utils/email-verification-token';
 import {
@@ -27,6 +27,7 @@ import {
   deleteAccountsWithOrganizations,
   joinDefaultOrganization,
   personalOrganizationName,
+  releaseFormerEmailInvites,
 } from './organization/organization-membership';
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
@@ -82,6 +83,7 @@ export class UserService {
     name,
     password,
     ownOrganization,
+    terms,
   }: {
     grantType: GrantType;
     email: string;
@@ -89,6 +91,8 @@ export class UserService {
     password?: string;
     /** SaaS mode, a sign-up that accepts no invitation: the person's own organization, made with the account. */
     ownOrganization?: { name?: string };
+    /** SaaS mode: the versions of the terms and privacy policy accepted with the sign-up, recorded on the account. */
+    terms?: { termsVersion: string; privacyVersion: string };
   }): Promise<{ user: User; isNewUser: boolean }> {
     const normalizedEmail = normalizeEmail(email);
     const exists = await this.userRepo.findOneBy({ email: normalizedEmail });
@@ -106,6 +110,9 @@ export class UserService {
     const user = new User();
     user.name = name;
     user.email = normalizedEmail;
+    if (terms) {
+      Object.assign(user, terms, { termsAcceptedAt: new Date() });
+    }
 
     if (grantType === GrantType.Password) {
       if (!password) {
@@ -182,30 +189,48 @@ export class UserService {
   }
 
   async updateUserData(userId: string, updates: { name?: string; email?: string }): Promise<{ user: User; emailChanged: boolean }> {
-    const current = await this.userRepo.findOneByOrFail({ id: userId });
-    const changes: Partial<User> = { ...updates };
-    if (updates.email) {
-      changes.email = normalizeEmail(updates.email);
-    }
+    // The account's row first (the global lock order), then, when the e-mail changes, its organizations
+    return readCommittedTransaction(this.userRepo.manager, async tx => {
+      const current = await lockAccountRow(tx, userId);
+      if (!current) {
+        throw new NotFoundException('user not found');
+      }
+      const changes: Partial<User> = { ...updates };
+      if (updates.email) {
+        changes.email = normalizeEmail(updates.email);
+      }
 
-    // Nothing proves that the owner reads the new address, and links sent to the old one must not count for it
-    const emailChanged = changes.email !== undefined && changes.email !== current.email;
-    if (emailChanged) {
-      Object.assign(changes, {
-        emailVerified: false,
-        ...noEmailVerificationToken,
-        encryptedPasswordResetToken: Buffer.from('', 'utf-8'),
-        passwordResetExpires: null,
-      });
-    }
+      // Nothing proves that the owner reads the new address, and links sent to the old one must not count for it
+      const emailChanged = changes.email !== undefined && changes.email !== current.email;
+      if (emailChanged) {
+        Object.assign(changes, {
+          emailVerified: false,
+          ...noEmailVerificationToken,
+          encryptedPasswordResetToken: Buffer.from('', 'utf-8'),
+          passwordResetExpires: null,
+        });
+      }
 
-    // Only if the email is still the one compared above: a concurrent change could otherwise keep a verification
-    // that belongs to another address
-    const { affected } = await this.userRepo.update({ id: userId, email: current.email }, changes);
-    if (!affected) {
-      throw new ConflictException('the account changed in the meantime, please try again');
-    }
-    return { user: await this.userRepo.findOneByOrFail({ id: userId }), emailChanged };
+      // Only if the email is still the one compared above: a concurrent change could otherwise keep a verification
+      // that belongs to another address
+      const { affected } = await tx.update(User, { id: userId, email: current.email }, changes);
+      if (!affected) {
+        throw new ConflictException('the account changed in the meantime, please try again');
+      }
+      if (emailChanged) {
+        // Invitations to the former address would otherwise take seats of their own (SaaS mode)
+        await releaseFormerEmailInvites(tx, userId, current.email);
+      }
+      return { user: await tx.findOneByOrFail(User, { id: userId }), emailChanged };
+    });
+  }
+
+  /**
+   * Records that the person accepted these versions of the terms of service and the privacy policy (SaaS mode), checked
+   * as the ones in force by the caller (`acceptedTerms`).
+   */
+  async acceptTerms(userId: string, accepted: { termsVersion: string; privacyVersion: string }): Promise<void> {
+    await this.userRepo.update({ id: userId }, { ...accepted, termsAcceptedAt: new Date() });
   }
 
   /**

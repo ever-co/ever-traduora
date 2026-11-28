@@ -69,6 +69,13 @@ export class UserInfoDTO {
 
   @ApiProperty({ description: 'Whether the owner confirmed this email, e.g. through the link emailed at signup' })
   emailVerified: boolean;
+
+  @ApiPropertyOptional({
+    description: 'GET /users/me: what the account must still do before the app works for it (confirm the email, accept the current terms), or null',
+    enum: ['email_not_verified', 'terms_not_accepted'],
+    nullable: true,
+  })
+  pending?: 'email_not_verified' | 'terms_not_accepted' | null;
 }
 
 export class AccessTokenDTO {
@@ -350,6 +357,12 @@ export class ListAuthProvidersResponse extends ServiceApiResponse<AuthProviderDT
   data: AuthProviderDTO[];
   @ApiProperty({ description: 'Whether the installation runs in SaaS mode (TR_SAAS_ENABLED): organizations are shown' })
   saas: boolean;
+  @ApiPropertyOptional({ description: 'The Cloudflare Turnstile site key, when the bot check of sign-up and forgot-password is on' })
+  turnstileSiteKey?: string;
+  @ApiPropertyOptional({
+    description: 'SaaS mode: the terms of service and privacy policy a sign-up accepts, each with its version and where to read it',
+  })
+  legal?: { terms: { version: string; url: string }; privacy: { version: string; url: string } };
 }
 
 export class ImportResponse extends ServiceApiResponse<ImportFileDTO> {
@@ -487,6 +500,24 @@ export class SignupRequest {
   @Length(2, 80)
   @Validate(IsNotOnlyWhitespace)
   organizationName?: string;
+
+  @ApiPropertyOptional({ description: 'The Cloudflare Turnstile token, required when the bot check is on (turnstileSiteKey of GET /auth/providers)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  turnstileToken?: string;
+
+  @ApiPropertyOptional({ description: 'SaaS mode: the version of the terms of service accepted (as listed by GET /auth/providers)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  termsVersion?: string;
+
+  @ApiPropertyOptional({ description: 'SaaS mode: the version of the privacy policy accepted (as listed by GET /auth/providers)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  privacyVersion?: string;
 }
 
 export class AcceptInviteRequest {
@@ -635,6 +666,25 @@ export class ForgotPasswordRequest {
   @IsEmail()
   @ApiProperty()
   email: string;
+
+  @ApiPropertyOptional({ description: 'The Cloudflare Turnstile token, required when the bot check is on (turnstileSiteKey of GET /auth/providers)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  turnstileToken?: string;
+}
+
+/** SaaS mode: the versions of the terms of service and privacy policy the person accepts, the ones in force. */
+export class AcceptTermsRequest {
+  @ApiProperty({ description: 'The version of the terms of service (as listed by GET /auth/providers)' })
+  @IsString()
+  @MaxLength(64)
+  termsVersion: string;
+
+  @ApiProperty({ description: 'The version of the privacy policy (as listed by GET /auth/providers)' })
+  @IsString()
+  @MaxLength(64)
+  privacyVersion: string;
 }
 
 export class ChangePasswordRequest {
@@ -876,6 +926,18 @@ export class ProviderSignupConfirmRequest {
   @IsString({ each: true })
   @IsOptional()
   acceptInvites?: string[];
+
+  @ApiPropertyOptional({ description: 'SaaS mode: the version of the terms of service accepted (as listed by GET /auth/providers)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  termsVersion?: string;
+
+  @ApiPropertyOptional({ description: 'SaaS mode: the version of the privacy policy accepted (as listed by GET /auth/providers)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  privacyVersion?: string;
 }
 
 export class ConnectIdentityRequest {
