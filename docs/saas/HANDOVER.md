@@ -304,6 +304,14 @@ DESIGN §3.6, §4.1, §5 `/usage`, §12 OD-T2, T12, T13, T14.
   deletion), and `lock-order.spec.ts` keeps a lock's window to the end of its transaction and flags an account after a
   project or an organization; the 402 shows `used` and `plan` to owners and admins only; the counters follow removals.
 
+- **Review of #674, round 2** (bots and SonarCloud): a parallel test across three projects of one organization
+  (terms, an import and a locale at once) checks the organization lock, which a one-project race cannot; it passes
+  on SQLite with or without that lock (one transaction at a time there), so only the Postgres and MySQL legs of CI
+  can catch its absence. Invites decide on the account as it is under the lock; an acceptance checks its invitation
+  is current (404) before any seat refusal (402); the plan card loads apart from the members, keeps only the latest
+  read, and uses native `<progress>` meters whose value stays within the limit (the text and `aria-valuetext` say
+  "20 of 15").
+
 ### Deviations from DESIGN.md (DESIGN updated)
 
 - `/usage` is owner and admin (`ViewUsage`), as the P3 brief says; §5 had `organization:View`.
@@ -346,7 +354,7 @@ pending project invites, and every refusal showed as a red error.
 - API e2e on SQLite, the whole suite: 35 suites, 419 passed, 10 skipped, 0 failed (27 in the plans suite). Parallel requests are serialized on
   SQLite; CI proves them on Postgres and MySQL.
 - Mutation check: 64 of 97 (66.0 %), see the table.
-- Web app Karma: 222 of 222. `ng lint`: no finding in the files P3 changed (the 61 `prefer-standalone` errors elsewhere
+- Web app Karma: 238 of 238 (after review round 2). `ng lint`: no finding in the files P3 changed (the 61 `prefer-standalone` errors elsewhere
   predate it). Prettier clean. `tslint` on the API clean.
 - `ng build --configuration=production` succeeds.
 
