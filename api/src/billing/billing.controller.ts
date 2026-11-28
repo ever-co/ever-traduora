@@ -1,6 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import { config } from '../config';
 import { DataSource } from 'typeorm';
 import { Access } from '../access/access.decorator';
@@ -8,6 +7,7 @@ import { OrganizationException } from '../errors';
 import { billingMembership } from '../services/organization/organization-billing';
 import { assertSaasEnabled } from '../services/organization/organization.service';
 import { BillingService } from './billing.service';
+import { BillingThrottle } from './billing-throttle.guard';
 import { BillingRedirectResponse, BillingViewResponse, ChangeSubscriptionRequest, CheckoutRequest, SubscriptionChangeResponse } from './billing.dto';
 
 /**
@@ -15,15 +15,6 @@ import { BillingRedirectResponse, BillingViewResponse, ChangeSubscriptionRequest
  * changes it (Checkout, the subscription, the customer portal). The default organization of an upgraded install is not
  * billed (404 `saas_disabled`, as its members routes).
  */
-/**
- * Requests per organization, whoever sends them: every billing route reaches the shared Stripe account, which bills the
- * other Ever products too. Counted per route (the throttler's key names the handler).
- */
-const perOrganization = (limit: number) =>
-  Throttle({
-    default: { limit, ttl: config.billing.throttle.ttl, getTracker: req => `billing:${req.params?.organizationId ?? ''}` },
-  });
-
 @Controller('api/v1/organizations/:organizationId/billing')
 @ApiOAuth2([])
 @ApiTags('Billing')
@@ -33,7 +24,7 @@ export default class BillingController {
     private readonly dataSource: DataSource,
   ) {}
 
-  @perOrganization(config.billing.throttle.reads)
+  @BillingThrottle(config.billing.throttle.reads)
   @Access('organization:ViewBilling')
   @Get()
   @ApiOperation({ summary: "The organization's plan, seats, trial and next invoice (owner, admin)" })
@@ -44,7 +35,7 @@ export default class BillingController {
     return { data: await this.billing.view(membership.organization, membership.role) };
   }
 
-  @perOrganization(config.billing.throttle.changes)
+  @BillingThrottle(config.billing.throttle.changes)
   @Access('organization:ManageBilling')
   @Post('checkout')
   @HttpCode(HttpStatus.OK)
@@ -57,7 +48,7 @@ export default class BillingController {
     return { data: await this.billing.checkout(membership.organizationId, req.user, payload) };
   }
 
-  @perOrganization(config.billing.throttle.changes)
+  @BillingThrottle(config.billing.throttle.changes)
   @Access('organization:ManageBilling')
   @Patch('subscription')
   @HttpCode(HttpStatus.OK)
@@ -73,7 +64,7 @@ export default class BillingController {
     return { data: await this.billing.changeSubscription(membership.organizationId, payload) };
   }
 
-  @perOrganization(config.billing.throttle.changes)
+  @BillingThrottle(config.billing.throttle.changes)
   @Access('organization:ManageBilling')
   @Post('portal')
   @HttpCode(HttpStatus.OK)
