@@ -205,7 +205,7 @@ Fixes after the checklist (rendered in SaaS mode at 1024 px and 390 px):
 | 2026-11-27 | `6b689cd` | 60 of 82 | 73.2 % | ≥ 60 % ✅ |
 | 2026-11-27 | `452225e` | 64 of 96 (the suite passes all 96 as it is, fixtures confirmed) | 66.7 % | ≥ 60 % ✅ |
 | 2026-11-27 | `79fb2ff` (P3) | 64 of 97 (B's `/usage` added; the new check that each usage counts only its own projects passes against the double, as each side asks for its own) | 66.0 % | ≥ 60 % ✅ |
-| 2026-11-28 | P5 branch `feat/saas-p5-hardening` | 64 of 97 (the suite runs with e-mails confirmed and terms accepted, the SaaS defaults of P5) | 66.0 % | ≥ 60 % ✅ |
+| 2026-11-28 | P5 branch `feat/saas-p5-hardening` (before and after the review of #679) | 64 of 97 (the suite runs with e-mails confirmed and terms accepted, the SaaS defaults of P5) | 66.0 % | ≥ 60 % ✅ |
 
 What still passes against the double, by design: the checks that do not rest on the organization scope (B's child ids
 through A's own project are scoped by the project id; an API key is tied to its project; invitation tokens are tied to
@@ -407,8 +407,8 @@ DESIGN §3.8, §4.5 (P5 columns), §7 (P5 variables), §10; the P3 "Left" follow
   unreachable → 503 `turnstile_unavailable` (fails closed). Tests mock the call with nock.
 - **Throttling**: `TR_TRUST_PROXY` (hop count, `true`/`false` or a list) sets Express `trust proxy`; in SaaS mode the
   global default is 600 requests per minute (`TR_THROTTLE_TTL`/`TR_THROTTLE_LIMIT` still win; `config.globalThrottle`);
-  `TR_SIGNUPS_PER_HOUR` (10) per address on `POST /auth/signup` and `POST /auth/everid/signup-confirm`, SaaS only, every
-  attempt counted (`accounts/signup-throttler.guard.ts`).
+  `TR_SIGNUPS_PER_HOUR` (10) per address on `POST /auth/signup` and `POST /auth/everid/signup-confirm`, SaaS only,
+  counted once the bot check passed (`AttemptLimiter`; see the review of #679 below).
 - **Headers** (`security/http-hardening.ts`, applied in `addPipesAndFilters` before every route and static file):
   `helmet` 8.3.0 (latest) with a CSP for the app itself, Google Fonts, Turnstile when on and the Ever ID issuer when
   on; HSTS (one year, includeSubDomains) and `upgrade-insecure-requests` only when `TR_VIRTUAL_HOST` is https.
@@ -417,7 +417,7 @@ DESIGN §3.8, §4.5 (P5 columns), §7 (P5 variables), §10; the P3 "Left" follow
 - **`REDIS_DB`**: the database index of the Redis client (`redis/redis.module.ts`, `redisOptions`).
 - **P3 follow-up, a member's e-mail change**: `PATCH /users/me` now runs in one read-committed transaction that locks
   the account row first, updates it, then locks each organization with its own plan the person is a member of (in
-  the order of their ids) and **drops their pending invitations to the former address** (organization invitations and
+  the order of their ids) and, when the former address was confirmed, **drops their pending invitations to it** (organization invitations and
   project invitations to its projects), then recounts the seats (`releaseFormerEmailInvites`, in
   `services/organization/`, listed in `lock-order.spec.ts`). Why dropping, not recounting: a recount keeps the counter
   right but leaves the organization over its limit (the invitation then belongs to nobody in it and takes a seat); and
@@ -453,6 +453,32 @@ DESIGN §3.8, §4.5 (P5 columns), §7 (P5 variables), §10; the P3 "Left" follow
 - `api/yarn.lock` (used by the Docker build) only gets the two new entries: on develop it is far out of sync with
   `api/package.json` (a full regeneration rewrites about 6,800 lines). The root `yarn.lock` is regenerated with yarn.
 
+### Review of #679 (independent review, all fixed)
+
+1. **Someone else's invitations through an e-mail change** (medium). A member could set a victim's address and then her
+   own again: the "former" address was the victim's, so its invitations in her organizations were dropped, and while
+   she held it they took no seat. Now the invitations of the former address are released only when it was confirmed,
+   and `countSeats` frees an invitation only when it goes to a member's **confirmed** e-mail (a new invitation passes
+   the seat check on the same rule). One consequence: an invitation to a member who has not confirmed their address
+   takes a seat until they do (confirming accepts it). e2e: the address and back keeps the victim's invitations and
+   the count; an invitation to a member's unconfirmed address is refused (402) in a full organization.
+2. **Confirmation mail without limit** (medium-low). `PATCH /users/me` takes the auth rate limit per address;
+   `TR_VERIFICATION_EMAILS_PER_HOUR` (5) caps confirmation emails per account and hour, counted on each e-mail change
+   and each resend (`AttemptLimiter`, in the throttler's storage); the confirmation email no longer carries the
+   account's name.
+3. **Rate-limit buckets** (low-medium). An IPv6 address counts by its /64 (`addressBucket`) for the global throttler,
+   the sign-up limit and the Ever ID sign-in limit. With `REDIS_HOST`, every limit is counted in Redis
+   (`@nest-lab/throttler-storage-redis` 1.2.0, key prefix `traduora:throttle:`), shared by the replicas; without an
+   answer within a second a replica counts in memory for 30 s and logs it (checked against an unreachable Redis:
+   requests kept answering). Sign-ups are counted after Turnstile and the terms passed (and after an Ever ID record
+   unseals), so refused bots use up nobody's sign-ups. SaaS mode logs an error at boot without `TR_TRUST_PROXY`.
+4. **Turnstile** (low). siteverify's answer must carry the form's `action` (`signup`, `forgot-password`) and the host
+   name of `TR_VIRTUAL_HOST`. SaaS mode refuses to start with only one of the two keys.
+5. **API keys skip the account gates** (by design, documented in DESIGN §3.8). A `client_credentials` token belongs to
+   a project, not to a person: it has no e-mail to confirm and accepts no terms. Its project's organization was set
+   up by people who passed both, its rights end at that project, and the organization checks (`active`, suspension)
+   still apply to it.
+
 ### P5 unslop notes (sign-up, forgot-password, check inbox, accept terms)
 
 Mode: **polish**, the brand kept (Bootstrap 4, the blue primary, Varela Round titles, Ubuntu text). Audit before
@@ -487,6 +513,10 @@ added, no exclamation marks, two weights; radius 4 inside the card, as its form 
 - Web app Karma: 267 of 267 (24 new). `ng lint`: no finding in the files P5 added; the 61 `prefer-standalone` errors
   (signup and forgot-password among them) predate it. `build:prod` succeeds.
 - Postgres 15 and MySQL 5.7: CI only (the migration and the e-mail change transaction).
+
+After the review of #679 (`5a5f0e7`…`53a7d71`): API unit 545 of 545 in 58 suites (the 13 formatter suites as above);
+e2e 36 suites, 457 passed, 10 skipped, 0 failed (`accounts-hardening` now 30); mutation check 64 of 97 (66.0 %);
+tslint, `tsc` and prettier clean. The web app did not change (Karma and `build:prod` as above).
 
 ### Left
 
