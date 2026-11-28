@@ -215,7 +215,8 @@ OD-T1 default: Traduora bills its own organizations.
 - **Audit:** every operator action is written to `operator_audit` (who, what, which organization, when, why).
 - **Organization export** (owner/admin): a zip with every project's terms and translations (JSON, one file per locale), labels, members and plan. It is built on the fly from the existing export code.
 - **Organization deletion** (owner only, confirmed by typing the slug):
-  1. Cancel the subscription.
+  1. Cancel the subscription (P6: queued in the deletion's transaction and tried after it commits, with retries; a
+     failed one waits for an operator).
   2. Delete the projects (CASCADE).
   3. Mark the organization `deleted` and keep a tombstone row 30 days for billing records (P6 keeps it; the purge after
      30 days is not built yet, see HANDOVER).
@@ -319,7 +320,7 @@ New, all under `/api/v1`:
 | `POST /organizations/:id/billing/checkout`, `POST …/billing/portal` | owner only (P4) |
 | `POST /billing/webhook` | webhook (P4) |
 | `GET /organizations/:id/export` | owner/admin (P6) |
-| `GET /operator/status`, `GET /operator/organizations`, `GET …/:id`, `POST …/:id/suspend`, `POST …/:id/restore`, `GET /operator/audit` | operator (P6), SaaS mode only |
+| `GET /operator/status`, `GET /operator/organizations`, `GET …/:id`, `POST …/:id/suspend`, `POST …/:id/restore`, `POST …/:id/release-slug`, `POST …/:id/billing-cancellation`, `GET /operator/audit` | operator (P6), SaaS mode only, operators named by `TR_EVER_ADMIN_EMAILS` or `TR_ADMIN_EMAIL` |
 | `GET /users/me/deletion` | user (P6): what stands in the way of deleting the account, and the choices |
 
 Changed:
