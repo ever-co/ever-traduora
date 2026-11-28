@@ -190,10 +190,10 @@ OD-T1 default: Traduora bills its own organizations.
 
 ### 3.8 Accounts and hardening (T3, T7, P5)
 
-- **E-mail verification is required in SaaS mode.** An unverified person gets 403 `email_not_verified` on every route except auth, `users/me`, verify and resend. The web app shows a "Check your inbox" page with "Resend".
+- **E-mail verification is required in SaaS mode.** An unverified person gets 403 `email_not_verified` on every route except the account ones (`users/me`, verify, resend, accept-terms, password and sign-in methods: `@Access(..., { whilePending: true })`). The web app shows a "Check your inbox" page with "Resend".
 - **Mail:** Postmark over SMTP (`TR_MAIL_*`), as the other fleet apps do.
 - **Ever ID sign-in** is on for the hosted service (`TR_AUTH_EVERID_*`, one Ever ID client per environment), together with password and Google.
-- **Terms and privacy** are accepted at sign-up, with the versions recorded on the user (`terms_version`, `privacy_version`, `terms_accepted_at`) from `@ever-co/legal`, as Ever Rec does. A new version asks for acceptance again at the next sign-in.
+- **Terms and privacy** are accepted at sign-up, with the versions recorded on the user (`terms_version`, `privacy_version`, `terms_accepted_at`) from `@ever-co/legal`, as Ever Rec does (`TR_TERMS_VERSION` / `TR_PRIVACY_VERSION` override them). A new version asks for acceptance again before anything else works: the same gate answers 403 `terms_not_accepted`, and the web app shows the terms page (P5).
 - **Bot check:** Cloudflare Turnstile on sign-up and on forgot-password (OD-T8), with `TR_TURNSTILE_SITE_KEY` and `TR_TURNSTILE_SECRET_KEY`. Off when unset.
 - **Throttling:**
   - `TR_TRUST_PROXY` (hop count) sets Express `trust proxy`, so each visitor gets their own bucket.

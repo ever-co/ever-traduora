@@ -17,7 +17,7 @@ design says how it is built.
 | P2 Isolation | 🔍 in review | [#672](https://github.com/ever-co/ever-traduora/pull/672) | Branch `feat/saas-p2-isolation`; review round 1 fixed; mutation check 66.7 %; see "P2 Isolation" below |
 | P3 Plans and seats | 🔍 in review | [#674](https://github.com/ever-co/ever-traduora/pull/674) (base `feat/saas-p2-isolation`) | Branch `feat/saas-p3-plans`; review round 1 fixed; see "P3 Plans, seats and strings" below |
 | P4 Billing (Stripe test mode) | ⏳ | — | |
-| P5 Accounts and hardening | ⏳ | — | |
+| P5 Accounts and hardening | 🔨 code complete | — | Branch `feat/saas-p5-hardening`; PR by the coordinating session; see "P5 Accounts and hardening" below |
 | P6 Operator console and data rights | ⏳ | — | |
 | P7 Environments (dev, stage, prod) | ✅ live 2026-11-26 23:5xZ | k8s-gitops `54463a2b`, `6378a731`, `7783981f` | `app-dev.traduora.co`, `app-stage.traduora.co` (noindex); prod on nip.io until P8; Postgres `ever_traduora_<env>`; sign-ups off until P1+P2 ship. Runbook: homelab `projects/traduora/knowledge/runbooks/hosted-traduora.md`. Owed: first prod restore drill. Moved to P8: prod Valkey + 2 replicas |
 | P8 Go live | ⏳ | — | Stripe live keys and webhook are a claimed change |
@@ -205,6 +205,7 @@ Fixes after the checklist (rendered in SaaS mode at 1024 px and 390 px):
 | 2026-11-27 | `6b689cd` | 60 of 82 | 73.2 % | ≥ 60 % ✅ |
 | 2026-11-27 | `452225e` | 64 of 96 (the suite passes all 96 as it is, fixtures confirmed) | 66.7 % | ≥ 60 % ✅ |
 | 2026-11-27 | `79fb2ff` (P3) | 64 of 97 (B's `/usage` added; the new check that each usage counts only its own projects passes against the double, as each side asks for its own) | 66.0 % | ≥ 60 % ✅ |
+| 2026-11-28 | P5 branch `feat/saas-p5-hardening` | 64 of 97 (the suite runs with e-mails confirmed and terms accepted, the SaaS defaults of P5) | 66.0 % | ≥ 60 % ✅ |
 
 What still passes against the double, by design: the checks that do not rest on the organization scope (B's child ids
 through A's own project are scoped by the project id; an API key is tied to its project; invitation tokens are tied to
@@ -361,7 +362,7 @@ pending project invites, and every refusal showed as a red error.
 ### Left
 
 - CI (Postgres 15, MySQL 5.7) for the parallel tests at the edge of a limit.
-- **A member's e-mail change can add a seat (review of #674, round 3, not fixed in P3).** A pending invitation to a
+- ✅ Fixed in P5 (see "P5 Accounts and hardening"). **A member's e-mail change can add a seat (review of #674, round 3, not fixed in P3).** A pending invitation to a
   member's address takes no seat, since that person holds one already. If the member then changes e-mail (`PATCH /me`,
   a plain update of the account row that takes no organization lock), the invitation belongs to nobody in the
   organization and counts as a seat, so the organization can end one over its limit. Nothing is deleted, and adds are
@@ -372,11 +373,141 @@ pending project invites, and every refusal showed as a red error.
 - P4: the billing fields on `organization` (`billing_status`, `past_due_since`, `extra_seats`), which `effectivePlan`
   already reads; a link to billing from the 402 notice and the plan card.
 
+## P5 Accounts and hardening (branch `feat/saas-p5-hardening`)
+
+DESIGN §3.8, §4.5 (P5 columns), §7 (P5 variables), §10; the P3 "Left" follow-up on e-mail changes. From
+`origin/develop` `feb237b` (P3 merged as #674).
+
+### Done
+
+- **E-mail verification required in SaaS mode** (`TR_REQUIRE_VERIFIED_EMAIL`, unset = `TR_SAAS_ENABLED`, read on every
+  request). Inside the `AccessGuard`, after sign-in and before the rule: a person (never an API key) whose account is
+  pending gets 403 `email_not_verified`, then, in SaaS mode, 403 `terms_not_accepted` (`accounts/account-policy.ts`).
+  Routes that work while pending declare `@Access('user', { whilePending: true })`; `access.spec.ts` pins the list:
+  `GET/PATCH/DELETE /users/me`, `POST /auth/verify-email`, `resend-verification-email`, `change-password`,
+  `accept-terms` and the sign-in methods (`/auth/identities*`). Public routes (sign-up, sign-in, providers,
+  forgot/reset password) need no caller. `GET /users/me` adds `pending` (`email_not_verified`, `terms_not_accepted` or
+  `null`). Single-tenant mode asks for neither, unless `TR_REQUIRE_VERIFIED_EMAIL=true`.
+- **Mail**: the existing `TR_MAIL_*` SMTP (Postmark in production); no provider code. The welcome email says the
+  projects open once the address is confirmed when that is required; the two invitation emails say a new account then
+  confirms its address. `verify-email.txt` was already there.
+- **Terms and privacy** (migration `1795565000000-add-terms-acceptance.ts`: `terms_version`, `privacy_version`,
+  `terms_accepted_at` on `user`; camelCase on MySQL). The versions come from **`@ever-co/legal`** (product `traduora`,
+  English: terms 1.1.0, privacy 1.0.2 in 0.7.1), read as Ever Rec reads them (`require('@ever-co/legal/index.json')`,
+  `accounts/legal-documents.ts`). `TR_TERMS_VERSION` / `TR_PRIVACY_VERSION` override them, `TR_TERMS_URL` /
+  `TR_PRIVACY_URL` are the links (default traduora.co/tos, /privacy). SaaS mode: `POST /auth/signup` needs the versions
+  in force (400 `terms_not_accepted`), they are recorded with the account; `GET /auth/providers` lists them (`legal`);
+  `POST /auth/accept-terms` records a new acceptance; a boot check refuses SaaS mode without versions. Ever ID's
+  `signup-confirm` takes the versions too (optional); Google and Ever ID sign-ups otherwise accept on the terms page
+  right after (the gate).
+- **Cloudflare Turnstile** on `POST /auth/signup` and `POST /auth/forgot-password` (`accounts/turnstile.service.ts`):
+  on when both `TR_TURNSTILE_SITE_KEY` and `TR_TURNSTILE_SECRET_KEY` are set (a warning when only one is). The site key
+  goes to the web app in `GET /auth/providers` (`turnstileSiteKey`). The token is checked with siteverify (secret,
+  token, visitor address) before anything else of the request; refused → 400 `turnstile_failed`, Cloudflare
+  unreachable → 503 `turnstile_unavailable` (fails closed). Tests mock the call with nock.
+- **Throttling**: `TR_TRUST_PROXY` (hop count, `true`/`false` or a list) sets Express `trust proxy`; in SaaS mode the
+  global default is 600 requests per minute (`TR_THROTTLE_TTL`/`TR_THROTTLE_LIMIT` still win; `config.globalThrottle`);
+  `TR_SIGNUPS_PER_HOUR` (10) per address on `POST /auth/signup` and `POST /auth/everid/signup-confirm`, SaaS only, every
+  attempt counted (`accounts/signup-throttler.guard.ts`).
+- **Headers** (`security/http-hardening.ts`, applied in `addPipesAndFilters` before every route and static file):
+  `helmet` 8.3.0 (latest) with a CSP for the app itself, Google Fonts, Turnstile when on and the Ever ID issuer when
+  on; HSTS (one year, includeSubDomains) and `upgrade-insecure-requests` only when `TR_VIRTUAL_HOST` is https.
+- **CORS**: `TR_CORS_ORIGINS` (comma list, normalized to origins) replaces `*`; `TR_CORS_ENABLED=true` alone still
+  means `*`.
+- **`REDIS_DB`**: the database index of the Redis client (`redis/redis.module.ts`, `redisOptions`).
+- **P3 follow-up, a member's e-mail change**: `PATCH /users/me` now runs in one read-committed transaction that locks
+  the account row first, updates it, then locks each organization with its own plan the person is a member of (in
+  the order of their ids) and **drops their pending invitations to the former address** (organization invitations and
+  project invitations to its projects), then recounts the seats (`releaseFormerEmailInvites`, in
+  `services/organization/`, listed in `lock-order.spec.ts`). Why dropping, not recounting: a recount keeps the counter
+  right but leaves the organization over its limit (the invitation then belongs to nobody in it and takes a seat); and
+  refusing the change would hold a person's own address hostage to an organization's plan. Those invitations were
+  addressed to someone who is in already; they can be sent again to the new address. The default organization and a
+  single-tenant install count no seats, so nothing changes there. e2e: a full Starter organization stays at 15 of 15
+  (the test fails with the drop removed: 16), another organization's invitation to that address is kept.
+- **Web app**: `/check-inbox` (the address in mono, "Resend the link", "I have confirmed it", "Use another address",
+  sign out) and `/accept-terms` (both documents with their versions, one checkbox), standalone; the sign-up form gets
+  the terms checkbox (SaaS) and the Turnstile widget (`shared/components/turnstile`, loads Cloudflare's script only when
+  a site key is set), forgot-password the widget. `accountReadyGuard` on `projects`, `orgs` and `ever-platform` sends a
+  pending account to the right page with `returnTo`; the error interceptor does the same on a 403 of either code (new
+  terms during a session). The app bar and the organization switcher wait for a ready account.
+- **CSP and the Angular app** (checked by serving `build:prod` from the API in SaaS mode with Turnstile's test keys, in
+  headless Chrome, sign-up → check inbox → terms → organization projects, plus Swagger): two web changes were needed,
+  both found by that check: critical-CSS inlining is off in the production build (its `onload` handler is an inline
+  script), and NGXS runs with `compatibility.strictContentSecurityPolicy` (it compiled state getters with
+  `new Function`, which blanked the app). After them: no CSP violation and no console error, fonts loaded.
+
+### Deviations and choices
+
+- **Terms are enforced by the same gate**, not only "at the next sign-in": any request of an account that has not
+  accepted the versions in force answers 403 `terms_not_accepted`, which the web app turns into the terms page. It
+  covers Google and Ever ID sign-ups, accounts from before P5 and a new version mid-session the same way.
+- `accept-invite` and `accept-organization-invite` are **not** open to a pending account: confirming the e-mail accepts
+  its pending invitations anyway (as before), so nothing is lost. The API has no logout route (sign-out is in the web
+  app; Ever ID's is the issuer's), so there is nothing to open there.
+- The e2e runs set `TR_SIGNUPS_PER_HOUR=0` (`test/e2e-env.ts`, jest `setupFiles`, also in the mutation config): the
+  suites sign up hundreds of accounts from 127.0.0.1. The P1–P3 suites now run with the real SaaS defaults: their
+  accounts confirm their e-mail and accept the terms (`signupTestUser`, `currentTerms()`), and two flows of an
+  unconfirmed account run with `TR_REQUIRE_VERIFIED_EMAIL=false`. The upgrade e2e undoes the later migrations before
+  the organizations one.
+- `api/yarn.lock` (used by the Docker build) only gets the two new entries: on develop it is far out of sync with
+  `api/package.json` (a full regeneration rewrites about 6,800 lines). The root `yarn.lock` is regenerated with yarn.
+
+### P5 unslop notes (sign-up, forgot-password, check inbox, accept terms)
+
+Mode: **polish**, the brand kept (Bootstrap 4, the blue primary, Varela Round titles, Ubuntu text). Audit before
+editing (sign-up, forgot-password): placeholders repeating the labels ("Display Name", "Email"), title-case labels
+("Email Address"), trailing periods on validation messages and the invite-only notice, a fixed 380 px card wider than
+some phones, a hairline and 48 px gap under the form when no sign-in provider is set (a dead band), a comma splice in
+the forgot-password text, and the card cut off at the top when the form is taller than the screen (flex centering).
+
+Direction (P1's): orderly, plain-spoken, a little friendly; string catalogues and locale files. Moment on the new
+pages: the address the link went to, in mono on a quiet surface; the two documents as hairline rows with their
+versions in mono, tabular. Signature: mono for addresses and versions, as for `/orgs/acme`.
+
+Fixes: sentence-case labels, no placeholders but "At least 8 characters", no trailing periods on short strings, the
+card `width: 100%; max-width: 380px` (`.auth-card`), `justify-content: safe center` (`.auth-page`), the providers block
+only when there are providers, one primary action per card ("Get started", "Resend the link", "Continue") with quiet
+links beside it. Checklist: 4 px steps (8/12/16/20), hairlines at 8 %, no icons or emoji
+added, no exclamation marks, two weights; radius 4 inside the card, as its form controls (the card is 4 with 20 padding). Rendered at 1280 px and 390 px in headless Chrome under the CSP.
+
+### Test results (this machine, SQLite)
+
+- API unit (`--runInBand`): 533 of 533 tests pass in 54 suites; the 13 `src/formatters/*` suites cannot start on this PC (jest EPERM, as before). New: account policy, legal documents, Turnstile (nock), sign-up guard,
+  helmet/CORS options, `redisOptions`, config parsers, the guard's pending checks and the pinned `whilePending` list,
+  the filter's account codes.
+- API e2e, the whole suite: 36 suites, 451 passed, 10 skipped (the same SQLite-only skips), 0 failed. New
+  `test/accounts-hardening.e2e-spec.ts` (24): the 403 matrix over every route of the app for an unconfirmed person
+  (generated from the route table) and the reverse for the `whilePending` routes, API keys, `TR_REQUIRE_VERIFIED_EMAIL`
+  both ways, single-tenant unchanged, terms at sign-up and again after a new version, Turnstile off / one key / on /
+  refused / unreachable, sign-up and auth buckets per `X-Forwarded-For` with `TR_TRUST_PROXY=1` and shared without it,
+  CSP and HSTS headers, the CORS allowlist, `*` and none, the e-mail change at the seat limit.
+- Mutation check: 64 of 97 (66.0 %), see the table.
+- `yarn --cwd api lint`, `tsc --noEmit`, prettier on the changed files: clean.
+- Web app Karma: 267 of 267 (24 new). `ng lint`: no finding in the files P5 added; the 61 `prefer-standalone` errors
+  (signup and forgot-password among them) predate it. `build:prod` succeeds.
+- Postgres 15 and MySQL 5.7: CI only (the migration and the e-mail change transaction).
+
+### Left
+
+- The web app's Ever ID confirmation screen does not send the terms yet; those accounts accept on the terms page right
+  after (one more screen).
+- P7/P8 configuration: `TR_TRUST_PROXY` for the real hop count behind Cloudflare tunnel → ingress-nginx (measure it),
+  Turnstile keys per environment in OpenBao.
+
 ## Needs owner
 
 The build goes on with the defaults of `DESIGN.md` §12 (OD-T1 … OD-T14). Nothing blocks yet.
 
 Decisions taken with a default, to confirm:
+
+- **Legal texts for the hosted service (P5, before P8):** `@ever-co/legal` 0.7.1 is the source of the versions a
+  sign-up accepts (Traduora terms 1.1.0, privacy 1.0.2), but its Traduora terms still say "There is no hosted Ever
+  Traduora" and leave out accounts, seats and fees. The hosted text needs publishing in `ever-co/legal` (owner's npm
+  publish); bumping the package then asks every account to accept again. The package is `UNLICENSED` and 15 MB unpacked,
+  inside an AGPL image, as in Ever Rec; a licence for the published texts would settle that.
+- **Turnstile keys** per environment (a Cloudflare widget for the app hosts) go into OpenBao with P7/P8; until then the
+  bot check is off there.
 
 - **What a 402 `plan_limit_reached` shows (P3 review):** always `resource` and `limit` ("Your plan allows 15 members").
   `used` and the effective `plan` only to a caller who may read `/usage` in that organization (owner, admin). An editor,
