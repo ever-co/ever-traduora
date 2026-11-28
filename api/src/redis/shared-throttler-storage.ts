@@ -19,7 +19,8 @@ export const THROTTLE_KEY_PREFIX = 'traduora:throttle:';
  * The rate limits' counts in Redis (Valkey) when REDIS_HOST is set, so the replicas share them (DESIGN §3.8), through
  * `@nest-lab/throttler-storage-redis`. Without an answer from Redis within a second, or on an error, this replica counts
  * in memory instead for 30 seconds, then asks Redis again (and says so in the log each time): the API keeps answering
- * at its usual speed, with per-replica limits until Redis is back. A limit that is off (a window of 0, the global default outside SaaS mode) is counted in memory only.
+ * at its usual speed, with per-replica limits until Redis is back. A limit that is off (a window of 0, the global
+ * default outside SaaS mode) is counted in memory only.
  */
 export class SharedThrottlerStorage implements ThrottlerStorage {
   private readonly logger = new Logger('ThrottlerStorage');

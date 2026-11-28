@@ -59,7 +59,7 @@ describe('TurnstileService', () => {
   it('asks siteverify with the secret, the token and the address, and passes a token of this form and host', async () => {
     on();
     let sent: Record<string, string>;
-    siteverify().reply(function (_uri, body) {
+    siteverify().reply((_uri, body) => {
       sent = Object.fromEntries(new URLSearchParams(body as string));
       return [200, passed];
     });

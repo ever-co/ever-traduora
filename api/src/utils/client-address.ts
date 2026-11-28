@@ -26,7 +26,7 @@ function expandIPv6(address: string): string[] {
   const tail = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
   if (tail) {
     const [a, b, c, d] = tail.slice(1).map(Number);
-    text = `${text.slice(0, tail.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+    text = `${text.slice(0, tail.index)}${(a * 256 + b).toString(16)}:${(c * 256 + d).toString(16)}`;
   }
   const [head, rest] = text.split('::');
   const headGroups = head ? head.split(':') : [];
