@@ -243,17 +243,19 @@ export class OrganizationMembersComponent implements OnInit {
 
   /** Reads the usage again after a change of the seats, for the owner and the admins. */
   private refreshUsage(): void {
+    // Every refresh makes the reads before it stale, even one that reads nothing (a member, the default organization):
+    // only the latest read updates the card, so an earlier one that answers last never shows older figures
+    const read = ++this.usageReads;
     const organization = this.organization;
     if (!organization || organization.isDefault || !canManage(organization.role)) {
       return;
     }
-    // Only the latest read updates the card: an earlier one that answers last never shows older figures
-    const read = ++this.usageReads;
     this.organizations
       .usage(organization.id)
       .pipe(catchError(() => EMPTY))
       .subscribe(usage => {
-        if (read === this.usageReads && this.organization?.id === organization.id) {
+        // And only while the organization is still the one shown, and the person may still read its usage
+        if (read === this.usageReads && this.organization?.id === organization.id && canManage(this.organization.role)) {
           this.usage = usage;
         }
       });

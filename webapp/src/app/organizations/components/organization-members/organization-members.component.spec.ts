@@ -200,6 +200,18 @@ describe('OrganizationMembersComponent', () => {
     expect(fixture.componentInstance.errorMessage).toBeUndefined();
   });
 
+  it('drops a usage read that answers after the person stopped being an owner or admin', () => {
+    const fixture = render('owner');
+    const component = fixture.componentInstance;
+    (component as unknown as { refreshUsage(): void }).refreshUsage();
+    component.organization = { ...organization, role: 'member' };
+    component.usage = undefined;
+    flushUsage();
+    fixture.detectChanges();
+    expect(component.usage).toBeUndefined();
+    expect(fixture.nativeElement.querySelector('[data-test="usage"]')).toBeNull();
+  });
+
   it('shows the latest usage read, whatever order the answers come in', () => {
     const fixture = render('owner');
     const component = fixture.componentInstance as unknown as { refreshUsage(): void };
