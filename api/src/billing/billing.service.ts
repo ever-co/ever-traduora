@@ -45,9 +45,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long the prices of the lookup keys are kept before they are read again */
 const PRICE_CACHE_MS = 10 * 60 * 1000;
 
-/** How long a Checkout session stays open (Stripe allows 30 minutes to 24 hours) */
-const CHECKOUT_OPEN_SECONDS = 60 * 60;
-
 /** An open session that expires sooner than this is not handed out again */
 const CHECKOUT_REUSE_MARGIN_MS = 5 * 60 * 1000;
 
@@ -168,42 +165,10 @@ export class BillingService {
       const customer = organization.stripeCustomerId || (await this.createCustomer(stripe, organization, owner));
       const attempt = (organization.checkoutAttempt || 0) + 1;
       const trialDays = this.trialDays(organization);
-      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{ price: prices.plan.id, quantity: 1 }];
-      const optionalItems: Stripe.Checkout.SessionCreateParams.OptionalItem[] = [];
-      if (prices.seat && wanted.extraSeats > 0) {
-        lineItems.push({
-          price: prices.seat.id,
-          quantity: wanted.extraSeats,
-          adjustable_quantity: { enabled: true, minimum: 0, maximum: MAX_EXTRA_SEATS },
-        });
-      } else if (prices.seat) {
-        // No extra seats asked for: the seat price is offered, and the owner may add some on the Checkout page
-        optionalItems.push({ price: prices.seat.id, quantity: 1, adjustable_quantity: { enabled: true, minimum: 1, maximum: MAX_EXTRA_SEATS } });
-      }
-      const orderMetadata = { organizationId: organization.id, plan: planLookupKey(wanted.plan, wanted.interval), extraSeats: String(wanted.extraSeats) };
-      const session = await stripe.checkout.sessions.create(
-        {
-          mode: 'subscription',
-          customer,
-          // Stripe Tax reads the billing address Checkout collects from the customer
-          customer_update: { address: 'auto' },
-          client_reference_id: organization.id,
-          metadata: orderMetadata,
-          line_items: lineItems,
-          ...(optionalItems.length ? { optional_items: optionalItems } : {}),
-          subscription_data: {
-            metadata: { organizationId: organization.id },
-            ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
-          },
-          payment_method_collection: 'always',
-          automatic_tax: { enabled: config.billing.automaticTax },
-          billing_address_collection: 'required',
-          expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_OPEN_SECONDS,
-          success_url: billingPageUrl(organization, 'checkout=success'),
-          cancel_url: billingPageUrl(organization, 'checkout=canceled'),
-        },
-        { idempotencyKey: `traduora-checkout-${organization.id}-${orderMetadata.plan}-${wanted.extraSeats}-${attempt}` },
-      );
+      const params = checkoutSessionParams(organization, customer, prices, wanted, trialDays, config.billing.automaticTax);
+      const session = await stripe.checkout.sessions.create(params, {
+        idempotencyKey: `traduora-checkout-${organization.id}-${params.metadata.plan}-${wanted.extraSeats}-${attempt}`,
+      });
       if (!session.url) {
         throw new OrganizationException(HttpStatus.SERVICE_UNAVAILABLE, 'billing_unavailable', 'Stripe did not open a Checkout page');
       }
@@ -575,4 +540,48 @@ export function subscriptionChanges(subscription: Stripe.Subscription, prices: O
     changes.push({ id: seatItem.id, deleted: true });
   }
   return changes;
+}
+
+/**
+ * The Checkout session of an order (DESIGN §3.7): subscription mode on the organization's customer, the organization in
+ * `client_reference_id` and the metadata, the plan price, the extra seats as a second line item (or offered as an
+ * optional one when none were asked for), the trial, a card, Stripe Tax and the billing address. Nothing in it depends
+ * on the time, so a retry with the same idempotency key sends the same request. Sessions stay open Stripe's default
+ * 24 hours and are handed out again meanwhile.
+ */
+export function checkoutSessionParams(
+  organization: Pick<Organization, 'id' | 'slug'>,
+  customer: string,
+  prices: Pick<OrderPrices, 'plan' | 'seat'>,
+  order: BillingOrder,
+  trialDays: number,
+  automaticTax: boolean,
+): Stripe.Checkout.SessionCreateParams & { metadata: { organizationId: string; plan: string; extraSeats: string } } {
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{ price: prices.plan.id, quantity: 1 }];
+  const optionalItems: Stripe.Checkout.SessionCreateParams.OptionalItem[] = [];
+  if (prices.seat && order.extraSeats > 0) {
+    lineItems.push({ price: prices.seat.id, quantity: order.extraSeats, adjustable_quantity: { enabled: true, minimum: 0, maximum: MAX_EXTRA_SEATS } });
+  } else if (prices.seat) {
+    // No extra seats asked for: the seat price is offered, and the owner may add some on the Checkout page
+    optionalItems.push({ price: prices.seat.id, quantity: 1, adjustable_quantity: { enabled: true, minimum: 1, maximum: MAX_EXTRA_SEATS } });
+  }
+  return {
+    mode: 'subscription',
+    customer,
+    // Stripe Tax reads the billing address that Checkout collects onto the customer
+    customer_update: { address: 'auto' },
+    client_reference_id: organization.id,
+    metadata: { organizationId: organization.id, plan: planLookupKey(order.plan, order.interval), extraSeats: String(order.extraSeats) },
+    line_items: lineItems,
+    ...(optionalItems.length ? { optional_items: optionalItems } : {}),
+    subscription_data: {
+      metadata: { organizationId: organization.id },
+      ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+    },
+    payment_method_collection: 'always',
+    automatic_tax: { enabled: automaticTax },
+    billing_address_collection: 'required',
+    success_url: billingPageUrl(organization, 'checkout=success'),
+    cancel_url: billingPageUrl(organization, 'checkout=canceled'),
+  };
 }

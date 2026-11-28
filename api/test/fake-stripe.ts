@@ -106,7 +106,7 @@ export class FakeStripe {
           customer: params.customer,
           client_reference_id: params.client_reference_id,
           metadata: params.metadata,
-          expires_at: params.expires_at,
+          expires_at: Math.floor(Date.now() / 1000) + 24 * 3600,
           subscription: null,
         };
         this.sessionsById.set(id, session);

@@ -55,7 +55,7 @@ function mockStripe() {
     },
     checkout: {
       sessions: {
-        create: jest.fn(async (params: any, _options?: any) => ({ id: 'cs_test_1', url: 'https://checkout.stripe.test/1', expires_at: params.expires_at })),
+        create: jest.fn(async (params: any, _options?: any) => ({ id: 'cs_test_1', url: 'https://checkout.stripe.test/1', expires_at: Math.floor(Date.now() / 1000) + 86400 })),
         retrieve: jest.fn(),
         expire: jest.fn(),
       },
