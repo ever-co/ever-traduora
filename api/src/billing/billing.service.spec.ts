@@ -4,7 +4,14 @@ import { OrganizationPlanCode } from '../domain/organization-actions';
 import { Organization } from '../entity/organization.entity';
 import { User } from '../entity/user.entity';
 import { BillingInterval } from './billing-plans';
-import { BillingService, checkoutSessionParams, idempotencyKey, invoiceSubscriptionId, subscriptionChanges, subscriptionState } from './billing.service';
+import {
+  BillingService,
+  checkoutSessionParams,
+  idempotencyKey,
+  invoiceSubscriptionId,
+  subscriptionChanges,
+  subscriptionState,
+} from './billing.service';
 
 const SECRET = 'whsec_unit_test';
 const ORG_ID = '7d4b3f3e-3b8a-4c1e-9a43-1f8f0b6a2c11';
@@ -65,8 +72,10 @@ function mockStripe() {
       },
     },
     billingPortal: { sessions: { create: jest.fn().mockResolvedValue({ url: 'https://billing.stripe.test/p' }) } },
-    subscriptions: { retrieve: jest.fn(), update: jest.fn(), cancel: jest.fn() },
-    invoices: { createPreview: jest.fn() },
+    subscriptions: { retrieve: jest.fn(), update: jest.fn(), cancel: jest.fn(), list: jest.fn().mockResolvedValue({ data: [] }) },
+    invoices: { createPreview: jest.fn(), list: jest.fn().mockResolvedValue({ data: [] }) },
+    invoicePayments: { list: jest.fn().mockResolvedValue({ data: [] }) },
+    refunds: { create: jest.fn(async (params: any) => ({ id: `re_${params.payment_intent}` })) },
   };
 }
 
@@ -184,6 +193,7 @@ describe('BillingService', () => {
         id: 'cs_open',
         status: 'open',
         url: 'https://checkout.stripe.test/open',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
         metadata: { plan: 'ever_traduora_cloud_enterprise_monthly', extraSeats: '0' },
       });
       const { dataSource } = mockDataSource(() => open);
@@ -199,6 +209,36 @@ describe('BillingService', () => {
       const [params, options] = stripe.checkout.sessions.create.mock.calls[0];
       expect(params.metadata.plan).toBe('ever_traduora_cloud_enterprise_annual');
       expect(options).toEqual({ idempotencyKey: idempotencyKey('checkout', ORG_ID, 5, params) });
+    });
+
+    it('asks Stripe about the stored session even past its stored expiry, and refuses a paid one', async () => {
+      const stripe = mockStripe();
+      stripe.checkout.sessions.retrieve.mockResolvedValue({ id: 'cs_paid', status: 'complete', url: null, metadata: {} });
+      const { dataSource } = mockDataSource(() =>
+        organization({ stripeCustomerId: 'cus_1', checkoutSessionId: 'cs_paid', checkoutExpiresAt: new Date(Date.now() - 3600_000) }),
+      );
+      await expect(
+        new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Monthly,
+        }),
+      ).rejects.toMatchObject({ code: 'subscription_exists' });
+      expect(stripe.checkout.sessions.retrieve).toHaveBeenCalledWith('cs_paid');
+      expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses while Stripe lists a live Traduora subscription of the customer', async () => {
+      const stripe = mockStripe();
+      stripe.subscriptions.list.mockResolvedValue({ data: [subscription({ status: 'trialing' })] });
+      const { dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1' }));
+      await expect(
+        new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Monthly,
+        }),
+      ).rejects.toMatchObject({ code: 'subscription_exists' });
+      expect(stripe.subscriptions.list).toHaveBeenCalledWith(expect.objectContaining({ customer: 'cus_1', status: 'all' }));
+      expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
     });
 
     it('is off without a key, or outside SaaS mode', async () => {

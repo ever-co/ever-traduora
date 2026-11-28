@@ -4,7 +4,10 @@ import Stripe = require('stripe');
 export const STRIPE_CLIENT = 'TRADUORA_STRIPE_CLIENT';
 
 /** What the billing module calls of Stripe: a test replaces it with a fake of the same shape. */
-export type StripeClient = Pick<Stripe, 'checkout' | 'billingPortal' | 'customers' | 'subscriptions' | 'prices' | 'invoices' | 'webhooks'>;
+export type StripeClient = Pick<
+  Stripe,
+  'checkout' | 'billingPortal' | 'customers' | 'subscriptions' | 'prices' | 'invoices' | 'invoicePayments' | 'refunds' | 'webhooks'
+>;
 
 export type StripeKeyMode = 'test' | 'live';
 

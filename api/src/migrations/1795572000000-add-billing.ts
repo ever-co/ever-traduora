@@ -61,6 +61,8 @@ const TABLES: TableSpec[] = [
       // No foreign key: the log outlives what it names
       { name: 'organization_id', type: 'varchar', length: 255, nullable: true },
       { name: 'outcome', type: 'varchar', length: 64, nullable: true },
+      // What was done beyond the plan (a second subscription canceled and refunded)
+      { name: 'detail', type: 'varchar', length: 255, nullable: true },
       { name: 'date_processed', type: 'timestamp', defaultNow: true },
     ],
     primary: ['id'],

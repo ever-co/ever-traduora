@@ -24,6 +24,10 @@ export class BillingEvent {
   @Column({ type: 'varchar', length: 64, nullable: true })
   outcome: string | null;
 
+  /** What was done beyond the plan, for people reading the log: the second subscription canceled and refunded */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  detail: string | null;
+
   @Column(TimeColumnType.createDate())
   dateProcessed: Date;
 }

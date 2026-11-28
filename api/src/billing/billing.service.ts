@@ -55,6 +55,12 @@ export interface BillingOrder {
   extraSeats: number;
 }
 
+/** What a webhook event did, with a detail for the log (a refund, say) */
+interface Applied {
+  outcome: EventOutcome;
+  detail?: string;
+}
+
 /** An order as a route receives it: no extra seats when left out */
 export type BillingOrderInput = Omit<BillingOrder, 'extraSeats'> & { extraSeats?: number | null };
 
@@ -158,6 +164,9 @@ export class BillingService {
       const reused = await this.openSession(stripe, organization, wanted);
       if (reused) {
         return { url: reused };
+      }
+      if (organization.stripeCustomerId) {
+        await this.assertNoLiveSubscription(stripe, organization.stripeCustomerId);
       }
       const customer = organization.stripeCustomerId || (await this.createCustomer(stripe, organization, owner));
       const attempt = (organization.checkoutAttempt || 0) + 1;
@@ -323,7 +332,7 @@ export class BillingService {
   private async applyEvent(
     event: Stripe.Event,
     organizationId: string,
-    work: (tx: EntityManager, organization: Organization) => Promise<EventOutcome>,
+    work: (tx: EntityManager, organization: Organization) => Promise<EventOutcome | Applied>,
   ): Promise<EventOutcome> {
     try {
       return await readCommittedTransaction(this.dataSource.manager, async tx => {
@@ -335,8 +344,16 @@ export class BillingService {
         if (await tx.exists(BillingEvent, { where: { id: event.id } })) {
           return 'duplicate' as EventOutcome;
         }
-        const outcome = await work(tx, organization);
-        await tx.insert(BillingEvent, { id: event.id, type: event.type, organizationId, outcome, dateProcessed: new Date() });
+        const result = await work(tx, organization);
+        const { outcome, detail } = typeof result === 'string' ? { outcome: result, detail: undefined } : result;
+        await tx.insert(BillingEvent, {
+          id: event.id,
+          type: event.type,
+          organizationId,
+          outcome,
+          detail: detail ? detail.slice(0, 255) : null,
+          dateProcessed: new Date(),
+        });
         return outcome;
       });
     } catch (error) {
@@ -352,9 +369,15 @@ export class BillingService {
   /**
    * Writes the subscription's state to the organization: the plan and the extra seats from the lookup keys, the status,
    * the trial end (kept once set: a trial is given once), the period end, and since when it is past due. A second live
-   * subscription of an organization that has one is canceled at once (DESIGN §3.7, backstop of one Checkout at a time).
+   * subscription of an organization that has one is canceled at once, and what it was paid is refunded (DESIGN §3.7,
+   * backstop of one Checkout at a time: it may come after the trial was used, and then it was charged at once).
    */
-  private async applySubscription(tx: EntityManager, organization: Organization, subscription: Stripe.Subscription, at: Date): Promise<EventOutcome> {
+  private async applySubscription(
+    tx: EntityManager,
+    organization: Organization,
+    subscription: Stripe.Subscription,
+    at: Date,
+  ): Promise<EventOutcome | Applied> {
     if (idOf(subscription.customer) !== organization.stripeCustomerId) {
       return 'foreign_customer';
     }
@@ -368,26 +391,26 @@ export class BillingService {
         // The end of a subscription that is not the organization's (the second one, canceled)
         return 'other_subscription';
       }
-      await this.stripe.subscriptions.cancel(subscription.id, { prorate: false, invoice_now: false });
-      this.logger.warn(`Canceled a second subscription ${subscription.id} of organization ${organization.id} (it has ${current})`);
-      return 'second_subscription_canceled';
+      const detail = await this.cancelAndRefund(subscription);
+      this.logger.warn(`Second subscription of organization ${organization.id} (it has ${current}): ${detail}`);
+      return { outcome: 'second_subscription_canceled', detail };
     }
     await writeBillingFields(tx, organization.id, subscriptionState(organization, subscription, bought, at));
     return 'applied';
   }
 
-  /** The open session of the organization for this order, handed out again; one for another order is expired */
+  /**
+   * The organization's stored session, always as Stripe has it now (the stored expiry is not trusted: a session paid
+   * just before it would otherwise slip through): `complete` refuses (its subscription is on the way); an open one is
+   * handed out again for the same order while it has a few minutes left, and is expired otherwise, so one Checkout is
+   * open at a time.
+   */
   private async openSession(stripe: StripeClient, organization: Organization, order: BillingOrder): Promise<string | null> {
     if (!organization.checkoutSessionId) {
       return null;
     }
-    const expiresAt = organization.checkoutExpiresAt ? new Date(organization.checkoutExpiresAt).getTime() : 0;
-    if (expiresAt - CHECKOUT_REUSE_MARGIN_MS <= Date.now()) {
-      return null;
-    }
     const session = await stripe.checkout.sessions.retrieve(organization.checkoutSessionId);
     if (session.status === 'complete') {
-      // Its subscription is on the way (the webhook); a second one would be canceled anyway
       throw new OrganizationException(HttpStatus.CONFLICT, 'subscription_exists', 'The organization has a subscription: change it instead');
     }
     if (session.status !== 'open') {
@@ -396,12 +419,63 @@ export class BillingService {
     const same =
       session.metadata?.plan === planLookupKey(order.plan, order.interval) &&
       session.metadata?.extraSeats === String(order.extraSeats) &&
-      !!session.url;
+      !!session.url &&
+      (session.expires_at ?? 0) * 1000 - CHECKOUT_REUSE_MARGIN_MS > Date.now();
     if (same) {
       return session.url;
     }
     await stripe.checkout.sessions.expire(session.id);
     return null;
+  }
+
+  /**
+   * Refuses a Checkout while the customer has a live Traduora subscription on Stripe, whether or not its webhook has
+   * arrived yet (a session completed in another tab, a subscription made on the Dashboard).
+   */
+  private async assertNoLiveSubscription(stripe: StripeClient, customerId: string): Promise<void> {
+    const subscriptions = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 });
+    const live = subscriptions.data.find(
+      subscription =>
+        isLiveStatus(subscription.status) &&
+        !!subscribedPlan((subscription.items?.data ?? []).map(item => ({ lookupKey: item.price?.lookup_key, quantity: item.quantity }))),
+    );
+    if (live) {
+      throw new OrganizationException(HttpStatus.CONFLICT, 'subscription_exists', 'The organization has a subscription: change it instead');
+    }
+  }
+
+  /**
+   * The backstop of one Checkout at a time: cancels the second subscription at once (no proration, no final invoice)
+   * and refunds what its latest paid invoice took. Safe to run again (an event delivered again after a failure): a
+   * canceled subscription is not canceled twice, and each refund has its idempotency key. Answers what was done.
+   */
+  private async cancelAndRefund(subscription: Stripe.Subscription): Promise<string> {
+    if (subscription.status !== 'canceled') {
+      await this.stripe.subscriptions.cancel(
+        subscription.id,
+        { prorate: false, invoice_now: false },
+        { idempotencyKey: `traduora-cancel-second-${subscription.id}` },
+      );
+    }
+    const [invoice] = (await this.stripe.invoices.list({ subscription: subscription.id, status: 'paid', limit: 1 })).data;
+    if (!invoice || !invoice.amount_paid) {
+      return `canceled ${subscription.id}, nothing paid`;
+    }
+    const refunds: string[] = [];
+    const payments = await this.stripe.invoicePayments.list({ invoice: invoice.id, status: 'paid', limit: 10 });
+    for (const payment of payments.data) {
+      const paymentIntent = idOf(payment.payment?.payment_intent as string | { id: string } | undefined);
+      const charge = idOf(payment.payment?.charge as string | { id: string } | undefined);
+      if (!paymentIntent && !charge) {
+        continue;
+      }
+      const refund = await this.stripe.refunds.create(
+        { ...(paymentIntent ? { payment_intent: paymentIntent } : { charge }), reason: 'duplicate', metadata: { subscription: subscription.id } },
+        { idempotencyKey: `traduora-refund-${invoice.id}-${payment.id}` },
+      );
+      refunds.push(refund.id);
+    }
+    return `canceled ${subscription.id}, refunded ${invoice.id} (${invoice.amount_paid} ${invoice.currency}): ${refunds.join(' ') || 'no payment found'}`;
   }
 
   private async createCustomer(stripe: StripeClient, organization: Organization, owner: User): Promise<string> {

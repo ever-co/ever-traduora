@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { DataSource } from 'typeorm';
+import { DataSource, Like } from 'typeorm';
 import { BillingService, idempotencyKey } from '../src/billing/billing.service';
 import { STRIPE_CLIENT } from '../src/billing/stripe-client';
 import { config } from '../src/config';
@@ -224,6 +224,28 @@ describe('Billing (e2e)', () => {
       }
     });
 
+    it('refuses a Checkout whose stored session was paid, even past its stored expiry', async () => {
+      const { owner: other, organizationId: otherId } = await newOwner('paid-session');
+      await checkout(other, { plan: 'small_business', interval: 'monthly' }, otherId).expect(200);
+      const stored = await organization(otherId);
+      stripe.sessionsById.get(stored.checkoutSessionId).status = 'complete';
+      await dataSource.getRepository(Organization).update({ id: otherId }, { checkoutExpiresAt: new Date(Date.now() - 60_000) });
+      const res = await checkout(other, { plan: 'enterprise', interval: 'monthly' }, otherId).expect(409);
+      expect(res.body.error.code).toBe('subscription_exists');
+    });
+
+    it('refuses a Checkout while Stripe has a live subscription the webhook has not brought yet', async () => {
+      const { owner: other, organizationId: otherId } = await newOwner('early-subscription');
+      await checkout(other, { plan: 'small_business', interval: 'monthly' }, otherId).expect(200);
+      const customer = (await organization(otherId)).stripeCustomerId;
+      // Another product's subscription of the customer does not count
+      stripe.putSubscription({ id: 'sub_early_other', customer, otherKeys: ['ever_gauzy_cloud_enterprise_monthly'] });
+      await checkout(other, { plan: 'small_business', interval: 'annual' }, otherId).expect(200);
+      stripe.putSubscription({ id: 'sub_early', customer, status: 'trialing', plan: 'small_business' });
+      const res = await checkout(other, { plan: 'enterprise', interval: 'monthly' }, otherId).expect(409);
+      expect(res.body.error.code).toBe('subscription_exists');
+    });
+
     it('opens no portal before there is a billing account', async () => {
       const { owner: other, organizationId: otherId } = await newOwner('no-account');
       expect((await portal(other, otherId).expect(409)).body.error.code).toBe('billing_account_missing');
@@ -445,13 +467,32 @@ describe('Billing (e2e)', () => {
       stripe.reset();
       await subscribe(organizationId, { subscription: 'sub_second', status: 'trialing', plan: 'enterprise' });
       const [cancel] = stripe.callsTo('subscriptions.cancel');
-      expect(cancel.args).toEqual(['sub_second', { prorate: false, invoice_now: false }]);
+      expect(cancel.args.slice(0, 2)).toEqual(['sub_second', { prorate: false, invoice_now: false }]);
+      expect(stripe.callsTo('refunds.create')).toEqual([]);
       expect(await billingState()).toEqual(state);
       const logged = await dataSource.getRepository(BillingEvent).findOneByOrFail({ outcome: 'second_subscription_canceled' });
       expect(logged.organizationId).toBe(organizationId);
+      expect(logged.detail).toBe('canceled sub_second, nothing paid');
       // Its end changes nothing either
       await deliver('customer.subscription.deleted', stripe.subscriptionsById.get('sub_second'));
       expect(await billingState()).toEqual(state);
+    });
+
+    it('refunds what a second subscription was paid, and records it', async () => {
+      const state = await billingState();
+      stripe.reset();
+      // A second Checkout after the trial was used: charged at once
+      stripe.paidInvoices.set('sub_third', { id: 'in_third', amount_paid: 4900, currency: 'usd' });
+      await subscribe(organizationId, { subscription: 'sub_third', status: 'active', plan: 'small_business' });
+      expect(stripe.callsTo('subscriptions.cancel').map(call => call.args[0])).toEqual(['sub_third']);
+      const [refund] = stripe.callsTo('refunds.create');
+      expect(refund.args[0]).toMatchObject({ payment_intent: 'pi_in_third', reason: 'duplicate' });
+      expect(refund.args[1]).toEqual({ idempotencyKey: 'traduora-refund-in_third-inpay_in_third' });
+      expect(await billingState()).toEqual(state);
+      const logged = await dataSource
+        .getRepository(BillingEvent)
+        .findOneByOrFail({ outcome: 'second_subscription_canceled', detail: Like('%sub_third%') });
+      expect(logged.detail).toBe('canceled sub_third, refunded in_third (4900 usd): re_pi_in_third');
     });
 
     it('cancels: Starter again, nothing deleted, and a new Checkout without a second trial', async () => {

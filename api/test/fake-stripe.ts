@@ -75,6 +75,8 @@ export class FakeStripe {
   readonly sessionsById = new Map<string, any>();
   /** Lookup keys that `prices.list` does not find, to test a missing price */
   readonly missingPrices = new Set<string>();
+  /** The paid invoice of a subscription (`invoices.list` with `status: paid`), with the amount it took */
+  readonly paidInvoices = new Map<string, { id: string; amount_paid: number; currency: string }>();
 
   private record(method: string, ...args: any[]) {
     this.calls.push({ method, args });
@@ -200,8 +202,13 @@ export class FakeStripe {
       }
       return JSON.parse(JSON.stringify(subscription));
     },
-    cancel: async (id: string, params?: any) => {
-      this.record('subscriptions.cancel', id, params);
+    list: async (params: any) => {
+      this.record('subscriptions.list', params);
+      const data = [...this.subscriptionsById.values()].filter(subscription => subscription.customer === params.customer);
+      return { object: 'list', data: JSON.parse(JSON.stringify(data)), has_more: false };
+    },
+    cancel: async (id: string, params?: any, options?: any) => {
+      this.record('subscriptions.cancel', id, params, options);
       const subscription = this.subscriptionsById.get(id);
       if (subscription) {
         subscription.status = 'canceled';
@@ -211,9 +218,41 @@ export class FakeStripe {
   };
 
   readonly invoices = {
+    list: async (params: any) => {
+      this.record('invoices.list', params);
+      const paid = this.paidInvoices.get(params.subscription);
+      return { object: 'list', data: paid && params.status === 'paid' ? [{ object: 'invoice', status: 'paid', ...paid }] : [] };
+    },
     createPreview: async (params: any) => {
       this.record('invoices.createPreview', params);
       return { object: 'invoice', amount_due: 4900, currency: 'usd', next_payment_attempt: null, period_end: Math.floor(Date.now() / 1000) + 86400 };
+    },
+  };
+
+  readonly invoicePayments = {
+    list: async (params: any) => {
+      this.record('invoicePayments.list', params);
+      const invoice = [...this.paidInvoices.values()].find(each => each.id === params.invoice);
+      return {
+        object: 'list',
+        data: invoice
+          ? [
+              {
+                id: `inpay_${invoice.id}`,
+                status: 'paid',
+                amount_paid: invoice.amount_paid,
+                payment: { type: 'payment_intent', payment_intent: `pi_${invoice.id}` },
+              },
+            ]
+          : [],
+      };
+    },
+  };
+
+  readonly refunds = {
+    create: async (params: any, options?: any) => {
+      this.record('refunds.create', params, options);
+      return { id: `re_${params.payment_intent ?? params.charge}`, object: 'refund', status: 'succeeded' };
     },
   };
 }
