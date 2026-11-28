@@ -19,7 +19,7 @@ import { ensureMember, lockOrganization, recountSeats } from '../services/organi
 import { assertSeatAvailable } from '../services/organization/organization-usage';
 import MailService from '../services/mail.service';
 import { generateInviteToken, hashInviteToken, inviteSignupUrl } from '../utils/invite-token';
-import { lockAccounts, lockProjectForShare, readCommittedTransaction } from '../utils/database-locks';
+import { lockAccountRow, lockProjectForShare, readCommittedTransaction } from '../utils/database-locks';
 import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects')
@@ -90,31 +90,36 @@ export default class ProjectInviteController {
       }
     }
 
+    const email = normalizeEmail(inviteUserRequest.email);
     if (targetUser?.emailVerified) {
       // The person joins the project's organization first (as a member, unless they are one), in the same transaction:
       // a project membership alone gives no access outside the organization (DESIGN §4.3)
-      let newProjectUser = await readCommittedTransaction(this.projectUserRepo.manager, async tx => {
-        // The project (for share: the membership written below references it), then the organization: the global lock
-        // order. Decided again under the organization lock that a removal takes: a member removed meanwhile is someone
-        // new. The locked row, not the copy read before the transaction: an organization closed meanwhile is refused
-        // The account first: the membership references it, and the person's own acceptance of an invitation holds it
-        // while it waits for the organization (the global order, see lockOrganization)
-        await lockAccounts(tx, [targetUser.id]);
+      const added = await readCommittedTransaction(this.projectUserRepo.manager, async tx => {
+        // The global lock order (see lockOrganization): the account first (the membership references it, and the
+        // person's own acceptance of an invitation holds it while it waits for the organization), read again under its
+        // lock; then the project (for share: the membership references it); then the organization. Decided again under
+        // the organization lock that a removal takes: a member removed meanwhile is someone new, and an organization
+        // closed meanwhile is refused
+        const account = await lockAccountRow(tx, targetUser.id);
+        if (account?.email !== email || !account.emailVerified) {
+          // Its e-mail changed or is no longer verified: the address gets an invitation, as anyone new does
+          return null;
+        }
         await lockProjectForShare(tx, projectId);
         const locked = await lockOrganization(tx, project.organizationId);
         if (!locked) {
           throw new NotFoundException('project not found');
         }
-        await this.auth.authorizeAddingToOrganization(user, locked, targetUser.id, tx);
+        await this.auth.authorizeAddingToOrganization(user, locked, account.id, tx);
         // Someone new to the organization takes one of its seats (402 plan_limit_reached when none is left)
-        await assertSeatAvailable(tx, locked, { email: targetUser.email, userId: targetUser.id }, 'member', user.id);
-        await ensureMember(tx, project.organizationId, targetUser.id);
+        await assertSeatAvailable(tx, locked, { email: account.email, userId: account.id }, 'member', user.id);
+        await ensureMember(tx, project.organizationId, account.id);
         // An invite sent before they had an account is no longer needed: the seat is the member's now
-        await tx.delete(Invite, { project: { id: projectId }, email: normalizeEmail(inviteUserRequest.email) });
+        await tx.delete(Invite, { project: { id: projectId }, email });
         const saved = await tx.save(
           tx.create(ProjectUser, {
             project: { id: projectId },
-            user: targetUser,
+            user: { id: account.id },
             role: inviteUserRequest.role,
           }),
         );
@@ -122,61 +127,65 @@ export default class ProjectInviteController {
         return saved;
       });
 
-      newProjectUser = await this.projectUserRepo.findOneOrFail({
-        where: { id: newProjectUser.id },
-        relations: ['user', 'project'],
-      });
+      if (added) {
+        const newProjectUser = await this.projectUserRepo.findOneOrFail({
+          where: { id: added.id },
+          relations: ['user', 'project'],
+        });
 
-      this.mail.invitedToProject(newProjectUser);
+        this.mail.invitedToProject(newProjectUser);
 
-      return {
-        data: {
-          userId: newProjectUser.user.id,
-          role: newProjectUser.role,
-          name: newProjectUser.user.name,
-          email: newProjectUser.user.email,
-        },
-      };
-    } else {
-      const email = normalizeEmail(inviteUserRequest.email);
-      const token = generateInviteToken();
-
-      const newInvite = await readCommittedTransaction(this.inviteRepo.manager, async tx => {
-        // Under the organization lock: a pending invitation to someone outside the organization takes one of its seats
-        // (OD-T10), counted one change at a time (402 plan_limit_reached when none is left). The project first (for
-        // share: the invitation references it), then the organization: the global lock order
-        await lockProjectForShare(tx, projectId);
-        const locked = await lockOrganization(tx, project.organizationId);
-        if (!locked) {
-          throw new NotFoundException('project not found');
-        }
-        await assertSeatAvailable(tx, locked, { email, userId: targetUser?.id }, 'invite', user.id);
-
-        // Inviting the same email again sends a new link and invalidates the previous one
-        const existingInvite = await tx.findOne(Invite, { where: { project: { id: projectId }, email } });
-        const record = existingInvite ?? tx.create(Invite, { email, project: { id: projectId } });
-        record.role = inviteUserRequest.role;
-        record.status = InviteStatus.Sent;
-        record.tokenHash = hashInviteToken(token);
-        const saved = await tx.save(record, { reload: true });
-        await recountSeats(tx, project.organizationId);
-        return saved;
-      });
-      const inviteUrl = inviteSignupUrl(token);
-
-      // Not awaited: the admin also gets the link, and MailService logs delivery failures
-      void this.mail.invitedToPlatform({ ...newInvite, project }, inviteUrl);
-
-      return {
-        data: {
-          id: newInvite.id,
-          role: newInvite.role,
-          email: newInvite.email,
-          status: newInvite.status,
-          inviteUrl,
-        },
-      };
+        return {
+          data: {
+            userId: newProjectUser.user.id,
+            role: newProjectUser.role,
+            name: newProjectUser.user.name,
+            email: newProjectUser.user.email,
+          },
+        };
+      }
     }
+
+    // Anyone else gets an invitation with a link: no account, an unverified one, or one whose e-mail changed meanwhile
+    const token = generateInviteToken();
+
+    const newInvite = await readCommittedTransaction(this.inviteRepo.manager, async tx => {
+      // Under the organization lock: a pending invitation to someone outside the organization takes one of its seats
+      // (OD-T10), counted one change at a time (402 plan_limit_reached when none is left). The project first (for
+      // share: the invitation references it), then the organization: the global lock order
+      await lockProjectForShare(tx, projectId);
+      const locked = await lockOrganization(tx, project.organizationId);
+      if (!locked) {
+        throw new NotFoundException('project not found');
+      }
+      // The account of the address as it is now, under the lock: a copy read before could have changed its e-mail
+      const account = await tx.findOne(User, { where: { email }, select: ['id'] });
+      await assertSeatAvailable(tx, locked, { email, userId: account?.id }, 'invite', user.id);
+
+      // Inviting the same email again sends a new link and invalidates the previous one
+      const existingInvite = await tx.findOne(Invite, { where: { project: { id: projectId }, email } });
+      const record = existingInvite ?? tx.create(Invite, { email, project: { id: projectId } });
+      record.role = inviteUserRequest.role;
+      record.status = InviteStatus.Sent;
+      record.tokenHash = hashInviteToken(token);
+      const saved = await tx.save(record, { reload: true });
+      await recountSeats(tx, project.organizationId);
+      return saved;
+    });
+    const inviteUrl = inviteSignupUrl(token);
+
+    // Not awaited: the admin also gets the link, and MailService logs delivery failures
+    void this.mail.invitedToPlatform({ ...newInvite, project }, inviteUrl);
+
+    return {
+      data: {
+        id: newInvite.id,
+        role: newInvite.role,
+        email: newInvite.email,
+        status: newInvite.status,
+        inviteUrl,
+      },
+    };
   }
 
   @Access('project:EditProjectInvites')

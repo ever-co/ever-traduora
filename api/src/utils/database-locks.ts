@@ -20,6 +20,19 @@ export async function lockAccounts(entityManager: EntityManager, userIds: Readon
 }
 
 /**
+ * {@link lockAccounts} for one account, answering its row as it is under the lock: a decision about the person (their
+ * e-mail, whether it is verified) is taken on this, not on a copy read before the transaction. SQLite runs one
+ * transaction at a time.
+ */
+export function lockAccountRow(entityManager: EntityManager, userId: string): Promise<User | null> {
+  return entityManager.findOne(User, {
+    where: { id: userId },
+    select: ['id', 'name', 'email', 'emailVerified'],
+    ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+  });
+}
+
+/**
  * Locks the account's row for share, first: for a transaction that writes rows referencing the account (an import's
  * history) after its project and organization locks, whose foreign key would otherwise take that lock last, against the
  * global order. SQLite runs one transaction at a time.

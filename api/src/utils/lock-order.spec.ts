@@ -24,7 +24,7 @@ const ORGANIZATION_LOCKS = [
   'assertStillOpen',
 ];
 const PROJECT_LOCKS = ['lockProject', 'lockProjects', 'lockProjectForShare', 'lockProjectsForShare', 'lockProjectsOf'];
-const ACCOUNT_LOCKS = ['lockAccount', 'lockAccounts', 'lockAccountForShare'];
+const ACCOUNT_LOCKS = ['lockAccount', 'lockAccounts', 'lockAccountRow', 'lockAccountForShare'];
 
 /** What may not follow a lock of each kind */
 const NOT_AFTER: Array<{ locks: string[]; forbidden: string[] }> = [

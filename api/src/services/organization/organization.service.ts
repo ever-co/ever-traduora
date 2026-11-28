@@ -333,8 +333,14 @@ export class OrganizationService {
     const token = generateInviteToken();
     const saved = await readCommittedTransaction(this.invites.manager, async tx => {
       const locked = await this.assertStillOpen(tx, organization.id);
+      // The account of the address as it is now, under the lock: a copy read before the transaction may have changed its
+      // e-mail since, and its membership would then exempt an address that takes a new seat
+      const current = await tx.findOne(User, { where: { email }, select: ['id'] });
+      if (current && (await tx.exists(OrganizationUser, { where: { organizationId: organization.id, userId: current.id } }))) {
+        throw new ConflictException('this person is a member already');
+      }
       // A pending invitation takes a seat too, unless this person holds one already (a new link for the same email)
-      await assertSeatAvailable(tx, locked, { email, userId: account?.id }, 'invite', invitedBy.id);
+      await assertSeatAvailable(tx, locked, { email, userId: current?.id }, 'invite', invitedBy.id);
       const existing = await tx.findOne(OrganizationInvite, { where: { organizationId: organization.id, email } });
       const record = existing ?? tx.create(OrganizationInvite, { organizationId: organization.id, email });
       record.role = payload.role;
