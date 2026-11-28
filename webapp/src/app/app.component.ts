@@ -41,7 +41,8 @@ export class AppComponent {
   private readonly store = inject(Store);
 
   showBar$ = combineLatest([this.store.select(AuthState.isAuthenticated), this.store.select(AuthState.user)]).pipe(
-    map(([authenticated, user]) => authenticated && !user?.pending),
+    // Only once the profile is loaded and not pending (`pending` of GET /users/me is null), so a pending account never sees it
+    map(([authenticated, user]) => authenticated && user?.pending === null),
   );
 
   isLoading$ = combineLatest([

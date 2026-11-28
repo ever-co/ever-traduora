@@ -7,7 +7,7 @@ import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { isPendingAccountStep, PENDING_STEP_PAGES } from '../models/account-settings';
 import { localReturnPath } from '../models/identity';
-import { Logout } from '../stores/auth.state';
+import { GetUserInfo, Logout } from '../stores/auth.state';
 
 /** Pages a pending account is not sent back to once it is ready: sign-in, sign-up and the pending steps themselves */
 const NO_RETURN_PAGES = /^\/(signup|login|forgot-password|reset-password|auth\/|check-inbox|accept-terms)/;
@@ -41,6 +41,8 @@ export class ErrorInterceptor implements HttpInterceptor {
     if (!isPendingAccountStep(code)) {
       return;
     }
+    // The stored profile becomes pending too, so the app bar and the switcher hide (new terms during a session)
+    this.store.dispatch(new GetUserInfo());
     // Looked up when needed: the router depends on HttpClient through the lazy routes, and so on this interceptor
     const router = this.injector.get(Router);
     const page = PENDING_STEP_PAGES[code];

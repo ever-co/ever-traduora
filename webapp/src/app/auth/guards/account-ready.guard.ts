@@ -6,7 +6,7 @@ import { catchError, map } from 'rxjs/operators';
 import { isPendingAccountStep, PENDING_STEP_PAGES } from '../models/account-settings';
 import { localReturnPath } from '../models/identity';
 import { AuthService } from '../services/auth.service';
-import { AuthState } from '../stores/auth.state';
+import { AuthState, SetUserInfo } from '../stores/auth.state';
 
 /**
  * Sends a signed-in person whose account is still pending (SaaS mode: e-mail to confirm, terms to accept) to the page
@@ -28,6 +28,8 @@ export const accountReadyGuard: CanActivateFn = (_route, state) => {
         if (!isPendingAccountStep(user?.pending)) {
           return true;
         }
+        // The app bar and the switcher hide for a pending account: they read the stored profile
+        store.dispatch(new SetUserInfo(user));
         const returnTo = localReturnPath(state.url);
         return router.createUrlTree([PENDING_STEP_PAGES[user.pending]], returnTo ? { queryParams: { returnTo } } : {});
       }),

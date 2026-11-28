@@ -10,6 +10,8 @@ import {
   AuthError,
   AuthState,
   ConfirmProviderSignup,
+  GetUserInfo,
+  Logout,
   ReceiveAPIAccessToken,
   ReceiveAuthProviderCode,
   RedirectToAuthProvider,
@@ -118,5 +120,22 @@ describe('AuthState provider sign-in', () => {
     req.flush({ data: { id: 'u1', name: 'N', email: 'e', accessToken: 'token' } });
     expect(store.selectSnapshot(AuthState.pendingSignup)).toBeUndefined();
     expect(dispatched.some(action => action instanceof ReceiveAPIAccessToken)).toBeTrue();
+  });
+
+  it('drops a profile that arrives after a sign-out, so the session stays signed out (bot review of #679)', () => {
+    localStorage.setItem('accessToken', 'token-1');
+    store.reset({ ...store.snapshot(), auth: { ...store.snapshot().auth, isAuthenticated: true } });
+    store.dispatch(new GetUserInfo());
+    store.dispatch(new Logout(undefined, true));
+    http.expectOne(`${endpoint}/users/me`).flush({ data: { id: 'u1', name: 'N', email: 'e', pending: null } });
+    expect(store.selectSnapshot(AuthState.isAuthenticated)).toBeFalse();
+    expect(store.selectSnapshot(AuthState.user)).toBeUndefined();
+
+    // The same session keeps its answer
+    localStorage.setItem('accessToken', 'token-2');
+    store.reset({ ...store.snapshot(), auth: { ...store.snapshot().auth, isAuthenticated: true } });
+    store.dispatch(new GetUserInfo());
+    http.expectOne(`${endpoint}/users/me`).flush({ data: { id: 'u2', name: 'N', email: 'e', pending: null } });
+    expect(store.selectSnapshot(AuthState.user)?.id).toBe('u2');
   });
 });

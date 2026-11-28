@@ -15,6 +15,12 @@ export class GetUserInfo {
   static readonly type = '[Auth] Get user info';
 }
 
+/** A fresh profile read elsewhere (`GET /users/me`), e.g. by a page that found the account pending */
+export class SetUserInfo {
+  static readonly type = '[Auth] Set user info';
+  constructor(public user: User) {}
+}
+
 export class CheckAuth {
   static readonly type = '[Auth] Check auth';
 }
@@ -266,11 +272,22 @@ export class AuthState implements NgxsOnInit {
 
   @Action(GetUserInfo)
   getUserInfo(ctx: StateContext<AuthStateModel>) {
+    // The answer belongs to the session that asked: a sign-out (or another sign-in) meanwhile must not be undone
+    const token = this.tokenService.getToken();
     return this.authService.getUserSelf().pipe(
       tap(user => {
-        ctx.patchState({ user: user, isAuthenticated: true });
+        if (token && this.tokenService.getToken() === token) {
+          ctx.patchState({ user: user, isAuthenticated: true });
+        }
       }),
     );
+  }
+
+  @Action(SetUserInfo)
+  setUserInfo(ctx: StateContext<AuthStateModel>, action: SetUserInfo) {
+    if (ctx.getState().isAuthenticated && this.tokenService.getToken()) {
+      ctx.patchState({ user: action.user });
+    }
   }
 
   @Action(GetProviders)

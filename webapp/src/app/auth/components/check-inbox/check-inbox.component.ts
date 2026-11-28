@@ -10,7 +10,7 @@ import { errorToMessage } from '../../../shared/util/api-error';
 import { PENDING_STEP_PAGES } from '../../models/account-settings';
 import { localReturnPath } from '../../models/identity';
 import { AuthService } from '../../services/auth.service';
-import { GetUserInfo, Logout } from '../../stores/auth.state';
+import { GetUserInfo, Logout, SetUserInfo } from '../../stores/auth.state';
 
 /**
  * /check-inbox: SaaS mode asks a new account to confirm its e-mail before anything else (403 `email_not_verified`).
@@ -67,11 +67,16 @@ export class CheckInboxComponent implements OnInit {
     if (this.emailForm.invalid) {
       return;
     }
+    const before = this.email;
     this.run(this.authService.updateUserSelf({ email: this.emailForm.controls.email.value as string }), user => {
       this.email = user.email;
       this.changing = false;
       this.store.dispatch(new GetUserInfo());
-      this.message = { kind: 'info', text: `We sent a link to ${user.email}. The one sent to the old address no longer works.` };
+      // The same address changes nothing: no new link, and the one sent still works
+      this.message =
+        user.email === before
+          ? { kind: 'info', text: `${user.email} is already the address of your account. The link we sent to it still works.` }
+          : { kind: 'info', text: `We sent a link to ${user.email}. The one sent to the old address no longer works.` };
     });
   }
 
@@ -83,6 +88,7 @@ export class CheckInboxComponent implements OnInit {
   private check(tell: boolean): void {
     this.run(this.authService.getUserSelf(), user => {
       this.email = user.email;
+      this.store.dispatch(new SetUserInfo(user));
       if (user.pending === 'email_not_verified') {
         if (tell) {
           this.message = { kind: 'info', text: 'Not confirmed yet. Open the link in the email we sent, then try again.' };

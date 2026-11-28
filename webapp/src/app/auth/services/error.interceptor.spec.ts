@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { NgxsModule, Store } from '@ngxs/store';
 import { ErrorInterceptor } from './error.interceptor';
+import { GetUserInfo } from '../stores/auth.state';
 
 describe('ErrorInterceptor', () => {
   let http: HttpClient;
@@ -35,6 +36,8 @@ describe('ErrorInterceptor', () => {
   it('sends a pending account to the page that finishes it, with the way back', () => {
     refuse('email_not_verified');
     expect(navigate).toHaveBeenCalledWith(['/check-inbox'], { queryParams: { returnTo: '/projects/p1/terms' } });
+    // The stored profile is read again, so the app bar and the switcher hide
+    expect(TestBed.inject(Store).dispatch).toHaveBeenCalledWith(new GetUserInfo());
     refuse('terms_not_accepted');
     expect(navigate).toHaveBeenCalledWith(['/accept-terms'], { queryParams: { returnTo: '/projects/p1/terms' } });
   });

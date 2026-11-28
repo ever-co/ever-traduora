@@ -77,6 +77,18 @@ describe('CheckInboxComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-test="address"]').textContent.trim()).toBe('ada@example.org');
   });
 
+  it('says nothing was sent when the address is the same (bot review of #679)', () => {
+    auth.getUserSelf.and.returnValue(of(pending));
+    auth.updateUserSelf.and.returnValue(of(pending));
+    const fixture = create();
+    fixture.componentInstance.startChange();
+    fixture.componentInstance.emailForm.setValue({ email: 'ada@example.com' });
+    fixture.componentInstance.saveEmail();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('is already the address of your account');
+    expect(fixture.nativeElement.textContent).not.toContain('We sent a link');
+  });
+
   it('never goes back to an address outside the app', () => {
     auth.getUserSelf.and.returnValue(of({ ...pending, pending: null }));
     create('https://evil.example/');
