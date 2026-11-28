@@ -285,7 +285,9 @@ export class AuthState implements NgxsOnInit {
 
   @Action(SetUserInfo)
   setUserInfo(ctx: StateContext<AuthStateModel>, action: SetUserInfo) {
-    if (ctx.getState().isAuthenticated && this.tokenService.getToken()) {
+    // Only the profile of the account signed in now: not one read before a sign-out, nor before another tab signed in
+    // someone else (the token is shared by the tabs)
+    if (ctx.getState().isAuthenticated && !!action.user?.id && this.tokenService.userId() === action.user.id) {
       ctx.patchState({ user: action.user });
     }
   }

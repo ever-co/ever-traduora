@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { NgxsModule, Store } from '@ngxs/store';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { User } from '../../models/user';
 import { AuthService } from '../../services/auth.service';
 import { CheckInboxComponent } from './check-inbox.component';
@@ -31,6 +31,21 @@ describe('CheckInboxComponent', () => {
 
   beforeEach(() => {
     auth = jasmine.createSpyObj<AuthService>('AuthService', ['getUserSelf', 'resendVerificationEmail', 'updateUserSelf']);
+    localStorage.setItem('accessToken', 'session-1');
+  });
+
+  afterEach(() => localStorage.removeItem('accessToken'));
+
+  it('drops an answer that arrives after a sign-out or another sign-in (bot review of #679)', () => {
+    const answer = new Subject<User>();
+    auth.getUserSelf.and.returnValue(answer);
+    const fixture = create();
+    localStorage.setItem('accessToken', 'session-2');
+    answer.next({ ...pending, pending: null, email: 'someone-else@example.com' });
+    fixture.detectChanges();
+    expect(navigateByUrl).not.toHaveBeenCalled();
+    expect(TestBed.inject(Store).dispatch).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).not.toContain('someone-else@example.com');
   });
 
   it('shows the address the link went to, and sends a new link', () => {

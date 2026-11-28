@@ -10,6 +10,7 @@ import { errorToMessage } from '../../../shared/util/api-error';
 import { PENDING_STEP_PAGES } from '../../models/account-settings';
 import { localReturnPath } from '../../models/identity';
 import { AuthService } from '../../services/auth.service';
+import { TokenService } from '../../services/token.service';
 import { GetUserInfo, Logout, SetUserInfo } from '../../stores/auth.state';
 
 /**
@@ -39,6 +40,7 @@ export class CheckInboxComponent implements OnInit {
     private readonly router: Router,
     private readonly route: ActivatedRoute,
     private readonly fb: FormBuilder,
+    private readonly tokenService: TokenService,
   ) {}
 
   ngOnInit(): void {
@@ -86,7 +88,12 @@ export class CheckInboxComponent implements OnInit {
 
   /** Reads the account again: onwards once its e-mail is confirmed; `tell` says so when it is not yet */
   private check(tell: boolean): void {
+    // The answer belongs to the session that asked: after a sign-out, or another sign-in in another tab, it is dropped
+    const session = this.tokenService.getToken();
     this.run(this.authService.getUserSelf(), user => {
+      if (!session || this.tokenService.getToken() !== session) {
+        return;
+      }
       this.email = user.email;
       this.store.dispatch(new SetUserInfo(user));
       if (user.pending === 'email_not_verified') {

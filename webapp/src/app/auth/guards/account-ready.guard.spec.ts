@@ -6,7 +6,7 @@ import { NgxsModule, Store } from '@ngxs/store';
 import { firstValueFrom, isObservable, Observable, of, throwError } from 'rxjs';
 import { User } from '../models/user';
 import { AuthService } from '../services/auth.service';
-import { AuthState } from '../stores/auth.state';
+import { AuthState, SetUserInfo } from '../stores/auth.state';
 import { accountReadyGuard } from './account-ready.guard';
 
 describe('accountReadyGuard', () => {
@@ -40,8 +40,11 @@ describe('accountReadyGuard', () => {
 
   it('lets a ready account through, and the page load when the API does not answer', async () => {
     signedIn(true);
-    auth.getUserSelf.and.returnValue(of({ pending: null } as User));
+    const dispatch = spyOn(TestBed.inject(Store), 'dispatch').and.callThrough();
+    auth.getUserSelf.and.returnValue(of({ id: 'u1', pending: null } as User));
     expect(await run('/projects')).toBe(true);
+    // The ready profile replaces a stale pending one in the store (bot review of #679)
+    expect(dispatch).toHaveBeenCalledWith(new SetUserInfo({ id: 'u1', pending: null } as User));
     auth.getUserSelf.and.returnValue(throwError(() => new Error('down')));
     expect(await run('/projects')).toBe(true);
   });

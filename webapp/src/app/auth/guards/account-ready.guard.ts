@@ -25,11 +25,12 @@ export const accountReadyGuard: CanActivateFn = (_route, state) => {
     .getUserSelf()
     .pipe(
       map(user => {
+        // The stored profile follows, ready or pending: the app bar and the switcher read it (a stale pending one would
+        // keep them hidden, a stale ready one would show them)
+        store.dispatch(new SetUserInfo(user));
         if (!isPendingAccountStep(user?.pending)) {
           return true;
         }
-        // The app bar and the switcher hide for a pending account: they read the stored profile
-        store.dispatch(new SetUserInfo(user));
         const returnTo = localReturnPath(state.url);
         return router.createUrlTree([PENDING_STEP_PAGES[user.pending]], returnTo ? { queryParams: { returnTo } } : {});
       }),

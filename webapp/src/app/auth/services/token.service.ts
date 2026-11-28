@@ -19,6 +19,20 @@ export class TokenService {
     localStorage.removeItem(this.tokenKey);
   }
 
+  /** The account the stored token signs in (its `sub`), or undefined without a readable token */
+  userId(): string | undefined {
+    const token = this.getToken();
+    if (!token) {
+      return undefined;
+    }
+    try {
+      const claims = jwtDecode(token) as { sub?: unknown };
+      return typeof claims.sub === 'string' ? claims.sub : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   isTokenValid(): boolean {
     const token = this.getToken();
     if (!token) {

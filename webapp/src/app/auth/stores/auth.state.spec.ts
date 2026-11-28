@@ -12,6 +12,7 @@ import {
   ConfirmProviderSignup,
   GetUserInfo,
   Logout,
+  SetUserInfo,
   ReceiveAPIAccessToken,
   ReceiveAuthProviderCode,
   RedirectToAuthProvider,
@@ -137,5 +138,29 @@ describe('AuthState provider sign-in', () => {
     store.dispatch(new GetUserInfo());
     http.expectOne(`${endpoint}/users/me`).flush({ data: { id: 'u2', name: 'N', email: 'e', pending: null } });
     expect(store.selectSnapshot(AuthState.user)?.id).toBe('u2');
+  });
+
+  it('stores a profile only for the account the current token signs in (bot review of #679)', () => {
+    const jwtFor = (sub: string) => {
+      const claims = btoa(JSON.stringify({ sub, exp: 4102444800 }))
+        .replace(/=+$/, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+      return `eyJhbGciOiJub25lIn0.${claims}.signature`;
+    };
+    store.reset({ ...store.snapshot(), auth: { ...store.snapshot().auth, isAuthenticated: true, user: undefined } });
+    localStorage.setItem('accessToken', jwtFor('u1'));
+    store.dispatch(new SetUserInfo({ id: 'u1', name: 'One', email: 'one@example.com', pending: 'email_not_verified' }));
+    expect(store.selectSnapshot(AuthState.user)?.id).toBe('u1');
+
+    // Another tab signed in someone else: a profile of u1 read before is not theirs
+    localStorage.setItem('accessToken', jwtFor('u2'));
+    store.dispatch(new SetUserInfo({ id: 'u1', name: 'One', email: 'one@example.com', pending: null }));
+    expect(store.selectSnapshot(AuthState.user)?.pending).toBe('email_not_verified');
+
+    // Signed out: nothing is stored
+    localStorage.removeItem('accessToken');
+    store.dispatch(new SetUserInfo({ id: 'u2', name: 'Two', email: 'two@example.com', pending: null }));
+    expect(store.selectSnapshot(AuthState.user)?.id).toBe('u1');
   });
 });
