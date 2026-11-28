@@ -415,7 +415,8 @@ describe('Organization isolation (e2e)', () => {
     ['POST', `/api/v1/organizations/${b.organizationId}/billing/portal`],
   ];
   const order = { plan: 'small_business', interval: 'monthly', extraSeats: 1 };
-  const checkoutsOf = (side: Side) => stripe.callsTo('checkout.sessions.create').filter(each => each.args[0].client_reference_id === side.organizationId);
+  const checkoutsOf = (side: Side) =>
+    stripe.callsTo('checkout.sessions.create').filter(each => each.args[0].client_reference_id === side.organizationId);
 
   describe("B's billing", () => {
     it.each(['owner', 'admin', 'member'])("refuses B's billing to A's %s, and opens nothing on Stripe for B", async who => {

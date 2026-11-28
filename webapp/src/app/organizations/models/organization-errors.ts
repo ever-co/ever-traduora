@@ -8,6 +8,11 @@ const ORGANIZATION_MESSAGES: { [code: string]: string } = {
   owner_role: `The owner's role changes only by transferring the ownership.`,
   organization_suspended: 'This organization is suspended. Contact support to restore it.',
   saas_disabled: 'Organizations are not enabled on this installation.',
+  billing_disabled: 'Billing is not set up on this installation.',
+  billing_unavailable: 'Stripe is not answering for this plan right now. Please try again in a moment.',
+  subscription_exists: 'The organization has a subscription already. Change it on this page instead.',
+  no_subscription: 'The organization has no subscription. Start one with Checkout.',
+  billing_account_missing: 'The organization has no billing account yet. It is made with the first Checkout.',
 };
 
 export function organizationErrorMessage(error: any): string {

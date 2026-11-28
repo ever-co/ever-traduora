@@ -28,8 +28,12 @@ describe('the plan prices by lookup key', () => {
   });
 
   it('counts no seats for a plan that sells none, nor seats of another interval', () => {
-    expect(subscribedPlan([item('ever_traduora_cloud_enterprise_monthly'), item('seat_ever_traduora_cloud_small_business_monthly', 9)])?.extraSeats).toBe(0);
-    expect(subscribedPlan([item('ever_traduora_cloud_small_business_monthly'), item('seat_ever_traduora_cloud_small_business_annual', 9)])?.extraSeats).toBe(0);
+    expect(
+      subscribedPlan([item('ever_traduora_cloud_enterprise_monthly'), item('seat_ever_traduora_cloud_small_business_monthly', 9)])?.extraSeats,
+    ).toBe(0);
+    expect(
+      subscribedPlan([item('ever_traduora_cloud_small_business_monthly'), item('seat_ever_traduora_cloud_small_business_annual', 9)])?.extraSeats,
+    ).toBe(0);
   });
 
   it('reads nothing from a subscription of another product, nor from seats alone', () => {
@@ -44,7 +48,11 @@ describe('the plan prices by lookup key', () => {
     expect(subscribedPlan([item('ever_traduora_cloud_small_business_monthly'), item('ever_traduora_cloud_enterprise_monthly')])?.planCode).toBe(
       'enterprise',
     );
-    expect(subscribedPlan([item('ever_traduora_cloud_small_business_monthly'), item('seat_ever_traduora_cloud_small_business_monthly', -3)])?.extraSeats).toBe(0);
-    expect(subscribedPlan([item('ever_traduora_cloud_small_business_monthly'), item('seat_ever_traduora_cloud_small_business_monthly', 2.7)])?.extraSeats).toBe(2);
+    expect(
+      subscribedPlan([item('ever_traduora_cloud_small_business_monthly'), item('seat_ever_traduora_cloud_small_business_monthly', -3)])?.extraSeats,
+    ).toBe(0);
+    expect(
+      subscribedPlan([item('ever_traduora_cloud_small_business_monthly'), item('seat_ever_traduora_cloud_small_business_monthly', 2.7)])?.extraSeats,
+    ).toBe(2);
   });
 });

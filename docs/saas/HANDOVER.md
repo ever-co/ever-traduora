@@ -16,7 +16,7 @@ design says how it is built.
 | P1 Organizations | ✅ merged | [#666](https://github.com/ever-co/ever-traduora/pull/666) | Merged as `2a9aa6f`; see "P1 Organizations" below |
 | P2 Isolation | 🔍 in review | [#672](https://github.com/ever-co/ever-traduora/pull/672) | Branch `feat/saas-p2-isolation`; review round 1 fixed; mutation check 66.7 %; see "P2 Isolation" below |
 | P3 Plans and seats | 🔍 in review | [#674](https://github.com/ever-co/ever-traduora/pull/674) (base `feat/saas-p2-isolation`) | Branch `feat/saas-p3-plans`; review round 1 fixed; see "P3 Plans, seats and strings" below |
-| P4 Billing (Stripe test mode) | ⏳ | — | |
+| P4 Billing (Stripe test mode) | 🔨 code complete | — (coordinator opens it) | Branch `feat/saas-p4-billing`; see "P4 Billing" below. The real Checkout through a deployed webhook on app-dev is a claimed step left to the coordinator |
 | P5 Accounts and hardening | 🔨 code complete | — | Branch `feat/saas-p5-hardening`; PR by the coordinating session; see "P5 Accounts and hardening" below |
 | P6 Operator console and data rights | ⏳ | — | |
 | P7 Environments (dev, stage, prod) | ✅ live 2026-11-26 23:5xZ | k8s-gitops `54463a2b`, `6378a731`, `7783981f` | `app-dev.traduora.co`, `app-stage.traduora.co` (noindex); prod on nip.io until P8; Postgres `ever_traduora_<env>`; sign-ups off until P1+P2 ship. Runbook: homelab `projects/traduora/knowledge/runbooks/hosted-traduora.md`. Owed: first prod restore drill. Moved to P8: prod Valkey + 2 replicas |
@@ -556,10 +556,208 @@ tslint, `tsc` and prettier clean. The web app did not change (Karma and `build:p
   after (one more screen).
 - P7/P8 configuration: `TR_TRUST_PROXY` for the real hop count behind Cloudflare tunnel → ingress-nginx (measure it),
   Turnstile keys per environment in OpenBao.
+## P4 Billing (branch `feat/saas-p4-billing`, from `develop` `feb237b`)
+
+DESIGN §3.6, §3.7, §4.1, §4.5, §5, §7, §10, §12 (OD-T1, T6, T11, T14). Stripe **test mode only**; nothing live was
+touched.
+
+### Done
+
+- **Data** (`api/src/migrations/1795572000000-add-billing.ts`, three engines, re-runnable, with `down`): the P4 columns
+  of `organization` (`stripe_customer_id` with a unique index, `stripe_subscription_id`, `billing_status`,
+  `billing_interval`, `extra_seats`, `trial_ends_at`, `current_period_end`, `past_due_since`, `checkout_session_id`,
+  `checkout_expires_at`, and `checkout_attempt`) and `billing_event` (`id` = Stripe event id, primary key, `type`,
+  `organization_id`, `outcome`, `date_processed`; no foreign key, so the log outlives what it names). P3's
+  `effectivePlan` reads the new fields as they are (`billingStatus`, `pastDueSince`, `extraSeats`).
+- **Roles**: new `organization:ViewBilling` (owner, admin); `ManageBilling` moved from the admins to the **owner only**
+  (DESIGN §3.2: Checkout and the portal are the owner's).
+- **`api/src/billing/`** (`BillingModule`, always loaded; 404 `billing_disabled` without `TR_STRIPE_SECRET_KEY` or
+  outside SaaS mode). The organization reads and writes go through `services/organization/organization-billing.ts`, so
+  the source scan needed no new allowance; billing takes only the organization lock (`readCommittedTransaction`).
+  - `stripe-client.ts`: the official `stripe` 23.2.0 (API version `2026-11-18.endive`). A live key (`sk_live_`/`rk_live_`)
+    is **refused at start** unless `TR_STRIPE_LIVE_MODE=true`; anything that is no secret key is refused too. Webhook
+    events of the other mode are ignored.
+  - **Checkout** (`POST /organizations/:id/billing/checkout`, owner): prices by lookup key (cached 10 minutes),
+    `mode: subscription`, the organization's own customer (made first, idempotency key `traduora-customer-<org>`, so the
+    webhook can tie every event to it), `customer_update.address: auto`, `client_reference_id` and
+    `metadata.organizationId`, `subscription_data.trial_period_days` = `TR_BILLING_TRIAL_DAYS` once per organization
+    (never after a trial or a subscription), `payment_method_collection: always`, `automatic_tax`,
+    `billing_address_collection: required`, the seat line item (quantity N, adjustable 0–1000) or, with no seats asked
+    for, the seat price as an **optional item** (Stripe refuses a line of quantity 0, proven in test mode).
+  - **One Checkout at a time**: the organization row is locked; an open session for the same order is handed out again
+    (`checkout_session_id`, `checkout_expires_at`), one for another order is **expired** first; the call carries the
+    idempotency key `traduora-checkout-<org>-<plan key>-<seats>-<attempt>` (`checkout_attempt` stored). The session
+    parameters hold nothing time-dependent (Stripe's 24 h expiry), so a retry after a failed commit resends the same
+    request. Refused with 409 `subscription_exists` while a live subscription exists.
+  - **Changes** (`PATCH /organizations/:id/billing/subscription`, owner, new): plan, interval and extra seats of the live
+    subscription (plan price swapped, both items moved to the other interval together, seat item set, added or
+    removed; Stripe prorates, a trial keeps running). Needed because **the customer portal cannot update a subscription
+    of several products** (Stripe documents it: such a subscription can only be canceled there). The answer is
+    written at once, as the webhook would.
+  - **Portal** (`POST …/billing/portal`, owner): on the organization's customer, back to `/orgs/<slug>/billing`; the
+    account's default portal configuration (`bpc_1U7FIX…`, shared with the other products, **not changed**) unless
+    `TR_STRIPE_PORTAL_CONFIGURATION`. 409 `billing_account_missing` before the first Checkout.
+  - **Webhook** `POST /api/v1/billing/webhook` (`@Access('webhook')`, in the reviewed list of `access.spec.ts`):
+    `constructEvent` on the raw body with `TR_STRIPE_WEBHOOK_SECRET` (400 on a missing or wrong signature). Handles
+    `checkout.session.completed`, `customer.subscription.created|updated|deleted`, `invoice.paid`,
+    `invoice.payment_failed`. The organization is the one whose **customer** it is (`checkout.session.completed`: the
+    `client_reference_id`, and the customer must be its own or the one of the session it opened); the subscription is
+    **read again from Stripe under the organization lock**, so out-of-order events leave the latest state. Plan and
+    seats from the lookup keys only; a subscription without a Traduora plan price changes nothing. The
+    `billing_event` row is inserted in the same transaction (an event recorded already is a no-op, before any Stripe
+    call; a primary-key clash of two deliveries is a duplicate too). **Customers of no organization** (Gauzy and the
+    other products of the shared account) get 200 and are not recorded. A **second live subscription** is canceled
+    at once (`prorate: false`, `invoice_now: false`), logged and recorded as `second_subscription_canceled`; its own
+    later events change nothing.
+  - State written: `planCode` from the key while the status grants it (`trialing`, `active`, `past_due`, `unpaid`),
+    Starter otherwise (`canceled`, `incomplete*`, `paused`), extra seats likewise; `trial_ends_at` set once and never
+    cleared; `current_period_end` from the items (this API version keeps it per item); `past_due_since` = the time of
+    the event that first showed `past_due`, kept while it stays past due, cleared after. The open Checkout is cleared
+    once a subscription grants the plan.
+  - `GET /organizations/:id/billing` (owner, admin): effective and subscribed plan, status, interval, seats used /
+    included / bought / limit, trial end, past due since and the end of the grace, the next invoice (Stripe's preview,
+    or its date alone), the plans on sale with Stripe's prices, `canManage` (owner), `subscribed`, `portalAvailable`.
+    **No Stripe id is ever sent.**
+- **Raw body without `main.ts`**: `mountBillingWebhookBody` (`api/src/billing/billing-webhook-body.ts`) mounts
+  `express.raw` on the webhook path only. It is called from `addPipesAndFilters` (one line in `app.module.ts`), which
+  runs before Nest registers its JSON parser at `init` in `main.ts` and in every e2e app; the JSON parser then finds the
+  body read (body-parser 2 skips a finished request). `main.ts` is untouched.
+- **Web app** (`webapp/src/app/organizations/billing/`, standalone): `/orgs/:slug/billing` with a Billing tab for the
+  owner and the admins (not on the default organization). Plan card (plan, status line, the seats meter, "25 included ·
+  2 bought", next invoice); for the owner the order card (plan rows with Stripe's prices, Monthly / Annually, extra seats
+  for Small Business, the trial line, the total "plus tax where it applies") with **Continue to Checkout** or **Save
+  changes**, and **Manage billing** (portal). Admins read it only. Back from Checkout it says so, and after a success
+  reads again every 2 s (6 times) until the webhook's subscription shows. The members page's 402 notice ends with "See
+  the plans" (owner, admin), and the plan card links "Plans and billing". Elsewhere the 402 message stays text.
+
+### Seat prices (OD-T11): found, not created
+
+The brief expected `ever_seat_traduora_cloud_small_business_{monthly,annual}` to be missing. Read-only listing of the
+shared account (test mode, "Ever Tech") found the seat prices under the fleet's own scheme instead:
+
+| Lookup key | Price | Amount | Product |
+|---|---|---|---|
+| `seat_ever_traduora_cloud_small_business_monthly` | `price_1UNGBODdBrwbGEirbDlqUFWW` | $5.00 / month | `prod_VO2FvxDAxOU93X` "Ever Traduora Cloud — Business — Additional Employee" |
+| `seat_ever_traduora_cloud_small_business_annual` | `price_1UNGBODdBrwbGEir84OrKmA8` | $60.00 / year | same |
+
+The annual amount is $60 (12 × $5): the pricing spec's add-on rule ("yearly 12× = $60 / $120"), not the plans' 30 %
+rule (`floor(5 × 7/10) × 12` = $36), and the same as the existing Ever Works seat prices. Creating a second pair under
+another key would have split the catalogue that the ever.co sync scripts own, so **P4 created no price** and uses these
+keys (DESIGN §3.7 and OD-T11 updated). Plans: `ever_traduora_cloud_{small_business,enterprise}_{monthly,annual}` exist as
+the brief said ($49 / $408, $499 / $4,188). Stripe Tax is active on the account (`tax.settings` status `active`).
+
+### Stripe test-mode smoke run (2026-11-28)
+
+`TR_STRIPE_SECRET_KEY=sk_test_… npx ts-node scripts/billing-stripe-smoke.ts` (in `api/`; refuses any key that is not
+test mode, prints ids and statuses only, expires what it opens). The sessions are built by the API's own
+`checkoutSessionParams`:
+
+- the six prices found by lookup key, `livemode: false`;
+- customer `cus_Vi69yvYoNdZefm` (metadata `smoke_test: true`, left in place);
+- Checkout `cs_test_b0zoB0108i…` Small Business monthly + 3 seats: `open`, `automatic_tax: true`, line items
+  `ever_traduora_cloud_small_business_monthly x1`, `seat_ever_traduora_cloud_small_business_monthly x3`;
+- Checkout `cs_test_a0pvQ7bbN9…` Small Business annual, seat offered: `open`;
+- Checkout `cs_test_a0zVMNXYxf…` Enterprise monthly: `open`;
+- portal session `bps_1UgfxLDdBrwbGEirqY7Yo01D`: made on the default configuration;
+- the three sessions `expired`.
+
+Also seen in a browser against a local API in SaaS mode with the test key: the hosted page (Stripe serves it on
+`pay.ever.co`) showed "Ever Traduora Cloud — Business, Qty 1" + "Additional Employee, Qty 2", "90 days free", VAT from
+Stripe Tax and "Total due today $0.00"; the annual order showed the seat price under "Add to your order". Nothing was
+paid.
+
+### Real Checkout through the webhook on app-dev (claimed step for the coordinator)
+
+Needs a public URL, so it is left to a claimed change on `app-dev.traduora.co` (`ever-traduora-dev`):
+
+1. **Claim** it on the homelab board (Stripe test-mode webhook endpoint, OpenBao `kv/ever-traduora/dev`, a rollout of
+   `ever-traduora-dev`).
+2. **Webhook endpoint** in Stripe **test mode** (Dashboard → Developers → Webhooks → Add destination, or
+   `POST /v1/webhook_endpoints`):
+   - URL `https://app-dev.traduora.co/api/v1/billing/webhook`;
+   - events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
+     `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`;
+   - API version: the account default is fine (the handler reads only ids from the payload and fetches the
+     subscription itself);
+   - the endpoint gets **every** such event of the shared account (the other products too); Traduora answers them 200
+     and ignores them.
+3. **OpenBao** `kv/ever-traduora/dev` (and the ExternalSecret mapping, if a key is new to it):
+   - `TR_STRIPE_SECRET_KEY` = the account's **test** secret key (`.config/ever-demand/stripe.env`,
+     `STRIPE_SECRET_TEST_KEY`), or better a restricted test key (write: Checkout Sessions, Customers, Customer portal, Subscriptions;
+     read: Prices, Invoices);
+   - `TR_STRIPE_WEBHOOK_SECRET` = the endpoint's signing secret (`whsec_…`);
+   - optional: `TR_BILLING_TRIAL_DAYS` (90), `TR_BILLING_PAST_DUE_GRACE_DAYS` (14), `TR_STRIPE_PORTAL_CONFIGURATION`.
+   - Never set `TR_STRIPE_LIVE_MODE` before P8. `TR_SAAS_ENABLED=true` is set already on dev.
+4. Roll the deployment through k8s-gitops (the image must include this branch), then check: sign up on app-dev →
+   Billing → Small Business, 2 extra seats → Continue to Checkout → test card `4242 4242 4242 4242`, any future date,
+   any CVC, an address → back on the billing page "Trial until …", seats "25 included · 2 bought"; the Stripe event
+   log shows 200 for each delivery. Then: change the seats on the page; Manage billing → cancel; resend one delivered
+   event from the Dashboard (nothing changes, `billing_event` has it once); a failed payment with `4000 0000 0000 0341`
+   (subscribe with it, then "End trial now" on the subscription in the Dashboard: the invoice fails, the page shows
+   the grace).
+5. Release the claim with what was changed.
+
+### Deviations from DESIGN.md (DESIGN updated)
+
+- Seat lookup key `seat_ever_traduora_cloud_small_business_*` (the existing one), not `ever_seat_…`; nothing created.
+- `PATCH …/billing/subscription` added: the portal cannot change a subscription of two products.
+- Columns `organization.checkout_attempt` (the attempt counter of §3.7's idempotency key) and `billing_event.outcome`.
+- `ManageBilling` is the owner's only; admins get the new `ViewBilling`.
+- Events of customers of no organization are not recorded in `billing_event` (they belong to other products).
+- `organization-upgrade.e2e-spec.ts` undoes every migration after the organizations one before undoing it, so that
+  later phases (this one, P5, P6) can add migrations.
+
+### P4 unslop notes (billing page)
+
+Mode: **polish**. Audit before building: the screens the page joins (the organization shell, P3's plan card on the
+members page) show none of the signs (no gradients, glows, emoji or tracked uppercase; 4 px steps; one accent). Gaps
+for P4: no Billing tab, and the 402 notice named "Upgrade" with nowhere to go.
+
+Direction, P1's kept: orderly, plain-spoken, a little friendly; string catalogues; figures in mono. Moment: the plan
+card, with the one meter in the brand blue and the seat split "25 included · 2 bought" in mono under it. Signature:
+the organization's address in mono, as before.
+
+Checklist after rendering at 800 px and 390 px (local API, SaaS mode, test key): 4 px grid (cards 20 and 24, 16 on
+phones; rows 60; label column 96, 80 on phones, so "Billed" and "Extra seats" line up with the meter); one accent (meter
+fill, selected radio, primary button); the bootstrap custom radio swapped for native radios with `accent-color` so the
+plan and interval choices match; prices and totals in one format (`$49.00`, tabular mono); sentence case, no
+exclamation marks, single sentences without a trailing period, the two-sentence notes keep theirs; the past-due line in
+the danger text tone only (meaning); motion only as 120 ms background and 200 ms meter transitions; no icons added.
+
+### Test results (this machine, SQLite)
+
+- API unit (`--runInBand`): 534 of 534 tests pass in 51 suites (new: `billing-plans.spec.ts`, `stripe-client.spec.ts`,
+  `billing.service.spec.ts` with Stripe mocked, the action table). The 13 `src/formatters/*` suites cannot start on this
+  PC (EPERM), as before.
+- API e2e on SQLite, the whole suite: E2E_RESULT. New: `test/billing.e2e-spec.ts` (28: the page for owner, admin and
+  member, Checkout and its refusals, one Checkout for parallel clicks, another order expiring the open session, a
+  missing price, the portal, and through signed events: subscribe, add seats, change seats, upgrade, downgrade, a
+  replay, a failed payment through the grace to Starter and back, an old failure, a foreign customer and a forged
+  Checkout, a non-Traduora subscription, the other mode, a second subscription canceled, cancel, a new subscription
+  after the old one).
+- Isolation suite: 103 tests (B's billing routes for A's owner, admin, member and API key, for the person in both, and
+  B's billing fields in the final snapshot). Mutation check: see the table in P2.
+- `yarn --cwd api lint`, prettier on the changed files: clean. `ng lint`: no finding in the files P4 changed.
+- Web app Karma: KARMA_RESULT. `build:prod` succeeds.
+- Postgres 15 and MySQL 5.7: CI only (the migration's `ALTER TABLE … ADD` per engine, the unique index, `FOR NO KEY
+  UPDATE` under the webhook).
+
+### Left
+
+- The real Checkout on app-dev (above), a claimed step.
+- A Traduora-only portal configuration (`TR_STRIPE_PORTAL_CONFIGURATION`), if the default one's features (shared with
+  the other products) are not what Traduora wants: an owner decision, not made here.
+- The 402 message elsewhere (terms, imports, locales) stays text; only the members page links to billing.
 
 ## Needs owner
 
 The build goes on with the defaults of `DESIGN.md` §12 (OD-T1 … OD-T14). Nothing blocks yet.
+
+- **OD-T11, live seat prices (P4):** `seat_ever_traduora_cloud_small_business_{monthly,annual}` exist in **test** mode
+  ($5 / $60). Live mode was not looked at (no live call allowed); before P8 confirm they exist live with the same keys
+  and amounts, or create them there (a claimed change in the ever.co catalogue sync).
+- **Customer portal configuration (P4):** Traduora uses the account's default configuration, shared with the other
+  products. A configuration of its own (cancellation reasons, which invoices show) is optional.
 
 Decisions taken with a default, to confirm:
 

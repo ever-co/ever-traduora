@@ -55,7 +55,11 @@ function mockStripe() {
     },
     checkout: {
       sessions: {
-        create: jest.fn(async (params: any, _options?: any) => ({ id: 'cs_test_1', url: 'https://checkout.stripe.test/1', expires_at: Math.floor(Date.now() / 1000) + 86400 })),
+        create: jest.fn(async (params: any, _options?: any) => ({
+          id: 'cs_test_1',
+          url: 'https://checkout.stripe.test/1',
+          expires_at: Math.floor(Date.now() / 1000) + 86400,
+        })),
         retrieve: jest.fn(),
         expire: jest.fn(),
       },
@@ -102,7 +106,11 @@ describe('BillingService', () => {
       const { tx, dataSource } = mockDataSource(() => organization());
       const service = new BillingService(stripe as any, dataSource);
 
-      const result = await service.checkout(ORG_ID, owner, { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 2 });
+      const result = await service.checkout(ORG_ID, owner, {
+        plan: OrganizationPlanCode.SmallBusiness,
+        interval: BillingInterval.Monthly,
+        extraSeats: 2,
+      });
 
       expect(result).toEqual({ url: 'https://checkout.stripe.test/1' });
       expect(stripe.customers.create).toHaveBeenCalledWith(expect.objectContaining({ email: 'owner@acme.test' }), {
@@ -130,7 +138,10 @@ describe('BillingService', () => {
       for (const done of [{ trialEndsAt: new Date('2026-01-01') }, { stripeSubscriptionId: 'sub_old', billingStatus: 'canceled' }]) {
         const stripe = mockStripe();
         const { dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1', ...done }));
-        await new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, { plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Annual });
+        await new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Annual,
+        });
         expect(stripe.checkout.sessions.create.mock.calls[0][0].subscription_data.trial_period_days).toBeUndefined();
         expect(stripe.customers.create).not.toHaveBeenCalled();
       }
@@ -140,21 +151,34 @@ describe('BillingService', () => {
       config.billing.automaticTax = false;
       const stripe = mockStripe();
       const { dataSource } = mockDataSource(() => organization());
-      await new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, { plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Monthly });
+      await new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+        plan: OrganizationPlanCode.Enterprise,
+        interval: BillingInterval.Monthly,
+      });
       expect(stripe.checkout.sessions.create.mock.calls[0][0].automatic_tax).toEqual({ enabled: false });
     });
 
     it('refuses while a subscription lives, and asks Stripe nothing', async () => {
       const stripe = mockStripe();
-      const { dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1', billingStatus: 'past_due' }));
+      const { dataSource } = mockDataSource(() =>
+        organization({ stripeCustomerId: 'cus_1', stripeSubscriptionId: 'sub_1', billingStatus: 'past_due' }),
+      );
       await expect(
-        new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, { plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Monthly }),
+        new BillingService(stripe as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Monthly,
+        }),
       ).rejects.toMatchObject({ code: 'subscription_exists' });
       expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
     });
 
     it('hands out the open session for the same order, and expires one for another order', async () => {
-      const open = organization({ stripeCustomerId: 'cus_1', checkoutSessionId: 'cs_open', checkoutExpiresAt: new Date(Date.now() + 30 * 60_000), checkoutAttempt: 4 });
+      const open = organization({
+        stripeCustomerId: 'cus_1',
+        checkoutSessionId: 'cs_open',
+        checkoutExpiresAt: new Date(Date.now() + 30 * 60_000),
+        checkoutAttempt: 4,
+      });
       const stripe = mockStripe();
       stripe.checkout.sessions.retrieve.mockResolvedValue({
         id: 'cs_open',
@@ -172,7 +196,9 @@ describe('BillingService', () => {
 
       await service.checkout(ORG_ID, owner, { plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Annual });
       expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith('cs_open');
-      expect(stripe.checkout.sessions.create.mock.calls[0][1]).toEqual({ idempotencyKey: `traduora-checkout-${ORG_ID}-ever_traduora_cloud_enterprise_annual-0-5` });
+      expect(stripe.checkout.sessions.create.mock.calls[0][1]).toEqual({
+        idempotencyKey: `traduora-checkout-${ORG_ID}-ever_traduora_cloud_enterprise_annual-0-5`,
+      });
     });
 
     it('is off without a key, or outside SaaS mode', async () => {
@@ -182,17 +208,27 @@ describe('BillingService', () => {
       ).rejects.toMatchObject({ code: 'billing_disabled' });
       config.saasEnabled = false;
       await expect(
-        new BillingService(mockStripe() as any, dataSource).checkout(ORG_ID, owner, { plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Monthly }),
+        new BillingService(mockStripe() as any, dataSource).checkout(ORG_ID, owner, {
+          plan: OrganizationPlanCode.Enterprise,
+          interval: BillingInterval.Monthly,
+        }),
       ).rejects.toMatchObject({ code: 'billing_disabled' });
     });
   });
 
   describe('the webhook', () => {
-    const signed = (event: object, secret = SECRET) => {
-      const payload = JSON.stringify(event);
+    const signed = (body: object, secret = SECRET) => {
+      const payload = JSON.stringify(body);
       return { payload: Buffer.from(payload), signature: Stripe.webhooks.generateTestHeaderString({ payload, secret }) };
     };
-    const event = (type: string, object: object, livemode = false) => ({ id: 'evt_1', object: 'event', type, livemode, created: 1_800_000_000, data: { object } });
+    const event = (type: string, object: object, livemode = false) => ({
+      id: 'evt_1',
+      object: 'event',
+      type,
+      livemode,
+      created: 1_800_000_000,
+      data: { object },
+    });
 
     it('refuses a missing body or signature, and a wrong one', async () => {
       const { dataSource } = mockDataSource(() => organization());
@@ -215,7 +251,9 @@ describe('BillingService', () => {
       expect(await service.handleWebhook(other.payload, other.signature)).toBe('ignored_type');
       const foreign = signed(event('customer.subscription.updated', { id: 'sub_1', customer: 'cus_gauzy' }));
       expect(await service.handleWebhook(foreign.payload, foreign.signature)).toBe('foreign_customer');
-      const notUuid = signed(event('checkout.session.completed', { id: 'cs_1', mode: 'subscription', client_reference_id: 'tenant-7', customer: 'cus_gauzy' }));
+      const notUuid = signed(
+        event('checkout.session.completed', { id: 'cs_1', mode: 'subscription', client_reference_id: 'tenant-7', customer: 'cus_gauzy' }),
+      );
       expect(await service.handleWebhook(notUuid.payload, notUuid.signature)).toBe('foreign_customer');
       expect(dataSource.manager.exists).not.toHaveBeenCalled();
       expect(dataSource.manager.transaction).not.toHaveBeenCalled();
@@ -282,7 +320,9 @@ describe('BillingService', () => {
     it('keeps a trial end once set, so a trial is given once', () => {
       const earlier = new Date('2026-05-01T00:00:00Z');
       expect(subscriptionState(organization({ trialEndsAt: earlier }), subscription(), bought, at).trialEndsAt).toEqual(earlier);
-      expect(subscriptionState(organization(), subscription({ trial_end: 1_850_000_000 }), bought, at).trialEndsAt).toEqual(new Date(1_850_000_000 * 1000));
+      expect(subscriptionState(organization(), subscription({ trial_end: 1_850_000_000 }), bought, at).trialEndsAt).toEqual(
+        new Date(1_850_000_000 * 1000),
+      );
     });
 
     it('starts the past due at the event, and keeps its first date', () => {
@@ -322,7 +362,9 @@ describe('BillingService', () => {
     });
 
     it('moves both items to the other interval together', () => {
-      expect(subscriptionChanges(subscription(), prices('ever_traduora_cloud_small_business_annual', 3, 'seat_ever_traduora_cloud_small_business_annual'))).toEqual([
+      expect(
+        subscriptionChanges(subscription(), prices('ever_traduora_cloud_small_business_annual', 3, 'seat_ever_traduora_cloud_small_business_annual')),
+      ).toEqual([
         { id: 'si_plan', price: 'price_ever_traduora_cloud_small_business_annual', quantity: 1 },
         { id: 'si_seat', price: 'price_seat_ever_traduora_cloud_small_business_annual', quantity: 3 },
       ]);

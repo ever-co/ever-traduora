@@ -25,6 +25,7 @@ import {
   isPlanLookupKey,
   isSeatLookupKey,
   MAX_EXTRA_SEATS,
+  PAID_PLANS,
   planLookupKey,
   seatLookupKey,
   sellsSeats,
@@ -135,6 +136,7 @@ export class BillingService {
       pastDueSince: iso(pastDueSince),
       graceEndsAt: pastDueSince ? iso(new Date(new Date(pastDueSince).getTime() + config.billingPastDueGraceDays * DAY_MS)) : null,
       nextInvoice: live ? await this.nextInvoice(organization) : null,
+      offers: await this.offers(),
       trialAvailable: this.trialDays(organization) > 0,
       trialDays: Math.max(0, config.billing.trialDays),
       canManage: role === OrganizationRole.Owner,
@@ -212,7 +214,11 @@ export class BillingService {
   async portal(organization: Organization): Promise<{ url: string }> {
     const stripe = this.client();
     if (!organization.stripeCustomerId) {
-      throw new OrganizationException(HttpStatus.CONFLICT, 'billing_account_missing', 'The organization has no billing account yet: start with Checkout');
+      throw new OrganizationException(
+        HttpStatus.CONFLICT,
+        'billing_account_missing',
+        'The organization has no billing account yet: start with Checkout',
+      );
     }
     const session = await stripe.billingPortal.sessions.create({
       customer: organization.stripeCustomerId,
@@ -392,7 +398,9 @@ export class BillingService {
       return null;
     }
     const same =
-      session.metadata?.plan === planLookupKey(order.plan, order.interval) && session.metadata?.extraSeats === String(order.extraSeats) && !!session.url;
+      session.metadata?.plan === planLookupKey(order.plan, order.interval) &&
+      session.metadata?.extraSeats === String(order.extraSeats) &&
+      !!session.url;
     if (same) {
       return session.url;
     }
@@ -444,16 +452,9 @@ export class BillingService {
   private async pricesFor(order: BillingOrder): Promise<OrderPrices> {
     const planKey = planLookupKey(order.plan, order.interval);
     const seatKey = sellsSeats(order.plan) ? seatLookupKey(order.interval) : null;
-    if (!this.prices || Date.now() - this.prices.readAt > PRICE_CACHE_MS) {
-      const keys = [];
-      for (const interval of Object.values(BillingInterval)) {
-        keys.push(planLookupKey(OrganizationPlanCode.SmallBusiness, interval), planLookupKey(OrganizationPlanCode.Enterprise, interval), seatLookupKey(interval));
-      }
-      const list = await this.client().prices.list({ lookup_keys: keys, active: true, limit: 10 });
-      this.prices = { readAt: Date.now(), byKey: new Map(list.data.filter(price => price.lookup_key).map(price => [price.lookup_key, price])) };
-    }
-    const plan = this.prices.byKey.get(planKey);
-    const seat = seatKey ? this.prices.byKey.get(seatKey) : undefined;
+    const byKey = await this.priceList();
+    const plan = byKey.get(planKey);
+    const seat = seatKey ? byKey.get(seatKey) : undefined;
     if (!plan || (seatKey && !seat)) {
       this.prices = undefined;
       throw new OrganizationException(HttpStatus.SERVICE_UNAVAILABLE, 'billing_unavailable', 'The price of this plan is not available');
@@ -461,15 +462,65 @@ export class BillingService {
     return { plan, seat: seat ?? null, extraSeats: order.extraSeats };
   }
 
+  /** The prices of every lookup key Traduora sells, by key, read from Stripe at most every few minutes */
+  private async priceList(): Promise<Map<string, Stripe.Price>> {
+    if (!this.prices || Date.now() - this.prices.readAt > PRICE_CACHE_MS) {
+      const keys = [];
+      for (const interval of Object.values(BillingInterval)) {
+        keys.push(
+          planLookupKey(OrganizationPlanCode.SmallBusiness, interval),
+          planLookupKey(OrganizationPlanCode.Enterprise, interval),
+          seatLookupKey(interval),
+        );
+      }
+      const list = await this.client().prices.list({ lookup_keys: keys, active: true, limit: 10 });
+      this.prices = { readAt: Date.now(), byKey: new Map(list.data.filter(price => price.lookup_key).map(price => [price.lookup_key, price])) };
+    }
+    return this.prices.byKey;
+  }
+
+  /** What the billing page shows of the prices: each plan and interval, with the seat price; empty when Stripe cannot tell */
+  private async offers(): Promise<BillingView['offers']> {
+    if (!this.enabled) {
+      return [];
+    }
+    try {
+      const byKey = await this.priceList();
+      const amountOf = (key: string) => {
+        const price = byKey.get(key);
+        return price && typeof price.unit_amount === 'number' ? { amount: price.unit_amount, currency: price.currency } : null;
+      };
+      const offers: BillingView['offers'] = [];
+      for (const plan of PAID_PLANS) {
+        for (const interval of Object.values(BillingInterval)) {
+          const price = amountOf(planLookupKey(plan, interval));
+          if (price) {
+            offers.push({ plan, interval, ...price, seatAmount: sellsSeats(plan) ? (amountOf(seatLookupKey(interval))?.amount ?? null) : null });
+          }
+        }
+      }
+      return offers;
+    } catch (error) {
+      this.logger.warn(`No prices from Stripe: ${error?.code ?? error?.message ?? 'error'}`);
+      return [];
+    }
+  }
+
   /** The next invoice of the live subscription, as Stripe previews it; its date alone when the preview fails */
   private async nextInvoice(organization: Organization): Promise<BillingView['nextInvoice']> {
-    const date = iso(organization.billingStatus === 'trialing' && organization.trialEndsAt ? organization.trialEndsAt : organization.currentPeriodEnd);
+    const date = iso(
+      organization.billingStatus === 'trialing' && organization.trialEndsAt ? organization.trialEndsAt : organization.currentPeriodEnd,
+    );
     try {
       const preview = await this.stripe.invoices.createPreview({
         customer: organization.stripeCustomerId,
         subscription: organization.stripeSubscriptionId,
       });
-      return { date: iso(fromEpochSeconds(preview.next_payment_attempt ?? preview.period_end)) ?? date, amount: preview.amount_due, currency: preview.currency };
+      return {
+        date: iso(fromEpochSeconds(preview.next_payment_attempt ?? preview.period_end)) ?? date,
+        amount: preview.amount_due,
+        currency: preview.currency,
+      };
     } catch (error) {
       this.logger.warn(`No invoice preview for organization ${organization.id}: ${error?.code ?? error?.message ?? 'error'}`);
       return { date, amount: null, currency: null };
@@ -560,7 +611,11 @@ export function checkoutSessionParams(
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{ price: prices.plan.id, quantity: 1 }];
   const optionalItems: Stripe.Checkout.SessionCreateParams.OptionalItem[] = [];
   if (prices.seat && order.extraSeats > 0) {
-    lineItems.push({ price: prices.seat.id, quantity: order.extraSeats, adjustable_quantity: { enabled: true, minimum: 0, maximum: MAX_EXTRA_SEATS } });
+    lineItems.push({
+      price: prices.seat.id,
+      quantity: order.extraSeats,
+      adjustable_quantity: { enabled: true, minimum: 0, maximum: MAX_EXTRA_SEATS },
+    });
   } else if (prices.seat) {
     // No extra seats asked for: the seat price is offered, and the owner may add some on the Checkout page
     optionalItems.push({ price: prices.seat.id, quantity: 1, adjustable_quantity: { enabled: true, minimum: 1, maximum: MAX_EXTRA_SEATS } });

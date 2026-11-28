@@ -69,6 +69,23 @@ class BillingInvoiceView {
   currency: string | null;
 }
 
+class BillingOfferView {
+  @ApiProperty({ enum: PAID_PLANS })
+  plan: string;
+
+  @ApiProperty({ enum: INTERVALS })
+  interval: string;
+
+  @ApiProperty({ description: 'The price of the interval, in the smallest unit of the currency (cents)' })
+  amount: number;
+
+  @ApiProperty()
+  currency: string;
+
+  @ApiProperty({ nullable: true, description: 'The price of one extra seat for the interval; null for a plan that sells none' })
+  seatAmount: number | null;
+}
+
 export class BillingView {
   @ApiProperty({ description: 'Whether billing is set up on this installation' })
   enabled: boolean;
@@ -99,6 +116,9 @@ export class BillingView {
 
   @ApiProperty({ type: BillingInvoiceView, nullable: true })
   nextInvoice: BillingInvoiceView | null;
+
+  @ApiProperty({ type: [BillingOfferView], description: "The plans on sale, with Stripe's prices; empty when billing is off" })
+  offers: BillingOfferView[];
 
   @ApiProperty({ description: 'Whether a trial comes with the next Checkout (once per organization)' })
   trialAvailable: boolean;

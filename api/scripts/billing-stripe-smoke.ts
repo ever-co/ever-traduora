@@ -36,7 +36,10 @@ async function main() {
   const prices = new Map((await stripe.prices.list({ lookup_keys: keys, active: true, limit: 10 })).data.map(price => [price.lookup_key, price]));
   for (const lookupKey of keys) {
     const price = prices.get(lookupKey);
-    out(`price ${lookupKey}`, price ? { id: price.id, livemode: price.livemode, amount: price.unit_amount, interval: price.recurring?.interval } : { missing: true });
+    out(
+      `price ${lookupKey}`,
+      price ? { id: price.id, livemode: price.livemode, amount: price.unit_amount, interval: price.recurring?.interval } : { missing: true },
+    );
   }
   const priceOf = (lookupKey: string) => {
     const price = prices.get(lookupKey);
@@ -55,8 +58,20 @@ async function main() {
 
   // 3. Checkout sessions, built by the API's own function
   const orders = [
-    { label: 'checkout small_business monthly +3', plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 3, trial: 90 },
-    { label: 'checkout small_business annual +0', plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Annual, extraSeats: 0, trial: 90 },
+    {
+      label: 'checkout small_business monthly +3',
+      plan: OrganizationPlanCode.SmallBusiness,
+      interval: BillingInterval.Monthly,
+      extraSeats: 3,
+      trial: 90,
+    },
+    {
+      label: 'checkout small_business annual +0',
+      plan: OrganizationPlanCode.SmallBusiness,
+      interval: BillingInterval.Annual,
+      extraSeats: 0,
+      trial: 90,
+    },
     { label: 'checkout enterprise monthly', plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Monthly, extraSeats: 0, trial: 0 },
   ];
   const opened: string[] = [];
@@ -87,7 +102,10 @@ async function main() {
   }
 
   // 4. The customer portal on that customer
-  const portal = await stripe.billingPortal.sessions.create({ customer: customer.id, return_url: 'https://app-dev.traduora.co/orgs/smoke-test/billing' });
+  const portal = await stripe.billingPortal.sessions.create({
+    customer: customer.id,
+    return_url: 'https://app-dev.traduora.co/orgs/smoke-test/billing',
+  });
   out('portal session', { id: portal.id, livemode: portal.livemode, hasUrl: !!portal.url });
 
   // 5. Nothing stays open

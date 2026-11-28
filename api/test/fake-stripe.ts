@@ -12,7 +12,24 @@ export const FAKE_WEBHOOK_SECRET = 'whsec_e2e_traduora_billing';
 export const SEAT_KEY = (interval: 'monthly' | 'annual') => `seat_ever_traduora_cloud_small_business_${interval}`;
 export const PLAN_KEY = (plan: string, interval: 'monthly' | 'annual') => `ever_traduora_cloud_${plan}_${interval}`;
 
-const priceOf = (lookupKey: string) => ({ id: `price_${lookupKey}`, object: 'price', lookup_key: lookupKey, active: true });
+/** The amounts of the shared account's test prices, in cents */
+export const AMOUNTS: Record<string, number> = {
+  ever_traduora_cloud_small_business_monthly: 4900,
+  ever_traduora_cloud_small_business_annual: 40800,
+  ever_traduora_cloud_enterprise_monthly: 49900,
+  ever_traduora_cloud_enterprise_annual: 418800,
+  seat_ever_traduora_cloud_small_business_monthly: 500,
+  seat_ever_traduora_cloud_small_business_annual: 6000,
+};
+
+const priceOf = (lookupKey: string) => ({
+  id: `price_${lookupKey}`,
+  object: 'price',
+  lookup_key: lookupKey,
+  active: true,
+  unit_amount: AMOUNTS[lookupKey] ?? null,
+  currency: 'usd',
+});
 
 export interface FakeSubscriptionSpec {
   id: string;
@@ -81,7 +98,12 @@ export class FakeStripe {
   readonly customers = {
     create: async (params: any, options?: any) => {
       this.record('customers.create', params, options);
-      return { id: `cus_${String(options?.idempotencyKey ?? nextId('x')).replace(/[^A-Za-z0-9]/g, '').slice(-24)}`, object: 'customer' };
+      return {
+        id: `cus_${String(options?.idempotencyKey ?? nextId('x'))
+          .replace(/[^A-Za-z0-9]/g, '')
+          .slice(-24)}`,
+        object: 'customer',
+      };
     },
   };
 
@@ -168,7 +190,12 @@ export class FakeStripe {
             item.quantity = change.quantity;
           }
         } else {
-          items.push({ id: nextId('si'), price: priceOf(lookupKey), quantity: change.quantity ?? 1, current_period_end: items[0]?.current_period_end });
+          items.push({
+            id: nextId('si'),
+            price: priceOf(lookupKey),
+            quantity: change.quantity ?? 1,
+            current_period_end: items[0]?.current_period_end,
+          });
         }
       }
       return JSON.parse(JSON.stringify(subscription));

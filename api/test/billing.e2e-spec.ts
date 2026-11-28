@@ -40,7 +40,11 @@ describe('Billing (e2e)', () => {
   const eventCount = () => dataSource.getRepository(BillingEvent).count();
 
   const post = (event: { payload: string; signature: string }) =>
-    request(server()).post('/api/v1/billing/webhook').set('Content-Type', 'application/json').set('Stripe-Signature', event.signature).send(event.payload);
+    request(server())
+      .post('/api/v1/billing/webhook')
+      .set('Content-Type', 'application/json')
+      .set('Stripe-Signature', event.signature)
+      .send(event.payload);
   const deliver = async (type: string, object: object, options: { id?: string; created?: number; livemode?: boolean } = {}) => {
     const event = signedEvent(type, object, options);
     await post(event).expect(200, { received: true });
@@ -68,7 +72,10 @@ describe('Billing (e2e)', () => {
   }
 
   /** A subscription of the organization's customer, put into the fake and announced by the webhook */
-  async function subscribe(id: string, spec: { subscription: string; status?: string; plan?: string; extraSeats?: number; trialEnd?: number | null }) {
+  async function subscribe(
+    id: string,
+    spec: { subscription: string; status?: string; plan?: string; extraSeats?: number; trialEnd?: number | null },
+  ) {
     const customer = (await organization(id)).stripeCustomerId;
     const subscription = stripe.putSubscription({ id: spec.subscription, customer, plan: 'small_business', ...spec });
     return deliver('customer.subscription.created', subscription);
@@ -86,11 +93,7 @@ describe('Billing (e2e)', () => {
       [admin, 'admin'],
       [member, 'member'],
     ] as const) {
-      await request(server())
-        .post(`/api/v1/organizations/${organizationId}/invites`)
-        .set(auth(owner))
-        .send({ email: user.email, role })
-        .expect(201);
+      await request(server()).post(`/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).send({ email: user.email, role }).expect(201);
     }
   });
 
@@ -114,6 +117,12 @@ describe('Billing (e2e)', () => {
         pastDueSince: null,
         graceEndsAt: null,
         nextInvoice: null,
+        offers: [
+          { plan: 'small_business', interval: 'monthly', amount: 4900, currency: 'usd', seatAmount: 500 },
+          { plan: 'small_business', interval: 'annual', amount: 40800, currency: 'usd', seatAmount: 6000 },
+          { plan: 'enterprise', interval: 'monthly', amount: 49900, currency: 'usd', seatAmount: null },
+          { plan: 'enterprise', interval: 'annual', amount: 418800, currency: 'usd', seatAmount: null },
+        ],
         trialAvailable: true,
         trialDays: 90,
         canManage: true,
@@ -323,7 +332,10 @@ describe('Billing (e2e)', () => {
 
     it('changes nothing for a replayed event, even when Stripe’s state moved on since', async () => {
       const customer = (await organization()).stripeCustomerId;
-      const event = await deliver('customer.subscription.updated', stripe.putSubscription({ id: 'sub_main', customer, plan: 'small_business', extraSeats: 4 }));
+      const event = await deliver(
+        'customer.subscription.updated',
+        stripe.putSubscription({ id: 'sub_main', customer, plan: 'small_business', extraSeats: 4 }),
+      );
       const state = await billingState();
       const events = await eventCount();
       expect(state.extraSeats).toBe(4);
@@ -340,7 +352,12 @@ describe('Billing (e2e)', () => {
 
     it('keeps the plan through the grace of a failed payment, then Starter, and back once paid', async () => {
       const customer = (await organization()).stripeCustomerId;
-      const invoice = (id: string) => ({ id, object: 'invoice', customer, parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_main' } } });
+      const invoice = (id: string) => ({
+        id,
+        object: 'invoice',
+        customer,
+        parent: { type: 'subscription_details', subscription_details: { subscription: 'sub_main' } },
+      });
       stripe.putSubscription({ id: 'sub_main', customer, status: 'past_due', plan: 'small_business', extraSeats: 4 });
       await deliver('invoice.payment_failed', invoice('in_1'));
       expect(await billingState()).toMatchObject({ status: 'past_due', pastDue: true, planCode: 'small_business' });
@@ -391,7 +408,11 @@ describe('Billing (e2e)', () => {
         customer: 'cus_gauzy_tenant',
         subscription: 'sub_gauzy',
       });
-      await deliver('invoice.paid', { id: 'in_gauzy', customer: 'cus_gauzy_tenant', parent: { subscription_details: { subscription: 'sub_gauzy' } } });
+      await deliver('invoice.paid', {
+        id: 'in_gauzy',
+        customer: 'cus_gauzy_tenant',
+        parent: { subscription_details: { subscription: 'sub_gauzy' } },
+      });
       // A Checkout that names this organization, with somebody else's customer
       await deliver('checkout.session.completed', {
         id: 'cs_forged',
@@ -403,7 +424,9 @@ describe('Billing (e2e)', () => {
       expect(await billingState()).toEqual(state);
       // Only the forged Checkout names an organization: recorded as foreign, nothing applied
       expect(await eventCount()).toBe(events + 1);
-      const forged = await dataSource.getRepository(BillingEvent).findOneByOrFail({ type: 'checkout.session.completed', outcome: 'foreign_customer' });
+      const forged = await dataSource
+        .getRepository(BillingEvent)
+        .findOneByOrFail({ type: 'checkout.session.completed', outcome: 'foreign_customer' });
       expect(forged.organizationId).toBe(organizationId);
     });
 
@@ -433,7 +456,10 @@ describe('Billing (e2e)', () => {
 
     it('cancels: Starter again, nothing deleted, and a new Checkout without a second trial', async () => {
       const customer = (await organization()).stripeCustomerId;
-      await deliver('customer.subscription.deleted', stripe.putSubscription({ id: 'sub_main', customer, status: 'canceled', plan: 'small_business', extraSeats: 4 }));
+      await deliver(
+        'customer.subscription.deleted',
+        stripe.putSubscription({ id: 'sub_main', customer, status: 'canceled', plan: 'small_business', extraSeats: 4 }),
+      );
       expect(await billingState()).toMatchObject({ planCode: 'starter', status: 'canceled', extraSeats: 0, subscription: 'sub_main' });
       expect((await usage()).plan.code).toBe('starter');
       const page = (await billingOf(owner).expect(200)).body.data;

@@ -2,7 +2,7 @@ import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { Component, DestroyRef, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Store } from '@ngxs/store';
 import { BehaviorSubject, combineLatest, EMPTY, forkJoin, Observable, of } from 'rxjs';
 import { catchError, distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
@@ -28,7 +28,7 @@ import { GetOrganizations, OrganizationsState } from '../../stores/organizations
  */
 @Component({
   selector: 'app-organization-members',
-  imports: [NgIf, NgFor, AsyncPipe, ReactiveFormsModule],
+  imports: [NgIf, NgFor, AsyncPipe, ReactiveFormsModule, RouterLink],
   templateUrl: './organization-members.component.html',
   styleUrls: ['./organization-members.component.css'],
 })

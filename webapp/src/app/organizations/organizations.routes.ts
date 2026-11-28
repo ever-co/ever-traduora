@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { OrganizationBillingComponent } from './billing/organization-billing.component';
 import { NewOrganizationComponent } from './components/new-organization/new-organization.component';
 import { OrganizationMembersComponent } from './components/organization-members/organization-members.component';
 import { OrganizationProjectsComponent } from './components/organization-projects/organization-projects.component';
@@ -16,6 +17,7 @@ export const ORGANIZATION_ROUTES: Routes = [
       { path: 'projects', component: OrganizationProjectsComponent },
       { path: 'members', component: OrganizationMembersComponent },
       { path: 'settings', component: OrganizationSettingsComponent },
+      { path: 'billing', component: OrganizationBillingComponent },
     ],
   },
 ];

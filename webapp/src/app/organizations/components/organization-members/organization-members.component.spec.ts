@@ -259,7 +259,9 @@ describe('OrganizationMembersComponent', () => {
     flushUsage({ ...usage, seats: { used: 15, included: 15 } });
     fixture.detectChanges();
     const notice: HTMLElement = fixture.nativeElement.querySelector('[data-test="plan-limit"]');
-    expect(notice.textContent.trim()).toBe('Your plan allows 15 members. Upgrade to add more.');
+    expect(notice.textContent.replace(/\s+/g, ' ').trim()).toBe('Your plan allows 15 members. Upgrade to add more. See the plans');
+    // The upgrade is on the billing page (P4)
+    expect(notice.querySelector('[data-test="plan-limit-billing"]').getAttribute('href')).toBe('/orgs/acme/billing');
     expect(notice.classList.contains('alert-danger')).toBe(false);
     expect(fixture.nativeElement.querySelector('[data-test="usage-seats"] progress').classList.contains('org-meter-full')).toBe(true);
   });
