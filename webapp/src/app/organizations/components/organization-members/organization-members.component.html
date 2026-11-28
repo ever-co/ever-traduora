@@ -34,6 +34,7 @@
     </div>
     <p class="org-usage-note text-muted">
       Seats are the members plus everyone with a pending invite. Strings are the locales times the terms of every project.
+      <a [routerLink]="['/orgs', organization?.slug, 'billing']" data-test="usage-billing">Plans and billing</a>
     </p>
   </section>
 
@@ -48,7 +49,11 @@
     [class.org-limit]="limitReached"
     [attr.data-test]="limitReached ? 'plan-limit' : null"
   >
-    <span class="flex-1">{{ errorMessage }}</span>
+    <span class="flex-1"
+      >{{ errorMessage }}<ng-container *ngIf="limitReached && canManage"
+        >&ngsp;<a class="org-limit-link" [routerLink]="['/orgs', organization?.slug, 'billing']" data-test="plan-limit-billing">See the plans</a></ng-container
+      ></span
+    >
     <button *ngIf="loadFailed" type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
   </div>
 

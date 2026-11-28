@@ -129,6 +129,27 @@ export const config = {
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
   // SaaS mode: days a past-due subscription keeps its plan before the organization gets Starter's limits (OD-T14)
   billingPastDueGraceDays: getNumberOrDefault(env.TR_BILLING_PAST_DUE_GRACE_DAYS, 14),
+  // SaaS mode: Stripe Billing of the organizations (docs/saas/DESIGN.md §3.7). Off while TR_STRIPE_SECRET_KEY is unset.
+  // Test mode until go-live: a live key is refused at boot unless TR_STRIPE_LIVE_MODE is 'true' (a claimed change)
+  billing: {
+    // A paid plan's trial, once per organization; 0 turns it off
+    trialDays: getNumberOrDefault(env.TR_BILLING_TRIAL_DAYS, 90),
+    stripeSecretKey: (env.TR_STRIPE_SECRET_KEY || '').trim(),
+    stripeWebhookSecret: (env.TR_STRIPE_WEBHOOK_SECRET || '').trim(),
+    // Not needed with the hosted Checkout; kept for a later embedded one
+    stripePublishableKey: (env.TR_STRIPE_PUBLISHABLE_KEY || '').trim(),
+    stripeLiveMode: getBoolOrDefault(env.TR_STRIPE_LIVE_MODE, false),
+    // Stripe Tax on Checkout and on the subscription (on by default, as the shared account has Stripe Tax set up)
+    automaticTax: getBoolOrDefault(env.TR_BILLING_AUTOMATIC_TAX, true),
+    // A customer portal configuration of Traduora's own (bpc_…); the account's default one when unset
+    portalConfiguration: (env.TR_STRIPE_PORTAL_CONFIGURATION || '').trim(),
+    // Requests per minute and organization, per billing route: Checkout, the portal and changes; the billing page
+    throttle: {
+      ttl: 60_000,
+      changes: getNumberOrDefault(env.TR_BILLING_THROTTLE_LIMIT, 20),
+      reads: getNumberOrDefault(env.TR_BILLING_READ_THROTTLE_LIMIT, 120),
+    },
+  },
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',
   autoMigrate: getBoolOrDefault(env.TR_DB_AUTOMIGRATE, true),
   seedData: getBoolOrDefault(env.TR_SEED_DATA, true),

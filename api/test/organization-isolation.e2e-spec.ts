@@ -19,7 +19,9 @@ import { ProjectUser } from '../src/entity/project-user.entity';
 import { Project } from '../src/entity/project.entity';
 import { Term } from '../src/entity/term.entity';
 import { Translation } from '../src/entity/translation.entity';
-import { createAndMigrateApp, signupTestUser, TestingUser, currentTerms } from './util';
+import { STRIPE_CLIENT } from '../src/billing/stripe-client';
+import { FAKE_STRIPE_KEY, FAKE_WEBHOOK_SECRET, FakeStripe } from './fake-stripe';
+import { createAndMigrateAppWith, signupTestUser, TestingUser, currentTerms } from './util';
 
 /**
  * DESIGN §10, the isolation suite. Organizations A and B each have an owner, an admin, a member, a project with
@@ -68,6 +70,9 @@ describe('Organization isolation (e2e)', () => {
   let b: Side;
   let both: TestingUser;
   const saasBefore = config.saasEnabled;
+  const billingBefore = { ...config.billing };
+  // Billing on, against a stand-in for Stripe: a route that let A in would open B's Checkout or portal
+  const stripe = new FakeStripe();
 
   const server = () => app.getHttpServer();
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -187,7 +192,14 @@ describe('Organization isolation (e2e)', () => {
     return {
       projectsOfOrganization: await dataSource.getRepository(Project).count({ where: { organizationId: side.organizationId } }),
       project: project && { name: project.name, description: project.description, organizationId: project.organizationId },
-      organization: organization && { name: organization.name, slug: organization.slug, status: organization.status },
+      organization: organization && {
+        name: organization.name,
+        slug: organization.slug,
+        status: organization.status,
+        planCode: organization.planCode,
+        billing: [organization.stripeCustomerId, organization.stripeSubscriptionId, organization.billingStatus, organization.extraSeats],
+        checkout: [organization.checkoutSessionId, organization.checkoutAttempt],
+      },
       terms: (await dataSource.getRepository(Term).find({ where: { project: { id: projectId } } })).map(t => t.value).sort(byText),
       locales: locales.length,
       translations: (await dataSource.getRepository(Translation).find({ where: { projectLocale: { id: In(locales.map(l => l.id)) } } }))
@@ -245,7 +257,8 @@ describe('Organization isolation (e2e)', () => {
 
   beforeAll(async () => {
     config.saasEnabled = true;
-    app = await createAndMigrateApp();
+    Object.assign(config.billing, { stripeSecretKey: FAKE_STRIPE_KEY, stripeWebhookSecret: FAKE_WEBHOOK_SECRET });
+    app = await createAndMigrateAppWith([{ provide: STRIPE_CLIENT, useValue: stripe }]);
     dataSource = app.get(DataSource);
     a = await makeSide('A');
     b = await makeSide('B');
@@ -275,6 +288,7 @@ describe('Organization isolation (e2e)', () => {
 
   afterAll(async () => {
     config.saasEnabled = saasBefore;
+    Object.assign(config.billing, billingBefore);
     await app.close();
   });
 
@@ -393,6 +407,56 @@ describe('Organization isolation (e2e)', () => {
     });
   });
 
+  /** B's billing routes (P4): the page, Checkout, a change of the subscription, the portal */
+  const billingRoutes = () => [
+    ['GET', `/api/v1/organizations/${b.organizationId}/billing`],
+    ['POST', `/api/v1/organizations/${b.organizationId}/billing/checkout`],
+    ['PATCH', `/api/v1/organizations/${b.organizationId}/billing/subscription`],
+    ['POST', `/api/v1/organizations/${b.organizationId}/billing/portal`],
+  ];
+  const order = { plan: 'small_business', interval: 'monthly', extraSeats: 1 };
+  const checkoutsOf = (side: Side) =>
+    stripe.callsTo('checkout.sessions.create').filter(each => each.args[0].client_reference_id === side.organizationId);
+
+  describe("B's billing", () => {
+    it.each(['owner', 'admin', 'member'])("refuses B's billing to A's %s, and opens nothing on Stripe for B", async who => {
+      const answers = [];
+      for (const [method, url] of billingRoutes()) {
+        answers.push(`${method} ${url} ${(await call(method, url, a[who].accessToken, order)).status}`);
+      }
+      expect(answers).toEqual(billingRoutes().map(([method, url]) => `${method} ${url} 404`));
+      expect(checkoutsOf(b)).toEqual([]);
+      expect(stripe.callsTo('billingPortal.sessions.create')).toEqual([]);
+    });
+
+    it('lets the person in both organizations, a member of B, neither read nor change it', async () => {
+      const answers = [];
+      for (const [method, url] of billingRoutes()) {
+        answers.push(`${method} ${url} ${(await call(method, url, both.accessToken, order)).status}`);
+      }
+      expect(answers).toEqual(billingRoutes().map(([method, url]) => `${method} ${url} 404`));
+      expect(checkoutsOf(b)).toEqual([]);
+    });
+
+    it("refuses B's billing to A's API key", async () => {
+      for (const [method, url] of billingRoutes()) {
+        expect((await call(method, url, a.keyToken, order)).status).toBeGreaterThanOrEqual(400);
+      }
+      expect(checkoutsOf(b)).toEqual([]);
+    });
+
+    it("counts only each organization's own people on its billing page", async () => {
+      for (const side of [a, b]) {
+        const res = await request(server()).get(`/api/v1/organizations/${side.organizationId}/billing`).set(auth(side.owner.accessToken)).expect(200);
+        const usage = await request(server()).get(`/api/v1/organizations/${side.organizationId}/usage`).set(auth(side.owner.accessToken)).expect(200);
+        expect(res.body.data.seats.used).toBe(usage.body.data.seats.used);
+        expect(res.body.data.canManage).toBe(true);
+      }
+      const asAdmin = await request(server()).get(`/api/v1/organizations/${a.organizationId}/billing`).set(auth(a.admin.accessToken)).expect(200);
+      expect(asAdmin.body.data.canManage).toBe(false);
+    });
+  });
+
   describe("B's organization routes, from A's people", () => {
     const organizationRoutes = () => [
       ['GET', `/api/v1/organizations/${b.organizationId}`],
@@ -405,6 +469,7 @@ describe('Organization isolation (e2e)', () => {
       ['POST', `/api/v1/organizations/${b.organizationId}/invites`],
       ['DELETE', `/api/v1/organizations/${b.organizationId}/invites/${b.organizationInviteId}`],
       ['GET', `/api/v1/organizations/${b.organizationId}/usage`],
+      ...billingRoutes(),
     ];
 
     it.each(['owner', 'admin', 'member'])("refuses every one to A's %s", async who => {

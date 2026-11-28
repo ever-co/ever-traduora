@@ -20,7 +20,7 @@ describe('the organization action table', () => {
       OrganizationAction.ViewMembers,
       OrganizationAction.EditMembers,
       OrganizationAction.CreateProject,
-      OrganizationAction.ManageBilling,
+      OrganizationAction.ViewBilling,
       OrganizationAction.ExportOrganization,
       OrganizationAction.ViewUsage,
     ],
@@ -53,8 +53,9 @@ describe('the organization action table', () => {
     }
   });
 
-  it('keeps the transfer of ownership and the deletion to the owner', () => {
+  it('keeps the transfer of ownership, the deletion and billing changes to the owner', () => {
     expect(AllowedAdminActions.has(OrganizationAction.TransferOwnership)).toBe(false);
+    expect(AllowedAdminActions.has(OrganizationAction.ManageBilling)).toBe(false);
     expect(AllowedAdminActions.has(OrganizationAction.DeleteOrganization)).toBe(false);
   });
 

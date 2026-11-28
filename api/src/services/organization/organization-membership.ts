@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { EntityManager, In } from 'typeorm';
 import { config } from '../../config';
+import { hasLiveSubscription } from '../../domain/billing-status';
 import { OrganizationPlanCode, OrganizationRole, OrganizationStatus } from '../../domain/organization-actions';
 import { Invite, InviteStatus } from '../../entity/invite.entity';
 import { OrganizationInvite } from '../../entity/organization-invite.entity';
@@ -311,8 +312,9 @@ export async function isOpenForMembers(manager: EntityManager, organizationId: s
 
 /**
  * Why deleting these accounts would leave an organization without its owner, `null` when it would not: an account owns
- * an organization other than the default one where someone not being deleted remains. Reads only; the deletion itself
- * (`deleteAccountsWithOrganizations`) checks again under the organization locks.
+ * an organization other than the default one where someone not being deleted remains, or one that would close with a
+ * live subscription (see `deleteAccountsWithOrganizations`). Reads only; the deletion itself checks again under the
+ * organization locks.
  */
 export async function organizationDeletionHold(manager: EntityManager, userIds: ReadonlyArray<string>): Promise<string | null> {
   const deleting = new Set(userIds);
@@ -325,7 +327,7 @@ export async function organizationDeletionHold(manager: EntityManager, userIds: 
       continue;
     }
     const members = await manager.find(OrganizationUser, { where: { organizationId: ownership.organizationId } });
-    if (members.some(member => !deleting.has(member.userId))) {
+    if (members.some(member => !deleting.has(member.userId)) || hasLiveSubscription(ownership.organization)) {
       return ownership.organization?.name ?? ownership.organizationId;
     }
   }
@@ -383,7 +385,9 @@ export async function releaseFormerEmailInvites(tx: EntityManager, userId: strin
  *   mode, where nobody can transfer by hand) passes to its earliest admin, else its earliest member; another
  *   organization refuses with 422 `owner_required`, its owner transfers the ownership first;
  * - after the deletion each organization's seats are recounted, and one with nobody left is closed (`closeIfEmpty`;
- *   never the default one).
+ *   never the default one). One that would close while it holds a live Stripe subscription refuses with 422
+ *   `subscription_active`: nobody could reach the organization any more, yet Stripe would go on charging it, so its
+ *   owner cancels the subscription first (Billing, Manage billing). The organization's deletion of P6 cancels it itself.
  * Memberships are read after the locks, so a transfer that committed meanwhile is seen.
  */
 export async function deleteAccountsWithOrganizations(
@@ -401,6 +405,13 @@ export async function deleteAccountsWithOrganizations(
       const members = await tx.find(OrganizationUser, { where: { organizationId }, order: { date: { created: 'ASC' }, id: 'ASC' } });
       const leavingOwner = members.find(member => deleting.has(member.userId) && member.role === OrganizationRole.Owner);
       const remaining = members.filter(member => !deleting.has(member.userId));
+      if (remaining.length === 0 && !organization?.isDefault && hasLiveSubscription(organization)) {
+        throw new OrganizationException(
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'subscription_active',
+          `'${organization.name}' has a paid subscription. Cancel it under Billing, Manage billing, before deleting your account`,
+        );
+      }
       if (!leavingOwner || remaining.length === 0) {
         continue;
       }

@@ -455,6 +455,8 @@ describe('Accounts and hardening (e2e)', () => {
       await start(() => {
         config.saasEnabled = true;
         config.throttle.signupsPerHour = 2;
+        // The e2e environment sets one hop (test/e2e-env.ts): this test is about none
+        config.http.trustProxy = undefined;
       });
       await signup('direct-1@test.com').set('X-Forwarded-For', '203.0.113.1').expect(200);
       await signup('direct-2@test.com').set('X-Forwarded-For', '203.0.113.2').expect(200);

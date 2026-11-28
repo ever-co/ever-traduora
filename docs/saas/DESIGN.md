@@ -162,7 +162,7 @@ The plans are a code constant (`api/src/domain/organization-plans.ts`), as in De
 OD-T1 default: Traduora bills its own organizations.
 
 - **Prices** by lookup key: `ever_traduora_cloud_{small_business,enterprise}_{monthly,annual}`, which exist on the shared account.
-- **Extra seats** are a second line item with lookup key `ever_seat_traduora_cloud_small_business_{monthly,annual}`. If the key is missing in test mode, P4 creates it ($5 per month, as the pricing spec says) and lists the live one under Needs owner (OD-T11).
+- **Extra seats** are a second line item with lookup key `seat_ever_traduora_cloud_small_business_{monthly,annual}` ($5 a month, $60 a year), the fleet's seat scheme (`seat_ever_<product>_<hosting>_<tier>_<interval>`, product "Ever Traduora Cloud — Business — Additional Employee"). P4 found them in test mode, so it created none; the live ones are under Needs owner (OD-T11). With no extra seats asked for, Checkout offers the seat price as an optional item (Stripe refuses a line item of quantity 0).
 - **Checkout**:
   - `mode: subscription`;
   - `client_reference_id` and `metadata.organizationId` carry the organization;
@@ -170,12 +170,15 @@ OD-T1 default: Traduora bills its own organizations.
   - `payment_method_collection: 'always'` (OD-T6: a card at the start of a paid trial; Starter needs none);
   - `automatic_tax: { enabled: true }` and `billing_address_collection: 'required'`.
 
-  A new Checkout is refused while a live subscription exists; the customer portal is offered instead.
+  A new Checkout is refused while a live subscription exists; the subscription is changed instead.
+- **Changes of the subscription** (P4): `PATCH /organizations/:id/billing/subscription` (owner) swaps the plan price, moves both items to the other interval, and sets, adds or removes the seat item; a trial keeps running. A raise (a higher plan, more seats, monthly to yearly) is invoiced at once with `payment_behavior: pending_if_incomplete`, so it applies only once paid (the answer says `pending`); a decrease is credited at renewal. The customer portal cannot do this: it only cancels a subscription of several products (Stripe's documented limit).
+- **Stripe calls and locks:** Checkout, changes and cancellation read and decide under the organization lock, call Stripe outside it with idempotency keys, and lock again to store; only the webhook's subscription read stays under the lock (event order), with a 5 s timeout and no retry. The billing routes are throttled per organization.
+- **Account deletion** that would close an organization with a live subscription is refused (422 `subscription_active`): its owner cancels first. The organization deletion (P6) cancels it through `BillingService.cancelSubscription`.
 - **One Checkout at a time.** Two clicks or two tabs must not end in two subscriptions:
-  - Creating a session locks the organization row. If the organization already holds an open session that has not expired (`checkout_session_id`, `checkout_expires_at`), its URL is returned again; otherwise the new session's id and expiry are stored in the same transaction.
-  - The Stripe call carries an idempotency key built from the organization id, the price and the stored attempt counter.
-  - Backstop in the webhook: a second subscription for an organization that already has a live one is cancelled at once (no proration, still in its trial, so nothing is charged) and written to the billing log.
-- **Customer portal:** opened on the organization's `stripeCustomerId`, which is server-only, never sent by the client. It covers plan changes, seats, invoices and cancellation.
+  - Creating a session reads the organization under its row lock, calls Stripe outside it, and stores the session under the lock again only if nothing changed meanwhile (else 409 `checkout_busy`). The stored session (`checkout_session_id`) is always read from Stripe, whatever its stored expiry: `complete` refuses, an open one for the same order is returned again, one for another order is expired. Before a new session, the customer's subscriptions are listed on Stripe, and a live Traduora one refuses (it may not have reached the webhook yet). The new session's id and expiry are then stored.
+  - The Stripe call carries an idempotency key built from the organization id, the stored attempt counter and a hash of every parameter sent.
+  - Backstop in the webhook: a second subscription for an organization that already has a live one is cancelled at once (no proration, no final invoice), and its latest paid invoice is **refunded**, since a second Checkout can come after the trial was used and then charges at once. Both are written to the billing log (`billing_event.outcome`, `detail`).
+- **Customer portal:** opened on the organization's `stripeCustomerId`, which is server-only, never sent by the client. It covers the payment method, invoices, the billing address and cancellation (the account's default portal configuration unless `TR_STRIPE_PORTAL_CONFIGURATION`).
 - **Webhook:** `POST /api/v1/billing/webhook`.
   - Raw body, verified with `stripe.webhooks.constructEvent` and `TR_STRIPE_WEBHOOK_SECRET`.
   - **Idempotent**: the event id is inserted into `billing_event` (primary key = event id) in the same transaction that applies it. A duplicate is a no-op. A failure rolls back both, so Stripe retries.
@@ -185,6 +188,7 @@ OD-T1 default: Traduora bills its own organizations.
     - `invoice.paid`
     - `invoice.payment_failed`
   - The plan and the seat count are read from the subscription's price lookup keys, never from metadata the client could shape. A subscription whose customer is not the organization's is ignored.
+  - The organization is found by its Stripe customer (made by the first Checkout, before the session), and the subscription is read again from Stripe under the organization's lock, so events that arrive out of order leave the latest state. Events of the shared account's other products (customers of no organization) are answered 200 and not recorded.
 - **Keys:** `TR_STRIPE_SECRET_KEY`, `TR_STRIPE_WEBHOOK_SECRET` and `TR_STRIPE_PUBLISHABLE_KEY` (not needed with hosted Checkout). They come from OpenBao `kv/ever-traduora/<env>`, **test mode** until P8. Live keys and the live webhook endpoint are a claimed change.
 - **Billing page:** plan, seats used / included / bought, trial end, next invoice. Admins see it read-only; only the owner gets the Upgrade (Checkout) and Manage billing (portal) buttons, matching the role table of §3.2.
 
@@ -252,6 +256,7 @@ P4 adds:
 | `extra_seats` | int | |
 | `trial_ends_at`, `current_period_end`, `past_due_since` | timestamp | |
 | `checkout_session_id`, `checkout_expires_at` | varchar, timestamp | the open Checkout session, reused until it expires (§3.7) |
+| `checkout_attempt` | int | Checkout sessions made so far, part of the idempotency key (§3.7) |
 
 ### 4.2 `organization_user` (P1)
 
@@ -275,7 +280,7 @@ A FK to `organization`, CASCADE, with an index.
 
 ### 4.5 Later phases
 
-- P4: `billing_event` (`id` = Stripe event id, primary key; `type`; `organization_id`; `date_processed`).
+- P4: `billing_event` (`id` = Stripe event id, primary key; `type`; `organization_id`; `outcome`, what the event did; `date_processed`).
 - P5: on `user`, `terms_version`, `privacy_version`, `terms_accepted_at`.
 - P6: `operator_audit`.
 
@@ -314,8 +319,8 @@ New, all under `/api/v1`:
 | `GET/POST /organizations/:id/invites`, `DELETE …/invites/:inviteId` | organization:EditMembers |
 | `POST /auth/accept-organization-invite` | user (token) |
 | `GET /organizations/:id/usage` | owner/admin (organization:ViewUsage): plan, seats, strings, limits |
-| `GET /organizations/:id/billing` | owner/admin, read-only (P4) |
-| `POST /organizations/:id/billing/checkout`, `POST …/billing/portal` | owner only (P4) |
+| `GET /organizations/:id/billing` | owner/admin, read-only (organization:ViewBilling, P4) |
+| `POST /organizations/:id/billing/checkout`, `PATCH …/billing/subscription`, `POST …/billing/portal` | owner only (organization:ManageBilling, P4) |
 | `POST /billing/webhook` | webhook (P4) |
 | `GET /organizations/:id/export` | owner/admin (P6) |
 | `GET /operator/organizations`, `GET/POST …/:id`, `POST …/:id/suspend`, `POST …/:id/restore` | operator (P6) |
@@ -354,6 +359,9 @@ Changed:
 | `TR_BILLING_TRIAL_DAYS` | `90` | Trial on paid plans |
 | `TR_BILLING_PAST_DUE_GRACE_DAYS` | `14` | Past due → Starter limits after this |
 | `TR_STRIPE_SECRET_KEY`, `TR_STRIPE_WEBHOOK_SECRET` | unset | Billing off when unset |
+| `TR_STRIPE_LIVE_MODE` | `false` | A live key is refused at start unless `true` (P8) |
+| `TR_BILLING_AUTOMATIC_TAX` | `true` | Stripe Tax on Checkout |
+| `TR_STRIPE_PORTAL_CONFIGURATION` | unset | A portal configuration of Traduora's own |
 | `TR_TURNSTILE_SITE_KEY`, `TR_TURNSTILE_SECRET_KEY` | unset | Bot check off when unset |
 | `TR_TRUST_PROXY` | unset | Express `trust proxy` (hops, or a list) |
 | `TR_CORS_ORIGINS` | unset | Allowed origins; replaces `*` |
@@ -492,7 +500,7 @@ The shared file `app.module.ts` gets one module import per lane and is merged in
 | OD-T8 | Bot check | Cloudflare Turnstile |
 | OD-T9 | Organization admins see every project of their organization | Yes in organizations made in SaaS mode (`admins_see_all_projects`); no in the default organization of an upgraded install, so an upgrade never widens access |
 | OD-T10 | A project invite to a non-member takes a seat | Yes, as an organization `member` invite |
-| OD-T11 | Extra-seat price on Stripe (`ever_seat_traduora_cloud_small_business_*`) | Created in test mode at $5/month if missing; the live price needs the owner |
+| OD-T11 | Extra-seat price on Stripe (`seat_ever_traduora_cloud_small_business_*`) | Exists in test mode ($5/month, $60/year); the live price needs the owner |
 | OD-T12 | Existing per-user project limit (`TR_MAX_PROJECTS_PER_USER`) in SaaS mode | Kept (100); plans limit seats and strings, not projects |
 | OD-T13 | Over the limit after a downgrade or lapse | Adds refused, nothing deleted, reads and exports keep working |
 | OD-T14 | Past-due grace | 14 days, then Starter limits |

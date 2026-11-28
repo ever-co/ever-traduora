@@ -19,7 +19,10 @@ export enum OrganizationAction {
   EditMembers = 'EditMembers',
   TransferOwnership = 'TransferOwnership',
   CreateProject = 'CreateProject',
+  /** Checkout, the customer portal and changes of the subscription (owner, DESIGN §3.2 and §3.7) */
   ManageBilling = 'ManageBilling',
+  /** The plan, the seats and the billing state of `GET /organizations/:id/billing`, read-only (owner, admin) */
+  ViewBilling = 'ViewBilling',
   ExportOrganization = 'ExportOrganization',
   /** The plan, seats and strings of `GET /organizations/:id/usage` (owner, admin) */
   ViewUsage = 'ViewUsage',
@@ -35,13 +38,14 @@ export const AllowedAdminActions: ReadonlySet<OrganizationAction> = new Set([
   ...AllowedMemberActions,
   OrganizationAction.EditOrganization,
   OrganizationAction.EditMembers,
-  OrganizationAction.ManageBilling,
+  OrganizationAction.ViewBilling,
   OrganizationAction.ExportOrganization,
   OrganizationAction.ViewUsage,
 ]);
 
 export const AllowedOwnerActions: ReadonlySet<OrganizationAction> = new Set([
   ...AllowedAdminActions,
+  OrganizationAction.ManageBilling,
   OrganizationAction.DeleteOrganization,
   OrganizationAction.TransferOwnership,
 ]);

@@ -1,0 +1,300 @@
+/* The plan card follows the members page's plan card: one meter, the one place with the accent */
+.org-usage {
+  max-width: 640px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.billing-plan-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.org-usage-plan {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.billing-meta {
+  color: #6c757d;
+  font-size: 0.75rem;
+}
+
+.billing-status {
+  margin: 4px 0 12px;
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+/* A failed payment: the meaning tone, no fill */
+.billing-status-alert {
+  color: #b02a37;
+}
+
+.org-meter,
+.billing-invoice {
+  display: grid;
+  grid-template-columns: 96px 1fr minmax(136px, auto);
+  align-items: center;
+  gap: 16px;
+  min-height: 32px;
+}
+
+.billing-invoice {
+  grid-template-columns: 96px 1fr;
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+
+.org-meter-label {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.org-meter-bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 2px;
+  background: rgba(33, 37, 41, 0.08);
+  color: #3b84f8;
+  appearance: none;
+}
+
+.org-meter-bar::-webkit-progress-bar {
+  border-radius: 2px;
+  background: rgba(33, 37, 41, 0.08);
+}
+
+.org-meter-bar::-webkit-progress-value {
+  border-radius: 2px;
+  background: #3b84f8;
+  transition: width 200ms ease-out;
+}
+
+.org-meter-bar::-moz-progress-bar {
+  border-radius: 2px;
+  background: #3b84f8;
+}
+
+.org-meter-full {
+  color: #d14354;
+}
+
+.org-meter-full::-webkit-progress-value {
+  background: #d14354;
+}
+
+.org-meter-full::-moz-progress-bar {
+  background: #d14354;
+}
+
+.org-meter-figure {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.billing-seats {
+  margin: 0 0 0 112px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A notice, not an error: quiet surface, one hairline */
+.org-notice {
+  max-width: 640px;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 12px;
+  background: #f5f7f9;
+  color: #212529;
+  font-size: 0.875rem;
+}
+
+.org-panel {
+  max-width: 640px;
+  margin-bottom: 24px;
+  padding: 24px;
+  border-radius: 12px;
+}
+
+.org-panel-title {
+  margin-bottom: 16px;
+}
+
+.billing-plans {
+  margin: 0 0 16px;
+  overflow: hidden;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 8px;
+}
+
+/* Each plan is one row of the list: the radio, the name and what it holds, the price in mono on the right */
+.billing-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  margin: 0;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+
+.billing-option + .billing-option {
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.billing-option:hover {
+  background: #f8f9fa;
+}
+
+.billing-option-on {
+  background: #f5f7f9;
+}
+
+.billing-radio {
+  flex: none;
+  accent-color: #3b84f8;
+}
+
+.billing-option-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.billing-option-name {
+  font-weight: 500;
+}
+
+.billing-option-sub {
+  font-size: 0.875rem;
+}
+
+.billing-option-price {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.billing-intervals {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 12px;
+}
+
+.billing-intervals legend {
+  float: left;
+  margin: 0;
+}
+
+.billing-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.billing-label {
+  flex: none;
+  width: 96px;
+  margin: 0;
+  white-space: nowrap;
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+.billing-seat-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.billing-seat-input {
+  width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+
+.billing-seat-price,
+.billing-note,
+.billing-saved {
+  font-size: 0.875rem;
+}
+
+.billing-note {
+  margin: 0 0 16px;
+}
+
+.billing-submit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.billing-total {
+  flex: 1;
+  font-size: 0.875rem;
+}
+
+.billing-total .font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.billing-portal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 640px;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 575.98px) {
+  .org-meter {
+    grid-template-columns: 56px 1fr auto;
+    gap: 12px;
+  }
+
+  .billing-invoice {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .billing-seats {
+    margin-left: 68px;
+  }
+
+  .org-panel {
+    padding: 16px;
+  }
+
+  .billing-option {
+    padding: 8px 12px;
+  }
+
+  .billing-label {
+    width: 80px;
+  }
+
+  .billing-total {
+    flex-basis: 100%;
+  }
+}

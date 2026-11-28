@@ -86,6 +86,10 @@
   font-size: 0.875rem;
 }
 
+.org-limit-link {
+  white-space: nowrap;
+}
+
 .org-seats {
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;

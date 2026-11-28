@@ -1,0 +1,131 @@
+<p *ngIf="organization?.isDefault" class="text-muted" data-test="default-organization">
+  The default organization of this installation has no plan to buy: its projects keep their own plans
+</p>
+<p *ngIf="organization && !organization.isDefault && !canRead" class="text-muted" data-test="not-allowed">
+  Only the owner and the admins see the billing of {{ organization.name }}
+</p>
+
+<div *ngIf="returnedFrom === 'success'" class="alert org-notice" data-test="checkout-success">
+  <ng-container *ngIf="billing?.subscribed; else confirming">Your {{ billing?.subscribedPlan?.name }} subscription is in place.</ng-container>
+  <ng-template #confirming>Stripe is confirming the subscription. This page updates when it arrives.</ng-template>
+</div>
+<div *ngIf="returnedFrom === 'canceled'" class="alert org-notice" data-test="checkout-canceled">
+  Checkout was canceled. Nothing was charged.
+</div>
+
+<div *ngIf="pendingChange" class="alert org-notice" data-test="change-pending">
+  The change is waiting for the payment of its invoice, and applies once it is paid. Manage billing shows the invoice and
+  the card it was charged to.
+</div>
+
+<div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center" data-test="error">
+  <span class="flex-1">{{ errorMessage }}</span>
+  <button *ngIf="loadFailed" type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
+</div>
+
+<ng-container *ngIf="canRead && billing as b">
+  <section class="card org-usage" data-test="plan" aria-labelledby="billingPlan">
+    <div class="billing-plan-row">
+      <h6 id="billingPlan" class="org-usage-plan">{{ b.plan.name }} plan</h6>
+      <span *ngIf="b.interval && b.subscribed" class="billing-meta font-mono">{{ b.interval }}</span>
+    </div>
+    <p class="billing-status" [class.billing-status-alert]="b.status === 'past_due' || b.status === 'unpaid'" data-test="status">
+      {{ statusLine }}
+    </p>
+    <div class="org-meter" data-test="seats">
+      <span class="org-meter-label">Seats</span>
+      <progress
+        *ngIf="b.seats.limit !== null; else noSeatLimit"
+        class="org-meter-bar"
+        [class.org-meter-full]="b.seats.used >= b.seats.limit"
+        aria-label="Seats used"
+        [max]="b.seats.limit"
+        [value]="usageMeterValue(b.seats.used, b.seats.limit)"
+        [attr.aria-valuetext]="usageFigure(b.seats.used, b.seats.limit)"
+      ></progress>
+      <ng-template #noSeatLimit><span class="org-meter-none"></span></ng-template>
+      <span class="org-meter-figure font-mono">{{ usageFigure(b.seats.used, b.seats.limit) }}</span>
+    </div>
+    <p class="billing-seats text-muted font-mono" data-test="seats-split">
+      <ng-container *ngIf="b.seats.included === null; else counted">unlimited included</ng-container>
+      <ng-template #counted>{{ b.seats.included }} included · {{ b.seats.bought }} bought</ng-template>
+    </p>
+    <div *ngIf="b.nextInvoice as invoice" class="billing-invoice" data-test="next-invoice">
+      <span class="org-meter-label">Next invoice</span>
+      <span class="font-mono">
+        {{ billingDate(invoice.date) }}<ng-container *ngIf="invoice.amount !== null"> · {{ money(invoice.amount, invoice.currency) }}</ng-container>
+      </span>
+    </div>
+  </section>
+
+  <p *ngIf="!b.enabled" class="text-muted" data-test="disabled">Billing is not set up on this installation</p>
+
+  <p *ngIf="b.enabled && !b.canManage" class="text-muted" data-test="read-only">
+    Only the owner changes the plan, the seats and the payment details
+  </p>
+
+  <div *ngIf="b.enabled && b.canManage && b.offers.length === 0" class="alert org-notice d-flex align-items-center" data-test="no-prices">
+    <span class="flex-1">The prices could not be read from Stripe, so no plan can be ordered right now.</span>
+    <button type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
+  </div>
+
+  <form *ngIf="b.enabled && b.canManage" class="card org-panel billing-order" [formGroup]="form" (ngSubmit)="submit()" novalidate data-test="order">
+    <h5 class="font-serif org-panel-title">{{ b.subscribed ? 'Change the plan' : 'Upgrade' }}</h5>
+
+    <fieldset class="billing-plans">
+      <legend class="sr-only">Plan</legend>
+      <label *ngFor="let plan of plans" class="billing-option" [class.billing-option-on]="form.controls.plan.value === plan.code">
+        <input type="radio" class="billing-radio" formControlName="plan" [value]="plan.code" />
+        <span class="billing-option-main">
+          <span class="billing-option-name">{{ plan.name }}</span>
+          <span class="billing-option-sub text-muted">{{ plan.summary }}</span>
+        </span>
+        <span class="billing-option-price font-mono" *ngIf="offerOf(plan.code, $any(form.controls.interval.value)) as offer">
+          {{ money(offer.amount, offer.currency) }} {{ per(offer.interval) }}
+        </span>
+      </label>
+    </fieldset>
+
+    <fieldset class="billing-intervals">
+      <legend class="billing-label">Billed</legend>
+      <label class="billing-inline"><input type="radio" class="billing-radio" formControlName="interval" value="monthly" /> Monthly</label>
+      <label class="billing-inline"><input type="radio" class="billing-radio" formControlName="interval" value="annual" /> Annually</label>
+    </fieldset>
+
+    <div *ngIf="selectedPlan.sellsSeats" class="billing-seat-row">
+      <label class="billing-label" for="billingExtraSeats">Extra seats</label>
+      <input
+        id="billingExtraSeats"
+        class="form-control form-control-sm billing-seat-input font-mono"
+        type="number"
+        min="0"
+        [max]="maxExtraSeats"
+        step="1"
+        formControlName="extraSeats"
+        [class.is-invalid]="form.controls.extraSeats.invalid"
+      />
+      <span *ngIf="selectedOffer?.seatAmount !== null && selectedOffer" class="text-muted billing-seat-price">
+        {{ money(selectedOffer.seatAmount, selectedOffer.currency) }} each {{ per(selectedOffer.interval) }}
+      </span>
+    </div>
+
+    <p *ngIf="b.trialAvailable && !b.subscribed && b.trialDays > 0" class="billing-note text-muted" data-test="trial">
+      Starts with a {{ b.trialDays }}-day free trial. Checkout asks for a card, and the first charge comes after the trial.
+    </p>
+
+    <div class="billing-submit">
+      <span *ngIf="total" class="billing-total" data-test="total">
+        <span class="font-mono">{{ total }}</span> {{ per($any(form.controls.interval.value)) }}<span class="text-muted">, plus tax where it applies</span>
+      </span>
+      <button type="submit" class="btn btn-sm btn-primary" [disabled]="!form.valid || busy || unchanged || !selectedOffer" data-test="submit">
+        {{ b.subscribed ? 'Save changes' : 'Continue to Checkout' }}
+      </button>
+      <output *ngIf="saved && unchanged" class="text-muted billing-saved">Saved</output>
+    </div>
+  </form>
+
+  <section *ngIf="b.enabled && b.canManage && b.portalAvailable" class="billing-portal" data-test="portal">
+    <span class="text-muted">Payment method, invoices and cancellation are on Stripe</span>
+    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="busy" (click)="manage()" data-test="manage">Manage billing</button>
+  </section>
+</ng-container>
