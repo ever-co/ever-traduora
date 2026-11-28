@@ -1,4 +1,4 @@
-import { createStripeClient, isTestModeKey, stripeKeyMode } from './stripe-client';
+import { createStripeClient, isTestModeKey, stripeClientFor, stripeKeyMode } from './stripe-client';
 
 describe('the Stripe key', () => {
   it('takes test-mode secret and restricted keys', () => {
@@ -30,5 +30,13 @@ describe('the Stripe key', () => {
     expect(createStripeClient({ stripeSecretKey: '', stripeLiveMode: false })).toBeNull();
     expect(() => createStripeClient({ stripeSecretKey: 'sk_live_abc', stripeLiveMode: false })).toThrow();
     expect(createStripeClient({ stripeSecretKey: 'sk_test_abc', stripeLiveMode: false })).not.toBeNull();
+  });
+
+  it('makes no client outside SaaS mode, so a single-tenant install starts whatever key it carries', () => {
+    for (const stripeSecretKey of ['sk_live_abc', 'not-a-key', 'sk_test_abc']) {
+      expect(stripeClientFor({ saasEnabled: false, billing: { stripeSecretKey, stripeLiveMode: false } })).toBeNull();
+    }
+    expect(() => stripeClientFor({ saasEnabled: true, billing: { stripeSecretKey: 'sk_live_abc', stripeLiveMode: false } })).toThrow();
+    expect(stripeClientFor({ saasEnabled: true, billing: { stripeSecretKey: 'sk_test_abc', stripeLiveMode: false } })).not.toBeNull();
   });
 });

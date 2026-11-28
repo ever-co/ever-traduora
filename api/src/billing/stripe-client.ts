@@ -44,6 +44,14 @@ export function createStripeClient(settings: StripeSettings): StripeClient | nul
   });
 }
 
+/**
+ * The billing module's client: none outside SaaS mode (billing is off there whatever the key), else the configured
+ * key's (refused at start when it is live without `TR_STRIPE_LIVE_MODE`, or no secret key at all).
+ */
+export function stripeClientFor(settings: { saasEnabled: boolean; billing: StripeSettings }): StripeClient | null {
+  return settings.saasEnabled ? createStripeClient(settings.billing) : null;
+}
+
 /** Whether the client's key is a test-mode one: events of the other mode are not for this installation. */
 export function isTestModeKey(key: string): boolean {
   return /^(sk|rk)_test_/.test(key);
