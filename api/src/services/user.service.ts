@@ -27,7 +27,17 @@ import {
   deleteAccountsWithOrganizations,
   joinDefaultOrganization,
   personalOrganizationName,
+  projectIdsOfOrganizations,
 } from './organization/organization-membership';
+import {
+  AccountDeletionChoices,
+  accountDeletionPlan,
+  AccountDeletionPlan,
+  handOverProjects,
+  organizationsDeletedWithAccount,
+} from './organization/account-deletion';
+import { cancelSubscriptions } from './organization/billing-cancellation';
+import { ModuleRef } from '@nestjs/core';
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
 
@@ -65,6 +75,8 @@ export class UserService {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     private readonly loginAttemptsStorage: UserLoginAttemptsStorage,
+    // Finds billing's cancellation (P4) for the organizations deleted with an account
+    private readonly moduleRef?: ModuleRef,
   ) {
     this.loginAttemptsTTL = config.loginAttempts.ttl;
     this.maxLoginAttempts = config.loginAttempts.maxAttempts;
@@ -277,22 +289,42 @@ export class UserService {
     await entityManager.increment(User, { id: userId }, 'sessionVersion', 1);
   }
 
+  /** What stands in the way of deleting the account, and the choices its owner has (`GET /users/me/deletion`). */
+  deletionPlan(user: User): Promise<AccountDeletionPlan> {
+    return accountDeletionPlan(this.userRepo.manager, user.id);
+  }
+
   /**
    * Deletes the account, unless it is the last admin of a project that other users use. The account's row and then every
    * project it belongs to are locked before its admin roles are read and the projects' admins counted, as Ever
    * Platform's deletion path locks them ({@link lockProjectsOf}): a deletion or role change at the same time waits, then
    * counts what this one left.
+   *
+   * `choices` (DESIGN §3.9) hand the admin role of a project to one of its members, hand an owned organization to one of
+   * its members, or delete with the account an organization the person is alone in. Those organizations' subscriptions
+   * are cancelled first, outside the transaction; then, in it, their projects are locked with the account's (one order),
+   * the project admins are handed over before the admins are counted, and the organizations are handed over or deleted
+   * under their locks.
    */
-  async deleteAccount(user: User) {
+  async deleteAccount(user: User, choices: AccountDeletionChoices = {}) {
+    const deletedOrganizations = await organizationsDeletedWithAccount(this.userRepo.manager, user.id, choices.deleteOrganizations);
+    await cancelSubscriptions(this.moduleRef, deletedOrganizations);
     await readCommittedTransaction(this.userRepo.manager, async manager => {
       await lockAccount(manager, user.id);
-      await lockProjectsOf(manager, [user.id]);
+      const deletedProjectIds = await projectIdsOfOrganizations(
+        manager,
+        deletedOrganizations.map(organization => organization.id),
+      );
+      await lockProjectsOf(manager, [user.id], deletedProjectIds);
+      await handOverProjects(manager, user.id, choices.projectAdmins);
       const memberships = manager.getRepository(ProjectUser);
       const ownedProjects = await memberships.find({
         where: { user: { id: user.id }, role: ProjectRole.Admin },
         relations: ['project'],
       });
-      const projectIds = ownedProjects.filter(owned => owned.project).map(owned => owned.project.id);
+      // The projects of an organization deleted with the account go with it: nobody is left to administer them
+      const deleted = new Set(deletedProjectIds);
+      const projectIds = ownedProjects.filter(owned => owned.project && !deleted.has(owned.project.id)).map(owned => owned.project.id);
 
       // Ensure user is not last project admin for any of their projects with other users
       for (const projectId of projectIds) {
@@ -310,9 +342,17 @@ export class UserService {
 
       // In one transaction with the organization locks: an organization the user owns passes to another member, or the
       // deletion waits for a transfer (SaaS mode); an organization left with nobody is closed; seats are recounted
-      await deleteAccountsWithOrganizations(manager, [user.id], async tx => {
-        await tx.remove(user);
-      });
+      await deleteAccountsWithOrganizations(
+        manager,
+        [user.id],
+        async tx => {
+          await tx.remove(user);
+        },
+        {
+          newOwners: new Map((choices.organizationOwners ?? []).map(choice => [choice.organizationId, choice.userId])),
+          deleteOrganizations: new Map((choices.deleteOrganizations ?? []).map(choice => [choice.organizationId, choice.slug])),
+        },
+      );
     });
   }
 

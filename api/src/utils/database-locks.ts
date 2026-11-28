@@ -83,20 +83,27 @@ export async function lockProjects(entityManager: EntityManager, projectIds: Rea
  * Locks every project the accounts belong to, in any role ({@link lockProjects}), for a deletion of the accounts. Their
  * admin roles are to be read only after this: a role change (a promotion) locks the project too, so it either committed
  * before the read or waits for the deletion. A membership added meanwhile waits for the account's own lock (its foreign
- * key), which the deletion takes first. SQLite runs one transaction at a time.
+ * key), which the deletion takes first. `alsoProjectIds` are locked with them, in the same one order: the projects of an
+ * organization deleted with the account. SQLite runs one transaction at a time.
  */
-export async function lockProjectsOf(entityManager: EntityManager, userIds: ReadonlyArray<string>): Promise<void> {
-  if (isDbType(DbType.BETTER_SQLITE3) || !userIds.length) {
+export async function lockProjectsOf(
+  entityManager: EntityManager,
+  userIds: ReadonlyArray<string>,
+  alsoProjectIds: ReadonlyArray<string> = [],
+): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3) || (!userIds.length && !alsoProjectIds.length)) {
     return;
   }
-  const memberships = await entityManager.getRepository(ProjectUser).find({
-    where: { user: { id: In([...userIds]) } },
-    relations: { project: true },
-  });
-  await lockProjects(
-    entityManager,
-    memberships.filter(membership => membership.project).map(membership => membership.project.id),
-  );
+  const memberships = userIds.length
+    ? await entityManager.getRepository(ProjectUser).find({
+        where: { user: { id: In([...userIds]) } },
+        relations: { project: true },
+      })
+    : [];
+  await lockProjects(entityManager, [
+    ...memberships.filter(membership => membership.project).map(membership => membership.project.id),
+    ...alsoProjectIds,
+  ]);
 }
 
 /** The one order of ids for taking several locks of a kind (projects, organizations): by code unit, the same everywhere */

@@ -24,9 +24,8 @@ import { resXExporter } from '../formatters/resx';
 import { ArbReservedTermError, arbExporter } from '../formatters/arb';
 import { NestedKeyConflictError } from '../formatters/nested-key-conflict';
 import { FormatCannotHoldTermsException } from '../errors';
-import { resolveColumnName } from '../utils/alias-helper';
 import { mergeWithFallback } from '../utils/fallback-merge';
-import { getLexicalOrderClause } from '../utils/database-type-helper';
+import { localeTranslations } from '../utils/locale-translations';
 import { computeEtag, ifNoneMatchMatches } from '../utils/conditional-get';
 import { Access } from '../access/access.decorator';
 
@@ -77,26 +76,9 @@ export class ExportsController {
       throw new NotFoundException('unknown locale code');
     }
 
-    const queryBuilder = this.termRepo
-      .createQueryBuilder('term')
-      .leftJoinAndSelect('term.translations', 'translation', `translation.${resolveColumnName('projectLocaleId')} = :projectLocaleId`, {
-        projectLocaleId: projectLocale.id,
-      })
-      .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId });
-
-    queryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
-
-    if (query.untranslated) {
-      // A term without a row in this locale joins as NULL (e.g. a term created by an import of another locale)
-      queryBuilder.andWhere("(translation.value = '' OR translation.value IS NULL)");
-    }
-
-    const termsWithTranslations = await queryBuilder.getMany();
-
-    const termsWithTranslationsMapped = termsWithTranslations.map(t => ({
-      term: t.value,
-      translation: t.translations.length === 1 ? t.translations[0].value : '',
-    }));
+    const termsWithTranslationsMapped = await localeTranslations(this.termRepo.manager, projectId, projectLocale.id, {
+      untranslated: !!query.untranslated,
+    });
 
     const data: IntermediateTranslationFormat = {
       iso: query.locale,
@@ -119,21 +101,7 @@ export class ExportsController {
       });
 
       if (fallbackProjectLocale) {
-        const fallbackQueryBuilder = this.termRepo
-          .createQueryBuilder('term')
-          .leftJoinAndSelect('term.translations', 'translation', `translation.${resolveColumnName('projectLocaleId')} = :projectLocaleId`, {
-            projectLocaleId: fallbackProjectLocale.id,
-          })
-          .where(`term.${resolveColumnName('projectId')} = :projectId`, { projectId });
-
-        fallbackQueryBuilder.orderBy(getLexicalOrderClause('term.value'), 'ASC');
-
-        const fallbackTermsWithTranslations = await fallbackQueryBuilder.getMany();
-
-        let fallbackTermsWithTranslationsMapped = fallbackTermsWithTranslations.map(t => ({
-          term: t.value,
-          translation: t.translations.length === 1 ? t.translations[0].value : '',
-        }));
+        let fallbackTermsWithTranslationsMapped = await localeTranslations(this.termRepo.manager, projectId, fallbackProjectLocale.id);
 
         if (query.untranslated) {
           // The fallback query loads every term of the project: keep only those the locale has not translated
