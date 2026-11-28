@@ -1,9 +1,21 @@
 # Traduora SaaS (app.traduora.co): living handover
 
-> **State: P0 and P1 merged; 🔨 P2 isolation code complete on `feat/saas-p2-isolation` (2026-11-27).** P0 branch `feat/saas-multi-tenant`, worktree
-> `E:\Coding\Worktrees\ever-traduora-saas` (EVERPOWER). Brief: homelab
-> `projects/traduora/knowledge/handoffs/HANDOVER-2026-11-26-traduora-saas-app-traduora-co.md`. Design:
-> [`DESIGN.md`](DESIGN.md).
+> **State (2026-11-28, ⏸ paused by the owner):**
+> - **Merged into `develop`:** P0, P1, P2, P3 and P5. They are live on demo.traduora.co and app-dev.traduora.co.
+> - **Open:** P4 (this branch, #678) and P6 (#680).
+> - **Not yet on stage or prod.**
+>
+> **Next step:** P4 #678.
+> 1. Get the in-cluster `ci-builds/ci.yml` run green on the head of `feat/saas-p4-billing`. It was still pending at the pause.
+> 2. Answer any new bot threads.
+> 3. Claim develop on the board, back up the demo SQLite, then squash-merge.
+> 4. Verify demo and app-dev after the roll.
+> 5. Do the claimed Stripe test-mode steps on app-dev (see "P4 Billing" below).
+>
+> P6 #680 comes after P4. Then the cascade develop → stage → main, then P8 and P9.
+>
+> **Brief:** homelab `projects/traduora/knowledge/handoffs/HANDOVER-2026-11-26-traduora-saas-app-traduora-co.md`. Its "Resume here" section has the full steps.
+> **Design:** [`DESIGN.md`](DESIGN.md).
 
 Read this file first when you pick the work up. It says what is done, what is in flight and what comes next. The
 design says how it is built.
@@ -14,11 +26,11 @@ design says how it is built.
 |---|---|---|---|
 | P0 Design | ✅ merged | [#665](https://github.com/ever-co/ever-traduora/pull/665) | `docs/saas/DESIGN.md`; owner questions OD-T1..T14 with defaults in §12; bot findings fixed (an upgrade never widens access) |
 | P1 Organizations | ✅ merged | [#666](https://github.com/ever-co/ever-traduora/pull/666) | Merged as `2a9aa6f`; see "P1 Organizations" below |
-| P2 Isolation | 🔍 in review | [#672](https://github.com/ever-co/ever-traduora/pull/672) | Branch `feat/saas-p2-isolation`; review round 1 fixed; mutation check 66.7 %; see "P2 Isolation" below |
-| P3 Plans and seats | 🔍 in review | [#674](https://github.com/ever-co/ever-traduora/pull/674) (base `feat/saas-p2-isolation`) | Branch `feat/saas-p3-plans`; review round 1 fixed; see "P3 Plans, seats and strings" below |
-| P4 Billing (Stripe test mode) | 🔨 code complete | — (coordinator opens it) | Branch `feat/saas-p4-billing`; see "P4 Billing" below. The real Checkout through a deployed webhook on app-dev is a claimed step left to the coordinator |
-| P5 Accounts and hardening | 🔨 code complete | — | Branch `feat/saas-p5-hardening`; PR by the coordinating session; see "P5 Accounts and hardening" below |
-| P6 Operator console and data rights | ⏳ | — | |
+| P2 Isolation | ✅ merged, live on demo and app-dev | [#672](https://github.com/ever-co/ever-traduora/pull/672) | Mutation check 66.7 %; see "P2 Isolation" below |
+| P3 Plans and seats | ✅ merged, live on demo and app-dev | [#674](https://github.com/ever-co/ever-traduora/pull/674) | See "P3 Plans, seats and strings" below |
+| P4 Billing (Stripe test mode) | 🔍 open, next to merge | [#678](https://github.com/ever-co/ever-traduora/pull/678) | All 40 bot threads and the 8 review findings fixed. Local e2e 505/0, Karma 297. In-cluster CI was pending at the pause. After the merge, the real Checkout through a deployed webhook on app-dev is a claimed step. See "P4 Billing" below |
+| P5 Accounts and hardening | ✅ merged `2c346ca37`, live on demo and app-dev | [#679](https://github.com/ever-co/ever-traduora/pull/679) | See "P5 Accounts and hardening" below |
+| P6 Operator console and data rights | 🔍 open, after P4 | [#680](https://github.com/ever-co/ever-traduora/pull/680) | Review round 1 fixed. Needs a rebase on P4, then item 2: every move to `deleted` is refused by P4's guard or goes through the billing outbox |
 | P7 Environments (dev, stage, prod) | ✅ live 2026-11-26 23:5xZ | k8s-gitops `54463a2b`, `6378a731`, `7783981f` | `app-dev.traduora.co`, `app-stage.traduora.co` (noindex); prod on nip.io until P8; Postgres `ever_traduora_<env>`; sign-ups off until P1+P2 ship. Runbook: homelab `projects/traduora/knowledge/runbooks/hosted-traduora.md`. Owed: first prod restore drill. Moved to P8: prod Valkey + 2 replicas |
 | P8 Go live | ⏳ | — | Stripe live keys and webhook are a claimed change |
 | P9 Open the sale | ⏳ | — | |
