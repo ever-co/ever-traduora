@@ -22,21 +22,31 @@ const figures = new Intl.NumberFormat('en-US');
 
 /**
  * A plan limit of the organization (402 `plan_limit_reached`, SaaS mode): what the plan allows, from the answer. The
- * project plans of a single-tenant install answer 402 `PaymentRequired` and keep their own message.
+ * project plans of a single-tenant install answer 402 `PaymentRequired` and keep their own message. An invitee whose
+ * acceptance is refused (`invitee`) is told whom to ask: the plan is not theirs to upgrade.
  */
-function planLimitMessage(body: any): string {
+export function planLimitMessage(body: any, invitee = false): string {
   const limit = Number(get(body, 'limit'));
   const what = get(body, 'resource') === 'seats' ? 'members' : 'strings';
+  if (invitee) {
+    const allows = Number.isFinite(limit) ? `allows ${figures.format(limit)} ${what}` : `has no room for more ${what}`;
+    return `This organization's plan ${allows}, and every seat is taken. Ask one of its owners or admins to free a seat or upgrade.`;
+  }
   if (!Number.isFinite(limit)) {
     return `Your plan has no room for more ${what}. Upgrade to add more.`;
   }
   return `Your plan allows ${figures.format(limit)} ${what}. Upgrade to add more.`;
 }
 
+/** Whether the error is a plan limit of the organization (402 `plan_limit_reached`). */
+export function isPlanLimit(error: unknown): boolean {
+  return get(error as object, 'error.error.code') === 'plan_limit_reached';
+}
+
 export function errorToMessage(error: any, action = ''): string {
   const domainCode = get(error, 'error.error.code');
 
-  if (domainCode === 'plan_limit_reached') {
+  if (isPlanLimit(error)) {
     return planLimitMessage(get(error, 'error.error'));
   }
 
