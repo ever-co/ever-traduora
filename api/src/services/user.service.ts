@@ -217,8 +217,9 @@ export class UserService {
       if (!affected) {
         throw new ConflictException('the account changed in the meantime, please try again');
       }
-      if (emailChanged) {
-        // Invitations to the former address would otherwise take seats of their own (SaaS mode)
+      if (emailChanged && current.emailVerified) {
+        // Invitations to a confirmed former address would otherwise take seats of their own (SaaS mode). Those to an
+        // address that was never confirmed may be someone else's, and they take seats already: they stay
         await releaseFormerEmailInvites(tx, userId, current.email);
       }
       return { user: await tx.findOneByOrFail(User, { id: userId }), emailChanged };

@@ -476,7 +476,14 @@ describe('Accounts and hardening (e2e)', () => {
     const usage = async (owner: TestingUser, organizationId: string) =>
       (await request(server()).get(`/api/v1/organizations/${organizationId}/usage`).set(auth(owner)).expect(200)).body.data.seats;
 
-    it('drops the pending invitations to the former address, so the organization stays within its seats', async () => {
+    const organizationOf = async (owner: TestingUser) =>
+      (await request(server()).get('/api/v1/organizations').set(auth(owner)).expect(200)).body.data[0];
+    const pendingEmails = async (owner: TestingUser, organizationId: string): Promise<string[]> =>
+      (await request(server()).get(`/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).expect(200)).body.data.map(each => each.email);
+    /** Marks the account's address confirmed, as its link would, without the acceptances the link also makes */
+    const confirmEmail = (user: { id: string }) => dataSource.getRepository(User).update({ id: user.id }, { emailVerified: true });
+
+    it('drops the pending invitations to the confirmed former address, so the organization stays within its seats', async () => {
       const owner = await signupTestUser(app, 'full-owner@test.com');
       const [organization] = (await request(server()).get('/api/v1/organizations').set(auth(owner)).expect(200)).body.data;
 
@@ -487,7 +494,7 @@ describe('Accounts and hardening (e2e)', () => {
         .send({ email: 'mover@test.com', role: 'member' })
         .expect(201);
       const mover = (await signup('mover@test.com', { inviteToken: tokenOf(invited) }).expect(200)).body.data;
-      // ...so a project invitation to their address stays pending, and takes no seat of its own
+      // ...so a project invitation to their address stays pending; once they confirm it, it takes no seat of its own
       const projectId = (
         await request(server()).post('/api/v1/projects').set(auth(owner)).send({ name: 'P', organizationId: organization.id }).expect(201)
       ).body.data.id;
@@ -505,6 +512,10 @@ describe('Accounts and hardening (e2e)', () => {
         .send({ email: 'mover@test.com', role: 'member' })
         .expect(201);
 
+      // Invited while unconfirmed, the member confirms the address: the invitation to it is theirs, no seat of its own
+      expect(await usage(owner, organization.id)).toEqual({ used: 3, included: 15 });
+      await confirmEmail(mover);
+      expect(await usage(owner, organization.id)).toEqual({ used: 2, included: 15 });
       // Full: the owner, the member, and 13 pending invitations
       for (let i = 1; i <= 13; i++) {
         await request(server())
@@ -525,6 +536,81 @@ describe('Accounts and hardening (e2e)', () => {
       expect(await usage(stranger, elsewhere.id)).toEqual({ used: 2, included: 15 });
       const theirs = (await request(server()).get(`/api/v1/organizations/${elsewhere.id}/invites`).set(auth(stranger)).expect(200)).body.data;
       expect(theirs.map(invite => invite.email)).toEqual(['mover@test.com']);
+    });
+
+    it("keeps someone else's invitations when a member types their address and then her own again (review of #679)", async () => {
+      const owner = await signupTestUser(app, 'owner-of-victim@test.com');
+      const organization = await organizationOf(owner);
+      const mallory = await signupTestUser(app, 'mallory@test.com');
+      await request(server())
+        .post(`/api/v1/organizations/${organization.id}/invites`)
+        .set(auth(owner))
+        .send({ email: mallory.email, role: 'member' })
+        .expect(201);
+      // A pending invitation of someone with no account yet, and one to a project
+      await request(server())
+        .post(`/api/v1/organizations/${organization.id}/invites`)
+        .set(auth(owner))
+        .send({ email: 'victim@test.com', role: 'member' })
+        .expect(201);
+      const projectId = (
+        await request(server()).post('/api/v1/projects').set(auth(owner)).send({ name: 'V', organizationId: organization.id }).expect(201)
+      ).body.data.id;
+      await request(server())
+        .post(`/api/v1/projects/${projectId}/invites`)
+        .set(auth(owner))
+        .send({ email: 'project-victim@test.com', role: 'editor' })
+        .expect(201);
+      expect(await usage(owner, organization.id)).toEqual({ used: 4, included: 15 });
+
+      // Holding the victim's address frees no seat: it is not confirmed
+      await request(server()).patch('/api/v1/users/me').set(auth(mallory)).send({ email: 'victim@test.com' }).expect(200);
+      expect(await usage(owner, organization.id)).toEqual({ used: 4, included: 15 });
+      // Nor may a new invitation to it pass as a member's: the organization counts it
+      await request(server()).patch('/api/v1/users/me').set(auth(mallory)).send({ email: 'project-victim@test.com' }).expect(200);
+      expect(await usage(owner, organization.id)).toEqual({ used: 4, included: 15 });
+      // Back to her own: the former address was never confirmed, so its invitations stay, as do the others
+      await request(server()).patch('/api/v1/users/me').set(auth(mallory)).send({ email: 'mallory@test.com' }).expect(200);
+      expect(await pendingEmails(owner, organization.id)).toEqual(['victim@test.com']);
+      expect(await dataSource.getRepository(Invite).count({ where: { email: 'project-victim@test.com', status: InviteStatus.Sent } })).toBe(1);
+      expect(await usage(owner, organization.id)).toEqual({ used: 4, included: 15 });
+    });
+
+    it("counts an invitation to a member's unconfirmed address as a seat", async () => {
+      const owner = await signupTestUser(app, 'unconfirmed-owner@test.com');
+      const organization = await organizationOf(owner);
+      const invited = await request(server())
+        .post(`/api/v1/organizations/${organization.id}/invites`)
+        .set(auth(owner))
+        .send({ email: 'unconfirmed@test.com', role: 'member' })
+        .expect(201);
+      const member = (await signup('unconfirmed@test.com', { inviteToken: tokenOf(invited) }).expect(200)).body.data;
+      // Fill the organization: the owner, the member, 13 invitations
+      for (let i = 1; i <= 13; i++) {
+        await request(server())
+          .post(`/api/v1/organizations/${organization.id}/invites`)
+          .set(auth(owner))
+          .send({ email: `seat-${i}@test.com`, role: 'member' })
+          .expect(201);
+      }
+      expect(await usage(owner, organization.id)).toEqual({ used: 15, included: 15 });
+      const projectId = (
+        await request(server()).post('/api/v1/projects').set(auth(owner)).send({ name: 'U', organizationId: organization.id }).expect(201)
+      ).body.data.id;
+      // The member has not confirmed this address: an invitation to it needs a seat, and there is none
+      const refused = await request(server())
+        .post(`/api/v1/projects/${projectId}/invites`)
+        .set(auth(owner))
+        .send({ email: member.email, role: 'editor' });
+      expect([refused.status, refused.body.error.code]).toEqual([402, 'plan_limit_reached']);
+      // Once confirmed, the invitation is the member's own and is made (here as a direct add)
+      await confirmEmail(member);
+      await request(server())
+        .post(`/api/v1/projects/${projectId}/invites`)
+        .set(auth(owner))
+        .send({ email: member.email, role: 'editor' })
+        .expect(201);
+      expect(await usage(owner, organization.id)).toEqual({ used: 15, included: 15 });
     });
   });
 });

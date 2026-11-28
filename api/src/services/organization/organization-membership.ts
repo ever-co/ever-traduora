@@ -333,11 +333,13 @@ export async function organizationDeletionHold(manager: EntityManager, userIds: 
 }
 
 /**
- * After a member's e-mail changed (`PATCH /users/me`), in the same transaction, which locked the account first: drops
- * the pending invitations to the former address in every organization with its own plan the person is a member of, and
- * recounts their seats (review of #674, round 3).
+ * After a member's **confirmed** e-mail changed (`PATCH /users/me`), in the same transaction, which locked the account
+ * first: drops the pending invitations to the former address in every organization with its own plan the person is a
+ * member of, and recounts their seats (review of #674, round 3). The caller calls it only when the former address was
+ * confirmed: an address someone merely typed into their profile may be anyone's, and its invitations stay (review of
+ * #679: a member who sets a victim's address and then her own again must not delete the victim's invitations).
  *
- * An invitation to a member's address takes no seat, since that person holds one already (`countSeats`). Once the
+ * An invitation to a member's confirmed address takes no seat, since that person holds one already (`countSeats`). Once the
  * address is no longer theirs, the invitation would belong to nobody in the organization and take a seat of its own, so
  * a full organization would end up over its limit without anyone adding someone. The invitations were addressed to
  * someone who is in already; they go rather than the count rising. (Recounting alone would keep the counter right but
