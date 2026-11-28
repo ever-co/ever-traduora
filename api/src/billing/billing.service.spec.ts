@@ -4,7 +4,7 @@ import { OrganizationPlanCode } from '../domain/organization-actions';
 import { Organization } from '../entity/organization.entity';
 import { User } from '../entity/user.entity';
 import { BillingInterval } from './billing-plans';
-import { BillingService, subscriptionChanges, subscriptionState } from './billing.service';
+import { BillingService, invoiceSubscriptionId, subscriptionChanges, subscriptionState } from './billing.service';
 
 const SECRET = 'whsec_unit_test';
 const ORG_ID = '7d4b3f3e-3b8a-4c1e-9a43-1f8f0b6a2c11';
@@ -296,8 +296,27 @@ describe('BillingService', () => {
       const { tx, dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1' }));
       dataSource.manager.findOne.mockResolvedValue({ id: ORG_ID });
       tx.insert.mockRejectedValue(Object.assign(new Error('duplicate key'), { code: '23505' }));
+      // The other delivery's row, there once it committed
+      dataSource.manager.exists.mockResolvedValue(true);
       const { payload, signature } = signed(event('customer.subscription.updated', { id: 'sub_1', customer: 'cus_1' }));
       expect(await new BillingService(stripe as any, dataSource).handleWebhook(payload, signature)).toBe('duplicate');
+    });
+
+    it('answers an error for any other unique key failing, so Stripe sends the event again', async () => {
+      const stripe = mockStripe();
+      stripe.subscriptions.retrieve.mockResolvedValue(subscription());
+      const { tx, dataSource } = mockDataSource(() => organization({ stripeCustomerId: 'cus_1' }));
+      dataSource.manager.findOne.mockResolvedValue({ id: ORG_ID });
+      tx.update.mockRejectedValue(Object.assign(new Error('duplicate key value violates "UQ_organization_stripe_customer_id"'), { code: '23505' }));
+      const { payload, signature } = signed(event('customer.subscription.updated', { id: 'sub_1', customer: 'cus_1' }));
+      await expect(new BillingService(stripe as any, dataSource).handleWebhook(payload, signature)).rejects.toMatchObject({ code: '23505' });
+    });
+
+    it('reads the subscription of an invoice of this API version, and of an older one', () => {
+      expect(invoiceSubscriptionId({ parent: { subscription_details: { subscription: 'sub_new' } } } as any)).toBe('sub_new');
+      expect(invoiceSubscriptionId({ parent: null, subscription: 'sub_old' } as any)).toBe('sub_old');
+      expect(invoiceSubscriptionId({ parent: null, subscription: { id: 'sub_obj' } } as any)).toBe('sub_obj');
+      expect(invoiceSubscriptionId({ parent: null } as any)).toBeNull();
     });
   });
 

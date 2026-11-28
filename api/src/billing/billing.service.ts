@@ -263,7 +263,7 @@ export class BillingService {
       case 'invoice.paid':
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
-        const subscriptionId = idOf(invoice.parent?.subscription_details?.subscription);
+        const subscriptionId = invoiceSubscriptionId(invoice);
         return subscriptionId ? this.onSubscription(stripe, event, subscriptionId, idOf(invoice.customer), at) : 'no_subscription';
       }
       default:
@@ -345,8 +345,9 @@ export class BillingService {
         return outcome;
       });
     } catch (error) {
-      // The primary key, should two deliveries still meet: the first one applied it
-      if (isDuplicateKey(error)) {
+      // The primary key, should two deliveries still meet: a duplicate only when the first one's row is there now. Any
+      // other unique key failing is an error: answered 500, so Stripe sends the event again
+      if (isDuplicateKey(error) && (await this.dataSource.manager.exists(BillingEvent, { where: { id: event.id } }))) {
         return 'duplicate';
       }
       throw error;
@@ -540,6 +541,15 @@ function iso(value: Date | string | null | undefined): string | null {
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/**
+ * The subscription of an invoice: `parent.subscription_details.subscription` since API version 2025-03-31, the top-level
+ * `subscription` of an older version (an endpoint pinned to one, or an event replayed from before the upgrade).
+ */
+export function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const legacy = (invoice as Stripe.Invoice & { subscription?: string | { id: string } | null }).subscription;
+  return idOf(invoice.parent?.subscription_details?.subscription) ?? idOf(legacy);
 }
 
 /** The organization's billing page on the web app, where Checkout and the portal come back to */
