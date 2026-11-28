@@ -705,8 +705,8 @@ Needs a public URL, so it is left to a claimed change on `app-dev.traduora.co` (
      and ignores them.
 3. **OpenBao** `kv/ever-traduora/dev` (and the ExternalSecret mapping, if a key is new to it):
    - `TR_STRIPE_SECRET_KEY` = the account's **test** secret key (`.config/ever-demand/stripe.env`,
-     `STRIPE_SECRET_TEST_KEY`), or better a restricted test key (write: Checkout Sessions, Customers, Customer portal, Subscriptions;
-     read: Prices, Invoices);
+     `STRIPE_SECRET_TEST_KEY`), or better a restricted test key (write: Checkout Sessions, Customers, Customer portal, Subscriptions,
+     **Refunds** (the backstop refunds a second subscription); read: Prices, Invoices, Invoice Payments);
    - `TR_STRIPE_WEBHOOK_SECRET` = the endpoint's signing secret (`whsec_…`);
    - optional: `TR_BILLING_TRIAL_DAYS` (90), `TR_BILLING_PAST_DUE_GRACE_DAYS` (14), `TR_STRIPE_PORTAL_CONFIGURATION`.
    - Never set `TR_STRIPE_LIVE_MODE` before P8. `TR_SAAS_ENABLED=true` is set already on dev.
@@ -714,9 +714,10 @@ Needs a public URL, so it is left to a claimed change on `app-dev.traduora.co` (
    Billing → Small Business, 2 extra seats → Continue to Checkout → test card `4242 4242 4242 4242`, any future date,
    any CVC, an address → back on the billing page "Trial until …", seats "25 included · 2 bought"; the Stripe event
    log shows 200 for each delivery. Then: change the seats on the page; Manage billing → cancel; resend one delivered
-   event from the Dashboard (nothing changes, `billing_event` has it once); a failed payment with `4000 0000 0000 0341`
-   (subscribe with it, then "End trial now" on the subscription in the Dashboard: the invoice fails, the page shows
-   the grace).
+   event from the Dashboard (nothing changes, `billing_event` has it once). The failed payment needs a trial of its
+   own: sign up a **second** organization (the first one used its trial, and a trial is given once), subscribe with
+   `4000 0000 0000 0341`, then "End trial now" on that subscription in the Dashboard: the invoice fails, and its
+   billing page shows the grace.
 5. Release the claim with what was changed.
 
 ### Review of #678, round 1 (2026-11-28)
@@ -752,12 +753,51 @@ nor send Stripe bursts:
   the latest state. That read, and the backstop's cancel and refund, use `timeout: 5 s, maxNetworkRetries: 0`
   (`LOCKED_CALL`), so the lock is held at most a few seconds; a slow Stripe fails the delivery (500) and Stripe sends it
   again with its backoff. Every other call: 10 s, one retry (the client's default, was 20 s and two retries).
-- **Throttle**: `@Throttle` per organization and route (the tracker is `billing:<organizationId>`, the throttler's key
-  names the handler): Checkout, the portal and the change `TR_BILLING_THROTTLE_LIMIT` (20) a minute, the billing page
-  `TR_BILLING_READ_THROTTLE_LIMIT` (120) a minute. Per organization, not per address, because the cost is on the shared
-  account whoever sends it; the organization id is known only to its members, and over the limit the answer is 429.
+- **Throttle** (reworked in review round 2): `BillingThrottleGuard`, a route guard, so it runs after the global
+  `AccessGuard` and counts only callers the access rule let through; key `billing:<route>:<organizationId in lower
+  case>` in the throttler's own storage (P5's, Redis-backed when set). Checkout, the portal and the change
+  `TR_BILLING_THROTTLE_LIMIT` (20) a minute, the billing page `TR_BILLING_READ_THROTTLE_LIMIT` (120) a minute, per
+  organization because the cost is on the shared account whoever sends it; the global per-address limit of P5 still
+  applies before it. Over the limit: 429 with `Retry-After`.
 - **Invoice preview** of `GET /billing`: kept 60 s per organization and subscription state (at most 1,000 entries),
   dropped when the webhook or a change writes that organization's subscription. Prices were already kept 10 minutes.
+
+### Review of #678, round 2: the bot threads (2026-11-28)
+
+34 open Greptile and CodeRabbit threads, each verified against `7bed204`; all replied to and resolved. Fixed:
+
+- **Grace from the current delinquency**: `past_due_since` is the oldest open invoice of the subscription as Stripe
+  finalized it (read under the lock, 5 s, no retry), so an old event read late never shortens a newer failure's grace;
+  without an open invoice, the first time it was seen past due.
+- **Plan changes**: every recognized plan item counts (one stays, for the plan ordered; the others go); a raise is
+  judged by the bill when Stripe's prices are known (Small Business with 100 seats, $549, is more than Enterprise's
+  $499), monthly to yearly always, the plan rule otherwise; each change has its own idempotency key; the organization
+  is written from a fresh Stripe read under the lock (never an older answer over a newer webhook), also when the change
+  has nothing left to send (a retry after a failed local write).
+- **Checkout**: serialized per organization on SQLite (one connection, so no row lock there); a session that cannot be
+  stored is expired; one stored for an organization closed meanwhile is refused; every page of the customer's
+  subscriptions is checked; Small Business is offered only with its seat price.
+- **Closed organization and refunds**: a subscription (a Checkout paid late) of a deleted organization is canceled and
+  refunded; the backstop marks its cancellation (`cancellation_details.comment`), so a delivery after a failed refund
+  finishes it; a refund is capped at what the payment put toward the invoice, and is not made twice (an earlier refund
+  of that invoice payment is found).
+- **Throttle after access**, key in lower case (above). **Preview cache**: a preview that finishes after an
+  invalidation is not kept.
+- **Web**: requests of a page that was left do nothing (no redirect), a successful read clears a failed one's error,
+  losing the right to read billing hides it, an organization change drops the pending notice, Enterprise is not held
+  by the hidden seats field, and without Stripe's prices no order can be sent (a notice with a retry).
+- **Tests and docs**: the Checkout completed is the one opened, the preview cache test needs one preview, the fake
+  clears a superseded pending change, a unit test asserts no Stripe call inside a transaction, the smoke script cleans
+  up in `finally`; restricted key gets Refunds; the failed-payment check uses a second organization.
+
+Commits `7a8c0e9` (throttle), `9c77658` (API), `0ca83ad` (web), `efa65b8` (smoke script) and this one. Test bar
+after them: API unit 600 of 600 in 62 suites (the 13 formatter suites as before); e2e 37 suites, 505 passed, 10 skipped,
+0 failed (`billing.e2e-spec.ts` 41); mutation check 70 of 103 (68.0 %); Karma 297 of 297; `build:prod`, tslint,
+prettier and `ng lint` on the changed files clean. Fresh Stripe test-mode smoke run: customer `cus_ViAfJ1LnKwNvsC`,
+sessions `cs_test_b0PV3HBlIf…`, `cs_test_a03ZoM667Q…`, `cs_test_a0V88oKt5P…` (`open`, then `expired`), portal
+`bps_1UgkKSDdBrwbGEirQPBpsLW8`, subscription `sub_1UgkKUDdBrwbGEirGh1ErygQ` (`active`, 2 seats → 1 by
+`create_prorations`, the declined upgrade `pending` with the plan unchanged), canceled and refunded with the amount
+cap and the earlier-refund check: `re_3UgkKVDdBrwbGEir2n3RhfEd` (5,900 usd of `in_1UgkKUDdBrwbGEiriJXbjD2y`).
 
 ### Rebase on P5 (`2c346ca`, 2026-11-28)
 
@@ -765,10 +805,8 @@ nor send Stripe bursts:
   `mountBillingWebhookBody`. Order in `addPipesAndFilters`: helmet, CORS and trust proxy (P5, no body parser), then the
   webhook's raw parser, then Nest's JSON parser at `init`: the raw parser still reads the webhook's body first (the
   signed-event e2e tests prove it).
-- Throttling: the billing routes' `@Throttle` overrides the `default` throttler with the tracker
-  `billing:<organizationId>`, which wins over P5's per-address `getTracker` (route options come first in
-  `ThrottlerGuard`), and counts in P5's shared storage (Redis when set, so across replicas). On those four routes the
-  per-organization limit replaces the global per-address one (600 a minute in SaaS mode); every other route keeps P5's.
+- Throttling: counted in P5's shared storage (Redis when set, so across replicas). Since review round 2 the billing
+  limit is a route guard after the access check, and P5's global per-address limit applies to the billing routes too.
 - Migration `1795572000000-add-billing` already comes after P5's `1795565000000`; P5's upgrade test undoes the later
   migrations itself (kept, the same as P4's change).
 - Test accounts: `signupTestUser` (P5) accepts the current terms and confirms the e-mail; the billing suite uses it.
