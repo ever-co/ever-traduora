@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import Stripe = require('stripe');
 import { config } from '../config';
 import { OrganizationPlanCode, OrganizationRole } from '../domain/organization-actions';
+import { isLiveStatus } from '../domain/billing-status';
 import { planOf } from '../domain/organization-plans';
 import { BillingEvent } from '../entity/billing-event.entity';
 import { Organization } from '../entity/organization.entity';
@@ -36,9 +37,6 @@ import {
 import { BillingView } from './billing.dto';
 import { isTestModeKey, STRIPE_CLIENT, StripeClient } from './stripe-client';
 
-/** A subscription in these states is the organization's: no second Checkout while one exists (DESIGN §3.7) */
-const LIVE_STATUSES: ReadonlySet<string> = new Set(['trialing', 'active', 'past_due', 'unpaid', 'incomplete', 'paused']);
-
 /** A subscription in these states gives the organization its plan (`effectivePlan` then lapses `unpaid` and a long `past_due`) */
 const GRANTING_STATUSES: ReadonlySet<string> = new Set(['trialing', 'active', 'past_due', 'unpaid']);
 
@@ -49,10 +47,6 @@ const PRICE_CACHE_MS = 10 * 60 * 1000;
 
 /** An open session that expires sooner than this is not handed out again */
 const CHECKOUT_REUSE_MARGIN_MS = 5 * 60 * 1000;
-
-export function isLiveStatus(status: string | null | undefined): boolean {
-  return !!status && LIVE_STATUSES.has(status);
-}
 
 /** The order of a Checkout or of a change: what the subscription should buy */
 export interface BillingOrder {

@@ -122,6 +122,15 @@ export function errorToMessage(error: any, action = ''): string {
       default:
         return 'Error, resource not found';
     }
+  } else if (action === 'DeleteAccount' && (domainCode === 'subscription_active' || domainCode === 'owner_required')) {
+    // An organization stands in the way: the API's message names it and says what to do first
+    const message = get(error, 'error.error.message');
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+    return domainCode === 'subscription_active'
+      ? 'An organization you own has a paid subscription. Cancel it under Billing, Manage billing, before deleting your account.'
+      : 'You own an organization with other members. Transfer its ownership before deleting your account.';
   } else if (error.status === 422) {
     switch (action) {
       case 'DeleteAccount':

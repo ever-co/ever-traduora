@@ -478,6 +478,29 @@ describe('Billing (e2e)', () => {
     });
   });
 
+  describe('account deletion', () => {
+    it('refuses while it would close an organization with a live subscription, and goes ahead once it is canceled', async () => {
+      const { owner: solo, organizationId: soloId } = await newOwner('solo-owner');
+      await checkout(solo, { plan: 'small_business', interval: 'monthly' }, soloId).expect(200);
+      await subscribe(soloId, { subscription: 'sub_solo', status: 'active' });
+
+      const refused = await request(server()).delete('/api/v1/users/me').set(auth(solo)).expect(422);
+      expect(refused.body.error.code).toBe('subscription_active');
+      expect(refused.body.error.message).toContain('Cancel it under Billing');
+      expect((await organization(soloId)).status).toBe('active');
+      await request(server()).get('/api/v1/users/me').set(auth(solo)).expect(200);
+
+      const customer = (await organization(soloId)).stripeCustomerId;
+      await deliver(
+        'customer.subscription.deleted',
+        stripe.putSubscription({ id: 'sub_solo', customer, status: 'canceled', plan: 'small_business' }),
+      );
+      const deleted = await request(server()).delete('/api/v1/users/me').set(auth(solo));
+      expect(deleted.status).toBeLessThan(300);
+      expect((await organization(soloId)).status).toBe('deleted');
+    });
+  });
+
   describe('off', () => {
     it('answers 404 outside SaaS mode, and on the default organization', async () => {
       config.saasEnabled = false;
