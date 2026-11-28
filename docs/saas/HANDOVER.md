@@ -485,7 +485,7 @@ DESIGN §3.8, §4.5 (P5 columns), §7 (P5 variables), §10; the P3 "Left" follow
    up by people who passed both, its rights end at that project, and the organization checks (`active`, suspension)
    still apply to it.
 
-### Bot review of #679 (11 threads on `467d890`, then 6 on `631fe30`, all answered)
+### Bot review of #679 (11 threads on `467d890`, 6 on `631fe30`, 4 on `e5e2290`, all answered)
 
 - The two threads on the deleted sign-up guard: the count is now in the handler, on the throttler's storage, which is
   Redis with `REDIS_HOST` and `REDIS_PORT` (`ab19b40`). The in-memory side had the same flaw as the guard, though:
@@ -499,6 +499,9 @@ DESIGN §3.8, §4.5 (P5 columns), §7 (P5 variables), §10; the P3 "Left" follow
 - Web (`0d59d5a`): the app bar shows only for a loaded profile that is not pending; pending pages, the guard and the
   interceptor store the fresh profile; a profile answer that arrives after a sign-out is dropped; check your inbox
   says nothing was sent when the address is the same.
+- Web (`23718d2`): a stored profile belongs to the session that read it. `SetUserInfo` takes only the profile of the
+  account the current token signs in (another tab may have signed in someone else), the check-inbox page drops an
+  answer that arrives after the session changed, and the guard stores the profile it read, ready or pending.
 - Every spelling of an IPv4-mapped address (`::ffff:cb00:7107`, fully written forms) counts as its IPv4, not one
   shared `::/64` bucket (`c25ddef`).
 - **By design, the Redis fallback starts a fresh count.** When Redis does not answer within a second, or errs, a
