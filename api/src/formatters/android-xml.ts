@@ -1,6 +1,7 @@
 import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 import { escapeXmlAttribute } from './xml-attribute';
+import { xmlTexts } from './xml-text';
 
 export const androidXmlParser: Parser = async (data: string) => {
   // A space between two inline tags (<b>a</b> <i>b</i>) is part of the value, so whitespace-only text is read too
@@ -34,9 +35,10 @@ export const androidXmlParser: Parser = async (data: string) => {
 };
 
 export const androidXmlExporter: Exporter = async (data: IntermediateTranslationFormat) => {
+  const texts = xmlTexts();
   const strings = data.translations.map(translation => ({
     _attributes: { name: escapeXmlAttribute(translation.term) },
-    _text: escape(translation.translation),
+    _text: texts.text(escape(translation.translation)),
   }));
   return xmlJs.js2xml(
     {
@@ -45,7 +47,7 @@ export const androidXmlExporter: Exporter = async (data: IntermediateTranslation
         string: strings,
       },
     },
-    { compact: true },
+    { compact: true, textFn: texts.textFn },
   );
 };
 
@@ -82,7 +84,17 @@ function normalize(nodes: xmlJs.Element[], nested = false): xmlJs.Element[] {
 
 /** The value made of normalized nodes: text as it is, inline tags written back as markup */
 function stringContent(nodes: xmlJs.Element[]): string {
-  return nodes.map(node => (node.type === 'text' ? String(node.text) : xmlJs.js2xml({ elements: [node] }))).join('');
+  return nodes.map(node => (node.type === 'text' ? String(node.text) : markup(node))).join('');
+}
+
+/** An inline tag written back as markup, with the text in it escaped: <b>&amp;amp;</b> stays <b>&amp;amp;</b> */
+function markup(node: xmlJs.Element): string {
+  const texts = xmlTexts();
+  const withPlaceholders = (element: xmlJs.Element): xmlJs.Element =>
+    element.type === 'text'
+      ? { ...element, text: texts.text(String(element.text)) }
+      : { ...element, elements: element.elements && element.elements.map(withPlaceholders) };
+  return xmlJs.js2xml({ elements: [withPlaceholders(node)] }, { textFn: texts.textFn });
 }
 
 function unescape(str: string): string {

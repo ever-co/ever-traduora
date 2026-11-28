@@ -3,6 +3,7 @@
 import * as xmlJs from 'xml-js';
 import { Exporter, IntermediateTranslation, IntermediateTranslationFormat, Parser } from '../domain/formatters';
 import { escapeXmlAttribute } from './xml-attribute';
+import { xmlTexts } from './xml-text';
 
 export const resXParser: Parser = async (data: string) => {
   // Keep spaces-only text: Traduora writes xml:space="preserve", and .NET keeps such a value as it is
@@ -39,9 +40,10 @@ export const resXParser: Parser = async (data: string) => {
 };
 
 export const resXExporter: Exporter = async (data: IntermediateTranslationFormat) => {
+  const texts = xmlTexts();
   const strings = data.translations.map(translation => ({
     _attributes: { name: escapeXmlAttribute(translation.term), 'xml:space': 'preserve' },
-    value: translation.translation,
+    value: texts.text(translation.translation),
   }));
   const xml = xmlJs.js2xml(
     {
@@ -51,25 +53,29 @@ export const resXExporter: Exporter = async (data: IntermediateTranslationFormat
         resheader: [
           {
             _attributes: { name: 'resmimetype' },
-            value: 'text/microsoft-resx',
+            value: texts.text('text/microsoft-resx'),
           },
           {
             _attributes: { name: 'version' },
-            value: '2.0',
+            value: texts.text('2.0'),
           },
           {
             _attributes: { name: 'reader' },
-            value: 'System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089',
+            value: texts.text(
+              'System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089',
+            ),
           },
           {
             _attributes: { name: 'writer' },
-            value: 'System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089',
+            value: texts.text(
+              'System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089',
+            ),
           },
         ],
         data: strings,
       },
     },
-    { compact: true, spaces: 2 },
+    { compact: true, spaces: 2, textFn: texts.textFn },
   );
   return xml;
 };
