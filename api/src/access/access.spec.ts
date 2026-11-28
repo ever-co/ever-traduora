@@ -62,6 +62,8 @@ describe('every route declares who may call it', () => {
         'GET /api/v1/operator/organizations/:id',
         'POST /api/v1/operator/organizations/:id/suspend',
         'POST /api/v1/operator/organizations/:id/restore',
+        'POST /api/v1/operator/organizations/:id/release-slug',
+        'POST /api/v1/operator/organizations/:id/billing-cancellation',
         'GET /api/v1/operator/audit',
       ].sort((a, b) => a.localeCompare(b)),
     );

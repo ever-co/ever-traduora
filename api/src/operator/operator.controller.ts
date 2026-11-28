@@ -1,11 +1,25 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, NotFoundException, Param, Post, Query, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Access } from '../access/access.decorator';
 import { OperatorAuditAction } from '../entity/operator-audit.entity';
 import { User } from '../entity/user.entity';
 import { isId } from '../services/authorization.service';
 import { assertSaasEnabled } from '../services/organization/organization.service';
-import { OperatorOrganizations, REASON_MAX, REASON_MIN } from '../services/organization/organization-operator.service';
+import { ActingOperator, OperatorOrganizations, REASON_MAX, REASON_MIN, StatusAction } from '../services/organization/organization-operator.service';
+import { OperatorConsoleGuard } from './operator-check.service';
 import {
   ListOperatorAuditResponse,
   ListOperatorOrganizationsResponse,
@@ -29,8 +43,13 @@ const MAX_PAGE = 100_000;
  * list and search every organization, see one with its plan and usage, suspend or restore it with a reason, and read the
  * audit log of those actions. `@Access('operator')`: everyone else, API keys included, gets 404, as for any route they
  * may not see. The `:id` parameter is not `:organizationId`: these routes are not a member's organization routes.
+ *
+ * On top of the access guard's operator check, the console takes only accounts listed explicitly
+ * (`OperatorConsoleGuard`): without `TR_EVER_ADMIN_EMAILS` or `TR_ADMIN_EMAIL` set, nobody operates it, not even the
+ * built-in fallback address.
  */
 @Controller('api/v1/operator')
+@UseGuards(OperatorConsoleGuard)
 @ApiOAuth2([])
 @ApiTags('Operator')
 export class OperatorController {
@@ -54,6 +73,7 @@ export class OperatorController {
     return this.organizations.list({
       q: query.q,
       status: query.status,
+      billing: query.billing,
       page: pageNumber(query.page, 1, MAX_PAGE),
       limit: pageNumber(query.limit, DEFAULT_LIMIT, MAX_LIMIT),
     });
@@ -96,6 +116,38 @@ export class OperatorController {
   }
 
   @Access('operator', SAAS_ONLY)
+  @Post('organizations/:id/release-slug')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Release a deleted organization's address, with a reason (operator)",
+    description: 'Its slug becomes deleted-<id>, so another organization can take the address. Audited.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Released', type: OperatorOrganizationResponse })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Not deleted (organization_status), or released already (slug_released)' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  async releaseSlug(@Req() req, @Param('id') id: string, @Body() payload: OperatorReasonRequest) {
+    const { operator, reason } = this.actingWith(req, id, payload);
+    await this.organizations.releaseSlug(operator, id, reason);
+    return { data: await this.found(id) };
+  }
+
+  @Access('operator', SAAS_ONLY)
+  @Post('organizations/:id/billing-cancellation')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Try a deleted organization's subscription cancellation again, with a reason (operator)",
+    description: 'For a cancellation that is pending or failed after the deletion. Audited; the outcome is in the detail.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Tried', type: OperatorOrganizationResponse })
+  @ApiResponse({ status: HttpStatus.CONFLICT, description: 'Nothing waits for billing (billing_cancellation_none)' })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found' })
+  async retryBillingCancellation(@Req() req, @Param('id') id: string, @Body() payload: OperatorReasonRequest) {
+    const { operator, reason } = this.actingWith(req, id, payload);
+    await this.organizations.retryBillingCancellation(operator, id, reason);
+    return { data: await this.found(id) };
+  }
+
+  @Access('operator', SAAS_ONLY)
   @Get('audit')
   @ApiOperation({ summary: 'The audit log of the operator actions, newest first (operator)' })
   @ApiResponse({ status: HttpStatus.OK, description: 'Success', type: ListOperatorAuditResponse })
@@ -108,9 +160,15 @@ export class OperatorController {
     });
   }
 
-  private async change(req: { user?: unknown }, id: string, action: OperatorAuditAction, payload: OperatorReasonRequest) {
+  private async change(req: { user?: unknown }, id: string, action: StatusAction, payload: OperatorReasonRequest) {
+    const { operator, reason } = this.actingWith(req, id, payload);
+    await this.organizations.changeStatus(operator, id, action, reason);
+    return { data: await this.found(id) };
+  }
+
+  /** The operator who acts (the access guards let only an operator's account through; the audit names it) and why. */
+  private actingWith(req: { user?: unknown }, id: string, payload: OperatorReasonRequest): { operator: ActingOperator; reason: string } {
     const operator = req.user;
-    // The access guard let only an operator's account through; the audit names it
     if (!(operator instanceof User) || !isId(operator.id) || typeof operator.email !== 'string') {
       throw new NotFoundException();
     }
@@ -121,8 +179,7 @@ export class OperatorController {
     if (!isId(id)) {
       throw new NotFoundException();
     }
-    await this.organizations.changeStatus({ id: operator.id, email: operator.email }, id, action, reason);
-    return { data: await this.found(id) };
+    return { operator: { id: operator.id, email: operator.email }, reason };
   }
 
   private async found(id: string) {

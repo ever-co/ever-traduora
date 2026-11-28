@@ -35,9 +35,13 @@ export function isWellFormedSlug(slug: string): boolean {
   return typeof slug === 'string' && SLUG_PATTERN.test(slug) && !slug.includes('--');
 }
 
+/** The prefix of the slugs the deleted organizations release theirs for (`deleted-<id>`): never a new organization's. */
+export const RELEASED_SLUG_PREFIX = 'deleted-';
+
 /** Whether a new organization, or a rename, may take `slug`. */
 export function isAllowedSlug(slug: string): boolean {
-  return isWellFormedSlug(slug) && !RESERVED_SLUGS.has(slug);
+  // `deleted-…` is the address a deleted organization gives up its own for (the operator console's release)
+  return isWellFormedSlug(slug) && !RESERVED_SLUGS.has(slug) && !slug.startsWith(RELEASED_SLUG_PREFIX);
 }
 
 /** `text` without the hyphens at its end. */
@@ -72,10 +76,15 @@ function slugBase(name: string): string {
 
 /**
  * A slug derived from an organization name: "Acme GmbH & Co." → `acme-gmbh-co`. Accents are dropped, anything else
- * becomes a hyphen. A result that is too short or reserved gets a random suffix, so it is always allowed.
+ * becomes a hyphen. A result that is too short or reserved gets a random suffix, one that starts as a released address
+ * (`deleted-`) gets `org-` in front, so it is always allowed.
  */
 export function slugFromName(name: string, suffix: () => string = randomSuffix): string {
-  const slug = slugBase(name);
+  let slug = slugBase(name);
+  if (slug.startsWith(RELEASED_SLUG_PREFIX)) {
+    // "Deleted Things Ltd": that prefix is the released addresses' own
+    slug = trimTrailingHyphens(`org-${slug}`.slice(0, SLUG_MAX_LENGTH));
+  }
   if (slug.length < SLUG_MIN_LENGTH || RESERVED_SLUGS.has(slug)) {
     return withSuffix(slug || 'org', suffix());
   }

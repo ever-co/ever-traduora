@@ -534,6 +534,9 @@ describe('Organization isolation (e2e)', () => {
 
   describe("an operator's suspension", () => {
     it('locks B out at its next request, API key too, leaves A working, and is audited', async () => {
+      const operatorsBefore = process.env.TR_EVER_ADMIN_EMAILS;
+      // The console takes only operators the environment names
+      process.env.TR_EVER_ADMIN_EMAILS = config.everPlatform.adminEmails[0];
       const operator = await signupTestUser(app, config.everPlatform.adminEmails[0]);
       const operatorCall = (action: string) =>
         request(server())
@@ -563,6 +566,11 @@ describe('Organization isolation (e2e)', () => {
         ['restore', 'Isolation suite: restore', operator.id],
         ['suspend', 'Isolation suite: suspend', operator.id],
       ]);
+      if (operatorsBefore === undefined) {
+        delete process.env.TR_EVER_ADMIN_EMAILS;
+      } else {
+        process.env.TR_EVER_ADMIN_EMAILS = operatorsBefore;
+      }
     });
   });
 

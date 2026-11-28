@@ -1,5 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiOAuth2, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { config } from '../config';
 import {
   CreateOrganizationRequest,
   InviteOrganizationMemberRequest,
@@ -45,6 +47,8 @@ export default class OrganizationController {
     return { data: await this.organizations.listForUser(user.id) };
   }
 
+  // A deleted organization keeps its slug: creating and deleting in a loop would hoard addresses (P6)
+  @Throttle({ default: { limit: config.organizationChanges.limit, ttl: config.organizationChanges.ttl } })
   @Access('user')
   @Post()
   @HttpCode(HttpStatus.CREATED)

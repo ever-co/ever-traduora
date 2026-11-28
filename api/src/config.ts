@@ -85,6 +85,13 @@ export const config = {
   // Name of the default organization, made by the migration for the existing data or with the first account
   defaultOrganizationName: (env.TR_DEFAULT_ORGANIZATION_NAME || '').trim() || 'My organization',
   maxProjectsPerUser: parseInt(env.TR_MAX_PROJECTS_PER_USER, 10) || 100,
+  // SaaS mode (P6): how many organizations one client may create, and how many delete, per TR_ORGANIZATION_CHANGES_TTL
+  // milliseconds. A deleted organization keeps its slug as a tombstone, so creating and deleting in a loop would hoard
+  // addresses
+  organizationChanges: {
+    limit: getNumberOrDefault(env.TR_ORGANIZATION_CHANGES_LIMIT, 10),
+    ttl: getNumberOrDefault(env.TR_ORGANIZATION_CHANGES_TTL, 3_600_000),
+  },
   // SaaS mode: days a past-due subscription keeps its plan before the organization gets Starter's limits (OD-T14)
   billingPastDueGraceDays: getNumberOrDefault(env.TR_BILLING_PAST_DUE_GRACE_DAYS, 14),
   defaultProjectPlan: env.TR_DEFAULT_PROJECT_PLAN || 'open-source',

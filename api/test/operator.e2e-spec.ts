@@ -26,6 +26,7 @@ describe('Operator console (e2e)', () => {
   let projectId: string;
   let keyToken: string;
   const saasBefore = config.saasEnabled;
+  const operatorsBefore = process.env.TR_EVER_ADMIN_EMAILS;
 
   const server = () => app.getHttpServer();
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -47,6 +48,8 @@ describe('Operator console (e2e)', () => {
 
   beforeAll(async () => {
     config.saasEnabled = true;
+    // The console takes only operators the environment names (never the built-in fallback address)
+    process.env.TR_EVER_ADMIN_EMAILS = config.everPlatform.adminEmails[0];
     app = await createAndMigrateApp();
     dataSource = app.get(DataSource);
 
@@ -82,6 +85,7 @@ describe('Operator console (e2e)', () => {
 
   afterAll(async () => {
     config.saasEnabled = saasBefore;
+    restoreEnv('TR_EVER_ADMIN_EMAILS', operatorsBefore);
     await app.close();
   });
 
@@ -133,6 +137,25 @@ describe('Operator console (e2e)', () => {
       }
     });
 
+    it('has no operator when the environment names none, not even the built-in fallback address', async () => {
+      delete process.env.TR_EVER_ADMIN_EMAILS;
+      const adminBefore = process.env.TR_ADMIN_EMAIL;
+      delete process.env.TR_ADMIN_EMAIL;
+      try {
+        expect(operator.email).toBe('local.admin@ever.co');
+        await request(server()).get('/api/v1/operator/status').set(as(operator)).expect(404);
+        await request(server()).get('/api/v1/operator/organizations').set(as(operator)).expect(404);
+        await suspend(organization.id).expect(404);
+        // TR_ADMIN_EMAIL alone names the operator too
+        process.env.TR_ADMIN_EMAIL = operator.email;
+        await request(server()).get('/api/v1/operator/status').set(as(operator)).expect(200);
+      } finally {
+        process.env.TR_EVER_ADMIN_EMAILS = config.everPlatform.adminEmails[0];
+        restoreEnv('TR_ADMIN_EMAIL', adminBefore);
+      }
+      expect((await dataSource.getRepository(Organization).findOneBy({ id: organization.id })).status).toBe(OrganizationStatus.Active);
+    });
+
     it('answers the operator', async () => {
       const res = await request(server()).get('/api/v1/operator/status').set(as(operator)).expect(200);
       expect(res.body.data).toEqual({ operator: true });
@@ -161,6 +184,7 @@ describe('Operator console (e2e)', () => {
         'projectsCount',
         'seatsUsed',
         'stringsUsed',
+        'billingCancellation',
         'date',
       ]);
       expect(acme).toMatchObject({
@@ -188,8 +212,11 @@ describe('Operator console (e2e)', () => {
       expect(await search({ q: organization.id })).toEqual(['Acme Translations']);
       // The member's e-mail finds only the organization they own, not the ones they belong to
       expect(await search({ q: 'member-acme' })).toEqual(['Member own organization']);
-      expect(await search({ q: '%' })).toHaveLength(5);
       expect(await search({ q: 'no such organization' })).toEqual([]);
+      // LIKE wildcards in the text are literal: "_" matches only an underscore
+      expect(await search({ q: 'owner_acme' })).toEqual([]);
+      expect(await search({ q: '%' })).toEqual([]);
+      expect(await search({})).toHaveLength(5);
       expect(await search({ status: 'suspended' })).toEqual([]);
       expect(await search({ status: 'active', q: 'outsider' })).toEqual(['Outsider organization']);
     });
@@ -198,6 +225,8 @@ describe('Operator console (e2e)', () => {
       for (const query of [{ status: 'gone' }, { page: '0' }, { limit: 'many' }, { q: 'x'.repeat(101) }]) {
         await request(server()).get('/api/v1/operator/organizations').query(query).set(as(operator)).expect(400);
       }
+      await request(server()).get('/api/v1/operator/organizations').query({ billing: 'failed' }).set(as(operator)).expect(400);
+      await request(server()).get('/api/v1/operator/audit').query({ organizationId: 'not-a-uuid' }).set(as(operator)).expect(400);
       const capped = await request(server()).get('/api/v1/operator/organizations').query({ limit: '5000' }).set(as(operator)).expect(200);
       expect(capped.body.meta.limit).toBe(100);
     });
@@ -312,6 +341,62 @@ describe('Operator console (e2e)', () => {
       expect(ofOther.body).toEqual({ data: [], meta: { total: 0, page: 1, limit: 25 } });
     });
 
+    describe("a deleted organization's address and billing", () => {
+      let closed: { id: string; name: string; slug: string };
+      const releaseSlug = (id: string) =>
+        request(server()).post(`/api/v1/operator/organizations/${id}/release-slug`).set(as(operator)).send({ reason: 'Owner asked for the address' });
+
+      beforeAll(async () => {
+        closed = (await request(server()).get('/api/v1/organizations').set(as(outsider)).expect(200)).body.data[0];
+        await request(server()).delete(`/api/v1/organizations/${closed.id}`).set(as(outsider)).send({ slug: closed.slug }).expect(204);
+      });
+
+      it('shows its billing cancellation, settled at once without billing, and lists nothing unsettled', async () => {
+        const detail = (await request(server()).get(`/api/v1/operator/organizations/${closed.id}`).set(as(operator)).expect(200)).body.data;
+        expect(detail).toMatchObject({ status: 'deleted', billingCancellation: { status: 'done', attempts: 1, lastError: null } });
+        const listed = (await request(server()).get('/api/v1/operator/organizations').set(as(operator)).expect(200)).body.data;
+        expect(listed.find(row => row.id === closed.id).billingCancellation).toBe('done');
+        expect(listed.find(row => row.id === organization.id).billingCancellation).toBeNull();
+        const unsettled = await request(server()).get('/api/v1/operator/organizations').query({ billing: 'unsettled' }).set(as(operator)).expect(200);
+        expect(unsettled.body.data).toEqual([]);
+        const retry = await request(server())
+          .post(`/api/v1/operator/organizations/${closed.id}/billing-cancellation`)
+          .set(as(operator))
+          .send({ reason: 'Nothing to retry' })
+          .expect(409);
+        expect(retry.body.error.code).toBe('billing_cancellation_none');
+      });
+
+      it('releases its address for another organization, audited, once', async () => {
+        const active = await releaseSlug(organization.id).expect(409);
+        expect(active.body.error.code).toBe('organization_status');
+        // Taken by the tombstone until it is released
+        await request(server()).post('/api/v1/organizations').set(as(member)).send({ name: 'Wants the address', slug: closed.slug }).expect(409);
+
+        const released = await releaseSlug(closed.id).expect(200);
+        expect(released.body.data.slug).toBe(`deleted-${closed.id.replace(/-/g, '')}`);
+        expect(released.body.data.audit[0]).toMatchObject({
+          action: 'release_slug',
+          reason: 'Owner asked for the address',
+          operator: { userId: operator.id },
+        });
+        expect((await releaseSlug(closed.id).expect(409)).body.error.code).toBe('slug_released');
+
+        const taken = await request(server())
+          .post('/api/v1/organizations')
+          .set(as(member))
+          .send({ name: 'Wants the address', slug: closed.slug })
+          .expect(201);
+        expect(taken.body.data.slug).toBe(closed.slug);
+        // Nobody can take a released address for themselves
+        await request(server())
+          .post('/api/v1/organizations')
+          .set(as(member))
+          .send({ name: 'Sneaky', slug: `deleted-${organization.id.replace(/-/g, '')}` })
+          .expect(400);
+      });
+    });
+
     it('keeps the rows when the operator account goes', async () => {
       const copy = await dataSource.getRepository(OperatorAudit).count();
       const membership = await dataSource.getRepository(OrganizationUser).findOneBy({ userId: operator.id, role: OrganizationRole.Owner });
@@ -321,6 +406,15 @@ describe('Operator console (e2e)', () => {
     });
   });
 });
+
+/** Puts an environment variable back as it was (unset when it was) */
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
 
 describe('Operator console on a single-tenant install (e2e)', () => {
   let app: INestApplication;
