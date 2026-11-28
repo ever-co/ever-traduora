@@ -39,10 +39,20 @@ describe('ClipboardService', () => {
   it('falls back to execCommand when the async API rejects', async () => {
     setClipboard({ writeText: () => Promise.reject(new Error('denied')) });
     const exec = spyOn(document, 'execCommand').and.returnValue(true);
+    // Component specs leave their fixtures in the page (test.ts keeps them after each test), e.g. a read-only textarea
+    const leftover = document.createElement('textarea');
+    leftover.setAttribute('readonly', '');
+    document.body.appendChild(leftover);
+    const textareas = document.querySelectorAll('textarea[readonly]').length;
 
-    expect(await service.copy('Hello')).toBeTrue();
-    expect(exec).toHaveBeenCalledWith('copy');
-    expect(document.querySelectorAll('textarea[readonly]').length).toBe(0);
+    try {
+      expect(await service.copy('Hello')).toBeTrue();
+      expect(exec).toHaveBeenCalledWith('copy');
+      // Only the textarea of the copy is gone: compare with the page as it was, not with an empty page
+      expect(document.querySelectorAll('textarea[readonly]').length).toBe(textareas);
+    } finally {
+      leftover.remove();
+    }
   });
 
   it('reports failure when no copy method works', async () => {
