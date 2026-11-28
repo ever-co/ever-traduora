@@ -152,7 +152,7 @@ export class AuthController {
   async signup(@Body() payload: SignupRequest, @Ip() ip: string) {
     // The bot check first, then the terms (SaaS mode): nothing is looked up for a request that fails either. Only then
     // is the sign-up counted against the address's limit, so refused bots cannot use up the sign-ups of a shared address
-    await this.turnstile.assertHuman(payload.turnstileToken, ip);
+    await this.turnstile.assertHuman(payload.turnstileToken, ip, 'signup');
     const terms = acceptedTerms(payload);
     await this.countSignup(ip);
     const normalizedEmail = normalizeEmail(payload.email);
@@ -435,7 +435,7 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'No user with such email found' })
   async forgotPassword(@Body() payload: ForgotPasswordRequest, @Ip() ip: string) {
     // Before the account is looked up: a request that fails the bot check learns nothing about the email
-    await this.turnstile.assertHuman(payload.turnstileToken, ip);
+    await this.turnstile.assertHuman(payload.turnstileToken, ip, 'forgot-password');
     const { user, token } = await this.userService.forgotPassword(payload.email);
     // No token while a link sent moments ago still works: the answer is the same, so it does not tell
     if (token) {

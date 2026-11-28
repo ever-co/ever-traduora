@@ -288,13 +288,14 @@ describe('Accounts and hardening (e2e)', () => {
       config.turnstile.siteKey = '1x00000000000000000000AA';
       config.turnstile.secretKey = '1x0000000000000000000000000000000AA';
     };
-    const siteverify = (success: boolean, seen: string[] = []) =>
+    /** Cloudflare's answer for a token of this form (`action`), solved on the e2e host (TR_VIRTUAL_HOST, localhost) */
+    const siteverify = (success: boolean, seen: string[] = [], action = 'signup', hostname = 'localhost') =>
       nock(TURNSTILE)
         .post(SITEVERIFY, body => {
           seen.push(typeof body === 'string' ? body : new URLSearchParams(body).toString());
           return true;
         })
-        .reply(200, success ? { success: true } : { success: false, 'error-codes': ['invalid-input-response'] });
+        .reply(200, success ? { success: true, action, hostname } : { success: false, 'error-codes': ['invalid-input-response'] });
 
     beforeEach(() => {
       nock.disableNetConnect();
@@ -310,12 +311,23 @@ describe('Accounts and hardening (e2e)', () => {
       expect(scope.isDone()).toBe(false);
     });
 
-    it('stays off with only one key', async () => {
+    it('stays off with only one key on a single-tenant install (SaaS mode refuses to start then)', async () => {
       await start(() => {
-        config.saasEnabled = true;
+        config.saasEnabled = false;
         config.turnstile.siteKey = '1x00000000000000000000AA';
       });
       await signup('one-key@test.com').expect(200);
+    });
+
+    it('refuses a token solved on another form or another host (review of #679)', async () => {
+      await start(turnstileOn);
+      siteverify(true, [], 'forgot-password');
+      expect((await signup('other-form@test.com', { turnstileToken: 'forgot-token' }).expect(400)).body.error.code).toBe('turnstile_failed');
+      siteverify(true, [], 'signup', 'evil.example');
+      expect((await signup('other-host@test.com', { turnstileToken: 'foreign-token' }).expect(400)).body.error.code).toBe('turnstile_failed');
+      siteverify(true, [], 'signup');
+      await request(server()).post('/api/v1/auth/forgot-password').send({ email: 'nobody@test.com', turnstileToken: 'signup-token' }).expect(400);
+      expect(await dataSource.getRepository(User).count({ where: { email: 'other-form@test.com' } })).toBe(0);
     });
 
     it('hands the site key to the web app and checks every sign-up with siteverify', async () => {
@@ -347,7 +359,7 @@ describe('Accounts and hardening (e2e)', () => {
       expect((await request(server()).post('/api/v1/auth/forgot-password').send({ email: 'nobody@test.com' }).expect(400)).body.error.code).toBe(
         'turnstile_failed',
       );
-      siteverify(true);
+      siteverify(true, [], 'forgot-password');
       await request(server()).post('/api/v1/auth/forgot-password').send({ email: 'forgetful@test.com', turnstileToken: 'good-token' }).expect(200);
       expect(reset).toHaveBeenCalledTimes(1);
     });
