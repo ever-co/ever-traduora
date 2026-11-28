@@ -205,6 +205,7 @@ Fixes after the checklist (rendered in SaaS mode at 1024 px and 390 px):
 | 2026-11-27 | `6b689cd` | 60 of 82 | 73.2 % | ≥ 60 % ✅ |
 | 2026-11-27 | `452225e` | 64 of 96 (the suite passes all 96 as it is, fixtures confirmed) | 66.7 % | ≥ 60 % ✅ |
 | 2026-11-27 | `79fb2ff` (P3) | 64 of 97 (B's `/usage` added; the new check that each usage counts only its own projects passes against the double, as each side asks for its own) | 66.0 % | ≥ 60 % ✅ |
+| 2026-11-28 | `b59c133` (P6) | 65 of 98 (B's export, deletion and operator routes added to the routes A is refused; an operator's suspension of B, which fails against the double as the members get in) | 66.3 % | ≥ 60 % ✅ |
 
 What still passes against the double, by design: the checks that do not rest on the organization scope (B's child ids
 through A's own project are scoped by the project id; an API key is tied to its project; invitation tokens are tied to
@@ -490,13 +491,15 @@ The suite passes all 98 as it is.
 
 ### Test results (this machine, SQLite)
 
-- API unit (`--runInBand`): UNIT_RESULT. The 13 `src/formatters/*` suites cannot start on this PC (EPERM, as before).
+- API unit (`--runInBand`): 518 of 518 tests pass in 50 suites. The 13 `src/formatters/*` suites cannot start on this PC (EPERM, as before).
   New: `utils/zip-writer.spec.ts` (7), `operator/operator.spec.ts` (operator check, billing seam, slug confirmation,
   export names, search pattern, pages).
-- API e2e on SQLite, the whole suite: E2E_RESULT. New: `test/operator.e2e-spec.ts` (14), `test/organization-data.e2e-spec.ts`
+- API e2e on SQLite, the whole suite: 38 suites, 460 passed, 10 skipped (the SQLite-only skips), 0 failed. New: `test/operator.e2e-spec.ts` (14), `test/organization-data.e2e-spec.ts`
   (11), `test/account-deletion.e2e-spec.ts` (7); the isolation suite 98 (was 97).
+- `test/organization-upgrade.e2e-spec.ts` assumed the organizations migration was the last one; it now undoes the
+  later phases' migrations first and runs them again (P4's and P5's migrations need nothing more there).
 - `yarn --cwd api lint`, `tsc --noEmit` and prettier on the changed files: clean.
-- Web app Karma: KARMA_RESULT. `build:prod` succeeds (the operator pages are their own lazy chunk, 42.6 kB).
+- Web app Karma: 280 of 280 (243 before P6; 37 new: operator service, guard, list, detail, audit, danger zone, account deletion). `build:prod` succeeds (the operator pages are their own lazy chunk, 42.6 kB).
 - Postgres 15 and MySQL 5.7: not run here (CI runs every e2e there). Worth a look in CI: the operator list's
   `LOWER(…) LIKE` search and `organization.id IN (subquery)` on Postgres uuids, the migration's MySQL index creation.
 
