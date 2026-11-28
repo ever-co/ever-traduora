@@ -18,7 +18,7 @@ design says how it is built.
 | P3 Plans and seats | 🔍 in review | [#674](https://github.com/ever-co/ever-traduora/pull/674) (base `feat/saas-p2-isolation`) | Branch `feat/saas-p3-plans`; review round 1 fixed; see "P3 Plans, seats and strings" below |
 | P4 Billing (Stripe test mode) | ⏳ | — | |
 | P5 Accounts and hardening | ⏳ | — | |
-| P6 Operator console and data rights | ⏳ | — | |
+| P6 Operator console and data rights | 🔨 code complete | — (PR by the coordinator) | Branch `feat/saas-p6-operator`; mutation check 66.3 %; P4 registers `BILLING_CANCELLATION`; see "P6 Operator console and data rights" below |
 | P7 Environments (dev, stage, prod) | ✅ live 2026-11-26 23:5xZ | k8s-gitops `54463a2b`, `6378a731`, `7783981f` | `app-dev.traduora.co`, `app-stage.traduora.co` (noindex); prod on nip.io until P8; Postgres `ever_traduora_<env>`; sign-ups off until P1+P2 ship. Runbook: homelab `projects/traduora/knowledge/runbooks/hosted-traduora.md`. Owed: first prod restore drill. Moved to P8: prod Valkey + 2 replicas |
 | P8 Go live | ⏳ | — | Stripe live keys and webhook are a claimed change |
 | P9 Open the sale | ⏳ | — | |
@@ -372,11 +372,183 @@ pending project invites, and every refusal showed as a red error.
 - P4: the billing fields on `organization` (`billing_status`, `past_due_since`, `extra_seats`), which `effectivePlan`
   already reads; a link to billing from the 402 notice and the plan card.
 
+## P6 Operator console and data rights (branch `feat/saas-p6-operator`)
+
+DESIGN §3.9, §4.5, §5, §6, §10. From `origin/develop` `feb237b` (P3 merged as #674). Lane worktree
+`E:\Coding\Worktrees\ever-traduora-p6`. Runs beside P4 (billing) and P5 (hardening); merge order P5, P4, P6.
+
+### Done
+
+- **Operators** are the `EverAdminGuard` people (a verified e-mail in `TR_EVER_ADMIN_EMAILS`, else `TR_ADMIN_EMAIL`).
+  The rule is now one function, `isOperatorAccount` (`access/operator-check.ts`), used by `EverInstanceService` and by
+  the new `OperatorCheckService` (`api/src/operator/`). The console needs the operator check without the Ever Platform
+  modules, so the operator module provides `OPERATOR_CHECK` too; where another module provides it (the Ever Platform
+  instance module, whose settings the e2e suites set apart) its answer is used, found by its token
+  (`moduleRef.get(OPERATOR_CHECK, { strict: false, each: true })`). Core code still imports no Ever Platform module
+  (`ever-stats-static.spec.ts`).
+- **Routes** (`api/src/operator/operator.controller.ts`), all `@Access('operator', { enabled: assertSaasEnabled })`:
+  a single-tenant install has none (404 `saas_disabled` before sign-in); everyone but an operator, API keys included,
+  gets 404; signed out 401.
+
+  | Route | |
+  |---|---|
+  | `GET /operator/status` | `{ operator: true }`; the web app's probe for the menu entry and the `/operator` guard |
+  | `GET /operator/organizations?q=&status=&page=&limit=` | newest first, 25 a page (at most 100); `q` matches name or slug (case-insensitive), the owner's e-mail, or the exact id; each row has owner, members and projects counts, cached seats and strings |
+  | `GET /operator/organizations/:id` | the row plus the effective plan, seats and strings counted now (P3's `organizationUsage`) and the latest 20 audit rows |
+  | `POST /operator/organizations/:id/suspend`, `…/restore` | a reason of 3 to 500 characters (trimmed); `active` → `suspended` → `active` only, else 409 `organization_status`; the default organization is never suspended (400 `default_organization`) |
+  | `GET /operator/audit?organizationId=&page=&limit=` | newest first |
+
+  The parameter is `:id`, not `:organizationId`: these are not a member's organization routes (`access.spec.ts`).
+- **`operator_audit`** (`migrations/1795867200000-add-operator-audit.ts`, TableSpec, three engines, indexes on
+  `organization_id` and `date_created`; entity `OperatorAudit`): operator id and e-mail as it was, action, organization,
+  reason, `date_created` (set by the service with milliseconds, so rows of one second keep their order). Written with
+  the status change in one `readCommittedTransaction` under `lockOrganization`. No foreign keys: rows outlive the
+  operator's account (e2e).
+- **Suspension takes effect at once**: P2's checks read the status on every request. e2e (`test/operator.e2e-spec.ts`,
+  and the isolation suite through the operator routes): the owner's, a member's and the API key's next request answers
+  403 `organization_suspended`, the project list drops the organization's projects, and after the restore everything
+  works again.
+- **Organization export** `GET /organizations/:organizationId/export` (`organization:ExportOrganization`: owner,
+  admin; SaaS mode only; 404 `saas_disabled` for the default organization, whose members list would be every account).
+  A ZIP archive streamed entry by entry (`utils/zip-writer.ts`): `organization.json` (organization, effective plan,
+  usage, who exported, when, format `ever-traduora-organization-export/1`), `members.json`, and per project
+  `projects/<name>-<id>/project.json` (locales, project members), `terms.json` (context, labels), `labels.json`,
+  `translations/<locale>.json`. The translations come from the project export's own query, now
+  `utils/locale-translations.ts` (the project export uses it too), and its `jsonFlatExporter`, so a locale file is
+  byte for byte the project export's `jsonflat` (e2e). The projects are those the exporting person sees: all of them
+  for an owner or admin where admins see all projects. A failure after the first bytes breaks the download off instead
+  of sending a truncated archive.
+- **Organization deletion** `DELETE /organizations/:organizationId` with `{ slug }` (`organization:DeleteOrganization`,
+  owner; SaaS mode only), `services/organization/organization-deletion.service.ts`:
+  1. the slug must be typed (spaces and case aside; 400 `slug_mismatch`); never the default organization (400
+     `default_organization`);
+  2. billing first, outside the transaction: `BillingCancellation.cancelForDeletion(organization)`; a failure stops the
+     deletion with nothing deleted (e2e with a fake);
+  3. one transaction in the global order: the owner's account (`lockAccountRow`) → every project of the organization
+     (`lockProjects`) → `lockOrganization`; the status, the slug and the ownership are checked again under the locks;
+  4. `deleteOrganizationData` (`organization-membership.ts`): the projects (CASCADE: terms, locales, translations and
+     their history, labels, project members, invitations, API keys), the organization's invitations and memberships;
+     the row stays as a `deleted` tombstone with its counters at 0. The owner's project count goes down by the projects
+     deleted, as a project deletion does.
+
+  e2e: the other organization's every table is exactly as before, its people and key keep working; the deleted one's
+  former people and key get 404/401; every account stays.
+- **`BillingCancellation`** (`services/organization/billing-cancellation.ts`) is the seam for P4: an interface
+  `cancelForDeletion(organization): Promise<void>`, looked up by the token `BILLING_CANCELLATION`
+  (`moduleRef.get(…, { strict: false })`, the way the access guard finds the operator check), with a no-op default.
+  **P4 registers `{ provide: BILLING_CANCELLATION, useExisting: <its billing service> }` in its module**; nothing else
+  changes here. Its call must be safe to repeat (a deletion that failed later can be sent again) and do nothing for an
+  organization without a subscription. A throw stops the deletion; today the filter answers it 500 unless P4 throws an
+  `OrganizationException` with its own code (e.g. `billing_unavailable`, 503).
+- **Account deletion for the last admin** (`UserService.deleteAccount(user, choices)`, `services/organization/account-deletion.ts`):
+  - `GET /users/me/deletion`: projects where the person is the last admin while others use them (with those members as
+    candidates), and every non-default organization they own (`onlyMember`, the other members, `projectsCount`).
+  - `DELETE /users/me` takes an optional body: `projectAdmins` (a project member becomes admin), `organizationOwners` (a
+    member becomes owner, the leaver admin then gone), `deleteOrganizations` (an organization they are alone in, its
+    slug typed). Without a body it is exactly as before. Errors: 400 `transfer_invalid` (not the person's to hand over,
+    not a member there), 400 `slug_mismatch`, 403 `organization_suspended` (a suspended organization is not deleted
+    with the account: it stays for the operators), 422 as before.
+  - develop's #668 locking is kept: the account first, then **one** `lockProjectsOf` call over the account's projects
+    and those of the organizations deleted with it (one sorted order), then the hand-overs of project admins, then the
+    admin count (projects deleted with their organization skip it), then P1's `deleteAccountsWithOrganizations`, which
+    now takes `{ newOwners, deleteOrganizations }` and applies them under each organization's lock (checked again
+    there). Billing for those organizations runs before the transaction.
+- **Isolation suite**: B's export and deletion and the operator routes from A's owner, admin and member (404), the
+  person in both organizations (a member of B) gets neither B's export nor its deletion, and an operator's suspension of
+  B locks B's people and key out while A keeps working, audited.
+- **Web app** (standalone, under `webapp/src/app/operator/**`, `auth/components/account-deletion/`, organization
+  settings): `/operator` list and search, detail with suspend and restore (reason, confirmation), audit log; an
+  "Operator" entry in the app bar menu for operators in SaaS mode (`GET /operator/status`, a 404 means no, never an
+  error toast); the organization settings danger zone (Download export for owner and admin; Delete organization for
+  the owner, never the default organization, slug typed, export offered first); the account-deletion flow built on
+  `GET /users/me/deletion` (a new admin per project, a new owner per organization, the deletion of an organization the
+  person is alone in with its slug typed, then the e-mail confirmation). Error messages for the new codes.
+
+### Deviations from DESIGN.md (DESIGN updated where it names them)
+
+- The tombstone is kept, but **nothing purges it after 30 days** yet: §8 adds no timer, and a purge is a data deletion
+  of its own. See "Needs owner".
+- The deleted organization keeps no members or invitations (DESIGN said only "tombstone"): its people stop seeing it
+  at once and its seats are 0.
+- Export and deletion are SaaS mode only, and the default organization is neither exported (404 `saas_disabled`, as
+  its member routes) nor deleted (400 `default_organization`). An operator never suspends the default organization.
+- Added `GET /operator/status` and `GET /users/me/deletion`; `GET /operator/organizations/:id` (DESIGN §5 said
+  `GET/POST …/:id`) has no POST: suspend and restore are their own routes.
+- An organization the leaver is alone in and does not choose to delete is closed with its data kept, as P1 did.
+- The ZIP is written by a small writer in `utils/zip-writer.ts` (Node's zlib, no new dependency, so no lockfile change
+  beside P4's). Plain ZIP: an archive that would pass 65,535 entries or 4 GiB (ZIP64) is broken off. Checked with
+  Python's `zipfile` and .NET's `ZipFile` on this PC, and by a reader in `test/zip.ts` that computes CRC-32 itself.
+- The export reads project after project without one snapshot transaction (on SQLite a long transaction would hold the
+  only writer): a change during an export may show in part of it.
+- A project created in the organization at the very moment of its deletion (after its projects were read) stays,
+  unreachable, under the tombstone. Project creation takes no organization lock; closing this belongs there.
+
+### Mutation check
+
+`yarn --cwd api test:isolation:mutation`, 2026-11-28, P6: **65 of 98 fail with the scope removed (66.3 %)**, target 60 %.
+The suite passes all 98 as it is.
+
+### Test results (this machine, SQLite)
+
+- API unit (`--runInBand`): UNIT_RESULT. The 13 `src/formatters/*` suites cannot start on this PC (EPERM, as before).
+  New: `utils/zip-writer.spec.ts` (7), `operator/operator.spec.ts` (operator check, billing seam, slug confirmation,
+  export names, search pattern, pages).
+- API e2e on SQLite, the whole suite: E2E_RESULT. New: `test/operator.e2e-spec.ts` (14), `test/organization-data.e2e-spec.ts`
+  (11), `test/account-deletion.e2e-spec.ts` (7); the isolation suite 98 (was 97).
+- `yarn --cwd api lint`, `tsc --noEmit` and prettier on the changed files: clean.
+- Web app Karma: KARMA_RESULT. `build:prod` succeeds (the operator pages are their own lazy chunk, 42.6 kB).
+- Postgres 15 and MySQL 5.7: not run here (CI runs every e2e there). Worth a look in CI: the operator list's
+  `LOWER(…) LIKE` search and `organization.id IN (subquery)` on Postgres uuids, the migration's MySQL index creation.
+
+### P6 unslop notes
+
+Mode: **polish**; P1/P3's direction stays (orderly, plain-spoken; string catalogues; figures and slugs in mono).
+
+- Audit before editing: organization settings had no slop signs. User settings: native `confirm()`/`prompt()` for the
+  account deletion, Title Case headings, spacing by `<br><hr>`, empty scrollbars from `overflow-scroll`. App bar menu:
+  Title Case labels ("Account Settings", "Logout").
+- Moment: the live seats and strings meters on the operator detail page. Signature: `/orgs/<slug>` in mono on every
+  operator row and header.
+- Fixes after the checklist (rendered against a mock API at 1024 px and 390 px): the operator table overflowed at 1024
+  px (Plan shows from 1200 px, the owner column is capped); Bootstrap's `.card` stretched the action button; mono on the
+  header's inner spans (the global `* { font-family }` rule won); a stray space before a comma; `overflow-scroll` →
+  `overflow-auto` on user settings; the account deletion is an in-page flow instead of `confirm()`/`prompt()`.
+- Checklist: 4 px steps, hairlines at 8 %, brand blue only on Save and Restore, the danger tone only on suspend and
+  delete (and the "suspended" status text), figures in mono with tabular digits, sentence case, no emoji, no
+  exclamation marks.
+- Left as they are (outside P6): the Title Case labels of user settings and the app bar; P1's organization header
+  renders `/orgs/acme` in Ubuntu, not mono, for the same `*` rule.
+
+### Files other lanes also touch
+
+`api/src/app.module.ts` (one import, one line), `docs/configuration.md` (the `TR_EVER_ADMIN_EMAILS` row now names the
+console; no new variable), `api/src/services/user.service.ts` (`deleteAccount`, a third constructor parameter
+`ModuleRef`; P5's e-mail change is in `updateUserData`), `api/src/controllers/user.controller.ts` (`GET me/deletion`,
+`DELETE me` body), `api/test/organization-isolation.e2e-spec.ts` (P4 will add billing routes to the same list),
+`webapp/src/app/app.module.ts`, `shared/components/app-bar/*`, `organizations/components/organization-settings/*`,
+`organizations/services/organizations.service.ts`, `organizations/models/organization-errors.ts`,
+`shared/util/api-error.ts`, `auth/services/auth.service.ts`, `auth/stores/auth.state.ts`,
+`auth/components/user-settings/*`, `auth/auth.module.ts`.
+
+### Left
+
+- CI on Postgres 15 and MySQL 5.7.
+- P4: register its `BillingCancellation` (above).
+- The tombstone purge (Needs owner).
+
 ## Needs owner
 
 The build goes on with the defaults of `DESIGN.md` §12 (OD-T1 … OD-T14). Nothing blocks yet.
 
 Decisions taken with a default, to confirm:
+
+- **Deleted organizations are kept as tombstones with no purge (P6):** DESIGN §3.9 says 30 days for billing records.
+  Nothing deletes the row after that yet; it holds the name, the slug (so nobody takes the address meanwhile), the plan
+  and P4's billing columns, no members and no data. A purge is a data deletion of its own (a job and its claim), so it
+  waits for the owner's word on the period and on what billing needs to keep.
+- **What an operator may do (P6):** list, search, see, suspend and restore, always with a reason that the audit log
+  keeps. Operators cannot export or delete an organization, and cannot suspend the default organization; ask if
+  support needs more.
 
 - **What a 402 `plan_limit_reached` shows (P3 review):** always `resource` and `limit` ("Your plan allows 15 members").
   `used` and the effective `plan` only to a caller who may read `/usage` in that organization (owner, admin). An editor,
