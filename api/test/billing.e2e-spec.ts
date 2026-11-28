@@ -1,4 +1,6 @@
 import { INestApplication } from '@nestjs/common';
+import { Agent } from 'http';
+import { AddressInfo } from 'net';
 import * as request from 'supertest';
 import { DataSource, Like } from 'typeorm';
 import { BillingService, idempotencyKey } from '../src/billing/billing.service';
@@ -26,25 +28,43 @@ describe('Billing (e2e)', () => {
   let member: TestingUser;
   let organizationId: string;
 
-  const server = () => app.getHttpServer();
+  /**
+   * Every request of this suite goes to one listener (`app.listen(0)`), through one keep-alive agent (8 sockets): supertest
+   * on an unlistened server opens a listener per request, and a burst of parallel ones could drop a connection under load
+   * (`read ECONNRESET` in CI). The agent closes an idle socket (10 s) before the server would (30 s), so a reused socket is
+   * never one the server is closing. As in `organization-plans.e2e-spec.ts`.
+   */
+  let base: string;
+  const agent = new Agent({ keepAlive: true, maxSockets: 8, timeout: 10_000 });
+  const send = (method: 'get' | 'post' | 'patch' | 'delete', path: string) => request(base)[method](path).agent(agent);
+  /**
+   * Sends the requests at once and answers their responses, in order. A request that gets no answer (a dropped
+   * connection) fails the test here, with what happened, instead of showing up as a wrong value in the assertions after.
+   */
+  const atOnce = async (label: string, requests: Array<() => request.Test>): Promise<request.Response[]> => {
+    const settled = await Promise.allSettled(requests.map(start => start()));
+    const failed = settled
+      .map((result, index) => (result.status === 'rejected' ? `#${index}: ${result.reason?.code ?? ''} ${result.reason?.message}` : null))
+      .filter(Boolean);
+    if (failed.length) {
+      throw new Error(`${label}: ${failed.length} of ${requests.length} parallel requests got no answer (${failed.join('; ')})`);
+    }
+    return settled.map(result => (result as PromiseFulfilledResult<request.Response>).value);
+  };
   const auth = (user: TestingUser) => ({ Authorization: `Bearer ${user.accessToken}` });
-  const billingOf = (user: TestingUser, id = organizationId) => request(server()).get(`/api/v1/organizations/${id}/billing`).set(auth(user));
+  const billingOf = (user: TestingUser, id = organizationId) => send('get', `/api/v1/organizations/${id}/billing`).set(auth(user));
   const checkout = (user: TestingUser, body: object, id = organizationId) =>
-    request(server()).post(`/api/v1/organizations/${id}/billing/checkout`).set(auth(user)).send(body);
+    send('post', `/api/v1/organizations/${id}/billing/checkout`).set(auth(user)).send(body);
   const change = (user: TestingUser, body: object, id = organizationId) =>
-    request(server()).patch(`/api/v1/organizations/${id}/billing/subscription`).set(auth(user)).send(body);
-  const portal = (user: TestingUser, id = organizationId) => request(server()).post(`/api/v1/organizations/${id}/billing/portal`).set(auth(user));
+    send('patch', `/api/v1/organizations/${id}/billing/subscription`).set(auth(user)).send(body);
+  const portal = (user: TestingUser, id = organizationId) => send('post', `/api/v1/organizations/${id}/billing/portal`).set(auth(user));
   const usage = async (id = organizationId, user = owner) =>
-    (await request(server()).get(`/api/v1/organizations/${id}/usage`).set(auth(user)).expect(200)).body.data;
+    (await send('get', `/api/v1/organizations/${id}/usage`).set(auth(user)).expect(200)).body.data;
   const organization = (id = organizationId) => dataSource.getRepository(Organization).findOneByOrFail({ id });
   const eventCount = () => dataSource.getRepository(BillingEvent).count();
 
   const post = (event: { payload: string; signature: string }) =>
-    request(server())
-      .post('/api/v1/billing/webhook')
-      .set('Content-Type', 'application/json')
-      .set('Stripe-Signature', event.signature)
-      .send(event.payload);
+    send('post', '/api/v1/billing/webhook').set('Content-Type', 'application/json').set('Stripe-Signature', event.signature).send(event.payload);
   const deliver = async (type: string, object: object, options: { id?: string; created?: number; livemode?: boolean } = {}) => {
     const event = signedEvent(type, object, options);
     await post(event).expect(200, { received: true });
@@ -67,7 +87,7 @@ describe('Billing (e2e)', () => {
 
   async function newOwner(label: string): Promise<{ owner: TestingUser; organizationId: string }> {
     const user = await signupTestUser(app, `${label}-billing@test.com`);
-    const [own] = (await request(server()).get('/api/v1/organizations').set(auth(user)).expect(200)).body.data;
+    const [own] = (await send('get', '/api/v1/organizations').set(auth(user)).expect(200)).body.data;
     return { owner: user, organizationId: own.id };
   }
 
@@ -86,6 +106,10 @@ describe('Billing (e2e)', () => {
     Object.assign(config.billing, { stripeSecretKey: FAKE_STRIPE_KEY, stripeWebhookSecret: FAKE_WEBHOOK_SECRET, trialDays: 90, automaticTax: true });
     app = await createAndMigrateAppWith([{ provide: STRIPE_CLIENT, useValue: stripe }]);
     dataSource = app.get(DataSource);
+    await app.listen(0, '127.0.0.1');
+    const listener = app.getHttpServer();
+    listener.keepAliveTimeout = 30_000;
+    base = `http://127.0.0.1:${(listener.address() as AddressInfo).port}`;
     ({ owner, organizationId } = await newOwner('owner'));
     admin = await signupTestUser(app, 'admin-billing@test.com');
     member = await signupTestUser(app, 'member-billing@test.com');
@@ -93,13 +117,14 @@ describe('Billing (e2e)', () => {
       [admin, 'admin'],
       [member, 'member'],
     ] as const) {
-      await request(server()).post(`/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).send({ email: user.email, role }).expect(201);
+      await send('post', `/api/v1/organizations/${organizationId}/invites`).set(auth(owner)).send({ email: user.email, role }).expect(201);
     }
   });
 
   afterAll(async () => {
     config.saasEnabled = before.saas;
     Object.assign(config.billing, before.billing);
+    agent.destroy();
     await app.close();
   });
 
@@ -188,10 +213,15 @@ describe('Billing (e2e)', () => {
 
     it('hands out the open session again: two clicks and two tabs make one Checkout', async () => {
       const first = (await checkout(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 2 }).expect(200)).body.data.url;
-      const parallel = await Promise.all(
-        [1, 2, 3].map(() => checkout(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 2 }).then(res => res.body.data?.url)),
+      const parallel = await atOnce(
+        'three parallel Checkouts',
+        [1, 2, 3].map(() => () => checkout(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 2 })),
       );
-      expect(parallel).toEqual([first, first, first]);
+      expect(parallel.map(res => [res.status, res.body.data?.url])).toEqual([
+        [200, first],
+        [200, first],
+        [200, first],
+      ]);
       expect(stripe.callsTo('checkout.sessions.create')).toHaveLength(1);
       expect(stripe.callsTo('customers.create')).toHaveLength(1);
     });
@@ -255,7 +285,7 @@ describe('Billing (e2e)', () => {
   describe('the webhook', () => {
     it('refuses a missing or wrong signature, and an event signed with another secret', async () => {
       const event = signedEvent('customer.subscription.updated', { id: 'sub_x', customer: 'cus_x' });
-      await request(server()).post('/api/v1/billing/webhook').set('Content-Type', 'application/json').send(event.payload).expect(400);
+      await send('post', '/api/v1/billing/webhook').set('Content-Type', 'application/json').send(event.payload).expect(400);
       await post({ payload: event.payload, signature: 't=1,v1=00' }).expect(400);
       await post(signedEvent('customer.subscription.updated', { id: 'sub_x', customer: 'cus_x' }, { secret: 'whsec_other' })).expect(400);
       // A body changed after signing
@@ -600,8 +630,7 @@ describe('Billing (e2e)', () => {
       await checkout(gone, { plan: 'small_business', interval: 'monthly' }, goneId).expect(200);
       const { checkoutSessionId: session, stripeCustomerId: customer } = await organization(goneId);
       // The account is deleted while its Checkout page is still open: the organization closes
-      await request(server())
-        .delete('/api/v1/users/me')
+      await send('delete', '/api/v1/users/me')
         .set(auth(gone))
         .expect(res => expect(res.status).toBeLessThan(300));
       expect((await organization(goneId)).status).toBe('deleted');
@@ -702,18 +731,18 @@ describe('Billing (e2e)', () => {
       await checkout(solo, { plan: 'small_business', interval: 'monthly' }, soloId).expect(200);
       await subscribe(soloId, { subscription: 'sub_solo', status: 'active' });
 
-      const refused = await request(server()).delete('/api/v1/users/me').set(auth(solo)).expect(422);
+      const refused = await send('delete', '/api/v1/users/me').set(auth(solo)).expect(422);
       expect(refused.body.error.code).toBe('subscription_active');
       expect(refused.body.error.message).toContain('Cancel it under Billing');
       expect((await organization(soloId)).status).toBe('active');
-      await request(server()).get('/api/v1/users/me').set(auth(solo)).expect(200);
+      await send('get', '/api/v1/users/me').set(auth(solo)).expect(200);
 
       const customer = (await organization(soloId)).stripeCustomerId;
       await deliver(
         'customer.subscription.deleted',
         stripe.putSubscription({ id: 'sub_solo', customer, status: 'canceled', plan: 'small_business' }),
       );
-      const deleted = await request(server()).delete('/api/v1/users/me').set(auth(solo));
+      const deleted = await send('delete', '/api/v1/users/me').set(auth(solo));
       expect(deleted.status).toBeLessThan(300);
       expect((await organization(soloId)).status).toBe('deleted');
     });
