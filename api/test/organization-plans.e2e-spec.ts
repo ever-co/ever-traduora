@@ -31,13 +31,14 @@ describe('Organization plans in SaaS mode (e2e)', () => {
   let dataSource: DataSource;
   const saasBefore = config.saasEnabled;
   /**
-   * Every request of this suite goes to one listener (`app.listen(0)`), through one keep-alive agent: supertest on an
+   * Every request of this suite goes to one listener (`app.listen(0)`), through one keep-alive agent (10 sockets, as
+   * many as the largest burst): supertest on an
    * unlistened server opens a listener per request, and a burst of parallel ones could drop a connection under load.
    * The agent closes an idle socket (10 s) before the server would (30 s), so a reused socket is never one the server
    * is closing.
    */
   let base: string;
-  const agent = new Agent({ keepAlive: true, maxSockets: 8, timeout: 10_000 });
+  const agent = new Agent({ keepAlive: true, maxSockets: 10, timeout: 10_000 });
   const call = (method: 'get' | 'post' | 'patch' | 'delete', path: string) => request(base)[method](path).agent(agent);
   const auth = (user: TestingUser) => ({ Authorization: `Bearer ${user.accessToken}` });
   const ownOrganizationOf = async (user: TestingUser): Promise<Org> => {
@@ -100,7 +101,7 @@ describe('Organization plans in SaaS mode (e2e)', () => {
     if (failed.length) {
       throw new Error(`${label}: ${failed.length} of ${requests.length} parallel requests got no answer (${failed.join('; ')})`);
     }
-    return settled.map(result => (result as PromiseFulfilledResult<request.Response>).value.status).sort();
+    return settled.map(result => (result as PromiseFulfilledResult<request.Response>).value.status).sort((a, b) => a - b);
   };
   /** A new organization whose owner signs up, with `seats` seats taken: the owner and pending invitations */
   const organizationWithSeats = async (label: string, seats: number) => {
@@ -200,12 +201,18 @@ describe('Organization plans in SaaS mode (e2e)', () => {
     });
 
     it('let an invited person join at the limit: the seat they held becomes theirs', async () => {
+      // Its own organization, full with the invitation it accepts: 14 seats, then the joiner's pending one
+      const full = await organizationWithSeats('join', 14);
+      const token = tokenOf(await invite(full.owner, full.organization.id, 'join-new@test.com').expect(201));
+      expect((await usageOf(full.owner, full.organization.id)).seats).toEqual({ used: 15, included: 15 });
       const res = await call('post', '/api/v1/auth/signup')
-        .send({ name: 'Seat 3', email: 'seat-3@test.com', password: 'mysupersecretpassword', inviteToken: tokens.get('seat-3@test.com') })
+        .send({ name: 'Joiner', email: 'join-new@test.com', password: 'mysupersecretpassword', inviteToken: token })
         .expect(200);
       const joined = res.body.data as TestingUser;
-      expect((await call('get', '/api/v1/organizations').set(auth(joined)).expect(200)).body.data.map(each => each.id)).toEqual([organization.id]);
-      expect((await usageOf(owner, organization.id)).seats.used).toBe(15);
+      expect((await call('get', '/api/v1/organizations').set(auth(joined)).expect(200)).body.data.map(each => each.id)).toEqual([
+        full.organization.id,
+      ]);
+      expect((await usageOf(full.owner, full.organization.id)).seats.used).toBe(15);
     });
   });
 
@@ -314,6 +321,40 @@ describe('Organization plans in SaaS mode (e2e)', () => {
       );
       expect(statuses).toEqual([201, 201, 201, 402, 402, 402, 402, 402]);
       expect((await usageOf(owner, organization.id)).strings.used).toBe(10_000);
+    });
+
+    it('never let parallel adds in different projects of one organization exceed its strings', async () => {
+      // Three projects in German and three strings left for the organization. The project locks do not order requests
+      // to different projects: only the organization's lock does. A term in A or B costs one string, an import of two
+      // new terms into B two, the French locale of C (two terms) two.
+      const owner = await signupTestUser(app, 'cross-projects-owner@test.com');
+      const organization = await ownOrganizationOf(owner);
+      const projects = [await newProject(owner, organization.id), await newProject(owner, organization.id), await newProject(owner, organization.id)];
+      const [a, b, c] = projects;
+      for (const projectId of projects) {
+        await addLocale(owner, projectId, 'de').expect(201);
+      }
+      await addTerm(owner, c, 'c.one').expect(201);
+      await addTerm(owner, c, 'c.two').expect(201);
+      await setCounters(await newProject(owner, organization.id), 1, 10_000 - 3 - 2);
+      expect((await usageOf(owner, organization.id)).strings.used).toBe(10_000 - 3);
+      const stringsOf = (project: { localesCount: number; termsCount: number }) => project.localesCount * project.termsCount;
+      const before = await Promise.all(projects.map(counters));
+
+      const statuses = await atOnce('adds across projects', [
+        ...[0, 1, 2].map(i => () => addTerm(owner, a, `a.${i}`)),
+        ...[0, 1, 2].map(i => () => addTerm(owner, b, `b.${i}`)),
+        ...[0, 1].map(i => () => importInto(owner, b, 'de', { [`b.import.${i}.one`]: 'x', [`b.import.${i}.two`]: 'y' })),
+        () => addLocale(owner, c, 'fr'),
+      ]);
+
+      // Whatever the order, six one-string terms fill what is left: the organization ends exactly at its limit, and what
+      // went through added three strings across the projects, never more
+      expect(statuses.every(status => [200, 201, 402].includes(status))).toBe(true);
+      expect(statuses.filter(status => status === 402).length).toBeGreaterThanOrEqual(6);
+      expect((await usageOf(owner, organization.id)).strings.used).toBe(10_000);
+      const after = await Promise.all(projects.map(counters));
+      expect(after.reduce((sum, project, i) => sum + stringsOf(project) - stringsOf(before[i]), 0)).toBe(3);
     });
 
     it('never let parallel imports exceed the strings', async () => {
