@@ -557,7 +557,7 @@ tslint, `tsc` and prettier clean. The web app did not change (Karma and `build:p
   after (one more screen).
 - P7/P8 configuration: `TR_TRUST_PROXY` for the real hop count behind Cloudflare tunnel → ingress-nginx (measure it),
   Turnstile keys per environment in OpenBao.
-## P4 Billing (branch `feat/saas-p4-billing`, from `develop` `feb237b`)
+## P4 Billing (branch `feat/saas-p4-billing`, rebased on `develop` `2c346ca`, P5 merged)
 
 DESIGN §3.6, §3.7, §4.1, §4.5, §5, §7, §10, §12 (OD-T1, T6, T11, T14). Stripe **test mode only**; nothing live was
 touched.
@@ -758,6 +758,25 @@ nor send Stripe bursts:
   account whoever sends it; the organization id is known only to its members, and over the limit the answer is 429.
 - **Invoice preview** of `GET /billing`: kept 60 s per organization and subscription state (at most 1,000 entries),
   dropped when the webhook or a change writes that organization's subscription. Prices were already kept 10 minutes.
+
+### Rebase on P5 (`2c346ca`, 2026-11-28)
+
+- `app.module.ts`: P5's `AccountsModule` and `applyHttpHardening` kept with `BillingModule` and
+  `mountBillingWebhookBody`. Order in `addPipesAndFilters`: helmet, CORS and trust proxy (P5, no body parser), then the
+  webhook's raw parser, then Nest's JSON parser at `init`: the raw parser still reads the webhook's body first (the
+  signed-event e2e tests prove it).
+- Throttling: the billing routes' `@Throttle` overrides the `default` throttler with the tracker
+  `billing:<organizationId>`, which wins over P5's per-address `getTracker` (route options come first in
+  `ThrottlerGuard`), and counts in P5's shared storage (Redis when set, so across replicas). On those four routes the
+  per-organization limit replaces the global per-address one (600 a minute in SaaS mode); every other route keeps P5's.
+- Migration `1795572000000-add-billing` already comes after P5's `1795565000000`; P5's upgrade test undoes the later
+  migrations itself (kept, the same as P4's change).
+- Test accounts: `signupTestUser` (P5) accepts the current terms and confirms the e-mail; the billing suite uses it.
+- Lockfiles: `stripe@^23.2.0` added to the root `yarn.lock` and to `api/yarn.lock`, the way P5 added its two
+  packages; `yarn install` leaves the root lockfile unchanged.
+- After the rebase: API unit 591 of 591 in 61 suites (the 13 formatter suites as before); e2e 37 suites, 500 passed,
+  10 skipped, 0 failed; mutation check 70 of 103 (68.0 %); Karma 291 of 291; `build:prod`, tslint, prettier and
+  `ng lint` on the changed files clean.
 
 ### Deviations from DESIGN.md (DESIGN updated)
 
