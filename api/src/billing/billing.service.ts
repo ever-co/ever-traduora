@@ -26,6 +26,7 @@ import {
   isPaidPlan,
   isPlanLookupKey,
   isSeatLookupKey,
+  raisesTheBill,
   MAX_EXTRA_SEATS,
   PAID_PLANS,
   planLookupKey,
@@ -224,9 +225,11 @@ export class BillingService {
 
   /**
    * Changes the live subscription to the order (owner): the plan or its interval (the plan price is swapped), and the
-   * extra seats (the seat price's quantity, added or removed). Stripe prorates; a trial keeps running. Read under the
-   * lock, changed on Stripe outside it (idempotency key over the subscription as it was and the change), and the state
-   * Stripe answers written under the lock again, as the webhook would; the webhook reconciles any race after.
+   * extra seats (the seat price's quantity, added or removed). A raise (a higher plan, more seats, yearly) is invoiced at
+   * once and applies only when that invoice is paid (`pending` until then); a decrease is credited at renewal; a trial
+   * keeps running. Read under the lock, changed on Stripe outside it (idempotency key over the subscription as it was and
+   * the change), and the state Stripe answers written under the lock again, as the webhook would: a pending change
+   * leaves the items, and so the plan, as they were.
    */
   async changeSubscription(organizationId: string, order: BillingOrderInput): Promise<{ pending: boolean }> {
     const stripe = this.client();
@@ -244,7 +247,12 @@ export class BillingService {
     if (!items.length) {
       return { pending: false };
     }
-    const params: Stripe.SubscriptionUpdateParams = { items, proration_behavior: 'create_prorations' };
+    // A raise is invoiced at once and applies only once that invoice is paid (a declined card leaves the plan as it
+    // was: Stripe keeps the change pending, and the webhook applies it when paid); a decrease is credited at renewal
+    const raise = raisesTheBill(subscribedPlan(pricedItems(subscription)), wanted);
+    const params: Stripe.SubscriptionUpdateParams = raise
+      ? { items, proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' }
+      : { items, proration_behavior: 'create_prorations' };
     const before = (subscription.items?.data ?? []).map(item => [item.id, item.price?.id, item.quantity]);
     const updated = await stripe.subscriptions.update(subscription.id, params, {
       idempotencyKey: idempotencyKey('change', read.id, 0, { subscription: subscription.id, before, params }),
@@ -745,6 +753,11 @@ export function idempotencyKey(kind: string, organizationId: string, attempt: nu
  * The subscription of an invoice: `parent.subscription_details.subscription` since API version 2025-03-31, the top-level
  * `subscription` of an older version (an endpoint pinned to one, or an event replayed from before the upgrade).
  */
+/** The items of a subscription as the plan is read from them */
+export function pricedItems(subscription: Stripe.Subscription): Array<{ lookupKey: string | null; quantity?: number }> {
+  return (subscription.items?.data ?? []).map(item => ({ lookupKey: item.price?.lookup_key ?? null, quantity: item.quantity }));
+}
+
 export function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   const legacy = (invoice as Stripe.Invoice & { subscription?: string | { id: string } | null }).subscription;
   return idOf(invoice.parent?.subscription_details?.subscription) ?? idOf(legacy);

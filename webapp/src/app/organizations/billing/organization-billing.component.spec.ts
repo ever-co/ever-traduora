@@ -170,11 +170,25 @@ describe('OrganizationBillingComponent', () => {
     submit.click();
     const req = http.expectOne(`${url}/subscription`);
     expect([req.request.method, req.request.body]).toEqual(['PATCH', { plan: 'small_business', interval: 'monthly', extraSeats: 5 }]);
-    req.flush(null);
+    req.flush({ data: { pending: false } });
     http.expectOne(`${endpoint}/organizations`).flush({ data: [organization] });
     http.expectOne(url).flush({ data: { ...subscribed, seats: { ...subscribed.seats, bought: 5, limit: 30 } } });
     fixture.detectChanges();
     expect(text(fixture, 'seats-split')).toBe('25 included · 5 bought');
+  });
+
+  it('says an upgrade waits for the payment of its invoice, and keeps the plan shown', () => {
+    const fixture = render('owner', { ...subscribed, status: 'active' });
+    fixture.componentInstance.form.patchValue({ plan: 'enterprise' });
+    fixture.detectChanges();
+    (find(fixture, 'submit') as HTMLButtonElement).click();
+    http.expectOne(`${url}/subscription`).flush({ data: { pending: true } });
+    http.expectOne(`${endpoint}/organizations`).flush({ data: [organization] });
+    http.expectOne(url).flush({ data: { ...subscribed, status: 'active' } });
+    fixture.detectChanges();
+    expect(text(fixture, 'change-pending')).toContain('waiting for the payment of its invoice');
+    expect(text(fixture, 'plan')).toContain('Small Business plan');
+    expect(fixture.nativeElement.querySelector('.billing-saved')).toBeNull();
   });
 
   it('opens the customer portal for the owner', () => {

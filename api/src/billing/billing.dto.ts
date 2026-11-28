@@ -26,6 +26,16 @@ export class CheckoutRequest {
 /** `PATCH /organizations/:id/billing/subscription`: the plan, interval and extra seats the live subscription should have */
 export class ChangeSubscriptionRequest extends CheckoutRequest {}
 
+class SubscriptionChange {
+  @ApiProperty({ description: 'The change waits for the payment of its invoice; the plan stays as it was until then' })
+  pending: boolean;
+}
+
+export class SubscriptionChangeResponse {
+  @ApiProperty({ type: SubscriptionChange })
+  data: SubscriptionChange;
+}
+
 export class BillingRedirect {
   @ApiProperty({ description: 'The Stripe page to send the owner to (Checkout or the customer portal)' })
   url: string;

@@ -67,6 +67,30 @@ const RANK: Record<string, number> = {
   [OrganizationPlanCode.Enterprise]: 2,
 };
 
+/** The order of the plans, Starter lowest */
+export function planRank(plan: OrganizationPlanCode | string): number {
+  return RANK[plan] ?? 0;
+}
+
+/**
+ * Whether a change of the subscription raises what it bills, so that it is paid before it applies: a higher plan, the
+ * yearly interval instead of the monthly one, or (on the same plan) more extra seats. Seats are not compared across
+ * plans: Enterprise to Small Business with a seat is a decrease. Unknown (no Traduora plan read): treated as a raise.
+ */
+export function raisesTheBill(
+  current: SubscribedPlan | null,
+  wanted: { plan: OrganizationPlanCode; interval: BillingInterval; extraSeats: number },
+): boolean {
+  if (!current) {
+    return true;
+  }
+  const yearly = current.interval === BillingInterval.Monthly && wanted.interval === BillingInterval.Annual;
+  if (planRank(wanted.plan) !== planRank(current.planCode)) {
+    return planRank(wanted.plan) > planRank(current.planCode) || yearly;
+  }
+  return wanted.extraSeats > current.extraSeats || yearly;
+}
+
 /**
  * The plan of a subscription from its items: the plan price (the highest, should there be several), and the quantity of
  * the seat price of the same interval when the plan sells seats. `null` when no item is a Traduora plan price, so a

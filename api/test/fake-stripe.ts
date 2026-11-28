@@ -59,6 +59,7 @@ export function subscriptionObject(spec: FakeSubscriptionSpec): any {
     customer: spec.customer,
     status: spec.status ?? 'active',
     trial_end: spec.trialEnd ?? null,
+    pending_update: null,
     livemode: false,
     metadata: {},
     items: { object: 'list', data: items },
@@ -75,6 +76,8 @@ export class FakeStripe {
   readonly sessionsById = new Map<string, any>();
   /** Lookup keys that `prices.list` does not find, to test a missing price */
   readonly missingPrices = new Set<string>();
+  /** Invoices are declined: an update with `payment_behavior: pending_if_incomplete` stays pending */
+  declineInvoices = false;
   /** The paid invoice of a subscription (`invoices.list` with `status: paid`), with the amount it took */
   readonly paidInvoices = new Map<string, { id: string; amount_paid: number; currency: string }>();
 
@@ -172,9 +175,14 @@ export class FakeStripe {
       }
       return JSON.parse(JSON.stringify(subscription));
     },
-    update: async (id: string, params: any) => {
-      this.record('subscriptions.update', id, params);
+    update: async (id: string, params: any, options?: any) => {
+      this.record('subscriptions.update', id, params, options);
       const subscription = this.subscriptionsById.get(id);
+      if (params.payment_behavior === 'pending_if_incomplete' && this.declineInvoices) {
+        // Stripe keeps the items as they are until the invoice is paid
+        subscription.pending_update = { items: params.items, expires_at: Math.floor(Date.now() / 1000) + 23 * 3600 };
+        return JSON.parse(JSON.stringify(subscription));
+      }
       const items: any[] = subscription.items.data;
       for (const change of params.items ?? []) {
         const lookupKey = change.price ? String(change.price).replace(/^price_/, '') : undefined;
@@ -201,6 +209,20 @@ export class FakeStripe {
         }
       }
       return JSON.parse(JSON.stringify(subscription));
+    },
+    /** Pays the pending update's invoice: Stripe applies the change */
+    payPending: async (id: string) => {
+      const subscription = this.subscriptionsById.get(id);
+      const pending = subscription.pending_update;
+      subscription.pending_update = null;
+      const declined = this.declineInvoices;
+      this.declineInvoices = false;
+      try {
+        await this.subscriptions.update(id, { items: pending.items });
+      } finally {
+        this.declineInvoices = declined;
+      }
+      return JSON.parse(JSON.stringify(this.subscriptionsById.get(id)));
     },
     list: async (params: any) => {
       this.record('subscriptions.list', params);

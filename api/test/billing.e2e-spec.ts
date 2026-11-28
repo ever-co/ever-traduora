@@ -326,9 +326,12 @@ describe('Billing (e2e)', () => {
 
     it('changes the seats through the API (the portal cannot change a subscription of two products)', async () => {
       stripe.reset();
-      await change(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 7 }).expect(204);
+      const res = await change(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 7 }).expect(200);
+      expect(res.body.data).toEqual({ pending: false });
       const [update] = stripe.callsTo('subscriptions.update');
       expect(update.args[0]).toBe('sub_main');
+      // More seats: invoiced at once (nothing during the trial), applied once paid
+      expect(update.args[1]).toMatchObject({ proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' });
       expect(update.args[1].items).toEqual([{ id: 'si_sub_main_seat', price: `price_${SEAT_KEY('monthly')}`, quantity: 7 }]);
       expect((await billingState()).extraSeats).toBe(7);
     });
@@ -342,14 +345,42 @@ describe('Billing (e2e)', () => {
 
     it('downgrades to Small Business through the API: the plan price swapped, the seats added', async () => {
       stripe.reset();
-      await change(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 1 }).expect(204);
+      await change(owner, { plan: 'small_business', interval: 'monthly', extraSeats: 1 }).expect(200);
       const [update] = stripe.callsTo('subscriptions.update');
+      // A decrease is credited at renewal, and applies at once
+      expect(update.args[1].proration_behavior).toBe('create_prorations');
+      expect(update.args[1].payment_behavior).toBeUndefined();
       expect(update.args[1].items).toEqual([
         { id: 'si_sub_main_0', price: `price_${PLAN_KEY('small_business', 'monthly')}`, quantity: 1 },
         { price: `price_${SEAT_KEY('monthly')}`, quantity: 1 },
       ]);
       expect(await billingState()).toMatchObject({ planCode: 'small_business', extraSeats: 1 });
       expect((await usage()).seats.included).toBe(26);
+    });
+
+    it('keeps the plan while the invoice of an upgrade is unpaid, and applies it once paid', async () => {
+      const customer = (await organization()).stripeCustomerId;
+      stripe.putSubscription({ id: 'sub_main', customer, status: 'active', plan: 'small_business', extraSeats: 1 });
+      await deliver('customer.subscription.updated', stripe.subscriptionsById.get('sub_main'));
+      stripe.reset();
+      stripe.declineInvoices = true;
+      try {
+        const res = await change(owner, { plan: 'enterprise', interval: 'monthly' }).expect(200);
+        expect(res.body.data).toEqual({ pending: true });
+      } finally {
+        stripe.declineInvoices = false;
+      }
+      const [update] = stripe.callsTo('subscriptions.update');
+      expect(update.args[1]).toMatchObject({ proration_behavior: 'always_invoice', payment_behavior: 'pending_if_incomplete' });
+      expect(await billingState()).toMatchObject({ planCode: 'small_business', extraSeats: 1 });
+      expect((await usage()).seats.included).toBe(26);
+
+      // Paid: Stripe applies the change and says so
+      await deliver('customer.subscription.updated', await stripe.subscriptions.payPending('sub_main'));
+      expect(await billingState()).toMatchObject({ planCode: 'enterprise', extraSeats: 0 });
+      expect((await usage()).seats.included).toBeNull();
+      stripe.putSubscription({ id: 'sub_main', customer, status: 'active', plan: 'small_business', extraSeats: 1 });
+      await deliver('customer.subscription.updated', stripe.subscriptionsById.get('sub_main'));
     });
 
     it('changes nothing for a replayed event, even when Stripe’s state moved on since', async () => {

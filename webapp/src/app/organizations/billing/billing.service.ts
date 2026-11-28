@@ -24,8 +24,11 @@ export class BillingService {
       .pipe(map(res => res.data.url));
   }
 
-  changeSubscription(organizationId: string, order: BillingOrder): Observable<void> {
-    return this.http.patch<void>(`${this.endpoint}/organizations/${organizationId}/billing/subscription`, order);
+  /** A raise is invoiced at once and applies once that invoice is paid: `pending` until then */
+  changeSubscription(organizationId: string, order: BillingOrder): Observable<{ pending: boolean }> {
+    return this.http
+      .patch<Payload<{ pending: boolean }>>(`${this.endpoint}/organizations/${organizationId}/billing/subscription`, order)
+      .pipe(map(res => res.data));
   }
 
   /** The Stripe customer portal page */

@@ -8,7 +8,7 @@ import { OrganizationException } from '../errors';
 import { billingMembership } from '../services/organization/organization-billing';
 import { assertSaasEnabled } from '../services/organization/organization.service';
 import { BillingService } from './billing.service';
-import { BillingRedirectResponse, BillingViewResponse, ChangeSubscriptionRequest, CheckoutRequest } from './billing.dto';
+import { BillingRedirectResponse, BillingViewResponse, ChangeSubscriptionRequest, CheckoutRequest, SubscriptionChangeResponse } from './billing.dto';
 
 /**
  * The billing of an organization (DESIGN §3.7, §5), SaaS mode only: the owner and the admins read it, only the owner
@@ -60,14 +60,17 @@ export default class BillingController {
   @perOrganization(config.billing.throttle.changes)
   @Access('organization:ManageBilling')
   @Patch('subscription')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Change the subscription's plan, interval or extra seats (owner)" })
-  @ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Changed' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Change the subscription's plan, interval or extra seats (owner)",
+    description: 'A raise is invoiced at once and applies once that invoice is paid: until then the answer says pending.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Changed, or pending the payment of its invoice', type: SubscriptionChangeResponse })
   @ApiResponse({ status: HttpStatus.CONFLICT, description: 'The organization has no subscription (no_subscription)' })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Not found, or billing is not set up (billing_disabled)' })
   async changeSubscription(@Req() req, @Param('organizationId') organizationId: string, @Body() payload: ChangeSubscriptionRequest) {
     const membership = await this.membership(req, organizationId);
-    await this.billing.changeSubscription(membership.organizationId, payload);
+    return { data: await this.billing.changeSubscription(membership.organizationId, payload) };
   }
 
   @perOrganization(config.billing.throttle.changes)

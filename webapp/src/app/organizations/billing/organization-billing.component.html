@@ -13,6 +13,11 @@
   Checkout was canceled. Nothing was charged.
 </div>
 
+<div *ngIf="pendingChange" class="alert org-notice" data-test="change-pending">
+  The change is waiting for the payment of its invoice, and applies once it is paid. Manage billing shows the invoice and
+  the card it was charged to.
+</div>
+
 <div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center" data-test="error">
   <span class="flex-1">{{ errorMessage }}</span>
   <button *ngIf="loadFailed" type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>

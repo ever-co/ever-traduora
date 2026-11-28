@@ -1,5 +1,5 @@
 import { OrganizationPlanCode } from '../domain/organization-actions';
-import { BillingInterval, isPaidPlan, planLookupKey, seatLookupKey, subscribedPlan } from './billing-plans';
+import { BillingInterval, isPaidPlan, planLookupKey, raisesTheBill, seatLookupKey, subscribedPlan } from './billing-plans';
 
 describe('the plan prices by lookup key', () => {
   const item = (lookupKey: string | null, quantity = 1) => ({ lookupKey, quantity });
@@ -42,6 +42,26 @@ describe('the plan prices by lookup key', () => {
     expect(subscribedPlan([item('seat_ever_traduora_cloud_small_business_monthly', 3)])).toBeNull();
     expect(subscribedPlan([item(null)])).toBeNull();
     expect(subscribedPlan([])).toBeNull();
+  });
+
+  it('tells a raise of the bill (paid before it applies) from a decrease', () => {
+    const sb = (extraSeats: number, interval = BillingInterval.Monthly) => ({ planCode: OrganizationPlanCode.SmallBusiness, interval, extraSeats });
+    const ent = (interval = BillingInterval.Monthly) => ({ planCode: OrganizationPlanCode.Enterprise, interval, extraSeats: 0 });
+    const to = (plan: OrganizationPlanCode, interval: BillingInterval, extraSeats = 0) => ({ plan, interval, extraSeats });
+    const { SmallBusiness, Enterprise } = OrganizationPlanCode;
+    const { Monthly, Annual } = BillingInterval;
+    // Raises
+    expect(raisesTheBill(sb(2), to(Enterprise, Monthly))).toBe(true);
+    expect(raisesTheBill(sb(2), to(SmallBusiness, Monthly, 3))).toBe(true);
+    expect(raisesTheBill(sb(2), to(SmallBusiness, Annual, 2))).toBe(true);
+    expect(raisesTheBill(sb(5), to(SmallBusiness, Annual, 1))).toBe(true);
+    expect(raisesTheBill(ent(), to(SmallBusiness, Annual, 0))).toBe(true);
+    expect(raisesTheBill(null, to(SmallBusiness, Monthly))).toBe(true);
+    // Decreases
+    expect(raisesTheBill(ent(), to(SmallBusiness, Monthly, 1))).toBe(false);
+    expect(raisesTheBill(sb(5), to(SmallBusiness, Monthly, 2))).toBe(false);
+    expect(raisesTheBill(sb(2, Annual), to(SmallBusiness, Monthly, 2))).toBe(false);
+    expect(raisesTheBill(ent(Annual), to(Enterprise, Monthly))).toBe(false);
   });
 
   it('takes the highest plan should there be several, and no negative or fractional seats', () => {

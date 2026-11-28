@@ -46,6 +46,8 @@ export class OrganizationBillingComponent implements OnInit {
   loadFailed = false;
   busy = false;
   saved = false;
+  /** The last change waits for the payment of its invoice: the plan stays as it was until then */
+  pendingChange = false;
   /** Back from Stripe Checkout: `success` or `canceled` */
   returnedFrom: 'success' | 'canceled' | undefined;
   private readonly reload$ = new BehaviorSubject<void>(undefined);
@@ -168,8 +170,9 @@ export class OrganizationBillingComponent implements OnInit {
       extraSeats: this.extraSeats,
     };
     if (this.billing.subscribed) {
-      this.run(this.billingService.changeSubscription(organization.id, order), () => {
-        this.saved = true;
+      this.run(this.billingService.changeSubscription(organization.id, order), ({ pending }) => {
+        this.saved = !pending;
+        this.pendingChange = pending;
         this.store.dispatch(new GetOrganizations());
         this.reload$.next();
       });
@@ -232,6 +235,7 @@ export class OrganizationBillingComponent implements OnInit {
     this.busy = true;
     this.errorMessage = undefined;
     this.saved = false;
+    this.pendingChange = false;
     request
       .pipe(
         finalize(() => (this.busy = false)),
