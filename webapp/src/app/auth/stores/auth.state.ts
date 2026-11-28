@@ -4,6 +4,7 @@ import { get } from 'lodash';
 import { EMPTY, throwError } from 'rxjs';
 import { catchError, finalize, map, tap } from 'rxjs/operators';
 import { errorToMessage } from '../../shared/util/api-error';
+import { AccountDeletionChoices } from '../models/account-deletion';
 import { Identity, IdentityConnection, ProviderSignupConfirmation } from '../models/identity';
 import { Provider } from '../models/provider';
 import { User } from '../models/user';
@@ -21,6 +22,8 @@ export class CheckAuth {
 
 export class DeleteAccount {
   static readonly type = '[Auth] Delete Account';
+  /** The person's choices (new project admins and owners, organizations deleted with the account), when there are any. */
+  constructor(public choices?: AccountDeletionChoices) {}
 }
 
 export class GetProviders {
@@ -293,8 +296,8 @@ export class AuthState implements NgxsOnInit {
   @Action(DeleteAccount)
   deleteAccount(ctx: StateContext<AuthStateModel>, action: DeleteAccount) {
     ctx.patchState({ isLoading: true });
-    return this.authService.deleteAccount().pipe(
-      map(user => {
+    return this.authService.deleteAccount(action.choices).pipe(
+      map(() => {
         ctx.dispatch(new Logout('Your account has been permanently deleted.'));
       }),
       catchError(error => {

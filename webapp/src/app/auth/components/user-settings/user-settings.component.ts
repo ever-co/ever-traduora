@@ -13,7 +13,6 @@ import {
   ChangePassword,
   ClearMessages,
   ConfirmIdentityConnect,
-  DeleteAccount,
   DeleteIdentity,
   GetIdentities,
   GetProviders,
@@ -172,16 +171,5 @@ export class UserSettingsComponent implements OnInit, OnDestroy {
 
   get newPassword() {
     return this.userPasswordForm.get('newPassword');
-  }
-
-  async deleteAccount(user: User) {
-    const ok = confirm(`You're about to permanently delete your account and all related data. Are you sure?`);
-    if (ok) {
-      const emailPrompt = prompt('To delete your account, please enter your full email address as confirmation:');
-      if (user.email && emailPrompt === user.email) {
-        console.warn('Account deletion requested');
-        this.store.dispatch(new DeleteAccount());
-      }
-    }
   }
 }

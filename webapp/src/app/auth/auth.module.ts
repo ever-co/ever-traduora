@@ -18,6 +18,7 @@ import { AuthState } from './stores/auth.state';
 import { SignInWithComponent } from './components/sign-in-with/sign-in-with.component';
 import { EverIdConfirmComponent } from './components/everid-confirm/everid-confirm.component';
 import { ProviderCallbackGuard } from './guards/provider-callback.guard';
+import { AccountDeletionComponent } from './components/account-deletion/account-deletion.component';
 
 @NgModule({
   declarations: [
@@ -36,6 +37,7 @@ import { ProviderCallbackGuard } from './guards/provider-callback.guard';
   imports: [
     CommonModule,
     SharedModule,
+    AccountDeletionComponent,
     NgxsModule.forFeature([AuthState]),
     RouterModule.forChild([
       {

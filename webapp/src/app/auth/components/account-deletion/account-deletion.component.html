@@ -1,0 +1,120 @@
+<section class="acct-delete" aria-labelledby="acctDeleteTitle" data-test="account-deletion">
+  <h5 id="acctDeleteTitle" class="font-serif">Delete account</h5>
+  <p class="small text-muted">Your profile goes, and with it your access to every project and organization. This cannot be undone.</p>
+
+  <div *ngIf="errorMessage" class="alert alert-danger acct-alert" role="alert" data-test="deletion-error">
+    <span>{{ errorMessage }}</span>
+    <button *ngIf="step === 'confirm' && !simple" type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="start()">Check again</button>
+  </div>
+
+  <button
+    *ngIf="step !== 'confirm'"
+    type="button"
+    class="btn btn-outline-danger btn-sm"
+    [disabled]="step === 'checking'"
+    data-test="start"
+    (click)="start()"
+  >
+    {{ step === 'checking' ? 'Checking your projects' : 'Delete my account' }}
+  </button>
+
+  <form *ngIf="step === 'confirm' && preflight" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <ng-container *ngIf="preflight.projects.length > 0">
+      <h6 class="acct-subtitle">Projects that need a new admin</h6>
+      <p class="small text-muted">You are the last admin of these projects, and others work in them. Choose who becomes the admin of each.</p>
+      <div class="acct-list" formGroupName="admins">
+        <div *ngFor="let project of preflight.projects" class="acct-row" data-test="project">
+          <label class="acct-row-title" [for]="'acctAdmin-' + project.id">{{ project.name }}</label>
+          <select
+            [id]="'acctAdmin-' + project.id"
+            class="custom-select custom-select-sm"
+            [formControlName]="project.id"
+            [class.is-invalid]="form.controls.admins.controls[project.id].touched && form.controls.admins.controls[project.id].invalid"
+          >
+            <option value="" disabled>Choose the new admin</option>
+            <option *ngFor="let member of project.members" [value]="member.userId">{{ member.name }} ({{ member.email }})</option>
+          </select>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="ownedWithOthers.length > 0">
+      <h6 class="acct-subtitle">Organizations that need a new owner</h6>
+      <p class="small text-muted">You own these organizations. Choose who owns each one after you.</p>
+      <div class="acct-list" formGroupName="owners">
+        <div *ngFor="let organization of ownedWithOthers" class="acct-row" data-test="owned">
+          <label class="acct-row-title" [for]="'acctOwner-' + organization.id">
+            {{ organization.name }}
+            <span class="acct-row-sub font-mono">/orgs/{{ organization.slug }}</span>
+          </label>
+          <select
+            [id]="'acctOwner-' + organization.id"
+            class="custom-select custom-select-sm"
+            [formControlName]="organization.id"
+            [class.is-invalid]="form.controls.owners.controls[organization.id].touched && form.controls.owners.controls[organization.id].invalid"
+          >
+            <option value="" disabled>Choose the new owner</option>
+            <option *ngFor="let member of organization.members" [value]="member.userId">{{ member.name }} ({{ member.email }})</option>
+          </select>
+        </div>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="ownedAlone.length > 0">
+      <h6 class="acct-subtitle">Organizations deleted with your account</h6>
+      <p class="small text-muted">
+        You are the only member of these organizations, so they are deleted with your account, with every project in them. Download an export from
+        their settings first to keep a copy.
+      </p>
+      <div class="acct-list" formGroupName="slugs">
+        <div *ngFor="let organization of ownedAlone" class="acct-row acct-row-stacked" data-test="alone">
+          <div class="acct-row-head">
+            <span class="acct-row-title">
+              {{ organization.name }}
+              <span class="acct-row-sub font-mono">/orgs/{{ organization.slug }} · {{ projectsLine(organization) }}</span>
+            </span>
+            <a class="acct-link" [routerLink]="['/orgs', organization.slug, 'settings']">Export first</a>
+          </div>
+          <label class="acct-label" [for]="'acctSlug-' + organization.id"
+            >Type <span class="font-mono">{{ organization.slug }}</span> to delete it</label
+          >
+          <input
+            [id]="'acctSlug-' + organization.id"
+            class="form-control form-control-sm font-mono"
+            [formControlName]="organization.id"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            maxlength="40"
+            [class.is-invalid]="form.controls.slugs.controls[organization.id].touched && form.controls.slugs.controls[organization.id].invalid"
+          />
+        </div>
+      </div>
+    </ng-container>
+
+    <div class="form-group acct-confirm">
+      <label for="acctDeleteEmail"
+        >Type your email, <span class="font-mono">{{ user.email }}</span
+        >, to confirm</label
+      >
+      <input
+        id="acctDeleteEmail"
+        class="form-control form-control-sm"
+        type="email"
+        formControlName="email"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        [class.is-invalid]="form.controls.email.touched && form.controls.email.invalid"
+        data-test="email"
+      />
+    </div>
+
+    <div class="acct-actions">
+      <button type="submit" class="btn btn-danger btn-sm" [disabled]="form.invalid || busy" data-test="submit">
+        {{ busy ? 'Deleting' : submitLabel }}
+      </button>
+      <button type="button" class="btn btn-link btn-sm" (click)="cancel()">Cancel</button>
+    </div>
+  </form>
+</section>

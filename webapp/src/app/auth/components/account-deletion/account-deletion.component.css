@@ -1,0 +1,93 @@
+.acct-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.acct-subtitle {
+  margin: 24px 0 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* One hairline card per group of choices, one row each */
+.acct-list {
+  overflow: hidden;
+  margin-bottom: 8px;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 12px;
+}
+
+.acct-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.acct-row + .acct-row {
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.acct-row-stacked {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.acct-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.acct-row-title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.acct-row-sub {
+  overflow: hidden;
+  color: #6c757d;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.acct-link {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.acct-label {
+  margin: 0;
+  color: #6c757d;
+  font-size: 0.8125rem;
+}
+
+.acct-confirm {
+  margin: 24px 0 12px;
+}
+
+.acct-confirm label {
+  font-size: 0.875rem;
+}
+
+.acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 575.98px) {
+  .acct-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}

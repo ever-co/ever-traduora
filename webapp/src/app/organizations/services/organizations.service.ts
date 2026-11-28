@@ -1,10 +1,31 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpEvent } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { from, Observable, throwError } from 'rxjs';
+import { catchError, map, mergeMap } from 'rxjs/operators';
 import { Payload } from '../../shared/models/http';
 import { environment } from '../../../environments/environment';
 import { Organization, OrganizationInvite, OrganizationMember, OrganizationRole, OrganizationUsage } from '../models/organization';
+
+/**
+ * A download's error arrives with its body as a blob: read as JSON, its code reaches the messages. The error stays as it
+ * is when the body cannot be read.
+ */
+async function withJsonErrorBody(error: unknown): Promise<unknown> {
+  if (!(error instanceof HttpErrorResponse) || !(error.error instanceof Blob)) {
+    return error;
+  }
+  try {
+    return new HttpErrorResponse({
+      error: JSON.parse(await error.error.text()),
+      headers: error.headers,
+      status: error.status,
+      statusText: error.statusText,
+      url: error.url ?? undefined,
+    });
+  } catch {
+    return error;
+  }
+}
 
 @Injectable({ providedIn: 'root' })
 export class OrganizationsService {
@@ -22,6 +43,21 @@ export class OrganizationsService {
 
   update(id: string, data: { name?: string; slug?: string }): Observable<Organization> {
     return this.http.patch<Payload<Organization>>(`${this.endpoint}/organizations/${id}`, data).pipe(map(res => res.data));
+  }
+
+  /**
+   * The organization's data as one zip, built on the fly (owner, admin): the download's progress, then the file. Asked
+   * through the HTTP client, so the request carries the session like any other.
+   */
+  exportArchive(id: string): Observable<HttpEvent<Blob>> {
+    return this.http
+      .get(`${this.endpoint}/organizations/${id}/export`, { responseType: 'blob', observe: 'events', reportProgress: true })
+      .pipe(catchError(error => from(withJsonErrorBody(error)).pipe(mergeMap(readable => throwError(() => readable)))));
+  }
+
+  /** Deletes the organization (owner only), confirmed by its address as the owner typed it. */
+  remove(id: string, slug: string): Observable<void> {
+    return this.http.delete<void>(`${this.endpoint}/organizations/${id}`, { body: { slug } });
   }
 
   members(id: string): Observable<OrganizationMember[]> {

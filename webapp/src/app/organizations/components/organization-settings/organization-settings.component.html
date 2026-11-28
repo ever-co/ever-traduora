@@ -38,6 +38,23 @@
   </div>
 </form>
 
+<section *ngIf="canExport" class="card org-panel" aria-labelledby="orgExportTitle" data-test="export">
+  <h5 id="orgExportTitle" class="font-serif org-panel-title">Export</h5>
+  <p class="text-muted">
+    One zip file with every project's terms, labels and translations (a JSON file per locale), the members and the plan. It is made when you ask for
+    it, so a large organization takes a moment.
+  </p>
+  <div class="org-export">
+    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="exporting" data-test="export-button" (click)="downloadExport()">
+      {{ exporting ? 'Preparing the export' : 'Download export' }}
+    </button>
+    <output *ngIf="exporting && exportedBytes > 0" class="org-progress font-mono text-muted" data-test="export-progress"
+      >{{ sizeFigure(exportedBytes) }} received</output
+    >
+  </div>
+  <div *ngIf="exportError" class="alert alert-danger org-panel-alert" data-test="export-error">{{ exportError }}</div>
+</section>
+
 <section *ngIf="isOwner" class="card org-panel org-danger">
   <h5 class="font-serif org-panel-title">Ownership</h5>
   <p class="text-muted">
@@ -65,4 +82,45 @@
     <button type="button" class="btn btn-sm btn-danger" [disabled]="busy" (click)="transfer()">Transfer</button>
     <button type="button" class="btn btn-sm btn-link" (click)="confirmTransfer = false">Cancel</button>
   </div>
+</section>
+
+<section *ngIf="isOwner && organization" class="card org-panel org-danger" aria-labelledby="orgDeleteTitle" data-test="delete">
+  <h5 id="orgDeleteTitle" class="font-serif org-panel-title">Delete organization</h5>
+  <p class="mb-2">Deleting {{ organization.name }} cannot be undone:</p>
+  <ul class="org-consequences text-muted">
+    <li>every project goes, with all its terms, translations and labels</li>
+    <li>the members lose access to the organization</li>
+    <li>the subscription is cancelled</li>
+  </ul>
+  <p class="text-muted">
+    Keep a copy first:
+    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" [disabled]="exporting" (click)="downloadExport()">
+      {{ exporting ? 'preparing the export' : 'download the export' }}</button
+    >.
+  </p>
+  <label for="orgDeleteSlug"
+    >Type <span class="font-mono">{{ organization.slug }}</span> to confirm</label
+  >
+  <div class="org-transfer">
+    <input
+      id="orgDeleteSlug"
+      class="form-control form-control-sm font-mono"
+      [formControl]="deleteSlug"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      maxlength="40"
+      data-test="delete-slug"
+    />
+    <button
+      type="button"
+      class="btn btn-sm btn-danger"
+      [disabled]="!slugConfirmed || deleting"
+      data-test="delete-button"
+      (click)="deleteOrganization()"
+    >
+      {{ deleting ? 'Deleting' : 'Delete organization' }}
+    </button>
+  </div>
+  <div *ngIf="deleteError" class="alert alert-danger org-panel-alert" data-test="delete-error">{{ deleteError }}</div>
 </section>

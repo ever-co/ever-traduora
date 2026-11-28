@@ -1,0 +1,190 @@
+<a class="op-back" routerLink="/operator/organizations">
+  <i class="material-icons" aria-hidden="true">chevron_left</i>
+  <span>All organizations</span>
+</a>
+
+<div *ngIf="notFound" class="op-empty" data-test="not-found">
+  <p class="mb-1">No organization with this id</p>
+  <p class="text-muted mb-0">It may have been typed wrong. Search for it in the list of organizations.</p>
+</div>
+
+<div *ngIf="loadError" class="alert alert-danger d-flex align-items-center">
+  <span class="flex-1">{{ loadError }}</span>
+  <button type="button" class="btn btn-sm btn-link p-0" (click)="reload()">Try again</button>
+</div>
+
+<ng-container *ngIf="organization as org">
+  <header class="op-detail-header">
+    <h5 class="font-serif mb-1">{{ org.name }}</h5>
+    <p class="op-address op-mono text-muted mb-0">
+      <span>/orgs/{{ org.slug }}</span>
+      <span class="op-dot" aria-hidden="true">·</span>
+      <span class="op-status" [ngClass]="'op-status-' + org.status" data-test="status">{{ org.status }}</span>
+      <ng-container *ngIf="org.isDefault">
+        <span class="op-dot" aria-hidden="true">·</span>
+        <span>default</span>
+      </ng-container>
+    </p>
+  </header>
+
+  <div class="op-detail-grid">
+    <section class="card op-panel" aria-labelledby="opFacts">
+      <h6 id="opFacts" class="op-panel-title">Organization</h6>
+      <dl class="op-facts">
+        <div class="op-fact">
+          <dt>Plan</dt>
+          <dd data-test="plan">
+            {{ org.plan.name }}<span *ngIf="org.plan.code !== org.planCode" class="op-muted">, {{ planNames[org.planCode] }} lapsed</span>
+          </dd>
+        </div>
+        <div class="op-fact">
+          <dt>Owner</dt>
+          <dd>
+            <ng-container *ngIf="org.owner; else noOwner">
+              <span class="d-block">{{ org.owner.name }}</span>
+              <span class="op-muted op-small">{{ org.owner.email }}</span>
+            </ng-container>
+            <ng-template #noOwner><span class="op-muted">No owner</span></ng-template>
+          </dd>
+        </div>
+        <div class="op-fact">
+          <dt>Members</dt>
+          <dd class="op-mono">{{ org.membersCount | number }}</dd>
+        </div>
+        <div class="op-fact">
+          <dt>Projects</dt>
+          <dd class="op-mono" data-test="projects">{{ org.projectsCount | number }}</dd>
+        </div>
+        <div class="op-fact">
+          <dt>Created</dt>
+          <dd class="op-mono">{{ org.date.created | date: 'd MMM y' }}</dd>
+        </div>
+        <div class="op-fact">
+          <dt>Id</dt>
+          <dd class="op-mono op-id">{{ org.id }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="card op-panel" aria-labelledby="opUsage" data-test="usage">
+      <h6 id="opUsage" class="op-panel-title">{{ org.plan.name }} plan, used now</h6>
+      <div class="op-meter" data-test="usage-seats">
+        <span class="op-meter-label">Seats</span>
+        <progress
+          *ngIf="org.usage.seats.included !== null; else noSeatLimit"
+          class="op-meter-bar"
+          [class.op-meter-full]="isFull(org.usage.seats.used, org.usage.seats.included)"
+          aria-label="Seats used"
+          [max]="org.usage.seats.included"
+          [value]="usageMeterValue(org.usage.seats.used, org.usage.seats.included)"
+          [attr.aria-valuetext]="usageFigure(org.usage.seats.used, org.usage.seats.included)"
+        ></progress>
+        <ng-template #noSeatLimit><span></span></ng-template>
+        <span class="op-meter-figure op-mono">{{ usageFigure(org.usage.seats.used, org.usage.seats.included) }}</span>
+      </div>
+      <div class="op-meter" data-test="usage-strings">
+        <span class="op-meter-label">Strings</span>
+        <progress
+          *ngIf="org.usage.strings.limit !== null; else noStringLimit"
+          class="op-meter-bar"
+          [class.op-meter-full]="isFull(org.usage.strings.used, org.usage.strings.limit)"
+          aria-label="Strings used"
+          [max]="org.usage.strings.limit"
+          [value]="usageMeterValue(org.usage.strings.used, org.usage.strings.limit)"
+          [attr.aria-valuetext]="usageFigure(org.usage.strings.used, org.usage.strings.limit)"
+        ></progress>
+        <ng-template #noStringLimit><span></span></ng-template>
+        <span class="op-meter-figure op-mono">{{ usageFigure(org.usage.strings.used, org.usage.strings.limit) }}</span>
+      </div>
+      <p class="op-note text-muted">Counted now. Seats are the members plus everyone with a pending invite.</p>
+    </section>
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger" data-test="action-error">{{ errorMessage }}</div>
+
+  <section *ngIf="action" class="card op-panel op-action" [class.op-danger]="action === 'suspend'" data-test="action">
+    <h6 class="op-panel-title">{{ action === 'suspend' ? 'Suspend the organization' : 'Restore the organization' }}</h6>
+    <p class="op-note text-muted mt-0 mb-3">
+      <ng-container *ngIf="action === 'suspend'"
+        >Its members and API keys lose access to it and its projects at once, until an operator restores it. Nothing is deleted.</ng-container
+      >
+      <ng-container *ngIf="action === 'restore'">Its members and API keys get their access back at once.</ng-container>
+    </p>
+    <div class="form-group mb-3">
+      <label class="op-label" for="opReason">Reason</label>
+      <textarea
+        id="opReason"
+        class="form-control"
+        rows="3"
+        [maxlength]="reasonMax"
+        [formControl]="reason"
+        [class.is-invalid]="reason.touched && reason.invalid"
+        (input)="confirming = false"
+      ></textarea>
+      <div class="invalid-feedback">3 to 500 characters</div>
+      <small class="form-text text-muted">
+        Kept in the audit log with your email · <span class="op-mono">{{ reasonLength }} of {{ reasonMax }}</span>
+      </small>
+    </div>
+    <div *ngIf="!confirming" class="op-confirm">
+      <button
+        type="button"
+        class="btn btn-sm"
+        [ngClass]="action === 'suspend' ? 'btn-outline-danger' : 'btn-primary'"
+        [disabled]="busy"
+        data-test="ask"
+        (click)="ask()"
+      >
+        {{ action === 'suspend' ? 'Suspend' : 'Restore' }}
+      </button>
+    </div>
+    <div *ngIf="confirming" class="op-confirm" role="alert" data-test="confirm">
+      <span *ngIf="action === 'suspend'">Suspend {{ org.name }} now? Its members are locked out at once</span>
+      <span *ngIf="action === 'restore'">Restore {{ org.name }} now? Its members get their access back</span>
+      <button
+        type="button"
+        class="btn btn-sm"
+        [ngClass]="action === 'suspend' ? 'btn-danger' : 'btn-primary'"
+        [disabled]="busy"
+        data-test="confirm-button"
+        (click)="confirm()"
+      >
+        {{ action === 'suspend' ? 'Suspend organization' : 'Restore organization' }}
+      </button>
+      <button type="button" class="btn btn-sm btn-link" (click)="cancel()">Cancel</button>
+    </div>
+  </section>
+
+  <p *ngIf="org.isDefault" class="op-note text-muted" data-test="default-note">
+    The default organization holds every account of this installation, so it is never suspended.
+  </p>
+  <p *ngIf="org.status === 'deleted'" class="op-note text-muted" data-test="deleted-note">
+    Its owner deleted it. The record stays for the billing history, and it is not restored.
+  </p>
+
+  <div class="op-subtitle d-flex align-items-baseline">
+    <span class="flex-1">Recent operator actions</span>
+    <a class="op-link" routerLink="/operator/audit" [queryParams]="{ organizationId: org.id }">All of them</a>
+  </div>
+  <div *ngIf="org.audit.length === 0" class="op-empty small text-muted" data-test="audit-empty">No operator has suspended or restored it</div>
+  <div *ngIf="org.audit.length > 0" class="card op-list">
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">Action</th>
+          <th scope="col">Reason</th>
+          <th scope="col" class="d-none d-sm-table-cell">Operator</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let entry of org.audit; trackBy: trackById" data-test="audit">
+          <td class="op-mono op-muted op-nowrap">{{ entry.date.created | date: 'd MMM y, HH:mm' }}</td>
+          <td class="op-mono">{{ entry.action }}</td>
+          <td class="op-reason">{{ entry.reason }}</td>
+          <td class="d-none d-sm-table-cell op-muted">{{ entry.operator.email }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</ng-container>

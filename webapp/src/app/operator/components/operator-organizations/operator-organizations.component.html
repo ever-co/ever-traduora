@@ -1,0 +1,78 @@
+<div class="op-toolbar">
+  <label class="sr-only" for="opSearch">Search organizations</label>
+  <input
+    id="opSearch"
+    class="form-control form-control-sm op-search"
+    type="search"
+    placeholder="Name, address, id or owner email"
+    autocomplete="off"
+    maxlength="100"
+    [value]="q"
+    (input)="typed($any($event.target).value)"
+  />
+  <label class="sr-only" for="opStatus">Status</label>
+  <select id="opStatus" class="custom-select custom-select-sm op-status-filter" (change)="setStatus($any($event.target).value)">
+    <option *ngFor="let filter of statusFilters" [value]="filter.value" [selected]="filter.value === status">{{ filter.label }}</option>
+  </select>
+  <output class="op-count" data-test="count">{{ countLine }}</output>
+</div>
+
+<div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center" data-test="error">
+  <span class="flex-1">{{ errorMessage }}</span>
+  <button type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
+</div>
+
+<div *ngIf="rows && rows.length === 0" class="op-empty" data-test="empty">
+  <p class="mb-1">{{ filtered ? 'No organization matches' : 'No organizations yet' }}</p>
+  <p *ngIf="filtered" class="text-muted mb-0">Search by a part of the name or the address, the whole id, or a part of the owner's email</p>
+</div>
+
+<div *ngIf="rows?.length" class="card op-list">
+  <table class="op-table" [attr.aria-busy]="loading">
+    <thead>
+      <tr>
+        <th scope="col">Organization</th>
+        <th scope="col">Status</th>
+        <th scope="col" class="d-none d-xl-table-cell">Plan</th>
+        <th scope="col" class="d-none d-sm-table-cell">Owner</th>
+        <th scope="col" class="op-num d-none d-lg-table-cell">Members</th>
+        <th scope="col" class="op-num d-none d-lg-table-cell">Projects</th>
+        <th scope="col" class="op-num">Strings</th>
+        <th scope="col" class="op-num d-none d-md-table-cell">Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of rows; trackBy: trackById" data-test="organization">
+        <td class="op-cell-name">
+          <a class="op-name" [routerLink]="['/operator/organizations', row.id]">{{ row.name }}</a>
+          <span class="op-sub op-mono">/orgs/{{ row.slug }}{{ row.isDefault ? ' · default' : '' }}</span>
+        </td>
+        <td>
+          <span class="op-mono op-status" [ngClass]="'op-status-' + row.status" data-test="status">{{ row.status }}</span>
+        </td>
+        <td class="d-none d-xl-table-cell op-nowrap">{{ planNames[row.planCode] }}</td>
+        <td class="d-none d-sm-table-cell">
+          <span *ngIf="row.owner; else noOwner" class="op-ellipsis d-block" [title]="row.owner.name">{{ row.owner.email }}</span>
+          <ng-template #noOwner><span class="op-muted">No owner</span></ng-template>
+        </td>
+        <td class="op-num op-mono d-none d-lg-table-cell">{{ row.membersCount | number }}</td>
+        <td class="op-num op-mono d-none d-lg-table-cell">{{ row.projectsCount | number }}</td>
+        <td class="op-num op-mono">{{ row.stringsUsed | number }}</td>
+        <td class="op-num op-mono op-muted d-none d-md-table-cell">{{ row.date.created | date: 'd MMM y' }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<nav *ngIf="total > pageSize" class="op-pagination" aria-label="Pages of organizations">
+  <ngb-pagination
+    size="sm"
+    [collectionSize]="total"
+    [pageSize]="pageSize"
+    [page]="page"
+    [maxSize]="5"
+    [rotate]="true"
+    [ellipses]="false"
+    (pageChange)="goTo($event)"
+  ></ngb-pagination>
+</nav>

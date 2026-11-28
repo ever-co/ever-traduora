@@ -1,0 +1,185 @@
+/* Shared by the operator pages: the toolbar, one card per list with hairline rows, figures in mono */
+
+.op-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.op-search {
+  flex: 1;
+  max-width: 360px;
+}
+
+.op-status-filter {
+  width: 144px;
+}
+
+.op-count {
+  margin-left: auto;
+  color: #6c757d;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.op-list {
+  overflow-x: auto;
+  border-radius: 12px;
+}
+
+.op-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.op-table th {
+  padding: 12px;
+  border-bottom: 1px solid rgba(33, 37, 41, 0.08);
+  color: #6c757d;
+  font-size: 0.75rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.op-table td {
+  padding: 12px;
+  vertical-align: middle;
+}
+
+.op-table th:first-child,
+.op-table td:first-child {
+  padding-left: 20px;
+}
+
+.op-table th:last-child,
+.op-table td:last-child {
+  padding-right: 20px;
+}
+
+.op-table tbody tr + tr td {
+  border-top: 1px solid rgba(33, 37, 41, 0.08);
+}
+
+.op-table tbody tr {
+  transition: background-color 120ms ease-out;
+}
+
+.op-table tbody tr:hover {
+  background-color: #f5f7f9;
+}
+
+.op-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* On the element's own spans too: the global `* { font-family }` rule would otherwise win over inheritance */
+.op-mono,
+.op-mono * {
+  font-family: Menlo, Monaco, 'Roboto Mono', monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.op-muted {
+  color: #6c757d;
+}
+
+.op-name {
+  display: block;
+  overflow: hidden;
+  color: #212529;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.op-name:hover,
+.op-name:focus-visible {
+  color: #212529;
+}
+
+.op-sub {
+  display: block;
+  overflow: hidden;
+  color: #6c757d;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.op-nowrap {
+  white-space: nowrap;
+}
+
+.op-reason {
+  min-width: 160px;
+  overflow-wrap: anywhere;
+}
+
+.op-scope {
+  font-size: 0.875rem;
+}
+
+.op-ellipsis {
+  max-width: 216px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A status is text: suspended reads in the brand's danger tone (meaning), deleted as muted */
+.op-status {
+  color: #6c757d;
+}
+
+.op-status-active {
+  color: #212529;
+}
+
+.op-status-suspended {
+  color: #b8293b;
+}
+
+.op-empty {
+  padding: 24px;
+  border: 1px dashed rgba(33, 37, 41, 0.16);
+  border-radius: 12px;
+}
+
+.op-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.op-subtitle {
+  margin: 32px 4px 12px;
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 575.98px) {
+  .op-search {
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .op-table th,
+  .op-table td {
+    padding: 12px 8px;
+  }
+
+  .op-table th:first-child,
+  .op-table td:first-child {
+    padding-left: 16px;
+  }
+
+  .op-table th:last-child,
+  .op-table td:last-child {
+    padding-right: 16px;
+  }
+}
