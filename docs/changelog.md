@@ -8,6 +8,13 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- Password reset emails: an account is sent one reset email per `TR_PASSWORD_RESET_COOLDOWN` seconds (60 by default,
+  `0` turns this off), whoever asks for it. A `POST /api/v1/auth/forgot-password` for an account that was sent a link
+  less than that ago keeps that link working, sends no email and is answered 200 as before, so the caller cannot tell;
+  requests made at the same time send one email. Before, each request sent another email and voided the link sent
+  before: anyone who knew the email could send its owner reset emails in a loop (up to 100 a minute in production, and
+  behind a proxy all callers share that limit), keep them from finishing a reset, and spend the mail sender's quota
+
 - Terms page: a label that could not be added to a term or removed from it (a label deleted in another tab, a change
   that conflicted with another one, a lost connection) is taken off the term again, or put back on it, and the page shows the
   error. Before, the page showed the change as done and no error, and the change was gone after a reload

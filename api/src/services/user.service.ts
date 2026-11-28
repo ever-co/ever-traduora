@@ -31,6 +31,26 @@ import {
 
 const noEmailVerificationToken = { emailVerificationTokenHash: null, emailVerificationExpires: null };
 
+// How long a password reset link works
+const PASSWORD_RESET_VALID_HOURS = 4;
+
+/**
+ * Whether the user holds a reset link that still works and was sent less than TR_PASSWORD_RESET_COOLDOWN seconds ago.
+ * A link is sent when it is made and expires PASSWORD_RESET_VALID_HOURS later, so its expiry tells when it was sent.
+ */
+const holdsRecentPasswordResetLink = (user: User): boolean => {
+  const cooldownMs = config.passwordReset.cooldownSeconds * 1000;
+  if (cooldownMs <= 0 || !user.encryptedPasswordResetToken?.length || !user.passwordResetExpires) {
+    return false;
+  }
+  const expires = moment(user.passwordResetExpires);
+  if (!expires.isAfter(Date.now())) {
+    return false;
+  }
+  const sentAt = expires.subtract(PASSWORD_RESET_VALID_HOURS, 'hours');
+  return moment().diff(sentAt) < cooldownMs;
+};
+
 const assertNotPublishedPassword = (password: string) => {
   if (isPublishedPassword(password)) {
     throw new PublishedPasswordException();
@@ -112,11 +132,20 @@ export class UserService {
     return { user: newUser, isNewUser: true };
   }
 
-  async forgotPassword(email: string): Promise<{ user: User; token: string }> {
+  /**
+   * Makes a new password reset token for the account with this email and returns it, to be emailed. While the account
+   * holds a link sent less than TR_PASSWORD_RESET_COOLDOWN seconds ago, that link stays the one that works and no token
+   * is returned: whoever knows the email can neither flood its owner with reset emails nor void the link they got.
+   */
+  async forgotPassword(email: string): Promise<{ user: User; token: string | null }> {
     const normalizedEmail = normalizeEmail(email);
     const user = await this.userRepo.findOneOrFail({
       where: { email: normalizedEmail },
     });
+
+    if (holdsRecentPasswordResetLink(user)) {
+      return { user, token: null };
+    }
 
     const token = await new Promise<string>((resolve, reject) => {
       crypto.randomBytes(32, (err, buf) => {
@@ -128,22 +157,28 @@ export class UserService {
       });
     });
 
-    user.encryptedPasswordResetToken = Buffer.from(await bcrypt.hash(token, 10), 'utf-8');
-
-    user.passwordResetExpires = moment().add(4, 'hours').toDate();
+    const changes = {
+      encryptedPasswordResetToken: Buffer.from(await bcrypt.hash(token, 10), 'utf-8'),
+      passwordResetExpires: moment().add(PASSWORD_RESET_VALID_HOURS, 'hours').toDate(),
+    };
 
     // Write only the reset token, and only for the email it is sent to: writing the loaded user would put back
     // anything changed meanwhile (e.g. a published password removed by a concurrent sign-in), and changing the email
-    // in the meantime discards the token
+    // in the meantime discards the token. Only over the token read above, so that of requests made at the same time
+    // only the first one sends an email
     const { affected } = await this.userRepo.update(
-      { id: user.id, email: user.email },
-      { encryptedPasswordResetToken: user.encryptedPasswordResetToken, passwordResetExpires: user.passwordResetExpires },
+      { id: user.id, email: user.email, encryptedPasswordResetToken: user.encryptedPasswordResetToken ?? IsNull() },
+      changes,
     );
     if (!affected) {
-      throw new NotFoundException('user not found');
+      if (!(await this.userRepo.findOneBy({ id: user.id, email: user.email }))) {
+        throw new NotFoundException('user not found');
+      }
+      // Another request replaced the token meanwhile: its email is the one that goes out
+      return { user, token: null };
     }
 
-    return { user, token };
+    return { user: { ...user, ...changes }, token };
   }
 
   async updateUserData(userId: string, updates: { name?: string; email?: string }): Promise<{ user: User; emailChanged: boolean }> {
