@@ -1,4 +1,5 @@
 import { BadRequestException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import Stripe = require('stripe');
 import { config } from '../config';
@@ -169,7 +170,7 @@ export class BillingService {
       const trialDays = this.trialDays(organization);
       const params = checkoutSessionParams(organization, customer, prices, wanted, trialDays, config.billing.automaticTax);
       const session = await stripe.checkout.sessions.create(params, {
-        idempotencyKey: `traduora-checkout-${organization.id}-${params.metadata.plan}-${wanted.extraSeats}-${attempt}`,
+        idempotencyKey: idempotencyKey('checkout', organization.id, attempt, params),
       });
       if (!session.url) {
         throw new OrganizationException(HttpStatus.SERVICE_UNAVAILABLE, 'billing_unavailable', 'Stripe did not open a Checkout page');
@@ -410,14 +411,12 @@ export class BillingService {
   }
 
   private async createCustomer(stripe: StripeClient, organization: Organization, owner: User): Promise<string> {
-    const customer = await stripe.customers.create(
-      {
-        name: organization.name,
-        email: owner.email,
-        metadata: { organizationId: organization.id, ever_product: 'traduora' },
-      },
-      { idempotencyKey: `traduora-customer-${organization.id}` },
-    );
+    const params: Stripe.CustomerCreateParams = {
+      name: organization.name,
+      email: owner.email,
+      metadata: { organizationId: organization.id, ever_product: 'traduora' },
+    };
+    const customer = await stripe.customers.create(params, { idempotencyKey: idempotencyKey('customer', organization.id, 0, params) });
     return customer.id;
   }
 
@@ -541,6 +540,16 @@ function iso(value: Date | string | null | undefined): string | null {
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/**
+ * An idempotency key of a Stripe call: what it is, the organization, the attempt, and a short hash of every parameter
+ * sent. A retry of the same request finds Stripe's first answer; a request that differs in anything (the slug in the
+ * return URL, the trial days, the owner's name or e-mail) is a new one, instead of an idempotency error.
+ */
+export function idempotencyKey(kind: string, organizationId: string, attempt: number, params: unknown): string {
+  const hash = createHash('sha256').update(JSON.stringify(params)).digest('hex').slice(0, 16);
+  return `traduora-${kind}-${organizationId}-${attempt}-${hash}`;
 }
 
 /**

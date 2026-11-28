@@ -4,7 +4,7 @@ import { OrganizationPlanCode } from '../domain/organization-actions';
 import { Organization } from '../entity/organization.entity';
 import { User } from '../entity/user.entity';
 import { BillingInterval } from './billing-plans';
-import { BillingService, invoiceSubscriptionId, subscriptionChanges, subscriptionState } from './billing.service';
+import { BillingService, checkoutSessionParams, idempotencyKey, invoiceSubscriptionId, subscriptionChanges, subscriptionState } from './billing.service';
 
 const SECRET = 'whsec_unit_test';
 const ORG_ID = '7d4b3f3e-3b8a-4c1e-9a43-1f8f0b6a2c11';
@@ -114,7 +114,7 @@ describe('BillingService', () => {
 
       expect(result).toEqual({ url: 'https://checkout.stripe.test/1' });
       expect(stripe.customers.create).toHaveBeenCalledWith(expect.objectContaining({ email: 'owner@acme.test' }), {
-        idempotencyKey: `traduora-customer-${ORG_ID}`,
+        idempotencyKey: expect.stringMatching(new RegExp(`^traduora-customer-${ORG_ID}-0-[0-9a-f]{16}$`)),
       });
       const [params, options] = stripe.checkout.sessions.create.mock.calls[0];
       expect(params).toMatchObject({
@@ -126,7 +126,7 @@ describe('BillingService', () => {
         automatic_tax: { enabled: true },
         billing_address_collection: 'required',
       });
-      expect(options).toEqual({ idempotencyKey: `traduora-checkout-${ORG_ID}-ever_traduora_cloud_small_business_monthly-2-1` });
+      expect(options).toEqual({ idempotencyKey: idempotencyKey('checkout', ORG_ID, 1, params) });
       expect(tx.update).toHaveBeenCalledWith(
         Organization,
         { id: ORG_ID },
@@ -196,9 +196,9 @@ describe('BillingService', () => {
 
       await service.checkout(ORG_ID, owner, { plan: OrganizationPlanCode.Enterprise, interval: BillingInterval.Annual });
       expect(stripe.checkout.sessions.expire).toHaveBeenCalledWith('cs_open');
-      expect(stripe.checkout.sessions.create.mock.calls[0][1]).toEqual({
-        idempotencyKey: `traduora-checkout-${ORG_ID}-ever_traduora_cloud_enterprise_annual-0-5`,
-      });
+      const [params, options] = stripe.checkout.sessions.create.mock.calls[0];
+      expect(params.metadata.plan).toBe('ever_traduora_cloud_enterprise_annual');
+      expect(options).toEqual({ idempotencyKey: idempotencyKey('checkout', ORG_ID, 5, params) });
     });
 
     it('is off without a key, or outside SaaS mode', async () => {
@@ -317,6 +317,23 @@ describe('BillingService', () => {
       expect(invoiceSubscriptionId({ parent: null, subscription: 'sub_old' } as any)).toBe('sub_old');
       expect(invoiceSubscriptionId({ parent: null, subscription: { id: 'sub_obj' } } as any)).toBe('sub_obj');
       expect(invoiceSubscriptionId({ parent: null } as any)).toBeNull();
+    });
+  });
+
+  describe('idempotency keys', () => {
+    const prices = { plan: price('ever_traduora_cloud_small_business_monthly'), seat: price('seat_ever_traduora_cloud_small_business_monthly') };
+    const order = { plan: OrganizationPlanCode.SmallBusiness, interval: BillingInterval.Monthly, extraSeats: 2 };
+    const keyOf = (slug: string, trialDays: number) =>
+      idempotencyKey('checkout', ORG_ID, 1, checkoutSessionParams({ id: ORG_ID, slug }, 'cus_1', prices, order, trialDays, true));
+
+    it('are the same for the same request, and differ with any parameter (the slug, the trial days)', () => {
+      expect(keyOf('acme', 90)).toBe(keyOf('acme', 90));
+      expect(keyOf('acme-gmbh', 90)).not.toBe(keyOf('acme', 90));
+      expect(keyOf('acme', 0)).not.toBe(keyOf('acme', 90));
+      expect(idempotencyKey('customer', ORG_ID, 0, { name: 'Acme', email: 'a@x.test' })).not.toBe(
+        idempotencyKey('customer', ORG_ID, 0, { name: 'Acme', email: 'b@x.test' }),
+      );
+      expect(keyOf('acme', 90)).toMatch(new RegExp(`^traduora-checkout-${ORG_ID}-1-[0-9a-f]{16}$`));
     });
   });
 

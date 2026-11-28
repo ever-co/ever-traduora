@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { DataSource } from 'typeorm';
-import { BillingService } from '../src/billing/billing.service';
+import { BillingService, idempotencyKey } from '../src/billing/billing.service';
 import { STRIPE_CLIENT } from '../src/billing/stripe-client';
 import { config } from '../src/config';
 import { BillingEvent } from '../src/entity/billing-event.entity';
@@ -164,7 +164,7 @@ describe('Billing (e2e)', () => {
       expect(res.body.data.url).toMatch(/^https:\/\/checkout\.stripe\.test\//);
       const [customer] = stripe.callsTo('customers.create');
       expect(customer.args[0]).toMatchObject({ email: owner.email, metadata: { organizationId } });
-      expect(customer.args[1]).toEqual({ idempotencyKey: `traduora-customer-${organizationId}` });
+      expect(customer.args[1]).toEqual({ idempotencyKey: idempotencyKey('customer', organizationId, 0, customer.args[0]) });
       const [created] = stripe.callsTo('checkout.sessions.create');
       const [params, options] = created.args;
       expect(params).toMatchObject({
@@ -182,7 +182,7 @@ describe('Billing (e2e)', () => {
         customer_update: { address: 'auto' },
       });
       expect(params.success_url).toMatch(/\/orgs\/[^/]+\/billing\?checkout=success$/);
-      expect(options.idempotencyKey).toBe(`traduora-checkout-${organizationId}-${PLAN_KEY('small_business', 'monthly')}-2-1`);
+      expect(options.idempotencyKey).toBe(idempotencyKey('checkout', organizationId, 1, params));
       expect((await organization()).checkoutSessionId).toBe(stripe.sessionsById.get([...stripe.sessionsById.keys()].pop()).id);
     });
 
@@ -206,7 +206,7 @@ describe('Billing (e2e)', () => {
       expect(second.args[0].optional_items).toEqual([
         { price: `price_${SEAT_KEY('annual')}`, quantity: 1, adjustable_quantity: { enabled: true, minimum: 1, maximum: 1000 } },
       ]);
-      expect(second.args[1].idempotencyKey).toBe(`traduora-checkout-${organizationId}-${PLAN_KEY('small_business', 'annual')}-0-2`);
+      expect(second.args[1].idempotencyKey).toBe(idempotencyKey('checkout', organizationId, 2, second.args[0]));
       expect(stripe.callsTo('customers.create')).toHaveLength(1);
     });
 
