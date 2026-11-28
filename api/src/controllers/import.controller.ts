@@ -35,7 +35,7 @@ import { xliffParser } from '../formatters/xliff';
 import { yamlFlatParser } from '../formatters/yaml-flat';
 import { yamlNestedParser } from '../formatters/yaml-nested';
 import AuthorizationService from '../services/authorization.service';
-import { isTransientDatabaseError, lockProject } from '../utils/database-locks';
+import { isTransientDatabaseError, lockAccountForShare, lockProject } from '../utils/database-locks';
 import { DbType, isDbType } from '../utils/database-type-helper';
 import { gettextParser } from '../formatters/gettext';
 import { stringsParser } from '../formatters/strings';
@@ -45,7 +45,9 @@ import { phpParser } from '../formatters/php';
 import { ApiFile } from './../decorators/api-file.decorator';
 import { resXParser } from '../formatters/resx';
 import { arbParser } from '../formatters/arb';
-import { OrganizationException, PaymentRequiredException } from './../errors';
+import { OrganizationException, PaymentRequiredException, PlanLimitException } from './../errors';
+import { lockOrganizationForStrings } from '../services/organization/organization-membership';
+import { assertProjectStrings, recountStrings } from '../services/organization/organization-usage';
 import { Access } from '../access/access.decorator';
 
 @Controller('api/v1/projects/:projectId/imports')
@@ -95,7 +97,13 @@ export class ImportController {
       // lock, not as of the import's first read.
       const lockLocale = !isDbType(DbType.BETTER_SQLITE3);
       const run = async (entityManager: EntityManager) => {
+        // The global lock order: the importer's account (for share: the history below references it), the project, then
+        // (SaaS mode) its organization, whose lock counts the strings
+        if (user instanceof User) {
+          await lockAccountForShare(entityManager, user.id);
+        }
         await lockProject(entityManager, membership.project.id);
+        const organization = await lockOrganizationForStrings(entityManager, membership.project);
         // The upload was read after the access check: access that ended since (removed from the project or the
         // organization, organization suspended) stops the import here, before anything is written
         await this.auth.recheckProjectAccess(entityManager, user, membership.project.id, ProjectAction.ImportTranslation);
@@ -108,6 +116,7 @@ export class ImportController {
           await entityManager.findOne(ProjectLocale, { where: { id: projectLocale.id }, lock: { mode: 'pessimistic_write' } });
         }
 
+        const createsLocale = !projectLocale;
         if (!projectLocale) {
           // Extract into service for creating project locales
           projectLocale = this.projectLocaleRepo.create({
@@ -142,7 +151,12 @@ export class ImportController {
         // Check the plan limit against the counts as they stand inside this transaction (the project is locked, and the
         // locale is already counted if this import created it), so no locale is counted twice
         const project = await entityManager.findOneOrFail(Project, { where: { id: membership.project.id }, relations: ['plan'] });
-        if (project.localesCount * (project.termsCount + termsToAdd.length) > project.plan.maxStrings) {
+        if (organization) {
+          // SaaS mode: the organization's plan, from the project's strings before this import to after it
+          const before = (project.localesCount - (createsLocale ? 1 : 0)) * project.termsCount;
+          const after = project.localesCount * (project.termsCount + termsToAdd.length);
+          await assertProjectStrings(entityManager, organization, project.id, before, after, user instanceof User ? user.id : null);
+        } else if (project.localesCount * (project.termsCount + termsToAdd.length) > project.plan.maxStrings) {
           throw new PaymentRequiredException('request would exceed plan limit');
         }
 
@@ -183,6 +197,10 @@ export class ImportController {
           );
         }
 
+        if (organization) {
+          await recountStrings(entityManager, organization.id);
+        }
+
         return {
           data: {
             terms: {
@@ -198,7 +216,10 @@ export class ImportController {
 
       return await (lockLocale ? this.termRepo.manager.transaction('READ COMMITTED', run) : this.termRepo.manager.transaction(run));
     } catch (error) {
-      if (error instanceof PaymentRequiredException) {
+      if (error instanceof PlanLimitException) {
+        // The organization's plan: what it allows and what is used, for the upgrade message
+        throw error;
+      } else if (error instanceof PaymentRequiredException) {
         throw new PaymentRequiredException('request would exceed plan limit');
       } else if (error instanceof OrganizationException) {
         // A suspended organization answers as on every other route (organization_suspended)

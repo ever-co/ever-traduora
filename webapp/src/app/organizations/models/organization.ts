@@ -26,12 +26,37 @@ export interface OrganizationInvite {
   inviteUrl?: string;
 }
 
-/** Plan names as people read them (the limits come with the plans phase). */
+/** Plan names as people read them. */
 export const PLAN_NAMES: Record<Organization['planCode'], string> = {
   starter: 'Starter',
   small_business: 'Small Business',
   enterprise: 'Enterprise',
 };
+
+/**
+ * The plan of an organization and what it uses of it (`GET /organizations/:id/usage`, owner and admins). The plan is the
+ * effective one: Starter once a paid subscription lapsed. A `null` limit is unlimited.
+ */
+export interface OrganizationUsage {
+  plan: { code: Organization['planCode']; name: string };
+  seats: { used: number; included: number | null };
+  strings: { used: number; limit: number | null };
+}
+
+const figures = new Intl.NumberFormat('en-US');
+
+/** "1,200 of 10,000", or "3, no limit". */
+export function usageFigure(used: number, limit: number | null): string {
+  return limit === null ? `${figures.format(used)}, no limit` : `${figures.format(used)} of ${figures.format(limit)}`;
+}
+
+/**
+ * The value a meter of `limit` shows: what is used, within 0 and the limit. An organization over its limit after a
+ * downgrade shows a full meter, and its figure ("20 of 15") says by how much.
+ */
+export function usageMeterValue(used: number, limit: number): number {
+  return Math.max(0, Math.min(used, limit));
+}
 
 /** "1 member", "3 members". */
 export function countOf(count: number, one: string, many: string): string {

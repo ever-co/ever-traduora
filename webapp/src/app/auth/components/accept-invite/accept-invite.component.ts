@@ -4,10 +4,16 @@ import { AuthService } from '../../services/auth.service';
 import { OrganizationsService } from '../../../organizations/services/organizations.service';
 import { Store } from '@ngxs/store';
 import { GetOrganizations, SetCurrentOrganization } from '../../../organizations/stores/organizations.state';
+import { isPlanLimit, planLimitMessage } from '../../../shared/util/api-error';
 
 const INVITE_LINK_FAILED =
   'This invitation link does not work for your account. It only works for the email it was sent to, ' +
   'and only until it is used or the invitation is sent again.';
+
+/** A refusal for want of a free seat says so, with the plan's limit; any other failure is about the link. */
+function failureMessage(error: unknown): string {
+  return isPlanLimit(error) ? planLimitMessage((error as { error?: { error?: unknown } }).error?.error, true) : INVITE_LINK_FAILED;
+}
 
 @Component({
   standalone: false,
@@ -37,13 +43,13 @@ export class AcceptInviteComponent implements OnInit {
           this.store.dispatch([new GetOrganizations(), new SetCurrentOrganization(organizationId)]);
           this.router.navigate(['/orgs', slug, 'projects']);
         },
-        error: () => (this.errorMessage = INVITE_LINK_FAILED),
+        error: error => (this.errorMessage = failureMessage(error)),
       });
       return;
     }
     this.authService.acceptInvite(inviteToken).subscribe({
       next: ({ projectId }) => this.router.navigate(['/projects', projectId]),
-      error: () => (this.errorMessage = INVITE_LINK_FAILED),
+      error: error => (this.errorMessage = failureMessage(error)),
     });
   }
 }

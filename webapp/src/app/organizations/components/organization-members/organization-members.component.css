@@ -1,3 +1,91 @@
+/* The plan's seats and strings (owner, admin): two meters, the one place with the accent */
+.org-usage {
+  margin-bottom: 24px;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.org-usage-plan {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.org-meter {
+  display: grid;
+  grid-template-columns: 64px 1fr minmax(136px, auto);
+  align-items: center;
+  gap: 16px;
+  min-height: 32px;
+}
+
+.org-meter-label {
+  color: #6c757d;
+  font-size: 0.875rem;
+}
+
+/* A native meter: the track, its fill in the accent, and the danger tone once the limit is reached */
+.org-meter-bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 2px;
+  background: rgba(33, 37, 41, 0.08);
+  color: #3b84f8;
+  appearance: none;
+}
+
+.org-meter-bar::-webkit-progress-bar {
+  border-radius: 2px;
+  background: rgba(33, 37, 41, 0.08);
+}
+
+.org-meter-bar::-webkit-progress-value {
+  border-radius: 2px;
+  background: #3b84f8;
+  transition: width 200ms ease-out;
+}
+
+.org-meter-bar::-moz-progress-bar {
+  border-radius: 2px;
+  background: #3b84f8;
+}
+
+/* A limit reached: nothing more of it can be added */
+.org-meter-full {
+  color: #d14354;
+}
+
+.org-meter-full::-webkit-progress-value {
+  background: #d14354;
+}
+
+.org-meter-full::-moz-progress-bar {
+  background: #d14354;
+}
+
+.org-meter-figure {
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.org-usage-note {
+  margin: 12px 0 0;
+  font-size: 0.8125rem;
+}
+
+/* A plan limit is a notice, not an error: quiet surface, one hairline */
+.org-limit {
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 12px;
+  background: #f5f7f9;
+  color: #212529;
+  font-size: 0.875rem;
+}
+
 .org-seats {
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
@@ -117,5 +205,10 @@
   .org-role,
   .org-role-select {
     width: 88px;
+  }
+
+  .org-meter {
+    grid-template-columns: 56px 1fr auto;
+    gap: 12px;
   }
 }

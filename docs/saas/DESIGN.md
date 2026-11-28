@@ -124,18 +124,35 @@ The plans are a code constant (`api/src/domain/organization-plans.ts`), as in De
 | Small Business | `small_business` | 25 | +1 per extra seat bought | unlimited |
 | Enterprise | `enterprise` | unlimited (OD-T5) | — | unlimited |
 
-- **Seats** count the organization's members plus its pending organization invites.
+- **Seats** count the organization's members plus everyone else with a pending invitation: an organization invite, or a
+  project invite to one of its projects (OD-T10). A person counts once.
 - **Strings** count the sum over the organization's projects of `localesCount × termsCount`, the formula Traduora already uses per project.
 - The limits are checked on:
   - invite create and invite accept;
   - adding a member through a project invite;
   - adding a term or a locale, and imports.
-- **Parallel requests cannot exceed a limit.** Each check runs in a transaction that first locks the organization row:
+- **Parallel requests cannot exceed a limit.** Each check runs in a read-committed transaction that holds the
+  organization row lock and reads the counts under it:
   - `SELECT … FOR UPDATE` on Postgres and MySQL;
   - SQLite transactions are already serialized (`app.module.ts:88-91`).
+- **One lock order for the whole API: account (user row) → project(s) → organization(s).** This is the order of
+  *Delete account* (account → its projects → its organizations) and of an invitation's acceptance.
+  - A transaction that holds both a project lock and the organization lock takes the project lock first, then
+    `lockOrganization`. This covers term and locale adds, imports, project invites and their acceptance.
+  - That includes the implicit lock of a foreign key: a row that references a project (a project membership or
+    invitation) is written under an organization lock only after that project was locked, at least for share.
+  - Several locks of a kind (projects, organizations) are taken in the order of their ids.
+  - A check of the organization's string total locks only its own project, then the organization, and reads the
+    totals under the organization lock. It never locks the other projects: every writer of strings takes the
+    organization lock, so the totals are serialized.
+  - The rule sits next to `lockOrganization`, and `api/src/utils/lock-order.spec.ts` scans the source for a project
+    lock after an organization lock. A deadlock would still answer 503 with `Retry-After`, as a backstop only.
 - The organization keeps cached counters (`seatsUsed`, `stringsUsed`), recomputed inside the same transaction.
 - **Errors:**
-  - 402 `plan_limit_reached`, with `limit`, `used` and `plan` in the body;
+  - 402 `plan_limit_reached`, with `resource` (`seats` or `strings`) and `limit` in the body. `used` and `plan` are
+    added only when the caller holds `ViewUsage` in that organization (owner, admin). An editor, an API key or an
+    invitee gets neither, because the organization-wide total covers projects and people they cannot see
+    (owner's default, see HANDOVER "Needs owner");
   - the web app shows "Your plan allows N members. Upgrade to add more." with a link to billing.
 - **A downgrade, a lapse or a cancel never deletes data.** Over the limit, adds are refused until the organization is back under it. Reads, edits and exports keep working.
 - **The effective plan** falls back to Starter on `canceled`, `unpaid` or `incomplete_expired`, and after `TR_BILLING_PAST_DUE_GRACE_DAYS` (default 14) of `past_due`.
@@ -242,7 +259,8 @@ P4 adds:
 
 `id`, `organization_id` (FK CASCADE), `email`, `role`, `status` (`sent`/`accepted`), `token_hash`, `invited_by_user_id`, `date_created`. Unique on (`organization_id`, `email`).
 
-- A project invite to someone who is not yet a member also creates an organization invite, as `member`. That invite is a seat (OD-T10).
+- A pending project invite to someone who is not yet a member takes a seat of the organization itself (OD-T10); no
+  organization invite is made for it.
 - On acceptance, the organization membership is created before the project membership, in one transaction.
 
 ### 4.4 `project.organization_id` (P1)
@@ -293,7 +311,7 @@ New, all under `/api/v1`:
 | `POST /organizations/:id/transfer-ownership` | owner |
 | `GET/POST /organizations/:id/invites`, `DELETE …/invites/:inviteId` | organization:EditMembers |
 | `POST /auth/accept-organization-invite` | user (token) |
-| `GET /organizations/:id/usage` | organization:View: plan, seats, strings, limits |
+| `GET /organizations/:id/usage` | owner/admin (organization:ViewUsage): plan, seats, strings, limits |
 | `GET /organizations/:id/billing` | owner/admin, read-only (P4) |
 | `POST /organizations/:id/billing/checkout`, `POST …/billing/portal` | owner only (P4) |
 | `POST /billing/webhook` | webhook (P4) |

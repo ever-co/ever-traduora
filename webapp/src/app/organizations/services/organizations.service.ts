@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Payload } from '../../shared/models/http';
 import { environment } from '../../../environments/environment';
-import { Organization, OrganizationInvite, OrganizationMember, OrganizationRole } from '../models/organization';
+import { Organization, OrganizationInvite, OrganizationMember, OrganizationRole, OrganizationUsage } from '../models/organization';
 
 @Injectable({ providedIn: 'root' })
 export class OrganizationsService {
@@ -42,6 +42,11 @@ export class OrganizationsService {
     return this.http
       .post<Payload<OrganizationMember[]>>(`${this.endpoint}/organizations/${id}/transfer-ownership`, { userId })
       .pipe(map(res => res.data));
+  }
+
+  /** The plan, seats and strings of the organization (owner, admin). */
+  usage(id: string): Observable<OrganizationUsage> {
+    return this.http.get<Payload<OrganizationUsage>>(`${this.endpoint}/organizations/${id}/usage`).pipe(map(res => res.data));
   }
 
   invites(id: string): Observable<OrganizationInvite[]> {

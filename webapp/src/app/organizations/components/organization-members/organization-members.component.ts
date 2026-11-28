@@ -7,12 +7,25 @@ import { Store } from '@ngxs/store';
 import { BehaviorSubject, combineLatest, EMPTY, forkJoin, Observable, of } from 'rxjs';
 import { catchError, distinctUntilChanged, filter, finalize, switchMap } from 'rxjs/operators';
 import { AuthState } from '../../../auth/stores/auth.state';
-import { canManage, countOf, Organization, OrganizationInvite, OrganizationMember, OrganizationRole } from '../../models/organization';
+import {
+  canManage,
+  countOf,
+  Organization,
+  OrganizationInvite,
+  OrganizationMember,
+  OrganizationRole,
+  OrganizationUsage,
+  usageFigure,
+  usageMeterValue,
+} from '../../models/organization';
 import { organizationErrorMessage } from '../../models/organization-errors';
 import { OrganizationsService } from '../../services/organizations.service';
 import { GetOrganizations, OrganizationsState } from '../../stores/organizations.state';
 
-/** /orgs/:slug/members: the members and pending invites, the seats they take, and inviting more (owner, admin). */
+/**
+ * /orgs/:slug/members: the members and pending invites, and inviting more (owner, admin), with the plan's seats and
+ * strings above them for the owner and the admins.
+ */
 @Component({
   selector: 'app-organization-members',
   imports: [NgIf, NgFor, AsyncPipe, ReactiveFormsModule],
@@ -23,9 +36,15 @@ export class OrganizationMembersComponent implements OnInit {
   organization: Organization | undefined;
   members: OrganizationMember[] | undefined;
   invites: OrganizationInvite[] = [];
+  /** The plan and what the organization uses of it (owner, admin) */
+  usage: OrganizationUsage | undefined;
+  /** The usage reads sent, so that only the latest one updates the card */
+  private usageReads = 0;
   /** The link of the invite just sent, to hand over when the email does not arrive. */
   lastInvite: OrganizationInvite | undefined;
   errorMessage: string | undefined;
+  /** The last change was refused by the plan's limits (402 plan_limit_reached): a notice, not an error */
+  limitReached = false;
   /** The lists could not be loaded: a retry is offered. */
   loadFailed = false;
   busy = false;
@@ -51,6 +70,14 @@ export class OrganizationMembersComponent implements OnInit {
     return canManage(this.organization?.role);
   }
 
+  readonly usageFigure = usageFigure;
+  readonly usageMeterValue = usageMeterValue;
+
+  /** Whether a limit is reached: nothing more of it can be added */
+  isFull(used: number, limit: number | null): boolean {
+    return limit !== null && used >= limit;
+  }
+
   get seatsLine(): string {
     const members = this.members?.length ?? 0;
     const pending = this.invites.length;
@@ -73,13 +100,17 @@ export class OrganizationMembersComponent implements OnInit {
           this.organization = organization;
           this.members = undefined;
           this.invites = [];
+          this.usage = undefined;
           this.lastInvite = undefined;
           this.errorMessage = undefined;
+          this.limitReached = false;
           this.loadFailed = false;
           // The default organization holds every account of the installation: its members are not listed (API: 404)
           if (organization.isDefault) {
             return of<[OrganizationMember[], OrganizationInvite[]]>([[], []]);
           }
+          // The plan card loads on its own: a usage that cannot be read never hides the members and the invites
+          this.refreshUsage();
           return forkJoin([
             this.organizations.members(organization.id),
             canManage(organization.role) ? this.organizations.invites(organization.id) : of([] as OrganizationInvite[]),
@@ -123,6 +154,7 @@ export class OrganizationMembersComponent implements OnInit {
         this.invites = [...this.invites.filter(invite => invite.email !== result.email), result];
         this.lastInvite = result;
       }
+      this.refreshUsage();
     });
   }
 
@@ -141,6 +173,7 @@ export class OrganizationMembersComponent implements OnInit {
     }
     this.run(this.organizations.removeMember(this.organization.id, member.userId), () => {
       this.members = (this.members ?? []).filter(m => m.userId !== member.userId);
+      this.refreshUsage();
     });
   }
 
@@ -167,6 +200,7 @@ export class OrganizationMembersComponent implements OnInit {
       if (this.lastInvite?.id === invite.id) {
         this.lastInvite = undefined;
       }
+      this.refreshUsage();
     });
   }
 
@@ -187,6 +221,7 @@ export class OrganizationMembersComponent implements OnInit {
     const current = () => always || this.organization?.id === organizationId;
     this.busy = true;
     this.errorMessage = undefined;
+    this.limitReached = false;
     request.pipe(finalize(() => (this.busy = false))).subscribe({
       next: result => {
         if (current()) {
@@ -196,8 +231,33 @@ export class OrganizationMembersComponent implements OnInit {
       error: error => {
         if (current()) {
           this.errorMessage = organizationErrorMessage(error);
+          this.limitReached = error?.error?.error?.code === 'plan_limit_reached';
+          if (this.limitReached) {
+            // The plan's figures as they are now, next to the notice
+            this.refreshUsage();
+          }
         }
       },
     });
+  }
+
+  /** Reads the usage again after a change of the seats, for the owner and the admins. */
+  private refreshUsage(): void {
+    // Every refresh makes the reads before it stale, even one that reads nothing (a member, the default organization):
+    // only the latest read updates the card, so an earlier one that answers last never shows older figures
+    const read = ++this.usageReads;
+    const organization = this.organization;
+    if (!organization || organization.isDefault || !canManage(organization.role)) {
+      return;
+    }
+    this.organizations
+      .usage(organization.id)
+      .pipe(catchError(() => EMPTY))
+      .subscribe(usage => {
+        // And only while the organization is still the one shown, and the person may still read its usage
+        if (read === this.usageReads && this.organization?.id === organization.id && canManage(this.organization.role)) {
+          this.usage = usage;
+        }
+      });
   }
 }

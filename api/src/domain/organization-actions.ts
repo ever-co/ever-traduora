@@ -21,6 +21,8 @@ export enum OrganizationAction {
   CreateProject = 'CreateProject',
   ManageBilling = 'ManageBilling',
   ExportOrganization = 'ExportOrganization',
+  /** The plan, seats and strings of `GET /organizations/:id/usage` (owner, admin) */
+  ViewUsage = 'ViewUsage',
 }
 
 export const AllowedMemberActions: ReadonlySet<OrganizationAction> = new Set([
@@ -35,6 +37,7 @@ export const AllowedAdminActions: ReadonlySet<OrganizationAction> = new Set([
   OrganizationAction.EditMembers,
   OrganizationAction.ManageBilling,
   OrganizationAction.ExportOrganization,
+  OrganizationAction.ViewUsage,
 ]);
 
 export const AllowedOwnerActions: ReadonlySet<OrganizationAction> = new Set([

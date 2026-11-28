@@ -89,3 +89,25 @@ export class AccessUndeclaredException extends HttpException {
     super('This route declares no access rule', HttpStatus.FORBIDDEN);
   }
 }
+
+/**
+ * A change past the limits of the organization's plan (DESIGN §3.6): 402 `plan_limit_reached`, with the `resource`
+ * (`seats` or `strings`) and its `limit`, so the web app can say "Your plan allows N members. Upgrade to add more."
+ * What is `used` now and the effective `plan` come only with `usage`, for a caller who may read the organization's
+ * usage (owner, admin): the total covers projects an editor, an API key or an invitee cannot see.
+ */
+export class PlanLimitException extends HttpException {
+  readonly code = 'plan_limit_reached';
+  readonly used?: number;
+  readonly plan?: string;
+
+  constructor(
+    readonly resource: 'seats' | 'strings',
+    readonly limit: number,
+    usage?: { used: number; plan: string },
+  ) {
+    super(`Your plan allows ${limit} ${resource === 'seats' ? 'members' : 'strings'}. Upgrade to add more.`, HttpStatus.PAYMENT_REQUIRED);
+    this.used = usage?.used;
+    this.plan = usage?.plan;
+  }
+}

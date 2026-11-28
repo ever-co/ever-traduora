@@ -989,6 +989,41 @@ export class OrganizationResponse extends ServiceApiResponse<OrganizationDTO> {
   data: OrganizationDTO;
 }
 
+export class OrganizationPlanDTO {
+  @ApiProperty({ enum: OrganizationPlanCode, description: 'The effective plan: Starter once a subscription lapsed (DESIGN §3.6)' })
+  code: OrganizationPlanCode;
+  @ApiProperty()
+  name: string;
+}
+
+export class OrganizationSeatsDTO {
+  @ApiProperty({ description: 'Members plus the people with a pending invitation who are not members yet' })
+  used: number;
+  @ApiProperty({ nullable: true, type: Number, description: 'Seats of the plan, with the extra seats bought; null is unlimited' })
+  included: number | null;
+}
+
+export class OrganizationStringsDTO {
+  @ApiProperty({ description: "The sum over the organization's projects of locales × terms" })
+  used: number;
+  @ApiProperty({ nullable: true, type: Number, description: 'null is unlimited' })
+  limit: number | null;
+}
+
+export class OrganizationUsageDTO {
+  @ApiProperty()
+  plan: OrganizationPlanDTO;
+  @ApiProperty()
+  seats: OrganizationSeatsDTO;
+  @ApiProperty()
+  strings: OrganizationStringsDTO;
+}
+
+export class OrganizationUsageResponse extends ServiceApiResponse<OrganizationUsageDTO> {
+  @ApiProperty()
+  data: OrganizationUsageDTO;
+}
+
 export class ListOrganizationsResponse extends ServiceApiResponse<OrganizationDTO[]> {
   @ApiProperty({ type: OrganizationDTO, isArray: true })
   data: OrganizationDTO[];

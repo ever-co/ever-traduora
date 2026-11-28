@@ -2,11 +2,53 @@ import { EntityManager, In } from 'typeorm';
 import { ProjectUser } from '../entity/project-user.entity';
 import { Project } from '../entity/project.entity';
 import { Term } from '../entity/term.entity';
+import { User } from '../entity/user.entity';
 import { DbType, isDbType } from './database-type-helper';
 
 /**
+ * Locks the accounts' rows (FOR UPDATE) for the rest of the transaction, in the order of their ids: the first locks of
+ * the global order, account → projects → organizations (see `lockOrganization`). For a transaction that deletes the
+ * accounts or writes rows that reference them under later locks. SQLite runs one transaction at a time.
+ */
+export async function lockAccounts(entityManager: EntityManager, userIds: ReadonlyArray<string>): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3)) {
+    return;
+  }
+  for (const userId of Array.from(new Set(userIds)).sort(byCodeUnits)) {
+    await entityManager.findOne(User, { where: { id: userId }, select: ['id'], lock: { mode: 'pessimistic_write' } });
+  }
+}
+
+/**
+ * {@link lockAccounts} for one account, answering its row as it is under the lock: a decision about the person (their
+ * e-mail, whether it is verified) is taken on this, not on a copy read before the transaction. SQLite runs one
+ * transaction at a time.
+ */
+export function lockAccountRow(entityManager: EntityManager, userId: string): Promise<User | null> {
+  return entityManager.findOne(User, {
+    where: { id: userId },
+    select: ['id', 'name', 'email', 'emailVerified'],
+    ...(isDbType(DbType.BETTER_SQLITE3) ? {} : { lock: { mode: 'pessimistic_write' as const } }),
+  });
+}
+
+/**
+ * Locks the account's row for share, first: for a transaction that writes rows referencing the account (an import's
+ * history) after its project and organization locks, whose foreign key would otherwise take that lock last, against the
+ * global order. SQLite runs one transaction at a time.
+ */
+export async function lockAccountForShare(entityManager: EntityManager, userId: string): Promise<void> {
+  if (isDbType(DbType.BETTER_SQLITE3)) {
+    return;
+  }
+  await entityManager.findOne(User, { where: { id: userId }, select: ['id'], lock: { mode: 'pessimistic_read' } });
+}
+
+/**
  * Locks the project's row for the rest of the transaction. Every transaction that changes the project's counters
- * (adding or removing terms or locales, imports) takes it first, before any other lock: they then run one at a time
+ * (adding or removing terms or locales, imports) takes it first, before any other lock but its account's; in SaaS mode an
+ * add then locks its organization to count the strings (`lockOrganizationForStrings`, global order account → projects →
+ * organization, see `lockOrganization`): they then run one at a time
  * per project and lock the other rows in the same order. Otherwise MySQL deadlocks them, as the shared locks its
  * foreign-key checks take on the project come before the exclusive one the counter update needs. On Postgres the lock
  * is the one the counter update takes anyway (FOR NO KEY UPDATE), so rows that only reference the project are not held
@@ -57,7 +99,8 @@ export async function lockProjectsOf(entityManager: EntityManager, userIds: Read
   );
 }
 
-function byCodeUnits(a: string, b: string): number {
+/** The one order of ids for taking several locks of a kind (projects, organizations): by code unit, the same everywhere */
+export function byCodeUnits(a: string, b: string): number {
   if (a < b) {
     return -1;
   }
@@ -75,6 +118,17 @@ export async function lockProjectForShare(entityManager: EntityManager, projectI
     return;
   }
   await entityManager.findOne(Project, { where: { id: projectId }, lock: { mode: 'pessimistic_read' } });
+}
+
+/**
+ * Locks the rows of the projects for share, in the order of their ids ({@link lockProjectForShare}), for a transaction
+ * that then adds rows referencing them under an organization lock (an invitation's acceptance): the projects come first,
+ * as the global lock order wants (see `lockOrganization`). SQLite runs one transaction at a time.
+ */
+export async function lockProjectsForShare(entityManager: EntityManager, projectIds: ReadonlyArray<string>): Promise<void> {
+  for (const projectId of Array.from(new Set(projectIds)).sort(byCodeUnits)) {
+    await lockProjectForShare(entityManager, projectId);
+  }
 }
 
 /**

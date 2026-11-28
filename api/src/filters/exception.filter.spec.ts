@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { FormatCannotHoldTermsException } from '../errors';
+import { FormatCannotHoldTermsException, PaymentRequiredException, PlanLimitException } from '../errors';
 import { CustomExceptionFilter } from './exception.filter';
 
 describe('CustomExceptionFilter', () => {
@@ -24,6 +24,32 @@ describe('CustomExceptionFilter', () => {
       expect(response.headers['Retry-After']).toBe('1');
       expect(response.body.error.code).toBe('Busy');
     }
+  });
+
+  it('answers a plan limit of the organization with 402 plan_limit_reached, its limit, what is used and the plan', () => {
+    const seats = respond(new PlanLimitException('seats', 15, { used: 15, plan: 'starter' }));
+    expect(seats.statusCode).toBe(402);
+    expect(seats.body).toEqual({
+      error: {
+        code: 'plan_limit_reached',
+        message: 'Your plan allows 15 members. Upgrade to add more.',
+        resource: 'seats',
+        limit: 15,
+        used: 15,
+        plan: 'starter',
+      },
+    });
+    expect(respond(new PlanLimitException('strings', 10_000, { used: 9_999, plan: 'starter' })).body.error.message).toBe(
+      'Your plan allows 10000 strings. Upgrade to add more.',
+    );
+    // Without the usage (a caller who may not read it): what the plan allows, nothing of what the organization uses
+    expect(respond(new PlanLimitException('strings', 10_000)).body).toEqual({
+      error: { code: 'plan_limit_reached', message: 'Your plan allows 10000 strings. Upgrade to add more.', resource: 'strings', limit: 10_000 },
+    });
+    // A project plan (single tenant) answers as before
+    expect(respond(new PaymentRequiredException('request would exceed plan limit')).body).toEqual({
+      error: { code: 'PaymentRequired', message: 'You seem to have reached your plan limit' },
+    });
   });
 
   it('still answers a duplicate with 409', () => {
