@@ -26,6 +26,7 @@ const ACCOUNT_DELETION_MESSAGES: { [code: string]: string } = {
   owner_required: 'Choose a new owner for every organization you own with other members.',
   transfer_invalid: 'A person you chose is no longer a member there. Check again and choose someone else.',
   slug_mismatch: 'An address you typed does not match its organization. Type each one exactly as shown.',
+  organization_suspended: 'An organization you own is suspended. Contact support before deleting your account.',
 };
 
 const figures = new Intl.NumberFormat('en-US');

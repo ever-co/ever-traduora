@@ -53,7 +53,7 @@ export class OperatorService {
   }
 
   organizations(query: OperatorOrganizationsQuery = {}): Observable<OperatorPage<OperatorOrganization>> {
-    const params = paramsOf({ q: query.q?.trim(), status: query.status, page: query.page, limit: query.limit });
+    const params = paramsOf({ q: query.q?.trim(), status: query.status, billing: query.billing, page: query.page, limit: query.limit });
     return this.http.get<OperatorPage<OperatorOrganization>>(`${this.endpoint}/operator/organizations`, { params });
   }
 
@@ -65,23 +65,34 @@ export class OperatorService {
 
   /** Locks the members out at once; answers the detail with the new audit row first. */
   suspend(id: string, reason: string): Observable<OperatorOrganizationDetail> {
-    return this.http
-      .post<Payload<OperatorOrganizationDetail>>(`${this.endpoint}/operator/organizations/${encodeURIComponent(id)}/suspend`, {
-        reason: reason.trim(),
-      })
-      .pipe(map(res => res.data));
+    return this.act(id, 'suspend', reason);
   }
 
   restore(id: string, reason: string): Observable<OperatorOrganizationDetail> {
-    return this.http
-      .post<Payload<OperatorOrganizationDetail>>(`${this.endpoint}/operator/organizations/${encodeURIComponent(id)}/restore`, {
-        reason: reason.trim(),
-      })
-      .pipe(map(res => res.data));
+    return this.act(id, 'restore', reason);
+  }
+
+  /** A deleted organization's address becomes free to take again (its record gets a generated one). */
+  releaseSlug(id: string, reason: string): Observable<OperatorOrganizationDetail> {
+    return this.act(id, 'release-slug', reason);
+  }
+
+  /** Tries the cancellation of a deleted organization's subscription again now; the detail says how it went. */
+  retryBillingCancellation(id: string, reason: string): Observable<OperatorOrganizationDetail> {
+    return this.act(id, 'billing-cancellation', reason);
   }
 
   audit(query: OperatorAuditQuery = {}): Observable<OperatorPage<OperatorAuditEntry>> {
     const params = paramsOf({ organizationId: query.organizationId, page: query.page, limit: query.limit });
     return this.http.get<OperatorPage<OperatorAuditEntry>>(`${this.endpoint}/operator/audit`, { params });
+  }
+
+  /** An audited operator action: the reason goes trimmed, the detail comes back with the new audit row first. */
+  private act(id: string, action: string, reason: string): Observable<OperatorOrganizationDetail> {
+    return this.http
+      .post<Payload<OperatorOrganizationDetail>>(`${this.endpoint}/operator/organizations/${encodeURIComponent(id)}/${action}`, {
+        reason: reason.trim(),
+      })
+      .pipe(map(res => res.data));
   }
 }

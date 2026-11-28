@@ -161,4 +161,43 @@ describe('AccountDeletionComponent', () => {
     expect(q(fixture, 'form')).toBeNull();
     expect(el(fixture, '[data-test="start"]').textContent?.trim()).toBe('Delete my account');
   });
+  it('is blocked by a suspended organization: it says so, offers no choice for it, and cannot be sent', () => {
+    const suspended = { ...preflight.organizations[1], status: 'suspended' as const };
+    const fixture = open({ projects: [], organizations: [suspended] });
+    expect(el(fixture, '[data-test="blocked"]').textContent).toContain('Side project is suspended. Contact support before deleting your account');
+    expect(q(fixture, '[data-test="alone"]')).toBeNull();
+    expect(q(fixture, '#acctSlug-o2')).toBeNull();
+    setValue(fixture, '[data-test="email"]', 'ada@example.test');
+    expect(submit(fixture).disabled).toBe(true);
+    expect(submit(fixture).textContent?.trim()).toBe('Delete my account');
+    fixture.componentInstance.submit();
+    http.expectNone(`${endpoint}/users/me`);
+  });
+
+  it('keeps the form while the deletion is on its way: Cancel waits', () => {
+    const fixture = open({ projects: [], organizations: [] });
+    setValue(fixture, '[data-test="email"]', 'ada@example.test');
+    submit(fixture).click();
+    fixture.detectChanges();
+    const req = http.expectOne(`${endpoint}/users/me`);
+    expect((el(fixture, '[data-test="cancel"]') as HTMLButtonElement).disabled).toBe(true);
+    fixture.componentInstance.cancel();
+    fixture.detectChanges();
+    expect(q(fixture, 'form')).not.toBeNull();
+    req.flush({ error: { code: 'Internal' } }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect((el(fixture, '[data-test="cancel"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('checks the typed email against the account shown now', () => {
+    const fixture = open({ projects: [], organizations: [] });
+    setValue(fixture, '[data-test="email"]', 'ada@example.test');
+    expect(submit(fixture).disabled).toBe(false);
+
+    fixture.componentRef.setInput('user', { ...user, email: 'ada.new@example.test' });
+    fixture.detectChanges();
+    expect(submit(fixture).disabled).toBe(true);
+    setValue(fixture, '[data-test="email"]', 'ada.new@example.test');
+    expect(submit(fixture).disabled).toBe(false);
+  });
 });

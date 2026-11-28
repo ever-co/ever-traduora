@@ -1,4 +1,4 @@
-<a class="op-back" routerLink="/operator/organizations">
+<a class="op-back" routerLink="/operator/organizations" [queryParams]="backParams" data-test="back">
   <i class="material-icons" aria-hidden="true">chevron_left</i>
   <span>All organizations</span>
 </a>
@@ -102,56 +102,85 @@
 
   <div *ngIf="errorMessage" class="alert alert-danger" data-test="action-error">{{ errorMessage }}</div>
 
-  <section *ngIf="action" class="card op-panel op-action" [class.op-danger]="action === 'suspend'" data-test="action">
-    <h6 class="op-panel-title">{{ action === 'suspend' ? 'Suspend the organization' : 'Restore the organization' }}</h6>
-    <p class="op-note text-muted mt-0 mb-3">
-      <ng-container *ngIf="action === 'suspend'"
+  <section *ngIf="org.billingCancellation && billingUnsettled(org.billingCancellation.status)" class="op-notice" data-test="billing-notice">
+    <h6 class="op-panel-title">
+      {{ org.billingCancellation.status === 'failed' ? 'The billing cancellation failed' : 'The billing cancellation is pending' }}
+    </h6>
+    <p class="op-note mt-0">
+      The subscription is cancelled after the deletion, with retries.
+      {{ org.billingCancellation.status === 'failed' ? 'The automatic retries stopped: an operator has to try again.' : 'It is still being tried.' }}
+    </p>
+    <dl class="op-facts op-notice-facts">
+      <div class="op-fact">
+        <dt>Attempts</dt>
+        <dd class="op-mono" data-test="billing-attempts">{{ org.billingCancellation.attempts | number }}</dd>
+      </div>
+      <div class="op-fact">
+        <dt>Last try</dt>
+        <dd class="op-mono">{{ org.billingCancellation.date.modified | date: 'd MMM y, HH:mm' }}</dd>
+      </div>
+      <div *ngIf="org.billingCancellation.lastError" class="op-fact">
+        <dt>Last error</dt>
+        <dd class="op-mono op-error" data-test="billing-error">{{ org.billingCancellation.lastError }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section *ngFor="let kind of actions" class="card op-panel op-action" [class.op-danger]="copy[kind].danger" [attr.data-test]="'action-' + kind">
+    <h6 class="op-panel-title">{{ copy[kind].title }}</h6>
+    <p class="op-note text-muted mt-0 mb-3" [ngSwitch]="kind">
+      <ng-container *ngSwitchCase="'retryBilling'">Asks the billing provider to cancel the subscription again now.</ng-container>
+      <ng-container *ngSwitchCase="'suspend'"
         >Its members and API keys lose access to it and its projects at once, until an operator restores it. Nothing is deleted.</ng-container
       >
-      <ng-container *ngIf="action === 'restore'">Its members and API keys get their access back at once.</ng-container>
+      <ng-container *ngSwitchCase="'restore'">Its members and API keys get their access back at once.</ng-container>
+      <ng-container *ngSwitchCase="'release'"
+        >Its address <span class="op-mono">/orgs/{{ org.slug }}</span> becomes free for a new organization. The deleted record keeps a generated
+        one.</ng-container
+      >
     </p>
     <div class="form-group mb-3">
-      <label class="op-label" for="opReason">Reason</label>
+      <label class="op-label" [for]="'opReason-' + kind">Reason</label>
       <textarea
-        id="opReason"
+        [id]="'opReason-' + kind"
         class="form-control"
         rows="3"
         [maxlength]="reasonMax"
-        [formControl]="reason"
-        [class.is-invalid]="reason.touched && reason.invalid"
-        (input)="confirming = false"
+        [formControl]="reasons[kind]"
+        [class.is-invalid]="reasons[kind].touched && reasons[kind].invalid"
+        data-test="reason"
+        (input)="confirming === kind && cancel()"
       ></textarea>
       <div class="invalid-feedback">3 to 500 characters</div>
       <small class="form-text text-muted">
-        Kept in the audit log with your email · <span class="op-mono">{{ reasonLength }} of {{ reasonMax }}</span>
+        Kept in the audit log with your email · <span class="op-mono">{{ reasonLength(kind) }} of {{ reasonMax }}</span>
       </small>
     </div>
-    <div *ngIf="!confirming" class="op-confirm">
+    <div *ngIf="confirming !== kind" class="op-confirm">
       <button
         type="button"
         class="btn btn-sm"
-        [ngClass]="action === 'suspend' ? 'btn-outline-danger' : 'btn-primary'"
-        [disabled]="busy"
+        [ngClass]="copy[kind].danger ? 'btn-outline-danger' : 'btn-primary'"
+        [disabled]="!!busy"
         data-test="ask"
-        (click)="ask()"
+        (click)="ask(kind)"
       >
-        {{ action === 'suspend' ? 'Suspend' : 'Restore' }}
+        {{ copy[kind].ask }}
       </button>
     </div>
-    <div *ngIf="confirming" class="op-confirm" role="alert" data-test="confirm">
-      <span *ngIf="action === 'suspend'">Suspend {{ org.name }} now? Its members are locked out at once</span>
-      <span *ngIf="action === 'restore'">Restore {{ org.name }} now? Its members get their access back</span>
+    <div *ngIf="confirming === kind" class="op-confirm" role="alert" data-test="confirm">
+      <span>{{ question(kind, org) }}</span>
       <button
         type="button"
         class="btn btn-sm"
-        [ngClass]="action === 'suspend' ? 'btn-danger' : 'btn-primary'"
-        [disabled]="busy"
+        [ngClass]="copy[kind].danger ? 'btn-danger' : 'btn-primary'"
+        [disabled]="!!busy"
         data-test="confirm-button"
-        (click)="confirm()"
+        (click)="confirm(kind)"
       >
-        {{ action === 'suspend' ? 'Suspend organization' : 'Restore organization' }}
+        {{ busy === kind ? 'Sending' : copy[kind].confirm }}
       </button>
-      <button type="button" class="btn btn-sm btn-link" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn btn-sm btn-link" [disabled]="busy === kind" (click)="cancel()">Cancel</button>
     </div>
   </section>
 
@@ -160,13 +189,14 @@
   </p>
   <p *ngIf="org.status === 'deleted'" class="op-note text-muted" data-test="deleted-note">
     Its owner deleted it. The record stays for the billing history, and it is not restored.
+    <ng-container *ngIf="released">Its address was released.</ng-container>
   </p>
 
   <div class="op-subtitle d-flex align-items-baseline">
     <span class="flex-1">Recent operator actions</span>
     <a class="op-link" routerLink="/operator/audit" [queryParams]="{ organizationId: org.id }">All of them</a>
   </div>
-  <div *ngIf="org.audit.length === 0" class="op-empty small text-muted" data-test="audit-empty">No operator has suspended or restored it</div>
+  <div *ngIf="org.audit.length === 0" class="op-empty small text-muted" data-test="audit-empty">No operator action on it yet</div>
   <div *ngIf="org.audit.length > 0" class="card op-list">
     <table class="op-table">
       <thead>
@@ -180,7 +210,7 @@
       <tbody>
         <tr *ngFor="let entry of org.audit; trackBy: trackById" data-test="audit">
           <td class="op-mono op-muted op-nowrap">{{ entry.date.created | date: 'd MMM y, HH:mm' }}</td>
-          <td class="op-mono">{{ entry.action }}</td>
+          <td class="op-mono op-nowrap">{{ auditActionLabel(entry.action) }}</td>
           <td class="op-reason">{{ entry.reason }}</td>
           <td class="d-none d-sm-table-cell op-muted">{{ entry.operator.email }}</td>
         </tr>

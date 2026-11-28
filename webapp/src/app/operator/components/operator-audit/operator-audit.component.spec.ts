@@ -41,7 +41,7 @@ describe('OperatorAuditComponent', () => {
     harness.detectChanges();
     const root = harness.routeNativeElement as HTMLElement;
     const rows = Array.from(root.querySelectorAll('[data-test="audit"]'));
-    expect(rows.length).toBe(2);
+    expect(rows).toHaveSize(2);
     expect(rows[0].textContent).toContain('/orgs/acme');
     expect(rows[0].textContent).toContain('ops@example.test');
     expect(rows[1].textContent).toContain('No longer found');
@@ -57,5 +57,51 @@ describe('OperatorAuditComponent', () => {
     req.flush({ data: [], meta: { total: 0, page: 2, limit: 25 } });
     harness.detectChanges();
     expect((harness.routeNativeElement as HTMLElement).querySelector('[data-test="scope"]')).not.toBeNull();
+  });
+
+  it('names the newer operator actions in words', async () => {
+    await harness.navigateByUrl('/operator/audit');
+    const org = { id: 'o1', name: 'Acme', slug: 'acme' };
+    expectAudit().flush({
+      data: [
+        { ...entry('a1', org), action: 'release_slug' },
+        { ...entry('a2', org), action: 'retry_billing_cancellation' },
+      ],
+      meta: { total: 2, page: 1, limit: 25 },
+    });
+    harness.detectChanges();
+    const rows = Array.from((harness.routeNativeElement as HTMLElement).querySelectorAll('[data-test="audit"]'));
+    expect(rows[0].textContent).toContain('release address');
+    expect(rows[1].textContent).toContain('retry billing');
+  });
+
+  it("never shows one query's rows under another, not even when the other fails", async () => {
+    await harness.navigateByUrl('/operator/audit');
+    expectAudit().flush({ data: [entry('a1', null)], meta: { total: 1, page: 1, limit: 25 } });
+    harness.detectChanges();
+
+    await harness.navigateByUrl('/operator/audit?organizationId=o2');
+    expectAudit().flush({ error: { code: 'Internal' } }, { status: 500, statusText: 'Server Error' });
+    harness.detectChanges();
+    const root = harness.routeNativeElement as HTMLElement;
+    expect(root.querySelectorAll('[data-test="audit"]')).toHaveSize(0);
+    expect(root.querySelector('[data-test="error"]')).not.toBeNull();
+  });
+
+  it('drops a late answer to "Try again" once the query changed', async () => {
+    await harness.navigateByUrl('/operator/audit?organizationId=o1');
+    expectAudit().flush({ error: { code: 'Internal' } }, { status: 500, statusText: 'Server Error' });
+    harness.detectChanges();
+    ((harness.routeNativeElement as HTMLElement).querySelector('[data-test="error"] button') as HTMLButtonElement).click();
+    const retry = expectAudit();
+    expect(retry.request.params.get('organizationId')).toBe('o1');
+
+    await harness.navigateByUrl('/operator/audit?organizationId=o2');
+    expect(retry.cancelled).toBe(true);
+    const current = expectAudit();
+    expect(current.request.params.get('organizationId')).toBe('o2');
+    current.flush({ data: [], meta: { total: 0, page: 1, limit: 25 } });
+    harness.detectChanges();
+    expect((harness.routeNativeElement as HTMLElement).querySelector('[data-test="empty"]')).not.toBeNull();
   });
 });

@@ -14,6 +14,16 @@
   <select id="opStatus" class="custom-select custom-select-sm op-status-filter" (change)="setStatus($any($event.target).value)">
     <option *ngFor="let filter of statusFilters" [value]="filter.value" [selected]="filter.value === status">{{ filter.label }}</option>
   </select>
+  <div class="custom-control custom-checkbox op-billing-filter">
+    <input
+      id="opBilling"
+      type="checkbox"
+      class="custom-control-input"
+      [checked]="billing === 'unsettled'"
+      (change)="setBilling($any($event.target).checked ? 'unsettled' : '')"
+    />
+    <label class="custom-control-label" for="opBilling">Billing unsettled</label>
+  </div>
   <output class="op-count" data-test="count">{{ countLine }}</output>
 </div>
 
@@ -23,8 +33,8 @@
 </div>
 
 <div *ngIf="rows && rows.length === 0" class="op-empty" data-test="empty">
-  <p class="mb-1">{{ filtered ? 'No organization matches' : 'No organizations yet' }}</p>
-  <p *ngIf="filtered" class="text-muted mb-0">Search by a part of the name or the address, the whole id, or a part of the owner's email</p>
+  <p class="mb-1">{{ emptyLine }}</p>
+  <p *ngIf="q" class="text-muted mb-0">Search by a part of the name or the address, the whole id, or a part of the owner's email</p>
 </div>
 
 <div *ngIf="rows?.length" class="card op-list">
@@ -44,11 +54,18 @@
     <tbody>
       <tr *ngFor="let row of rows; trackBy: trackById" data-test="organization">
         <td class="op-cell-name">
-          <a class="op-name" [routerLink]="['/operator/organizations', row.id]">{{ row.name }}</a>
+          <a class="op-name" [routerLink]="['/operator/organizations', row.id]" [queryParams]="queryParams">{{ row.name }}</a>
           <span class="op-sub op-mono">/orgs/{{ row.slug }}{{ row.isDefault ? ' · default' : '' }}</span>
         </td>
         <td>
-          <span class="op-mono op-status" [ngClass]="'op-status-' + row.status" data-test="status">{{ row.status }}</span>
+          <span class="op-mono op-status d-block" [ngClass]="'op-status-' + row.status" data-test="status">{{ row.status }}</span>
+          <span
+            *ngIf="billingUnsettled(row.billingCancellation)"
+            class="op-mono op-billing"
+            [class.op-billing-failed]="row.billingCancellation === 'failed'"
+            data-test="billing"
+            >billing {{ row.billingCancellation }}</span
+          >
         </td>
         <td class="d-none d-xl-table-cell op-nowrap">{{ planNames[row.planCode] }}</td>
         <td class="d-none d-sm-table-cell">

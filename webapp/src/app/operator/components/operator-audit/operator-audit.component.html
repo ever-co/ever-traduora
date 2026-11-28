@@ -11,7 +11,7 @@
   <button type="button" class="btn btn-sm btn-link p-0" (click)="retry()">Try again</button>
 </div>
 
-<div *ngIf="rows && rows.length === 0" class="op-empty text-muted" data-test="empty">No operator has suspended or restored an organization yet</div>
+<div *ngIf="rows && rows.length === 0" class="op-empty text-muted" data-test="empty">No operator action yet</div>
 
 <div *ngIf="rows?.length" class="card op-list">
   <table class="op-table">
@@ -27,7 +27,7 @@
     <tbody>
       <tr *ngFor="let entry of rows; trackBy: trackById" data-test="audit">
         <td class="op-mono op-muted op-nowrap">{{ entry.date.created | date: 'd MMM y, HH:mm' }}</td>
-        <td class="op-mono">{{ entry.action }}</td>
+        <td class="op-mono op-nowrap">{{ auditActionLabel(entry.action) }}</td>
         <td class="op-cell-name">
           <ng-container *ngIf="entry.organization; else gone">
             <a class="op-name" [routerLink]="['/operator/organizations', entry.organization.id]">{{ entry.organization.name }}</a>

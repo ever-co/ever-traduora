@@ -5,7 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { NgxsModule, Store } from '@ngxs/store';
 import { environment } from '../../../../environments/environment';
 import { Organization, OrganizationMember } from '../../models/organization';
-import { OrganizationsState } from '../../stores/organizations.state';
+import { OrganizationsState, SetCurrentOrganization } from '../../stores/organizations.state';
 import { exportFileName, OrganizationSettingsComponent, sizeFigure } from './organization-settings.component';
 
 describe('OrganizationSettingsComponent danger zone', () => {
@@ -167,6 +167,43 @@ describe('OrganizationSettingsComponent danger zone', () => {
     http.expectOne(request => request.method === 'DELETE').flush(null, { status: 204, statusText: 'No Content' });
     http.expectOne(`${endpoint}/organizations`).flush({ data: [] });
     expect(navigate).toHaveBeenCalledWith(['/orgs', 'new'], { replaceUrl: true });
+  });
+
+  it('reads the list again but stays put when the owner left the page before the deletion answered', () => {
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const fixture = render(acme);
+    typeSlug(fixture, 'acme');
+    el(fixture, 'delete-button').click();
+    const req = http.expectOne(request => request.method === 'DELETE');
+    fixture.destroy();
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne(`${endpoint}/organizations`).flush({ data: [other] });
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('stays put when the page shows another organization by the time the deletion answers', () => {
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const fixture = render(acme);
+    typeSlug(fixture, 'acme');
+    el(fixture, 'delete-button').click();
+    const req = http.expectOne(request => request.method === 'DELETE');
+    // The owner opened Globex meanwhile: the page is reused for it
+    store.dispatch(new SetCurrentOrganization(other.id));
+    fixture.detectChanges();
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    http.expectOne(`${endpoint}/organizations`).flush({ data: [other] });
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('says what broke an export off', async () => {
+    const fixture = render(acme);
+    el(fixture, 'export-button').click();
+    http.expectOne(`${endpoint}/organizations/o1/export`).error(new ProgressEvent('error'));
+    for (let turn = 0; turn < 50 && !fixture.componentInstance.exportError; turn++) {
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    fixture.detectChanges();
+    expect(el(fixture, 'export-error').textContent).toContain('The download broke off before the end');
   });
 
   it('says why a deletion was refused', () => {

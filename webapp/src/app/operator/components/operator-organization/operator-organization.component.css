@@ -30,7 +30,7 @@
 }
 
 .op-dot {
-  color: #adb5bd;
+  color: #6c757d;
 }
 
 .op-detail-grid {
@@ -108,7 +108,6 @@
   border: 0;
   border-radius: 2px;
   background: rgba(33, 37, 41, 0.08);
-  color: #3b84f8;
   appearance: none;
 }
 
@@ -125,10 +124,6 @@
 .op-meter-bar::-moz-progress-bar {
   border-radius: 2px;
   background: #3b84f8;
-}
-
-.op-meter-full {
-  color: #d14354;
 }
 
 .op-meter-full::-webkit-progress-value {
@@ -151,6 +146,34 @@
 .op-action {
   max-width: 640px;
   margin-bottom: 24px;
+}
+
+/* A billing cancellation still to settle: a quiet surface with one hairline, not an alert */
+.op-notice {
+  max-width: 640px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 12px;
+  background: #f5f7f9;
+  color: #212529;
+}
+
+.op-notice .op-note {
+  color: #495057;
+}
+
+.op-notice-facts {
+  margin-top: 12px;
+}
+
+/* On the light surface the muted grey falls under 4.5:1, so the labels take a darker step */
+.op-notice .op-fact dt {
+  color: #545b62;
+}
+
+.op-error {
+  color: #495057;
 }
 
 .op-label {

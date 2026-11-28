@@ -5,6 +5,23 @@
   gap: 8px;
 }
 
+/* A suspended organization blocks the deletion: a quiet surface with one hairline, not an alert */
+.acct-blocked {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 12px 16px;
+  border: 1px solid rgba(33, 37, 41, 0.08);
+  border-radius: 12px;
+  background: #f5f7f9;
+  font-size: 0.875rem;
+}
+
+.acct-blocked .acct-row-sub {
+  color: #545b62;
+}
+
 .acct-subtitle {
   margin: 24px 0 4px;
   font-size: 0.875rem;

@@ -19,6 +19,13 @@
   </button>
 
   <form *ngIf="step === 'confirm' && preflight" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div *ngIf="blocked.length > 0" class="acct-blocked" data-test="blocked">
+      <p *ngFor="let organization of blocked" class="mb-0">
+        {{ organization.name }} is suspended. Contact support before deleting your account.
+        <span class="acct-row-sub font-mono d-block">/orgs/{{ organization.slug }}</span>
+      </p>
+    </div>
+
     <ng-container *ngIf="preflight.projects.length > 0">
       <h6 class="acct-subtitle">Projects that need a new admin</h6>
       <p class="small text-muted">You are the last admin of these projects, and others work in them. Choose who becomes the admin of each.</p>
@@ -111,10 +118,10 @@
     </div>
 
     <div class="acct-actions">
-      <button type="submit" class="btn btn-danger btn-sm" [disabled]="form.invalid || busy" data-test="submit">
+      <button type="submit" class="btn btn-danger btn-sm" [disabled]="form.invalid || busy || blocked.length > 0" data-test="submit">
         {{ busy ? 'Deleting' : submitLabel }}
       </button>
-      <button type="button" class="btn btn-link btn-sm" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn btn-link btn-sm" [disabled]="busy" data-test="cancel" (click)="cancel()">Cancel</button>
     </div>
   </form>
 </section>

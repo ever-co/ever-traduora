@@ -24,6 +24,7 @@ describe('OperatorOrganizationsComponent', () => {
     seatsUsed: 4,
     stringsUsed: 12_400,
     date: { created: '2026-11-28T10:00:00.000Z', modified: '2026-11-28T10:00:00.000Z' },
+    billingCancellation: null,
     ...extra,
   });
 
@@ -92,10 +93,13 @@ describe('OperatorOrganizationsComponent', () => {
     const req = expectList();
     expect(req.request.params.get('q')).toBe('acme');
     expect(req.request.params.get('page')).toBe('1');
-    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: { q: 'acme', status: null, page: null }, replaceUrl: true }));
+    expect(navigate).toHaveBeenCalledWith(
+      [],
+      jasmine.objectContaining({ queryParams: { q: 'acme', status: null, billing: null, page: null }, replaceUrl: true }),
+    );
     answer(req, [organization(3, { name: 'Acme' })]);
     fixture.detectChanges();
-    expect(rows(fixture).length).toBe(1);
+    expect(rows(fixture)).toHaveSize(1);
     expect(text(fixture, '[data-test="count"]')).toBe('1 organization found');
     flush();
   }));
@@ -140,7 +144,7 @@ describe('OperatorOrganizationsComponent', () => {
     tick();
     const second = expectList();
     expect(second.request.params.get('page')).toBe('2');
-    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: { q: null, status: null, page: 2 } }));
+    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: { q: null, status: null, billing: null, page: 2 } }));
 
     // Page 3 asked before page 2 answered: only page 3 is shown
     fixture.componentInstance.goTo(3);
@@ -176,6 +180,65 @@ describe('OperatorOrganizationsComponent', () => {
     answer(expectList(), [organization(1)]);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-test="error"]')).toBeNull();
-    expect(rows(fixture).length).toBe(1);
+    expect(rows(fixture)).toHaveSize(1);
+  });
+
+  it("never shows an earlier query's rows under a failed one", () => {
+    spyOn(router, 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(OperatorOrganizationsComponent);
+    fixture.detectChanges();
+    answer(expectList(), [organization(1)]);
+    fixture.detectChanges();
+    fixture.componentInstance.setStatus('deleted');
+    expectList().flush({ error: { code: 'Internal' } }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    expect(rows(fixture)).toHaveSize(0);
+    expect(text(fixture, '[data-test="count"]')).toBe('');
+  });
+
+  it('filters by an unsettled billing cancellation, and marks those rows', () => {
+    const navigate = spyOn(router, 'navigate').and.resolveTo(true);
+    const fixture = TestBed.createComponent(OperatorOrganizationsComponent);
+    fixture.detectChanges();
+    answer(expectList(), [organization(1)]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-test="billing"]')).toBeNull();
+
+    const box: HTMLInputElement = fixture.nativeElement.querySelector('#opBilling');
+    box.click();
+    const req = expectList();
+    expect(req.request.params.get('billing')).toBe('unsettled');
+    expect(navigate).toHaveBeenCalledWith([], jasmine.objectContaining({ queryParams: { q: null, status: null, billing: 'unsettled', page: null } }));
+    answer(req, [
+      organization(7, { status: 'deleted', billingCancellation: 'failed' }),
+      organization(8, { status: 'deleted', billingCancellation: 'pending' }),
+    ]);
+    fixture.detectChanges();
+    const [failed, pending] = rows(fixture);
+    expect(failed.querySelector('[data-test="billing"]')?.textContent?.trim()).toBe('billing failed');
+    expect(failed.querySelector('[data-test="billing"]')?.classList).toContain('op-billing-failed');
+    expect(pending.querySelector('[data-test="billing"]')?.textContent?.trim()).toBe('billing pending');
+    expect(pending.querySelector('[data-test="billing"]')?.classList).not.toContain('op-billing-failed');
+
+    box.click();
+    expect(expectList().request.params.has('billing')).toBe(false);
+  });
+
+  it('carries the search, filters and page to each organization, and nothing when unfiltered', async () => {
+    await router.navigateByUrl('/?q=acme&billing=unsettled&page=2');
+    const filtered = TestBed.createComponent(OperatorOrganizationsComponent);
+    filtered.detectChanges();
+    answer(expectList(), [organization(1)], 30, 2);
+    filtered.detectChanges();
+    const link = rows(filtered)[0].querySelector('a.op-name') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/operator/organizations/o1?q=acme&billing=unsettled&page=2');
+    filtered.destroy();
+
+    await router.navigateByUrl('/');
+    const bare = TestBed.createComponent(OperatorOrganizationsComponent);
+    bare.detectChanges();
+    answer(expectList(), [organization(1)]);
+    bare.detectChanges();
+    expect((rows(bare)[0].querySelector('a.op-name') as HTMLAnchorElement).getAttribute('href')).toBe('/operator/organizations/o1');
   });
 });

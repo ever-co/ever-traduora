@@ -1,5 +1,5 @@
 import { NgFor, NgIf } from '@angular/common';
-import { Component, Input, OnDestroy } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, SimpleChanges } from '@angular/core';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Store } from '@ngxs/store';
@@ -14,9 +14,12 @@ import { ClearMessages, DeleteAccount } from '../../stores/auth.state';
 
 type Choices = FormGroup<Record<string, FormControl<string>>>;
 
-/** Valid when the typed text, trimmed, is exactly `expected`. */
-function typedExactly(expected: string): ValidatorFn {
-  return (control: AbstractControl): ValidationErrors | null => (String(control.value ?? '').trim() === expected ? null : { mismatch: true });
+/** Valid when the typed text, trimmed, is exactly what `expected` gives at the time of the check. */
+function typedExactly(expected: () => string): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const wanted = expected();
+    return wanted && String(control.value ?? '').trim() === wanted ? null : { mismatch: true };
+  };
 }
 
 function choices(ids: string[], validator: (id: string) => ValidatorFn): Choices {
@@ -31,7 +34,8 @@ function choices(ids: string[], validator: (id: string) => ValidatorFn): Choices
  * Account settings → Delete account. It first asks the API what stands in the way: nothing, and the person confirms
  * with their email as before; otherwise they choose, in the page, who becomes the admin of each project they are the
  * last admin of and who owns each organization they own with others, and confirm the deletion of each organization they
- * are the only member of by typing its address. Everything goes in one request, through the DeleteAccount action.
+ * are the only member of by typing its address. An organization an operator suspended blocks the deletion until support
+ * restores it. Everything goes in one request, through the DeleteAccount action.
  */
 @Component({
   selector: 'app-account-deletion',
@@ -39,7 +43,7 @@ function choices(ids: string[], validator: (id: string) => ValidatorFn): Choices
   templateUrl: './account-deletion.component.html',
   styleUrls: ['./account-deletion.component.css'],
 })
-export class AccountDeletionComponent implements OnDestroy {
+export class AccountDeletionComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) user!: User;
 
   step: 'idle' | 'checking' | 'confirm' = 'idle';
@@ -48,6 +52,8 @@ export class AccountDeletionComponent implements OnDestroy {
   ownedWithOthers: DeletionOrganization[] = [];
   /** Organizations the person is the only member of: deleted with the account. */
   ownedAlone: DeletionOrganization[] = [];
+  /** Organizations an operator suspended: the account cannot be deleted until support restores them. */
+  blocked: DeletionOrganization[] = [];
   busy = false;
   errorMessage: string | undefined;
 
@@ -83,9 +89,10 @@ export class AccountDeletionComponent implements OnDestroy {
     this.check = this.authService.accountDeletion().subscribe({
       next: preflight => {
         this.preflight = preflight;
-        this.ownedWithOthers = preflight.organizations.filter(organization => !organization.onlyMember);
-        // A suspended organization stays for the operators: it is closed with the account, its data kept, as before
-        this.ownedAlone = preflight.organizations.filter(organization => organization.onlyMember && organization.status === 'active');
+        this.blocked = preflight.organizations.filter(organization => organization.status === 'suspended');
+        const open = preflight.organizations.filter(organization => organization.status !== 'suspended');
+        this.ownedWithOthers = open.filter(organization => !organization.onlyMember);
+        this.ownedAlone = open.filter(organization => organization.onlyMember);
         this.form = this.buildForm(preflight);
         this.step = 'confirm';
       },
@@ -97,11 +104,16 @@ export class AccountDeletionComponent implements OnDestroy {
   }
 
   cancel(): void {
+    if (this.busy) {
+      // The deletion is on its way: its answer decides what the page shows
+      return;
+    }
     this.check?.unsubscribe();
     this.step = 'idle';
     this.preflight = undefined;
     this.ownedWithOthers = [];
     this.ownedAlone = [];
+    this.blocked = [];
     this.errorMessage = undefined;
     this.form = this.buildForm({ projects: [], organizations: [] });
   }
@@ -128,7 +140,7 @@ export class AccountDeletionComponent implements OnDestroy {
 
   submit(): void {
     this.form.markAllAsTouched();
-    if (this.step !== 'confirm' || this.form.invalid || this.busy) {
+    if (this.step !== 'confirm' || this.form.invalid || this.busy || this.blocked.length > 0) {
       return;
     }
     this.busy = true;
@@ -146,15 +158,23 @@ export class AccountDeletionComponent implements OnDestroy {
       });
   }
 
+  /** Another account, or a changed email: the typed confirmation is checked against the email of now. */
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['user'] && !changes['user'].firstChange) {
+      this.form.controls.email.updateValueAndValidity();
+    }
+  }
+
   ngOnDestroy(): void {
     this.check?.unsubscribe();
   }
 
   private buildForm(preflight: AccountDeletionPreflight) {
-    const organizations = preflight.organizations;
+    // A suspended organization gets no choice: it blocks the deletion
+    const organizations = preflight.organizations.filter(organization => organization.status !== 'suspended');
     const slugOf = new Map(organizations.map(organization => [organization.id, organization.slug]));
     return new FormGroup({
-      email: new FormControl('', { nonNullable: true, validators: [Validators.required, typedExactly(this.user?.email ?? '')] }),
+      email: new FormControl('', { nonNullable: true, validators: [Validators.required, typedExactly(() => this.user?.email ?? '')] }),
       admins: choices(
         preflight.projects.map(project => project.id),
         () => Validators.required,
@@ -164,8 +184,8 @@ export class AccountDeletionComponent implements OnDestroy {
         () => Validators.required,
       ),
       slugs: choices(
-        organizations.filter(organization => organization.onlyMember && organization.status === 'active').map(organization => organization.id),
-        id => typedExactly(slugOf.get(id) ?? ''),
+        organizations.filter(organization => organization.onlyMember).map(organization => organization.id),
+        id => typedExactly(() => slugOf.get(id) ?? ''),
       ),
     });
   }

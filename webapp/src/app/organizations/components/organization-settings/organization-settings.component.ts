@@ -1,5 +1,5 @@
 import { NgFor, NgIf } from '@angular/common';
-import { HttpEventType } from '@angular/common/http';
+import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { Component, DestroyRef, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -7,7 +7,7 @@ import { Router } from '@angular/router';
 import { Store } from '@ngxs/store';
 import { saveAs } from 'file-saver';
 import { of } from 'rxjs';
-import { catchError, filter, finalize, switchMap } from 'rxjs/operators';
+import { catchError, filter, finalize, map, switchMap } from 'rxjs/operators';
 import { canManage, isAllowedSlug, Organization, OrganizationMember } from '../../models/organization';
 import { organizationErrorMessage } from '../../models/organization-errors';
 import { OrganizationsService } from '../../services/organizations.service';
@@ -63,13 +63,18 @@ export class OrganizationSettingsComponent implements OnInit {
   deleteError: string | undefined;
   readonly sizeFigure = sizeFigure;
 
+  /** Set once the page is gone: a deletion that ends after it navigates nowhere. */
+  private destroyed = false;
+
   constructor(
     private readonly store: Store,
     private readonly organizations: OrganizationsService,
     private readonly fb: FormBuilder,
     private readonly router: Router,
     private readonly destroyRef: DestroyRef,
-  ) {}
+  ) {
+    destroyRef.onDestroy(() => (this.destroyed = true));
+  }
 
   get canManage(): boolean {
     return canManage(this.organization?.role);
@@ -190,7 +195,11 @@ export class OrganizationSettingsComponent implements OnInit {
             this.saveFile(event.body, exportFileName(organization.slug));
           }
         },
-        error: error => (this.exportError = organizationErrorMessage(error)),
+        error: error =>
+          (this.exportError =
+            error instanceof HttpErrorResponse && error.status === 0
+              ? 'The download broke off before the end. Try again.'
+              : organizationErrorMessage(error)),
       });
   }
 
@@ -201,7 +210,8 @@ export class OrganizationSettingsComponent implements OnInit {
 
   /**
    * Deletes the organization once the owner typed its address, then reads the list again and opens another
-   * organization, or the page to create one.
+   * organization, or the page to create one. The list is always read again; the page moves on only while it is still
+   * open on the deleted organization (the owner may have gone elsewhere meanwhile).
    */
   deleteOrganization(): void {
     const organization = this.organization;
@@ -213,12 +223,22 @@ export class OrganizationSettingsComponent implements OnInit {
     this.organizations
       .remove(organization.id, this.deleteSlug.value.trim())
       .pipe(
+        // Decided when the deletion answers: the refresh below makes the page show another organization anyway
+        map(() => !this.destroyed && this.organization?.id === organization.id),
         // Deleted: the list is read again; if that fails, the deleted organization is left out below anyway
-        switchMap(() => this.store.dispatch(new GetOrganizations()).pipe(catchError(() => of(undefined)))),
+        switchMap(stillHere =>
+          this.store.dispatch(new GetOrganizations()).pipe(
+            catchError(() => of(undefined)),
+            map(() => stillHere),
+          ),
+        ),
         finalize(() => (this.deleting = false)),
       )
       .subscribe({
-        next: () => {
+        next: stillHere => {
+          if (!stillHere || this.destroyed) {
+            return;
+          }
           const next = this.store
             .selectSnapshot(OrganizationsState.organizations)
             .find(other => other.id !== organization.id && other.status !== 'deleted');

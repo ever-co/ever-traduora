@@ -1,19 +1,22 @@
 import { DatePipe, DecimalPipe, NgClass, NgFor, NgIf } from '@angular/common';
 import { Component, DestroyRef, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { NgbPagination } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, of, Subject } from 'rxjs';
 import { catchError, debounceTime, map, switchMap } from 'rxjs/operators';
 import { PLAN_NAMES } from '../../../organizations/models/organization';
 import { organizationErrorMessage } from '../../../organizations/models/organization-errors';
 import {
+  billingUnsettled,
+  listQueryParams,
+  listStateFromParams,
   OPERATOR_PAGE_SIZE,
+  OperatorBillingFilter,
   OperatorOrganization,
   OperatorOrganizationsQuery,
   OperatorPage,
   OperatorStatusFilter,
-  pageFromParam,
   STATUS_FILTERS,
 } from '../../models/operator';
 import { OperatorService } from '../../services/operator.service';
@@ -24,8 +27,8 @@ const figures = new Intl.NumberFormat('en-US');
 
 /**
  * /operator/organizations: every organization of the installation, newest first, searched by name, address, id or the
- * owner's email and filtered by status. The search, the filter and the page are kept in the address, so the way back
- * from an organization lands on the same page.
+ * owner's email and filtered by status and by an unsettled billing cancellation. The search, the filters and the page
+ * are kept in the address and carried to each organization, so the way back lands on the same page.
  */
 @Component({
   selector: 'app-operator-organizations',
@@ -37,15 +40,19 @@ export class OperatorOrganizationsComponent implements OnInit {
   readonly statusFilters = STATUS_FILTERS;
   readonly planNames = PLAN_NAMES;
   readonly pageSize = OPERATOR_PAGE_SIZE;
+  readonly billingUnsettled = billingUnsettled;
 
   q = '';
   status: OperatorStatusFilter = '';
+  billing: OperatorBillingFilter = '';
   page = 1;
-  /** `undefined` until the first answer. */
+  /** `undefined` until an answer for the current query. */
   rows: OperatorOrganization[] | undefined;
   total = 0;
   loading = false;
   errorMessage: string | undefined;
+  /** The list's state as query parameters, for its address and for the links to each organization. */
+  queryParams: Params = {};
 
   private readonly typed$ = new Subject<string>();
   private readonly load$ = new Subject<OperatorOrganizationsQuery>();
@@ -66,15 +73,23 @@ export class OperatorOrganizationsComponent implements OnInit {
   }
 
   get filtered(): boolean {
-    return !!(this.q || this.status);
+    return !!(this.q || this.status || this.billing);
+  }
+
+  get emptyLine(): string {
+    if (this.billing && !this.q && !this.status) {
+      return 'Every billing cancellation is settled';
+    }
+    return this.filtered ? 'No organization matches' : 'No organizations yet';
   }
 
   ngOnInit(): void {
-    const params = this.route.snapshot.queryParamMap;
-    this.q = (params.get('q') ?? '').trim().slice(0, 100);
-    const status = params.get('status') ?? '';
-    this.status = STATUS_FILTERS.some(filter => filter.value === status) ? (status as OperatorStatusFilter) : '';
-    this.page = pageFromParam(params.get('page'));
+    const state = listStateFromParams(this.route.snapshot.queryParamMap);
+    this.q = state.q;
+    this.status = state.status;
+    this.billing = state.billing;
+    this.page = state.page;
+    this.queryParams = listQueryParams(state);
 
     this.typed$
       .pipe(
@@ -105,6 +120,9 @@ export class OperatorOrganizationsComponent implements OnInit {
       .subscribe(result => {
         this.loading = false;
         if ('error' in result) {
+          // Never the rows of an earlier query under this one's search and filters
+          this.rows = undefined;
+          this.total = 0;
           this.errorMessage = organizationErrorMessage(result.error);
           return;
         }
@@ -127,6 +145,14 @@ export class OperatorOrganizationsComponent implements OnInit {
     }
   }
 
+  setBilling(billing: OperatorBillingFilter): void {
+    if (billing !== this.billing) {
+      this.billing = billing;
+      this.page = 1;
+      this.reload();
+    }
+  }
+
   goTo(page: number): void {
     if (page !== this.page) {
       this.page = page;
@@ -143,17 +169,14 @@ export class OperatorOrganizationsComponent implements OnInit {
   }
 
   private reload(): void {
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { q: this.q || null, status: this.status || null, page: this.page > 1 ? this.page : null },
-      replaceUrl: true,
-    });
+    this.queryParams = listQueryParams({ q: this.q, status: this.status, billing: this.billing, page: this.page });
+    this.router.navigate([], { relativeTo: this.route, queryParams: this.queryParams, replaceUrl: true });
     this.load();
   }
 
   private load(): void {
     this.loading = true;
     this.errorMessage = undefined;
-    this.load$.next({ q: this.q, status: this.status, page: this.page, limit: this.pageSize });
+    this.load$.next({ q: this.q, status: this.status, billing: this.billing, page: this.page, limit: this.pageSize });
   }
 }
