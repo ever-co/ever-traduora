@@ -6,40 +6,30 @@
     <h6 id="orgUsagePlan" class="org-usage-plan">{{ usage.plan.name }} plan</h6>
     <div class="org-meter" data-test="usage-seats">
       <span class="org-meter-label">Seats</span>
-      <div
-        class="org-meter-track"
-        role="progressbar"
+      <progress
+        *ngIf="usage.seats.included !== null; else noSeatLimit"
+        class="org-meter-bar"
+        [class.org-meter-full]="isFull(usage.seats.used, usage.seats.included)"
         aria-label="Seats used"
-        [attr.aria-valuenow]="usage.seats.used"
-        aria-valuemin="0"
-        [attr.aria-valuemax]="usage.seats.included"
-        [class.invisible]="usage.seats.included === null"
-      >
-        <div
-          class="org-meter-fill"
-          [class.org-meter-full]="isFull(usage.seats.used, usage.seats.included)"
-          [style.width.%]="usageShare(usage.seats.used, usage.seats.included)"
-        ></div>
-      </div>
+        [max]="usage.seats.included"
+        [value]="usageMeterValue(usage.seats.used, usage.seats.included)"
+        [attr.aria-valuetext]="usageFigure(usage.seats.used, usage.seats.included)"
+      ></progress>
+      <ng-template #noSeatLimit><span class="org-meter-none"></span></ng-template>
       <span class="org-meter-figure font-mono">{{ usageFigure(usage.seats.used, usage.seats.included) }}</span>
     </div>
     <div class="org-meter" data-test="usage-strings">
       <span class="org-meter-label">Strings</span>
-      <div
-        class="org-meter-track"
-        role="progressbar"
+      <progress
+        *ngIf="usage.strings.limit !== null; else noStringLimit"
+        class="org-meter-bar"
+        [class.org-meter-full]="isFull(usage.strings.used, usage.strings.limit)"
         aria-label="Strings used"
-        [attr.aria-valuenow]="usage.strings.used"
-        aria-valuemin="0"
-        [attr.aria-valuemax]="usage.strings.limit"
-        [class.invisible]="usage.strings.limit === null"
-      >
-        <div
-          class="org-meter-fill"
-          [class.org-meter-full]="isFull(usage.strings.used, usage.strings.limit)"
-          [style.width.%]="usageShare(usage.strings.used, usage.strings.limit)"
-        ></div>
-      </div>
+        [max]="usage.strings.limit"
+        [value]="usageMeterValue(usage.strings.used, usage.strings.limit)"
+        [attr.aria-valuetext]="usageFigure(usage.strings.used, usage.strings.limit)"
+      ></progress>
+      <ng-template #noStringLimit><span class="org-meter-none"></span></ng-template>
       <span class="org-meter-figure font-mono">{{ usageFigure(usage.strings.used, usage.strings.limit) }}</span>
     </div>
     <p class="org-usage-note text-muted">

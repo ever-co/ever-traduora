@@ -50,12 +50,12 @@ export function usageFigure(used: number, limit: number | null): string {
   return limit === null ? `${figures.format(used)}, no limit` : `${figures.format(used)} of ${figures.format(limit)}`;
 }
 
-/** How full a limit is, from 0 to 100 (an organization over its limit after a downgrade shows full). */
-export function usageShare(used: number, limit: number | null): number {
-  if (limit === null || limit <= 0) {
-    return limit === 0 ? 100 : 0;
-  }
-  return Math.min(100, Math.round((used / limit) * 100));
+/**
+ * The value a meter of `limit` shows: what is used, within 0 and the limit. An organization over its limit after a
+ * downgrade shows a full meter, and its figure ("20 of 15") says by how much.
+ */
+export function usageMeterValue(used: number, limit: number): number {
+  return Math.max(0, Math.min(used, limit));
 }
 
 /** "1 member", "3 members". */

@@ -164,9 +164,52 @@ describe('OrganizationMembersComponent', () => {
     expect(panel.querySelector('h6').textContent.trim()).toBe('Starter plan');
     expect(panel.querySelector('[data-test="usage-seats"]').textContent).toContain('3 of 15');
     expect(panel.querySelector('[data-test="usage-strings"]').textContent).toContain('9,990 of 10,000');
-    const bars = Array.from(panel.querySelectorAll('.org-meter-fill')) as HTMLElement[];
-    expect(bars.map(bar => bar.style.width)).toEqual(['20%', '100%']);
-    expect(bars.map(bar => bar.classList.contains('org-meter-full'))).toEqual([false, false]);
+    const meters = Array.from(panel.querySelectorAll('progress')) as HTMLProgressElement[];
+    expect(meters.map(meter => [meter.value, meter.max, meter.getAttribute('aria-valuetext')])).toEqual([
+      [3, 15, '3 of 15'],
+      [9_990, 10_000, '9,990 of 10,000'],
+    ]);
+    expect(meters.map(meter => meter.classList.contains('org-meter-full'))).toEqual([false, false]);
+  });
+
+  it('keeps a meter within its range over the limit, and says the real figure', () => {
+    const fixture = render('owner');
+    fixture.componentInstance.usage = { ...usage, seats: { used: 20, included: 15 } };
+    fixture.detectChanges();
+    const seats: HTMLProgressElement = fixture.nativeElement.querySelector('[data-test="usage-seats"] progress');
+    expect([seats.value, seats.max, seats.getAttribute('aria-valuetext')]).toEqual([15, 15, '20 of 15']);
+    expect(seats.classList.contains('org-meter-full')).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-test="usage-seats"]').textContent).toContain('20 of 15');
+  });
+
+  it('still lists the members and the invites when the usage cannot be read', () => {
+    store.reset({
+      ...store.snapshot(),
+      auth: { ...store.snapshot().auth, user: { id: owner.userId, name: owner.name, email: owner.email, emailVerified: true } },
+      organizations: { ...store.snapshot().organizations, organizations: [organization], loaded: true, currentOrganizationId: 'o1' },
+    });
+    const fixture = TestBed.createComponent(OrganizationMembersComponent);
+    fixture.detectChanges();
+    http.expectOne(`${endpoint}/organizations/o1/usage`).flush('down', { status: 503, statusText: 'Unavailable' });
+    http.expectOne(`${endpoint}/organizations/o1/members`).flush({ data: [owner, member] });
+    http.expectOne(`${endpoint}/organizations/o1/invites`).flush({ data: [pending] });
+    fixture.detectChanges();
+    expect(rows(fixture, 'member').length).toBe(2);
+    expect(rows(fixture, 'invite').length).toBe(1);
+    expect(fixture.nativeElement.querySelector('[data-test="usage"]')).toBeNull();
+    expect(fixture.componentInstance.errorMessage).toBeUndefined();
+  });
+
+  it('shows the latest usage read, whatever order the answers come in', () => {
+    const fixture = render('owner');
+    const component = fixture.componentInstance as unknown as { refreshUsage(): void };
+    component.refreshUsage();
+    component.refreshUsage();
+    const [older, newer] = http.match(`${endpoint}/organizations/o1/usage`);
+    newer.flush({ data: { ...usage, seats: { used: 5, included: 15 } } });
+    older.flush({ data: { ...usage, seats: { used: 4, included: 15 } } });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-test="usage-seats"]').textContent).toContain('5 of 15');
   });
 
   it('shows no limit on a plan without one', () => {
@@ -180,7 +223,7 @@ describe('OrganizationMembersComponent', () => {
     const panel: HTMLElement = fixture.nativeElement.querySelector('[data-test="usage"]');
     expect(panel.querySelector('[data-test="usage-seats"]').textContent).toContain('40, no limit');
     expect(panel.querySelector('[data-test="usage-strings"]').textContent).toContain('120,000, no limit');
-    expect(Array.from(panel.querySelectorAll('.org-meter-track')).every((track: HTMLElement) => track.classList.contains('invisible'))).toBe(true);
+    expect(panel.querySelectorAll('progress').length).toBe(0);
   });
 
   it('says what the plan allows when an invite is refused by its limit, and reads the usage again', () => {
@@ -206,7 +249,7 @@ describe('OrganizationMembersComponent', () => {
     const notice: HTMLElement = fixture.nativeElement.querySelector('[data-test="plan-limit"]');
     expect(notice.textContent.trim()).toBe('Your plan allows 15 members. Upgrade to add more.');
     expect(notice.classList.contains('alert-danger')).toBe(false);
-    expect(fixture.nativeElement.querySelector('[data-test="usage-seats"] .org-meter-fill').classList.contains('org-meter-full')).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-test="usage-seats"] progress').classList.contains('org-meter-full')).toBe(true);
   });
 
   it('shows a member the list without any way to change it, and lets them leave', () => {

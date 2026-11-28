@@ -24,22 +24,45 @@
   font-size: 0.875rem;
 }
 
-.org-meter-track {
+/* A native meter: the track, its fill in the accent, and the danger tone once the limit is reached */
+.org-meter-bar {
+  display: block;
+  width: 100%;
   height: 4px;
   overflow: hidden;
+  border: 0;
+  border-radius: 2px;
+  background: rgba(33, 37, 41, 0.08);
+  color: #3b84f8;
+  appearance: none;
+}
+
+.org-meter-bar::-webkit-progress-bar {
   border-radius: 2px;
   background: rgba(33, 37, 41, 0.08);
 }
 
-.org-meter-fill {
-  height: 100%;
+.org-meter-bar::-webkit-progress-value {
   border-radius: 2px;
   background: #3b84f8;
   transition: width 200ms ease-out;
 }
 
+.org-meter-bar::-moz-progress-bar {
+  border-radius: 2px;
+  background: #3b84f8;
+}
+
 /* A limit reached: nothing more of it can be added */
 .org-meter-full {
+  color: #d14354;
+}
+
+.org-meter-full::-webkit-progress-value {
+  background: #d14354;
+}
+
+.org-meter-full::-moz-progress-bar {
   background: #d14354;
 }
 

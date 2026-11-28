@@ -16,7 +16,7 @@ import {
   OrganizationRole,
   OrganizationUsage,
   usageFigure,
-  usageShare,
+  usageMeterValue,
 } from '../../models/organization';
 import { organizationErrorMessage } from '../../models/organization-errors';
 import { OrganizationsService } from '../../services/organizations.service';
@@ -38,6 +38,8 @@ export class OrganizationMembersComponent implements OnInit {
   invites: OrganizationInvite[] = [];
   /** The plan and what the organization uses of it (owner, admin) */
   usage: OrganizationUsage | undefined;
+  /** The usage reads sent, so that only the latest one updates the card */
+  private usageReads = 0;
   /** The link of the invite just sent, to hand over when the email does not arrive. */
   lastInvite: OrganizationInvite | undefined;
   errorMessage: string | undefined;
@@ -69,7 +71,7 @@ export class OrganizationMembersComponent implements OnInit {
   }
 
   readonly usageFigure = usageFigure;
-  readonly usageShare = usageShare;
+  readonly usageMeterValue = usageMeterValue;
 
   /** Whether a limit is reached: nothing more of it can be added */
   isFull(used: number, limit: number | null): boolean {
@@ -105,13 +107,13 @@ export class OrganizationMembersComponent implements OnInit {
           this.loadFailed = false;
           // The default organization holds every account of the installation: its members are not listed (API: 404)
           if (organization.isDefault) {
-            return of<[OrganizationMember[], OrganizationInvite[], OrganizationUsage | undefined]>([[], [], undefined]);
+            return of<[OrganizationMember[], OrganizationInvite[]]>([[], []]);
           }
-          const manages = canManage(organization.role);
+          // The plan card loads on its own: a usage that cannot be read never hides the members and the invites
+          this.refreshUsage();
           return forkJoin([
             this.organizations.members(organization.id),
-            manages ? this.organizations.invites(organization.id) : of([] as OrganizationInvite[]),
-            manages ? this.organizations.usage(organization.id) : of(undefined),
+            canManage(organization.role) ? this.organizations.invites(organization.id) : of([] as OrganizationInvite[]),
           ]).pipe(
             // A failed load stays on this organization only: the next one (or a retry) loads again
             catchError(error => {
@@ -123,10 +125,9 @@ export class OrganizationMembersComponent implements OnInit {
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(([members, invites, usage]) => {
+      .subscribe(([members, invites]) => {
         this.members = members;
         this.invites = invites;
-        this.usage = usage;
       });
   }
 
@@ -246,11 +247,13 @@ export class OrganizationMembersComponent implements OnInit {
     if (!organization || organization.isDefault || !canManage(organization.role)) {
       return;
     }
+    // Only the latest read updates the card: an earlier one that answers last never shows older figures
+    const read = ++this.usageReads;
     this.organizations
       .usage(organization.id)
       .pipe(catchError(() => EMPTY))
       .subscribe(usage => {
-        if (this.organization?.id === organization.id) {
+        if (read === this.usageReads && this.organization?.id === organization.id) {
           this.usage = usage;
         }
       });
