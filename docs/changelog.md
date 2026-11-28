@@ -8,6 +8,12 @@ To download the source code for each release, check out [GitHub](https://github.
 
 ## next
 
+- XLIFF 1.2 export: a translation with `&amp;` in it (`Use &amp; for an ampersand`) is written with every `&` escaped
+  (`<target>Use &amp;amp; for an ampersand</target>`, also in `<source>`) and reads back as it was saved. Before, the
+  export wrote `Use &amp; for an ampersand`, which translation tools and Traduora's own import read as
+  `Use & for an ampersand`, so importing the file back changed the translation. Other values, the trans-unit ids and
+  the layout of the file are written as before
+
 - Android XML and RESX export: a translation with `&amp;` in it (`Use &amp; for an ampersand`) is written with every
   `&` escaped (`Use &amp;amp; for an ampersand`) and reads back as it was saved. Before, the export wrote
   `Use &amp; for an ampersand`, which Android, .NET and Traduora's own import read as `Use & for an ampersand`, so
