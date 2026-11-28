@@ -33,3 +33,31 @@ describe('AccountsBootCheck', () => {
     expect(error).not.toHaveBeenCalled();
   });
 });
+
+describe('AccountsBootCheck, legal versions', () => {
+  const saved = {
+    saas: config.saasEnabled,
+    trustProxy: config.http.trustProxy,
+    terms: { ...config.accounts.terms },
+    privacy: { ...config.accounts.privacy },
+  };
+
+  afterEach(() => {
+    config.saasEnabled = saved.saas;
+    config.http.trustProxy = saved.trustProxy;
+    Object.assign(config.accounts.terms, saved.terms);
+    Object.assign(config.accounts.privacy, saved.privacy);
+  });
+
+  it('refuses to start in SaaS mode with a version longer than a sign-up may send back (64 characters)', () => {
+    config.saasEnabled = true;
+    config.http.trustProxy = 1;
+    config.accounts.terms.version = 'v'.repeat(64);
+    expect(() => new AccountsBootCheck().onApplicationBootstrap()).not.toThrow();
+    config.accounts.terms.version = 'v'.repeat(65);
+    expect(() => new AccountsBootCheck().onApplicationBootstrap()).toThrow(/TR_TERMS_VERSION is longer than 64/);
+    config.accounts.terms.version = undefined;
+    config.accounts.privacy.version = 'p'.repeat(65);
+    expect(() => new AccountsBootCheck().onApplicationBootstrap()).toThrow(/TR_PRIVACY_VERSION is longer than 64/);
+  });
+});

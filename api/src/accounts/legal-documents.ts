@@ -6,6 +6,9 @@ import { config } from '../config';
  * TR_TERMS_VERSION / TR_PRIVACY_VERSION set them. A new version of either asks everyone to accept again.
  */
 
+/** The longest version a sign-up or an acceptance may send (the DTOs) and the user's columns hold. */
+export const LEGAL_VERSION_MAX_LENGTH = 64;
+
 /** The product this installation publishes its documents under in the legal corpus. */
 export const LEGAL_PRODUCT = 'traduora';
 
